@@ -457,7 +457,8 @@ async fn iac_templates_are_configuration_checked_when_saved_and_effective_immedi
 }
 
 // ---------------------------------------------------------------------------------------------
-// AI pipeline against a mock OpenRouter
+// AI: everything around the model that needs no model. The model itself is exercised by tests/live.rs
+// (real OpenRouter) and by the pure pipeline tests (recorded real answers).
 // ---------------------------------------------------------------------------------------------
 
 async fn wait_job(app: &TestApp, c: &str, job: &str) -> Value {
@@ -471,175 +472,191 @@ async fn wait_job(app: &TestApp, c: &str, job: &str) -> Value {
     panic!("job did not finish");
 }
 
-async fn configure_llm(app: &TestApp, c: &str, mock: &MockLlm) {
-    let (s, v) = app.put(c, "/api/admin/settings", json!({"changes": {"llm.apiKey": "sk-mock", "llm.baseUrl": mock.url, "llm.model.planner": "mock/model", "llm.model.fast": "mock/model", "llm.model.fallbacks": ["mock/plain"], "llm.retries": 0}})).await;
+async fn set(app: &TestApp, c: &str, changes: Value) {
+    let (s, v) = app.put(c, "/api/admin/settings", json!({"changes": changes})).await;
     assert_eq!(s, StatusCode::OK, "{v}");
 }
 
 #[tokio::test]
-async fn ai_patch_flow_preview_apply_and_privacy_settings() {
-    let mock = start_mock_llm().await;
-    let app = TestApp::new().await;
-    let c = app.login_admin().await;
-    configure_llm(&app, &c, &mock).await;
-    let pid = app.first_project(&c).await;
-
-    // admin test endpoint + model catalog
-    let (s, v) = app.post(&c, "/api/admin/llm/test", json!({})).await;
-    assert_eq!(s, StatusCode::OK);
-    assert_eq!(v["ok"], true, "{v}");
-    assert_eq!(v["models"]["planner"]["found"], true);
-    let (_, m) = app.get(&c, "/api/admin/llm/models?structured=1").await;
-    assert_eq!(m["models"].as_array().unwrap().len(), 1);
-
-    // the model answers with an operation list; first it sends garbage to exercise the repair loop
-    mock.push("I think you should add a cache!");
-    mock.push(
-        &json!({"rationale": "Add a second Redis replica for resilience", "ops": [
-        {"op": "update_node", "id": "app-dc1", "set": {"props.replicas": 40}},
-        {"op": "add_node", "node": {"id": "mon-extra", "kind": "monitoring", "name": "Extra monitoring", "zoneId": "site3", "props": {"replicas": "2", "bogus": {"x": 1}}}}
-    ], "assumptions": ["none"]})
-        .to_string(),
-    );
-    let (s, j) = app.post(&c, &format!("/api/projects/{pid}/ai/jobs"), json!({"kind": "patch", "prompt": "add monitoring in the third site", "lang": "en"})).await;
-    assert_eq!(s, StatusCode::OK, "{j}");
-    let job = wait_job(&app, &c, j["jobId"].as_str().unwrap()).await;
-    assert_eq!(job["status"], "succeeded", "{job}");
-    let codes: Vec<&str> = job["steps"].as_array().unwrap().iter().map(|s| s["code"].as_str().unwrap()).collect();
-    assert!(codes.contains(&"repairing") && codes.contains(&"calling_model") && codes.contains(&"evaluating"), "{codes:?}");
-
-    // requests carried the privacy/fallback configuration and a JSON response format, plus the repair feedback
-    let reqs = mock.requests.lock().unwrap().clone();
-    assert!(reqs.len() >= 2);
-    assert_eq!(reqs[0]["provider"]["data_collection"], "deny");
-    assert_eq!(reqs[0]["provider"]["require_parameters"], true);
-    assert_eq!(reqs[0]["models"], json!(["mock/model", "mock/plain"]));
-    // `auto` mode: the patch schema contains free-form maps, so it is sent as json_object (strict decoding would empty them)
-    assert_eq!(reqs[0]["response_format"]["type"], "json_object");
-    assert!(reqs[1]["messages"].to_string().contains("rejected by the validator"));
-    assert!(reqs[0]["messages"][0]["content"].as_str().unwrap().contains("CURRENT ARCHITECTURE"));
-    assert!(reqs[0]["messages"][1]["content"].as_str().unwrap().contains("<user_data>"), "user text is fenced as data");
-
-    // proposal: preview with diff and scores, the architecture is untouched until applied
-    let proposal = job["result"]["proposalId"].as_str().unwrap().to_string();
-    let (s, pr) = app.get(&c, &format!("/api/proposals/{proposal}")).await;
-    assert_eq!(s, StatusCode::OK);
-    assert_eq!(pr["status"], "pending");
-    assert_eq!(pr["mode"], "ops");
-    assert_eq!(pr["preview"]["diff"]["nodes"]["added"][0]["id"], "mon-extra");
-    let (_, before) = app.get(&c, &format!("/api/projects/{pid}")).await;
-    assert!(before["architecture"]["nodes"].as_array().unwrap().iter().all(|n| n["id"] != "mon-extra"));
-
-    let (s, v) = app.post(&c, &format!("/api/proposals/{proposal}/apply"), json!({"expectedRev": before["rev"]})).await;
-    assert_eq!(s, StatusCode::OK, "{v}");
-    let (_, after) = app.get(&c, &format!("/api/projects/{pid}")).await;
-    let node = after["architecture"]["nodes"].as_array().unwrap().iter().find(|n| n["id"] == "mon-extra").expect("applied");
-    assert_eq!(node["props"]["replicas"], 2, "numeric string coerced");
-    assert!(node["props"].get("bogus").is_none(), "non-scalar/unknown prop dropped");
-    // applying twice is refused; a rollback version exists
-    let (s, _) = app.post(&c, &format!("/api/proposals/{proposal}/apply"), json!({})).await;
-    assert_eq!(s, StatusCode::CONFLICT);
-    let (_, vers) = app.get(&c, &format!("/api/projects/{pid}/versions")).await;
-    assert!(vers["versions"].as_array().unwrap().iter().any(|v| v["message"].as_str().unwrap().starts_with("AI:")));
-    // chat history holds the exchange and the proposal link
-    let (_, chat) = app.get(&c, &format!("/api/projects/{pid}/chat")).await;
-    let msgs = chat["messages"].as_array().unwrap();
-    assert!(msgs.iter().any(|m| m["role"] == "user") && msgs.iter().any(|m| m["role"] == "assistant" && m["proposalStatus"] == "applied"));
-    // usage was accounted
-    let (_, u) = app.get(&c, "/api/admin/llm/usage?days=1").await;
-    assert!(u["monthSpendUsd"].as_f64().unwrap() > 0.0);
-    app.cleanup().await;
-}
-
-#[tokio::test]
-async fn ai_generate_replaces_architecture_with_proposal() {
-    let mock = start_mock_llm().await;
-    let app = TestApp::new().await;
-    let c = app.login_admin().await;
-    configure_llm(&app, &c, &mock).await;
-    let (s, p) = app.post(&c, "/api/projects", json!({"name": "empty"})).await;
-    assert_eq!(s, StatusCode::OK);
-    let pid = p["id"].as_str().unwrap().to_string();
-
-    let arch = json!({
-        "requirements": {"rpsPeak": 500, "rtoSeconds": 900, "rpoSeconds": 0},
-        "architecture": {
-            "zones": [{"id": "dc1", "name": "DC1", "type": "dc", "props": {"geo": "a"}}, {"id": "dc2", "name": "DC2", "type": "dc", "props": {"geo": "b"}}],
-            "nodes": [
-                {"id": "users", "kind": "users", "name": "Users"},
-                {"id": "app1", "kind": "vm_pool", "name": "App", "zoneId": "dc1", "group": "app", "props": {"replicas": 3}},
-                {"id": "app2", "kind": "vm_pool", "name": "App", "zoneId": "dc2", "group": "app", "props": {"replicas": 3}}
-            ],
-            "edges": [{"id": "e1", "source": "users", "target": "app1", "type": "traffic"}, {"id": "e2", "source": "users", "target": "app2", "type": "traffic"}]
-        },
-        "rationale": "Two sites, stateless app", "assumptions": ["No database requested"]
-    });
-    mock.push(&arch.to_string());
-    // the engine finds the unfixed shortcomings (users → app1/app2 are different units): one refine round is attempted
-    mock.push(&arch.to_string());
-    let (s, j) = app.post(&c, &format!("/api/projects/{pid}/ai/jobs"), json!({"kind": "generate", "prompt": "a small shop, 500 rps, two sites", "lang": "en"})).await;
-    assert_eq!(s, StatusCode::OK, "{j}");
-    let job = wait_job(&app, &c, j["jobId"].as_str().unwrap()).await;
-    assert_eq!(job["status"], "succeeded", "{job}");
-    let proposal = job["result"]["proposalId"].as_str().unwrap();
-    let (_, pr) = app.get(&c, &format!("/api/proposals/{proposal}")).await;
-    assert_eq!(pr["mode"], "replace");
-    assert!(pr["architecture"]["nodes"].as_array().unwrap().iter().all(|n| n["proposed"] == true));
-    assert_eq!(pr["architecture"]["requirements"]["rpsPeak"], 500.0);
-    assert!(pr["preview"]["diff"]["nodes"]["added"].as_array().unwrap().len() == 3);
-
-    // concurrency guard: a second request while one runs is refused; failed job reports a clear error
-    mock.push(&completion("x").to_string());
-    app.cleanup().await;
-}
-
-#[tokio::test]
-async fn ai_errors_are_reported_and_limits_enforced() {
-    let mock = start_mock_llm().await;
+async fn ai_requests_are_guarded_by_configuration_limits_and_budget() {
     let app = TestApp::new().await;
     let c = app.login_admin().await;
     let pid = app.first_project(&c).await;
+    let jobs = format!("/api/projects/{pid}/ai/jobs");
 
     // not configured
-    let (s, v) = app.post(&c, &format!("/api/projects/{pid}/ai/jobs"), json!({"kind": "chat", "prompt": "hi"})).await;
+    let (s, v) = app.post(&c, &jobs, json!({"kind": "chat", "prompt": "hi"})).await;
     assert_eq!(s, StatusCode::CONFLICT);
     assert_eq!(v["error"]["code"], "llm_not_configured");
 
-    configure_llm(&app, &c, &mock).await;
-    // prompt length limit
-    app.put(&c, "/api/admin/settings", json!({"changes": {"llm.maxPromptChars": 100}})).await;
-    let (s, v) = app.post(&c, &format!("/api/projects/{pid}/ai/jobs"), json!({"kind": "chat", "prompt": "x".repeat(200)})).await;
-    assert_eq!(s, StatusCode::BAD_REQUEST, "{v}");
-    assert_eq!(v["error"]["code"], "prompt_too_long");
-    app.put(&c, "/api/admin/settings", json!({"changes": {"llm.maxPromptChars": 8000}})).await;
+    // a key is set; nothing below ever reaches a model
+    set(&app, &c, json!({"llm.apiKey": "sk-or-v1-test-key", "llm.retries": 0})).await;
+    let (s, v) = app.post(&c, &jobs, json!({"kind": "teleport", "prompt": "hi"})).await;
+    assert_eq!((s, v["error"]["code"].as_str()), (StatusCode::BAD_REQUEST, Some("bad_kind")));
+    let (s, v) = app.post(&c, &jobs, json!({"kind": "chat", "prompt": "   "})).await;
+    assert_eq!((s, v["error"]["code"].as_str()), (StatusCode::BAD_REQUEST, Some("empty_prompt")));
+    let (s, v) = app.post(&c, &jobs, json!({"kind": "fix"})).await;
+    assert_eq!((s, v["error"]["code"].as_str()), (StatusCode::BAD_REQUEST, Some("missing_finding")));
+    set(&app, &c, json!({"llm.maxPromptChars": 100})).await;
+    let (s, v) = app.post(&c, &jobs, json!({"kind": "chat", "prompt": "x".repeat(200)})).await;
+    assert_eq!((s, v["error"]["code"].as_str()), (StatusCode::BAD_REQUEST, Some("prompt_too_long")), "{v}");
+    set(&app, &c, json!({"llm.maxPromptChars": 8000})).await;
 
-    // upstream failure surfaces as a failed job with a stable code (mock has no answers queued → 500)
-    let (s, j) = app.post(&c, &format!("/api/projects/{pid}/ai/jobs"), json!({"kind": "chat", "prompt": "how resilient is this?"})).await;
+    // a viewer may ask questions but cannot change the diagram
+    let viewer = app.create_user(&c, "viewer@test.local", "viewer").await;
+    let (s, _) = app.post(&viewer, &jobs, json!({"kind": "patch", "prompt": "add a cache"})).await;
+    assert_eq!(s, StatusCode::FORBIDDEN);
+
+    // a real network failure (nothing listens on the discard port) is a failed job with a stable code
+    set(&app, &c, json!({"llm.baseUrl": "http://127.0.0.1:9"})).await;
+    let (s, j) = app.post(&c, &jobs, json!({"kind": "chat", "prompt": "how resilient is this?"})).await;
     assert_eq!(s, StatusCode::OK, "{j}");
     let job = wait_job(&app, &c, j["jobId"].as_str().unwrap()).await;
-    assert_eq!(job["status"], "failed");
-    assert_eq!(job["errorCode"], "llm_http");
+    assert_eq!((job["status"].as_str(), job["errorCode"].as_str()), (Some("failed"), Some("llm_error")), "{job}");
+    assert!(job["error"].as_str().unwrap().contains("network error"), "{job}");
+    // the failed attempt is in the usage ledger
+    let (n,): (i64,) = sqlx::query_as("select count(*) from llm_calls where status = 'error'").fetch_one(&app.state.pool).await.unwrap();
+    assert_eq!(n, 1);
 
-    // a successful chat answer
-    mock.push("The score is driven by the Redis and Kafka findings.");
-    let (_, j) = app.post(&c, &format!("/api/projects/{pid}/ai/jobs"), json!({"kind": "chat", "prompt": "why is the score not 100?"})).await;
+    // monthly budget: real spend recorded in the ledger blocks further calls before any request is made
+    sqlx::query("insert into llm_calls (purpose, requested_model, model, status, prompt_tokens, completion_tokens, cost_usd, latency_ms) values ('chat', 'm', 'm', 'ok', 1000, 500, 5.0, 900)")
+        .execute(&app.state.pool)
+        .await
+        .unwrap();
+    set(&app, &c, json!({"llm.monthlyBudgetUsd": 1})).await;
+    let (_, j) = app.post(&c, &jobs, json!({"kind": "chat", "prompt": "again"})).await;
     let job = wait_job(&app, &c, j["jobId"].as_str().unwrap()).await;
-    assert_eq!(job["status"], "succeeded", "{job}");
-    assert!(job["result"]["answer"].as_str().unwrap().contains("Redis"));
+    assert_eq!((job["status"].as_str(), job["errorCode"].as_str()), (Some("failed"), Some("llm_budget")), "{job}");
+    let (_, u) = app.get(&c, "/api/admin/llm/usage?days=1").await;
+    assert!(u["monthSpendUsd"].as_f64().unwrap() >= 5.0, "{u}");
+    set(&app, &c, json!({"llm.monthlyBudgetUsd": 0})).await;
 
-    // monthly budget guard: spend so far is > 0, a tiny budget blocks further calls
-    app.put(&c, "/api/admin/settings", json!({"changes": {"llm.monthlyBudgetUsd": 0.0001}})).await;
-    mock.push("never delivered");
-    let (_, j) = app.post(&c, &format!("/api/projects/{pid}/ai/jobs"), json!({"kind": "chat", "prompt": "again"})).await;
-    let job = wait_job(&app, &c, j["jobId"].as_str().unwrap()).await;
-    assert_eq!(job["status"], "failed");
-    assert_eq!(job["errorCode"], "llm_budget");
+    // fair use per user and hour (counted in the database, so it holds across replicas)
+    set(&app, &c, json!({"llm.perUserPerHour": 2})).await; // two requests were made above
+    let (s, v) = app.post(&c, &jobs, json!({"kind": "chat", "prompt": "one more"})).await;
+    assert_eq!((s, v["error"]["code"].as_str()), (StatusCode::TOO_MANY_REQUESTS, Some("ai_rate_limited")), "{v}");
+    set(&app, &c, json!({"llm.perUserPerHour": 0})).await;
 
-    // AI switched off: manual mode only
-    app.put(&c, "/api/admin/settings", json!({"changes": {"llm.enabled": false}})).await;
-    let (s, v) = app.post(&c, &format!("/api/projects/{pid}/ai/jobs"), json!({"kind": "chat", "prompt": "hi"})).await;
-    assert_eq!(s, StatusCode::CONFLICT);
-    assert_eq!(v["error"]["code"], "llm_disabled");
+    // one running job per project: a fresh heartbeat blocks, a stale one does not
+    let running: uuid::Uuid = sqlx::query_scalar("insert into ai_jobs (project_id, kind, status, instance, heartbeat_at) values ($1, 'chat', 'running', 'other', now()) returning id")
+        .bind(uuid::Uuid::parse_str(&pid).unwrap())
+        .fetch_one(&app.state.pool)
+        .await
+        .unwrap();
+    let (s, v) = app.post(&c, &jobs, json!({"kind": "chat", "prompt": "parallel"})).await;
+    assert_eq!((s, v["error"]["code"].as_str()), (StatusCode::CONFLICT, Some("job_running")), "{v}");
+    assert_eq!(v["error"]["details"]["jobId"], running.to_string());
+    sqlx::query("update ai_jobs set heartbeat_at = now() - interval '10 minutes' where id = $1").bind(running).execute(&app.state.pool).await.unwrap();
+    let (s, _) = app.post(&c, &jobs, json!({"kind": "chat", "prompt": "now it is free"})).await;
+    assert_eq!(s, StatusCode::OK);
+
+    // AI switched off: the editor stays fully usable in manual mode
+    set(&app, &c, json!({"llm.enabled": false})).await;
+    let (s, v) = app.post(&c, &jobs, json!({"kind": "chat", "prompt": "hi"})).await;
+    assert_eq!((s, v["error"]["code"].as_str()), (StatusCode::CONFLICT, Some("llm_disabled")));
+    let (_, boot) = app.get(&c, "/api/bootstrap").await;
+    assert_eq!(boot["ai"]["enabled"], false);
+    app.cleanup().await;
+}
+
+/// Proposals made from the operations of a recorded real model answer: preview, apply, rollback version,
+/// stale detection and rejection – the part of the AI flow that happens after the model has answered.
+#[tokio::test]
+async fn proposals_are_previewed_applied_rejected_and_guarded_against_stale_state() {
+    use engine::model::Architecture;
+    use server::jobs::Job;
+    use server::llm::pipeline::{parse_patch, propose_ops};
+
+    let app = TestApp::new().await;
+    let c = app.login_admin().await;
+    let pid = app.first_project(&c).await;
+    let pid_u = uuid::Uuid::parse_str(&pid).unwrap();
+    let cfg = app.state.cfg().await.unwrap();
+    let recorded: Value = serde_json::from_str(include_str!("fixtures/llm/patch_answer.json")).unwrap();
+    let answer = recorded["answers"][0].as_str().unwrap();
+
+    let make = |rev: i64, base: Architecture, ops: Vec<engine::ops::Op>, why: String| {
+        let app = &app;
+        let cfg = cfg.clone();
+        async move {
+            let job_id: uuid::Uuid =
+                sqlx::query_scalar("insert into ai_jobs (project_id, kind, status) values ($1, 'patch', 'succeeded') returning id").bind(pid_u).fetch_one(&app.state.pool).await.unwrap();
+            let job = Job { id: job_id, project_id: pid_u, user_id: None, kind: "patch".into(), input: json!({}) };
+            propose_ops(&app.state, &cfg, &job, base, rev, ops, &why, "en").await.expect("proposal").to_string()
+        }
+    };
+    let load = || async {
+        let (_, p) = app.get(&c, &format!("/api/projects/{pid}")).await;
+        (p["rev"].as_i64().unwrap(), serde_json::from_value::<Architecture>(p["architecture"].clone()).unwrap())
+    };
+
+    // 1. the recorded real operations → a pending proposal with a preview computed by the engine
+    let (rev, base) = load().await;
+    let cand = parse_patch(&cfg, answer, &base).expect("recorded answer is valid");
+    let proposal = make(rev, base.clone(), cand.ops.clone(), cand.rationale.clone()).await;
+    let (s, pr) = app.get(&c, &format!("/api/proposals/{proposal}")).await;
+    assert_eq!(s, StatusCode::OK);
+    assert_eq!((pr["status"].as_str(), pr["mode"].as_str()), (Some("pending"), Some("ops")));
+    assert!(pr["preview"]["before"]["score"].is_number() && pr["preview"]["after"]["score"].is_number(), "{}", pr["preview"]);
+    assert_eq!(pr["preview"]["diff"]["nodes"]["changed"][0]["id"], "app-dc1", "{}", pr["preview"]["diff"]);
+
+    // 2. nothing changed yet; applying stores a rollback version first and is allowed once
+    let (_, before) = app.get(&c, &format!("/api/projects/{pid}")).await;
+    let replicas = |v: &Value| v["architecture"]["nodes"].as_array().unwrap().iter().find(|n| n["id"] == "app-dc1").unwrap()["props"]["replicas"].clone();
+    assert_ne!(replicas(&before), json!(40));
+    let (s, v) = app.post(&c, &format!("/api/proposals/{proposal}/apply"), json!({"expectedRev": before["rev"]})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    let (_, after) = app.get(&c, &format!("/api/projects/{pid}")).await;
+    assert_eq!(replicas(&after), json!(40));
+    let (_, vers) = app.get(&c, &format!("/api/projects/{pid}/versions")).await;
+    let msgs: Vec<&str> = vers["versions"].as_array().unwrap().iter().map(|v| v["message"].as_str().unwrap()).collect();
+    assert!(msgs.iter().any(|m| m.starts_with("AI:")) && msgs.contains(&"Demo project"), "the previous state is already a version, the AI change is a new one: {msgs:?}");
+    let (s, v) = app.post(&c, &format!("/api/proposals/{proposal}/apply"), json!({})).await;
+    assert_eq!((s, v["error"]["code"].as_str()), (StatusCode::CONFLICT, Some("proposal_closed")));
+
+    // 2b. unsaved work is never lost: if the draft differs from the last version it is snapshotted first
+    let (rev, mut edited) = load().await;
+    edited.nodes.iter_mut().find(|n| n.id == "app-dc2").unwrap().name = "App DC2 (edited by hand)".into();
+    let (s, v) = app.put(&c, &format!("/api/projects/{pid}/draft"), json!({"architecture": edited, "expectedRev": rev})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    let (rev, base) = load().await;
+    let second = make(rev, base, vec![engine::ops::Op::UpdateNode { id: "app-dc1".into(), set: [("props.replicas".to_string(), json!(41))].into_iter().collect() }], "tweak".into()).await;
+    let (s, v) = app.post(&c, &format!("/api/proposals/{second}/apply"), json!({"expectedRev": rev})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    let (_, vers) = app.get(&c, &format!("/api/projects/{pid}/versions")).await;
+    let snap = vers["versions"].as_array().unwrap().iter().find(|v| v["message"] == "Before AI change").expect("the hand-edited draft was snapshotted");
+    let (_, old) = app.get(&c, &format!("/api/projects/{pid}/versions/{}", snap["n"])).await;
+    assert!(old["architecture"]["nodes"].as_array().unwrap().iter().any(|n| n["name"] == "App DC2 (edited by hand)"));
+
+    // 3. a proposal made for an older state is refused when the project moved on
+    let (rev, base) = load().await;
+    let stale = make(rev, base.clone(), vec![engine::ops::Op::UpdateNode { id: "app-dc2".into(), set: [("props.replicas".to_string(), json!(48))].into_iter().collect() }], "more".into()).await;
+    let (s, _) = app.put(&c, &format!("/api/projects/{pid}/draft"), json!({"architecture": base, "expectedRev": rev})).await;
+    assert_eq!(s, StatusCode::OK);
+    let (s, v) = app.post(&c, &format!("/api/proposals/{stale}/apply"), json!({"expectedRev": rev})).await;
+    assert_eq!((s, v["error"]["code"].as_str()), (StatusCode::CONFLICT, Some("conflict")), "{v}");
+    assert!(v["error"]["details"]["currentRev"].as_i64().unwrap() > rev);
+
+    // 4. operations that no longer fit the architecture mark the proposal stale
+    let (rev, base) = load().await;
+    let gone = make(rev, base.clone(), vec![engine::ops::Op::UpdateNode { id: "mon-dc1".into(), set: [("props.replicas".to_string(), json!(3))].into_iter().collect() }], "tune".into()).await;
+    let mut without = base.clone();
+    without.nodes.retain(|n| n.id != "mon-dc1");
+    without.edges.retain(|e| e.source != "mon-dc1" && e.target != "mon-dc1");
+    let (s, _) = app.put(&c, &format!("/api/projects/{pid}/draft"), json!({"architecture": without, "expectedRev": rev})).await;
+    assert_eq!(s, StatusCode::OK);
+    let (s, v) = app.post(&c, &format!("/api/proposals/{gone}/apply"), json!({})).await;
+    assert_eq!((s, v["error"]["code"].as_str()), (StatusCode::CONFLICT, Some("proposal_stale")), "{v}");
+    let (_, pr) = app.get(&c, &format!("/api/proposals/{gone}")).await;
+    assert_eq!(pr["status"], "stale");
+
+    // 5. rejecting closes a pending proposal exactly once
+    let (rev, base) = load().await;
+    let rejected = make(rev, base, vec![engine::ops::Op::UpdateNode { id: "app-dc2".into(), set: [("props.replicas".to_string(), json!(33))].into_iter().collect() }], "x".into()).await;
+    let (s, _) = app.post(&c, &format!("/api/proposals/{rejected}/reject"), json!({})).await;
+    assert_eq!(s, StatusCode::OK);
+    let (s, v) = app.post(&c, &format!("/api/proposals/{rejected}/reject"), json!({})).await;
+    assert_eq!((s, v["error"]["code"].as_str()), (StatusCode::CONFLICT, Some("proposal_closed")));
     app.cleanup().await;
 }
 

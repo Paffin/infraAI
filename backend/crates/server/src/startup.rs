@@ -51,7 +51,7 @@ async fn ensure_admin(pool: &PgPool, boot: &BootConfig) -> anyhow::Result<()> {
 
 async fn seed_demo(state: &AppState) -> anyhow::Result<()> {
     let cfg = state.cfg().await.map_err(|e| anyhow::anyhow!("{}", e.message))?;
-    if !cfg.settings.boolean("app.seedDemoProject") {
+    if !state.boot.seed_demo_project.unwrap_or_else(|| cfg.settings.boolean("app.seedDemoProject")) {
         return Ok(());
     }
     let any: i64 = sqlx::query_scalar("select count(*) from projects").fetch_one(&state.pool).await?;

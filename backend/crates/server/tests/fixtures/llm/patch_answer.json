@@ -1,0 +1,10 @@
+{
+ "kind": "patch",
+ "model": "anthropic/claude-haiku-5.5",
+ "capturedAt": "2026-10-12T23:13:06.570074349+00:00",
+ "prompt": "Raise the number of application instances (node app-dc1) to 40.",
+ "answers": [
+  "{\n  \"rationale\": \"The user asked to raise the application instances in zone dc1 (node app-dc1) to 40. The smallest change is to set props.replicas on app-dc1 from 32 to 40. hpaMin (24) and hpaMax (64) already bracket 40, so no autoscaling settings change. The open findings (Kafka async replication, unreplicated Redis) are unrelated to this request and are left untouched.\",\n  \"ops\": [\n    {\n      \"op\": \"update_node\",\n      \"id\": \"app-dc1\",\n      \"set\": {\n        \"props.replicas\": 40\n      }\n    }\n  ],\n  \"assumptions\": [\n    \"Only app-dc1 is changed. app-dc2 stays at 32 replicas, so the two sites are no longer symmetric; if you want parity, app-dc2 would also need to go to 40.\",\n    \"The site-loss capacity check is expected to hold: with 40 in dc1 and 32 in dc2, losing either site still leaves at least 32 application instances.\",\n    \"No requirement values were changed; rpsPeak and growth stay as stated in the current architecture.\"\n  ]\n}"
+ ],
+ "note": "Real answer of the model through OpenRouter, recorded by tests/live.rs (LIVE_LLM_RECORD). Used as input of the pure pipeline tests."
+}

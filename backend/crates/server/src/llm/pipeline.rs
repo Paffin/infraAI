@@ -96,14 +96,15 @@ pub async fn run(state: &AppState, job: &Job, p: &Progress) -> PResult<PipelineO
 
 // -------------------------------------------------------------------------------------------
 
-struct Candidate {
-    arch: Architecture,
-    rationale: String,
-    assumptions: Vec<String>,
-    raw: String,
+#[derive(Debug)]
+pub struct Candidate {
+    pub arch: Architecture,
+    pub rationale: String,
+    pub assumptions: Vec<String>,
+    pub raw: String,
 }
 
-fn parse_generate(cfg: &Loaded, text: &str, base: &Architecture) -> Result<Candidate, Vec<String>> {
+pub fn parse_generate(cfg: &Loaded, text: &str, base: &Architecture) -> Result<Candidate, Vec<String>> {
     let v = extract_json(text).ok_or_else(|| vec!["the answer is not a valid JSON object".to_string()])?;
     let a = v.get("architecture").cloned().ok_or_else(|| vec!["missing key \"architecture\"".to_string()])?;
     let mut arch: Architecture = serde_json::from_value(a).map_err(|e| vec![format!("architecture does not match the schema: {e}")])?;
@@ -154,11 +155,12 @@ fn merge_requirements(into: &mut Requirements, from: Requirements) {
     }
 }
 
-struct PatchCandidate {
-    ops: Vec<Op>,
-    rationale: String,
-    assumptions: Vec<String>,
-    raw: String,
+#[derive(Debug)]
+pub struct PatchCandidate {
+    pub ops: Vec<Op>,
+    pub rationale: String,
+    pub assumptions: Vec<String>,
+    pub raw: String,
 }
 
 /// Sanitise operation payloads without touching the user's existing entities.
@@ -188,7 +190,7 @@ fn sanitize_ops(ops: &mut [Op], cfg: &Loaded) {
     }
 }
 
-fn parse_patch(cfg: &Loaded, text: &str, base: &Architecture) -> Result<PatchCandidate, Vec<String>> {
+pub fn parse_patch(cfg: &Loaded, text: &str, base: &Architecture) -> Result<PatchCandidate, Vec<String>> {
     let v = extract_json(text).ok_or_else(|| vec!["the answer is not a valid JSON object".to_string()])?;
     let ops_v = v.get("ops").cloned().ok_or_else(|| vec!["missing key \"ops\"".to_string()])?;
     let arr = ops_v.as_array().ok_or_else(|| vec!["\"ops\" must be an array".to_string()])?;
@@ -284,7 +286,7 @@ fn role_of(cfg: &Loaded, id: &str) -> ModelRole {
     }
 }
 
-async fn store_proposal(state: &AppState, job: &Job, base_rev: i64, change: Value, rationale: &str, preview: Value) -> PResult<Uuid> {
+pub async fn store_proposal(state: &AppState, job: &Job, base_rev: i64, change: Value, rationale: &str, preview: Value) -> PResult<Uuid> {
     let id: Uuid = sqlx::query_scalar("insert into proposals (project_id, job_id, base_rev, change, rationale, preview, created_by) values ($1, $2, $3, $4, $5, $6, $7) returning id")
         .bind(job.project_id)
         .bind(job.id)
@@ -296,6 +298,20 @@ async fn store_proposal(state: &AppState, job: &Job, base_rev: i64, change: Valu
         .fetch_one(&state.pool)
         .await?;
     Ok(id)
+}
+
+/// The preview stored with a proposal: diff, before/after summaries and what the change introduces or resolves.
+fn preview_json(p: &crate::api::engine_api::Preview) -> Value {
+    json!({"diff": p.diff, "before": p.before, "after": p.after, "introduced": p.introduced, "resolved": p.resolved})
+}
+
+/// Evaluate `ops` against `base` with the engine and store them as a pending proposal – the end of the
+/// patch pipeline, usable on its own for operations that did not come from a model.
+#[allow(clippy::too_many_arguments)]
+pub async fn propose_ops(state: &AppState, cfg: &Arc<Loaded>, job: &Job, base: Architecture, rev: i64, ops: Vec<Op>, rationale: &str, lang: &str) -> PResult<Uuid> {
+    let waivers = engine_waivers(state, job.project_id).await?;
+    let preview = preview_ops(cfg.clone(), base, ops.clone(), waivers, lang.to_string()).await?;
+    store_proposal(state, job, rev, json!({"mode": "ops", "ops": ops}), rationale, preview_json(&preview)).await
 }
 
 fn assistant_message(rationale: &str, assumptions: &[String], notes: &str) -> String {
@@ -518,10 +534,7 @@ async fn patch(state: &AppState, cfg: &Arc<Loaded>, ctx: &CallCtx, p: &Progress,
         applied.extend(picks.into_iter().map(|(_, l)| l));
     }
 
-    let pv = json!({
-        "diff": preview.diff, "before": preview.before, "after": preview.after, "introduced": preview.introduced, "resolved": preview.resolved,
-    });
-    let proposal_id = store_proposal(state, job, rev, json!({"mode": "ops", "ops": cand.ops}), &cand.rationale, pv).await?;
+    let proposal_id = store_proposal(state, job, rev, json!({"mode": "ops", "ops": cand.ops}), &cand.rationale, preview_json(&preview)).await?;
     let message = assistant_message(&cand.rationale, &cand.assumptions, &autofix_note(&applied, lang));
     Ok(PipelineOutput { result: json!({"proposalId": proposal_id, "rationale": cand.rationale, "assumptions": cand.assumptions, "autoFixes": applied}), message, proposal_id: Some(proposal_id) })
 }
@@ -555,4 +568,92 @@ async fn chat(state: &AppState, cfg: &Arc<Loaded>, ctx: &CallCtx, p: &Progress, 
     p.step("calling_model", json!({})).await;
     let resp = call(state, cfg, ctx, LlmRequest { purpose: "chat", role: role_of(cfg, "chat"), messages, schema: None }).await?;
     Ok(PipelineOutput { result: json!({"answer": resp.content}), message: resp.content, proposal_id: None })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use engine::evaluate::evaluate;
+
+    /// Real answers of the model (recorded by `tests/live.rs`): the input of everything the pipeline does after the call.
+    const PATCH_ANSWER: &str = include_str!("../../tests/fixtures/llm/patch_answer.json");
+    const GENERATE_ANSWER: &str = include_str!("../../tests/fixtures/llm/generate_answer.json");
+
+    fn answer(fixture: &str) -> String {
+        serde_json::from_str::<Value>(fixture).unwrap()["answers"][0].as_str().unwrap().to_string()
+    }
+
+    fn demo() -> Architecture {
+        engine::defaults::demo_project().architecture
+    }
+
+    #[test]
+    fn a_real_patch_answer_becomes_valid_operations_the_engine_can_apply() {
+        let cfg = Loaded::embedded_defaults();
+        let base = demo();
+        let c = parse_patch(&cfg, &answer(PATCH_ANSWER), &base).expect("the recorded answer is valid");
+        assert_eq!(c.ops.len(), 1);
+        assert!(!c.rationale.is_empty() && !c.assumptions.is_empty());
+        let out = apply_ops(&base, &c.ops, &cfg.catalog, &limits(&cfg)).unwrap();
+        assert_eq!(out.architecture.node("app-dc1").unwrap().props["replicas"], json!(40));
+        // the engine, not the model, judges the result
+        let ec = cfg.engine_config("en");
+        let (before, after) = (evaluate(&base, &ec, &[]), evaluate(&out.architecture, &ec, &[]));
+        assert!(after.score.value >= before.score.value - 1.0, "{} → {}", before.score.value, after.score.value);
+    }
+
+    #[test]
+    fn a_real_generate_answer_in_a_code_fence_becomes_a_valid_architecture() {
+        let cfg = Loaded::embedded_defaults();
+        let text = answer(GENERATE_ANSWER);
+        assert!(text.trim_start().starts_with("```"), "models do wrap JSON in fences");
+        let c = parse_generate(&cfg, &text, &Architecture::default()).expect("the recorded answer is valid");
+        assert!(c.arch.nodes.len() >= 5 && c.arch.zones.len() >= 2, "{} nodes, {} zones", c.arch.nodes.len(), c.arch.zones.len());
+        assert_eq!(c.arch.requirements.rps_peak, Some(300.0));
+        assert!(c.arch.nodes.iter().all(|n| cfg.catalog.kind(&n.kind).is_some()), "only catalog kinds survive");
+        assert!(c.arch.nodes.iter().any(|n| !n.props.is_empty()), "properties are kept");
+        let report = evaluate(&c.arch, &cfg.engine_config("en"), &[]);
+        assert!(report.score.value > 0.0);
+    }
+
+    #[test]
+    fn what_the_validator_rejects_is_fed_back_to_the_model_as_repair_feedback() {
+        let cfg = Loaded::embedded_defaults();
+        let base = demo();
+        // chatter instead of JSON
+        assert_eq!(parse_patch(&cfg, "I think you should add a cache!", &base).unwrap_err(), vec!["the answer is not a valid JSON object".to_string()]);
+        assert_eq!(parse_generate(&cfg, "{\"rationale\": \"x\"}", &base).unwrap_err(), vec!["missing key \"architecture\"".to_string()]);
+        // the recorded answer, damaged the way models do: an operation on a node that does not exist, an unknown kind
+        let broken = answer(PATCH_ANSWER).replace("app-dc1", "app-dc9");
+        let errs = parse_patch(&cfg, &broken, &base).unwrap_err();
+        assert!(errs.iter().any(|e| e.contains("app-dc9")), "{errs:?}");
+        let gen = answer(GENERATE_ANSWER).replace("\"kind\": \"postgresql\"", "\"kind\": \"quantum_db\"");
+        let errs = parse_generate(&cfg, &gen, &Architecture::default());
+        assert!(errs.is_err() || errs.as_ref().unwrap().arch.nodes.iter().all(|n| n.kind != "quantum_db"), "an unknown kind never reaches the diagram");
+        // an operation list longer than the configured limit
+        let many = json!({"rationale": "x", "ops": (0..500).map(|i| json!({"op": "update_node", "id": "app-dc1", "set": {"props.replicas": i}})).collect::<Vec<_>>()}).to_string();
+        assert!(parse_patch(&cfg, &many, &base).unwrap_err()[0].starts_with("too many operations"));
+        // the repair prompt carries the errors verbatim
+        let repair = cfg.prompts.get("repair").unwrap();
+        let mut v = BTreeMap::new();
+        v.insert("errors", bullet_list(&["op #0: unknown field".to_string()]));
+        assert!(render(&repair.system, &v).contains("- op #0: unknown field"));
+    }
+
+    #[test]
+    fn model_output_is_sanitised_before_it_reaches_the_diagram() {
+        let cfg = Loaded::embedded_defaults();
+        let base = demo();
+        let text = json!({"rationale": "r", "ops": [
+            {"op": "add_node", "node": {"id": "mon-extra", "kind": "monitoring", "name": "Extra", "zoneId": "site3", "props": {"replicas": "2", "bogus": {"x": 1}}}},
+            {"op": "update_node", "id": "app-dc1", "set": {"props.replicas": 40, "props.nested": {"a": 1}}}
+        ]})
+        .to_string();
+        let c = parse_patch(&cfg, &text, &base).unwrap();
+        let out = apply_ops(&base, &c.ops, &cfg.catalog, &limits(&cfg)).unwrap();
+        let n = out.architecture.node("mon-extra").unwrap();
+        assert_eq!(n.props["replicas"], json!(2), "numeric strings are coerced");
+        assert!(!n.props.contains_key("bogus"), "non-scalar and unknown properties are dropped");
+        assert!(!out.architecture.node("app-dc1").unwrap().props.contains_key("nested"));
+    }
 }

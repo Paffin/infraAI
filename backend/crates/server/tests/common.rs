@@ -1,17 +1,17 @@
-//! Test harness: a fresh PostgreSQL database per test, the real router, a mock OpenRouter.
+//! Test harness: a fresh PostgreSQL database per test and the real router. No doubles of external services:
+//! everything that talks to the model lives in `tests/live.rs` (real OpenRouter) or in pure functions.
+#![allow(dead_code)] // shared by several test binaries, each uses a subset
 
 use axum::body::Body;
 use axum::extract::ConnectInfo;
 use axum::http::{header, Method, Request, StatusCode};
-use axum::routing::{get, post};
-use axum::{Json, Router};
+use axum::Router;
 use http_body_util::BodyExt;
 use serde_json::{json, Value};
 use server::config::BootConfig;
 use server::state::AppState;
-use std::collections::VecDeque;
 use std::net::SocketAddr;
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 use tower::ServiceExt;
 
 pub fn admin_url() -> String {
@@ -44,6 +44,7 @@ pub fn boot(db_url: String) -> BootConfig {
         trust_proxy: false,
         shutdown_grace_secs: 1,
         log_json: false,
+        seed_demo_project: None,
     }
 }
 
@@ -131,54 +132,5 @@ impl TestApp {
         if let Ok(admin) = sqlx::PgPool::connect(&admin_url()).await {
             let _ = sqlx::query(&format!("drop database if exists {} with (force)", self.db_name)).execute(&admin).await;
         }
-    }
-}
-
-/// A fake OpenRouter: records requests, answers with queued completions.
-#[derive(Clone)]
-pub struct MockLlm {
-    pub requests: Arc<Mutex<Vec<Value>>>,
-    pub answers: Arc<Mutex<VecDeque<Value>>>,
-    pub url: String,
-}
-
-pub fn completion(content: &str) -> Value {
-    json!({"id": "gen-1", "model": "mock/model", "choices": [{"message": {"role": "assistant", "content": content}, "finish_reason": "stop"}],
-           "usage": {"prompt_tokens": 100, "completion_tokens": 50, "cost": 0.0012}})
-}
-
-pub async fn start_mock_llm() -> MockLlm {
-    let requests = Arc::new(Mutex::new(vec![]));
-    let answers: Arc<Mutex<VecDeque<Value>>> = Arc::new(Mutex::new(VecDeque::new()));
-    let (r2, a2) = (requests.clone(), answers.clone());
-    let app = Router::new()
-        .route(
-            "/chat/completions",
-            post(move |Json(body): Json<Value>| {
-                let (r, a) = (r2.clone(), a2.clone());
-                async move {
-                    r.lock().unwrap().push(body);
-                    let next = a.lock().unwrap().pop_front();
-                    match next {
-                        Some(v) => (StatusCode::OK, Json(v)),
-                        None => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": {"message": "mock exhausted"}}))),
-                    }
-                }
-            }),
-        )
-        .route("/models", get(|| async { Json(json!({"data": [
-            {"id": "mock/model", "name": "Mock", "context_length": 100000, "architecture": {"output_modalities": ["text"]}, "pricing": {"prompt": "0.000001", "completion": "0.000002"}, "supported_parameters": ["structured_outputs", "response_format", "temperature"]},
-            {"id": "mock/plain", "name": "Plain", "context_length": 8000, "architecture": {"output_modalities": ["text"]}, "pricing": {"prompt": "0", "completion": "0"}, "supported_parameters": ["temperature"]}
-        ]})) }))
-        .route("/key", get(|| async { Json(json!({"data": {"label": "sk-or-mock", "limit": 10, "limit_remaining": 9.5, "usage": 0.5}})) }));
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let addr = listener.local_addr().unwrap();
-    tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
-    MockLlm { requests, answers, url: format!("http://{addr}") }
-}
-
-impl MockLlm {
-    pub fn push(&self, content: &str) {
-        self.answers.lock().unwrap().push_back(completion(content));
     }
 }

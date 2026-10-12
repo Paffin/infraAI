@@ -12,6 +12,7 @@
 use crate::config_store::Loaded;
 use crate::crypto::sha256_hex;
 use crate::error::ApiError;
+use crate::settings::Settings;
 use crate::state::AppState;
 use serde_json::{json, Value};
 use std::time::{Duration, Instant};
@@ -151,6 +152,97 @@ pub fn schema_is_tight(schema: &Value) -> bool {
     }
 }
 
+fn primary_model(s: &Settings, role: ModelRole) -> String {
+    match role {
+        ModelRole::Planner => s.str("llm.model.planner"),
+        ModelRole::Fast => s.str("llm.model.fast"),
+    }
+}
+
+/// The request body sent to OpenRouter – a pure function of the settings and what the model supports.
+/// `degraded` drops every optional parameter (temperature, reasoning, structured output, strict parameter
+/// matching) but never the privacy routing (`data_collection`, `zdr`, provider allow/deny lists).
+pub fn build_body(s: &Settings, req: &LlmRequest, supported: &Option<Vec<String>>, degraded: bool) -> Value {
+    let primary = primary_model(s, req.role);
+    let fallbacks = s.list("llm.model.fallbacks");
+    let mut body = json!({
+        "messages": req.messages.iter().map(|m| json!({"role": m.role, "content": m.content})).collect::<Vec<_>>(),
+        "stream": false,
+    });
+    if accepts(supported, &["max_tokens", "max_completion_tokens"]) {
+        body["max_tokens"] = json!(s.num("llm.maxOutputTokens") as i64);
+    }
+    if !degraded && accepts(supported, &["temperature"]) {
+        body["temperature"] = json!(s.num("llm.temperature"));
+    }
+    if fallbacks.is_empty() {
+        body["model"] = json!(primary);
+    } else {
+        let mut all = vec![primary.clone()];
+        all.extend(fallbacks.iter().filter(|f| *f != &primary).cloned());
+        body["models"] = json!(all);
+    }
+    // structured output: json_schema > json_object > prompt-only, subject to model support
+    if let (Some((name, schema)), false) = (&req.schema, degraded) {
+        let mode = s.str("llm.structuredOutput");
+        // `auto`: strict schemas go as json_schema, schemas with free-form maps (node props, `set`) as json_object
+        let want_schema = mode == "json_schema" || (mode == "auto" && schema_is_tight(schema));
+        if want_schema && accepts(supported, &["structured_outputs"]) {
+            body["response_format"] = json!({"type": "json_schema", "json_schema": {"name": name, "strict": false, "schema": schema}});
+        } else if mode != "prompt" && accepts(supported, &["response_format"]) {
+            body["response_format"] = json!({"type": "json_object"});
+        }
+    }
+    let effort = s.str("llm.reasoningEffort");
+    if !degraded && !effort.is_empty() && accepts(supported, &["reasoning", "reasoning_effort"]) {
+        body["reasoning"] = json!({"effort": effort});
+    }
+    let mut provider = json!({
+        "data_collection": s.str("llm.provider.dataCollection"),
+        "require_parameters": s.boolean("llm.provider.requireParameters") && !degraded,
+        "allow_fallbacks": s.boolean("llm.provider.allowFallbacks"),
+    });
+    if s.boolean("llm.provider.zdr") {
+        provider["zdr"] = json!(true);
+    }
+    let sort = s.str("llm.provider.sort");
+    if !sort.is_empty() {
+        provider["sort"] = json!(sort);
+    }
+    let only = s.list("llm.provider.only");
+    if !only.is_empty() {
+        provider["only"] = json!(only);
+    }
+    let ignore = s.list("llm.provider.ignore");
+    if !ignore.is_empty() {
+        provider["ignore"] = json!(ignore);
+    }
+    body["provider"] = provider;
+    body
+}
+
+/// What an OpenRouter reply means (pure): the answer, or the error and whether a retry can help.
+pub fn interpret(status: u16, text: &str, primary: &str) -> Result<LlmResponse, (LlmError, bool)> {
+    let v: Value = serde_json::from_str(text).unwrap_or(Value::Null);
+    if status >= 400 || v.get("error").map(|e| !e.is_null()).unwrap_or(false) {
+        let msg = v["error"]["message"].as_str().map(String::from).unwrap_or_else(|| text.chars().take(300).collect());
+        let code = if status >= 400 { status } else { v["error"]["code"].as_u64().unwrap_or(502) as u16 };
+        let retryable = matches!(code, 408 | 429 | 500 | 502 | 503 | 504);
+        return Err((LlmError::Http { status: code, message: msg }, retryable));
+    }
+    let Some(content) = extract_message(&v) else { return Err((LlmError::Empty, false)) };
+    if v["choices"][0]["finish_reason"].as_str() == Some("length") {
+        return Err((LlmError::Truncated, false));
+    }
+    Ok(LlmResponse {
+        content,
+        model: v["model"].as_str().unwrap_or(primary).to_string(),
+        prompt_tokens: v["usage"]["prompt_tokens"].as_i64().unwrap_or(0),
+        completion_tokens: v["usage"]["completion_tokens"].as_i64().unwrap_or(0),
+        cost_usd: v["usage"]["cost"].as_f64(),
+    })
+}
+
 pub async fn call(state: &AppState, cfg: &Loaded, ctx: &CallCtx, req: LlmRequest) -> Result<LlmResponse, LlmError> {
     let s = &cfg.settings;
     if !s.boolean("llm.enabled") {
@@ -162,70 +254,10 @@ pub async fn call(state: &AppState, cfg: &Loaded, ctx: &CallCtx, req: LlmRequest
         return Err(LlmError::Budget);
     }
 
-    let primary = match req.role {
-        ModelRole::Planner => s.str("llm.model.planner"),
-        ModelRole::Fast => s.str("llm.model.fast"),
-    };
-    let fallbacks = s.list("llm.model.fallbacks");
+    let primary = primary_model(s, req.role);
     let supported = model_params(state, cfg, &primary).await;
-    let build = |degraded: bool| -> Value {
-        let mut body = json!({
-            "messages": req.messages.iter().map(|m| json!({"role": m.role, "content": m.content})).collect::<Vec<_>>(),
-            "stream": false,
-        });
-        if accepts(&supported, &["max_tokens", "max_completion_tokens"]) {
-            body["max_tokens"] = json!(s.num("llm.maxOutputTokens") as i64);
-        }
-        if !degraded && accepts(&supported, &["temperature"]) {
-            body["temperature"] = json!(s.num("llm.temperature"));
-        }
-        if fallbacks.is_empty() {
-            body["model"] = json!(primary);
-        } else {
-            let mut all = vec![primary.clone()];
-            all.extend(fallbacks.iter().filter(|f| *f != &primary).cloned());
-            body["models"] = json!(all);
-        }
-        // structured output: json_schema > json_object > prompt-only, subject to model support
-        if let (Some((name, schema)), false) = (&req.schema, degraded) {
-            let mode = s.str("llm.structuredOutput");
-            // `auto`: strict schemas go as json_schema, schemas with free-form maps (node props, `set`) as json_object
-            let want_schema = mode == "json_schema" || (mode == "auto" && schema_is_tight(schema));
-            if want_schema && accepts(&supported, &["structured_outputs"]) {
-                body["response_format"] = json!({"type": "json_schema", "json_schema": {"name": name, "strict": false, "schema": schema}});
-            } else if mode != "prompt" && accepts(&supported, &["response_format"]) {
-                body["response_format"] = json!({"type": "json_object"});
-            }
-        }
-        let effort = s.str("llm.reasoningEffort");
-        if !degraded && !effort.is_empty() && accepts(&supported, &["reasoning", "reasoning_effort"]) {
-            body["reasoning"] = json!({"effort": effort});
-        }
-        let mut provider = json!({
-            "data_collection": s.str("llm.provider.dataCollection"),
-            "require_parameters": s.boolean("llm.provider.requireParameters") && !degraded,
-            "allow_fallbacks": s.boolean("llm.provider.allowFallbacks"),
-        });
-        if s.boolean("llm.provider.zdr") {
-            provider["zdr"] = json!(true);
-        }
-        let sort = s.str("llm.provider.sort");
-        if !sort.is_empty() {
-            provider["sort"] = json!(sort);
-        }
-        let only = s.list("llm.provider.only");
-        if !only.is_empty() {
-            provider["only"] = json!(only);
-        }
-        let ignore = s.list("llm.provider.ignore");
-        if !ignore.is_empty() {
-            provider["ignore"] = json!(ignore);
-        }
-        body["provider"] = provider;
-        body
-    };
     let mut degraded = false;
-    let mut body = build(false);
+    let mut body = build_body(s, &req, &supported, false);
 
     let url = format!("{}/chat/completions", s.str("llm.baseUrl").trim_end_matches('/'));
     let timeout = Duration::from_secs(s.num("llm.timeoutSeconds") as u64);
@@ -251,30 +283,7 @@ pub async fn call(state: &AppState, cfg: &Loaded, ctx: &CallCtx, req: LlmRequest
             Ok(r) => {
                 let status = r.status().as_u16();
                 let text = r.text().await.unwrap_or_default();
-                let v: Value = serde_json::from_str(&text).unwrap_or(Value::Null);
-                if status >= 400 || v.get("error").map(|e| !e.is_null()).unwrap_or(false) {
-                    let msg = v["error"]["message"].as_str().map(String::from).unwrap_or_else(|| text.chars().take(300).collect());
-                    let code = if status >= 400 { status } else { v["error"]["code"].as_u64().unwrap_or(502) as u16 };
-                    let retryable = matches!(code, 408 | 429 | 500 | 502 | 503 | 504);
-                    Err((LlmError::Http { status: code, message: msg }, retryable))
-                } else {
-                    match extract_message(&v) {
-                        None => Err((LlmError::Empty, false)),
-                        Some(content) => {
-                            if v["choices"][0]["finish_reason"].as_str() == Some("length") {
-                                Err((LlmError::Truncated, false))
-                            } else {
-                                Ok(LlmResponse {
-                                    content,
-                                    model: v["model"].as_str().unwrap_or(&primary).to_string(),
-                                    prompt_tokens: v["usage"]["prompt_tokens"].as_i64().unwrap_or(0),
-                                    completion_tokens: v["usage"]["completion_tokens"].as_i64().unwrap_or(0),
-                                    cost_usd: v["usage"]["cost"].as_f64(),
-                                })
-                            }
-                        }
-                    }
-                }
+                interpret(status, &text, &primary)
             }
         };
         match step {
@@ -285,7 +294,7 @@ pub async fn call(state: &AppState, cfg: &Loaded, ctx: &CallCtx, req: LlmRequest
                 if !degraded && matches!(&e, LlmError::Http { status: 404, message } if message.contains("No endpoints found")) {
                     tracing::warn!("no endpoint accepts the optional request parameters; retrying in degraded mode");
                     degraded = true;
-                    body = build(true);
+                    body = build_body(s, &req, &supported, true);
                     continue;
                 }
                 if retryable && attempt < retries {
@@ -402,19 +411,28 @@ pub fn extract_json(text: &str) -> Option<Value> {
 
 #[cfg(test)]
 mod tests {
-    #[test]
-    fn free_form_objects_make_a_schema_loose() {
-        use crate::llm::prompts::{generate_schema, patch_schema};
-        let tight = serde_json::json!({"type": "object", "properties": {"a": {"type": "string"}, "b": {"type": "array", "items": {"type": "object", "properties": {"c": {"type": "number"}}}}}});
-        assert!(super::schema_is_tight(&tight));
-        assert!(!super::schema_is_tight(&serde_json::json!({"type": "object", "properties": {"props": {"type": "object"}}})));
-        // the schemas the pipeline sends contain maps (node props, `set`): they must not be sent as json_schema in auto mode
-        let catalog = engine::defaults::catalog();
-        assert!(!super::schema_is_tight(&generate_schema(&catalog)));
-        assert!(!super::schema_is_tight(&patch_schema()));
+    use super::*;
+    use crate::llm::prompts::{generate_schema, patch_schema};
+
+    /// A real reply of OpenRouter (captured from `anthropic/claude-haiku-5.5`, account data removed).
+    const REAL_SUCCESS: &str = include_str!("../../tests/fixtures/llm/openrouter_success.json");
+    /// A real error reply of OpenRouter for an unknown model id.
+    const REAL_ERROR: &str = include_str!("../../tests/fixtures/llm/openrouter_error_400.json");
+
+    fn req(role: ModelRole, schema: Option<(&'static str, Value)>) -> LlmRequest {
+        LlmRequest { purpose: "patch", role, messages: vec![Msg::system("sys"), Msg::user("hi")], schema }
     }
 
-    use super::*;
+    #[test]
+    fn free_form_objects_make_a_schema_loose() {
+        let tight = json!({"type": "object", "properties": {"a": {"type": "string"}, "b": {"type": "array", "items": {"type": "object", "properties": {"c": {"type": "number"}}}}}});
+        assert!(schema_is_tight(&tight));
+        assert!(!schema_is_tight(&json!({"type": "object", "properties": {"props": {"type": "object"}}})));
+        // the schemas the pipeline sends contain maps (node props, `set`): they must not be sent as json_schema in auto mode
+        let catalog = engine::defaults::catalog();
+        assert!(!schema_is_tight(&generate_schema(&catalog)));
+        assert!(!schema_is_tight(&patch_schema()));
+    }
 
     #[test]
     fn extracts_json_from_fences_and_chatter() {
@@ -429,5 +447,139 @@ mod tests {
         assert_eq!(LlmError::Http { status: 401, message: "x".into() }.code(), "llm_auth");
         assert_eq!(LlmError::Http { status: 402, message: "x".into() }.code(), "llm_credits");
         assert_eq!(LlmError::Budget.code(), "llm_budget");
+    }
+
+    #[test]
+    fn the_request_carries_the_privacy_and_fallback_settings() {
+        let s = Settings::defaults().with("llm.model.planner", json!("vendor/primary")).unwrap().with("llm.model.fallbacks", json!(["vendor/backup", "vendor/primary"])).unwrap();
+        let b = build_body(&s, &req(ModelRole::Planner, None), &None, false);
+        assert_eq!(b["models"], json!(["vendor/primary", "vendor/backup"]), "fallbacks follow the primary, duplicates are dropped");
+        assert!(b.get("model").is_none());
+        assert_eq!(b["provider"]["data_collection"], "deny", "prompts are not stored or trained on by default");
+        assert_eq!(b["provider"]["require_parameters"], true);
+        assert_eq!(b["stream"], false);
+        assert_eq!(b["messages"][1]["content"], "hi");
+        // no fallbacks → a single model
+        let s = Settings::defaults().with("llm.model.fast", json!("vendor/fast")).unwrap().with("llm.model.fallbacks", json!([])).unwrap();
+        let b = build_body(&s, &req(ModelRole::Fast, None), &None, false);
+        assert_eq!(b["model"], "vendor/fast");
+        assert!(b.get("models").is_none());
+    }
+
+    #[test]
+    fn provider_routing_options_are_passed_only_when_set() {
+        let s = Settings::defaults();
+        let p = &build_body(&s, &req(ModelRole::Planner, None), &None, false)["provider"];
+        assert!(p.get("zdr").is_none() && p.get("sort").is_none() && p.get("only").is_none() && p.get("ignore").is_none(), "{p}");
+        let s = s
+            .with("llm.provider.zdr", json!(true))
+            .unwrap()
+            .with("llm.provider.sort", json!("latency"))
+            .unwrap()
+            .with("llm.provider.only", json!(["anthropic"]))
+            .unwrap()
+            .with("llm.provider.ignore", json!(["slowhost"]))
+            .unwrap()
+            .with("llm.provider.dataCollection", json!("allow"))
+            .unwrap();
+        let p = &build_body(&s, &req(ModelRole::Planner, None), &None, false)["provider"];
+        assert_eq!(
+            (p["zdr"].clone(), p["sort"].clone(), p["only"].clone(), p["ignore"].clone(), p["data_collection"].clone()),
+            (json!(true), json!("latency"), json!(["anthropic"]), json!(["slowhost"]), json!("allow"))
+        );
+    }
+
+    #[test]
+    fn structured_output_follows_the_mode_and_what_the_model_supports() {
+        let catalog = engine::defaults::catalog();
+        let loose = Some(("architecture", generate_schema(&catalog)));
+        let tight = Some(("answer", json!({"type": "object", "properties": {"a": {"type": "string"}}})));
+        let all: Option<Vec<String>> = Some(["structured_outputs", "response_format", "temperature", "max_tokens", "reasoning"].iter().map(|x| x.to_string()).collect());
+        let s = Settings::defaults(); // structuredOutput = auto
+        assert_eq!(build_body(&s, &req(ModelRole::Planner, loose.clone()), &all, false)["response_format"]["type"], "json_object", "free-form maps would be emptied by constrained decoding");
+        let b = build_body(&s, &req(ModelRole::Planner, tight.clone()), &all, false);
+        assert_eq!(b["response_format"]["type"], "json_schema");
+        assert_eq!(b["response_format"]["json_schema"]["name"], "answer");
+        let s2 = Settings::defaults().with("llm.structuredOutput", json!("json_schema")).unwrap();
+        assert_eq!(build_body(&s2, &req(ModelRole::Planner, loose.clone()), &all, false)["response_format"]["type"], "json_schema");
+        let s3 = Settings::defaults().with("llm.structuredOutput", json!("prompt")).unwrap();
+        assert!(build_body(&s3, &req(ModelRole::Planner, tight.clone()), &all, false).get("response_format").is_none());
+        // a model without structured outputs still gets json_object; one without response_format gets neither
+        let no_schema: Option<Vec<String>> = Some(vec!["response_format".into()]);
+        assert_eq!(build_body(&s, &req(ModelRole::Planner, tight.clone()), &no_schema, false)["response_format"]["type"], "json_object");
+        let none: Option<Vec<String>> = Some(vec![]);
+        assert!(build_body(&s, &req(ModelRole::Planner, tight), &none, false).get("response_format").is_none());
+        // unknown capabilities (catalog unreachable) → optimistic
+        assert!(build_body(&s, &req(ModelRole::Planner, loose), &None, false).get("response_format").is_some());
+    }
+
+    #[test]
+    fn optional_parameters_are_sent_only_to_models_that_accept_them() {
+        let s = Settings::defaults().with("llm.reasoningEffort", json!("low")).unwrap();
+        let rich: Option<Vec<String>> = Some(["temperature", "reasoning", "max_tokens"].iter().map(|x| x.to_string()).collect());
+        let b = build_body(&s, &req(ModelRole::Planner, None), &rich, false);
+        assert!(b.get("temperature").is_some() && b["reasoning"]["effort"] == "low" && b["max_tokens"].as_i64().unwrap() > 0);
+        let poor: Option<Vec<String>> = Some(vec![]);
+        let b = build_body(&s, &req(ModelRole::Planner, None), &poor, false);
+        assert!(b.get("temperature").is_none() && b.get("reasoning").is_none() && b.get("max_tokens").is_none(), "{b}");
+    }
+
+    #[test]
+    fn degraded_mode_drops_optional_parameters_but_never_the_privacy_routing() {
+        let s = Settings::defaults().with("llm.reasoningEffort", json!("low")).unwrap().with("llm.provider.zdr", json!(true)).unwrap();
+        let catalog = engine::defaults::catalog();
+        let r = req(ModelRole::Planner, Some(("architecture", generate_schema(&catalog))));
+        let full = build_body(&s, &r, &None, false);
+        let degraded = build_body(&s, &r, &None, true);
+        for k in ["temperature", "reasoning", "response_format"] {
+            assert!(full.get(k).is_some() && degraded.get(k).is_none(), "{k}");
+        }
+        assert_eq!(degraded["provider"]["require_parameters"], false, "no parameter matching in degraded mode");
+        assert_eq!(degraded["provider"]["data_collection"], "deny");
+        assert_eq!(degraded["provider"]["zdr"], true);
+    }
+
+    #[test]
+    fn a_real_reply_is_understood() {
+        let r = interpret(200, REAL_SUCCESS, "anthropic/claude-haiku-5.5").unwrap();
+        assert_eq!(r.content, "pong");
+        assert_eq!(r.model, "anthropic/claude-haiku-5.5");
+        assert_eq!((r.prompt_tokens, r.completion_tokens), (18, 4));
+        assert!(r.cost_usd.unwrap() > 0.0 && r.cost_usd.unwrap() < 0.001);
+    }
+
+    #[test]
+    fn a_real_error_reply_keeps_its_message_and_is_not_retried() {
+        let (e, retry) = interpret(400, REAL_ERROR, "x").unwrap_err();
+        assert!(matches!(&e, LlmError::Http { status: 400, message } if message.contains("not a valid model ID")), "{e:?}");
+        assert!(!retry);
+        assert_eq!(e.code(), "llm_http");
+    }
+
+    #[test]
+    fn failures_are_classified_by_their_retryability() {
+        let body = |c: u16| json!({"error": {"message": "boom", "code": c}}).to_string();
+        for (status, retry) in [(408, true), (429, true), (500, true), (502, true), (503, true), (504, true), (400, false), (401, false), (402, false), (404, false)] {
+            let (_, r) = interpret(status, &body(status), "m").unwrap_err();
+            assert_eq!(r, retry, "HTTP {status}");
+        }
+        // OpenRouter sometimes reports an upstream failure inside a 200 reply
+        let (e, retry) = interpret(200, &body(502), "m").unwrap_err();
+        assert!(matches!(e, LlmError::Http { status: 502, .. }) && retry);
+        // unreadable body → the start of the text is the message
+        let (e, _) = interpret(502, "<html>Bad gateway</html>", "m").unwrap_err();
+        assert!(matches!(&e, LlmError::Http { message, .. } if message.contains("Bad gateway")));
+    }
+
+    #[test]
+    fn empty_and_truncated_answers_are_errors() {
+        let ok = |content: Value, finish: &str| json!({"model": "m", "choices": [{"finish_reason": finish, "message": {"content": content}}], "usage": {}}).to_string();
+        assert!(matches!(interpret(200, &ok(json!(""), "stop"), "m").unwrap_err().0, LlmError::Empty));
+        assert!(matches!(interpret(200, &ok(json!(null), "stop"), "m").unwrap_err().0, LlmError::Empty));
+        assert!(matches!(interpret(200, &ok(json!("{\"cut\": "), "length"), "m").unwrap_err().0, LlmError::Truncated));
+        // content as a list of parts
+        let parts = ok(json!([{"type": "text", "text": "he"}, {"type": "text", "text": "llo"}]), "stop");
+        assert_eq!(interpret(200, &parts, "m").unwrap().content, "hello");
+        assert!(matches!(interpret(200, "not json", "m").unwrap_err().0, LlmError::Empty));
     }
 }

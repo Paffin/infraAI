@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -72,6 +73,30 @@ jobs:
         run: |
           docker run --rm -v "$PWD/deploy/k8s:/k8s:ro" registry.k8s.io/kustomize/kustomize:v5.4.3 build /k8s > /tmp/all.yaml
           docker run --rm -v /tmp/all.yaml:/all.yaml:ro ghcr.io/yannh/kubeconform:latest -strict -summary -ignore-missing-schemas /all.yaml
+
+  # Optional: the real OpenRouter. Runs on demand (Actions → CI → Run workflow) when the secret OPENROUTER_API_KEY is set.
+  live-llm:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 3s --health-timeout 3s --health-retries 20
+    env:
+      TEST_DATABASE_ADMIN_URL: postgres://postgres:postgres@localhost:5432/postgres
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: backend
+      - run: cargo test -p server --test live -- --ignored --nocapture
+        working-directory: backend
 
   iac:
     runs-on: ubuntu-latest

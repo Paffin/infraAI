@@ -171,74 +171,88 @@ pub async fn load(pool: &PgPool, keys: &Keys) -> Result<Loaded, sqlx::Error> {
     let rev = current_rev(pool).await?;
     let settings = Settings::load(pool, keys).await?;
     let rows: Vec<(String, String, Value)> = sqlx::query_as("select kind, id, data from config_items order by kind, sort, id").fetch_all(pool).await?;
-    let mut errors = vec![];
-    let mut catalog = Catalog::default();
-    let mut rules = vec![];
-    let mut templates = vec![];
-    let mut iac = vec![];
-    let mut prompts = HashMap::new();
-    let mut engine_settings = EngineSettings::default();
-    for (kind, id, data) in rows {
-        let mut fail = |e: String| errors.push((kind.clone(), id.clone(), e));
-        match kind.as_str() {
-            K_CATEGORY => match serde_json::from_value::<Category>(data) {
-                Ok(v) => catalog.categories.push(v),
-                Err(e) => fail(e.to_string()),
-            },
-            K_ZONE => match serde_json::from_value::<ZoneTypeDef>(data) {
-                Ok(v) => catalog.zone_types.push(v),
-                Err(e) => fail(e.to_string()),
-            },
-            K_EDGE => match serde_json::from_value::<EdgeTypeDef>(data) {
-                Ok(v) => catalog.edge_types.push(v),
-                Err(e) => fail(e.to_string()),
-            },
-            K_KIND => match serde_json::from_value::<KindDef>(data) {
-                Ok(v) => catalog.kinds.push(v),
-                Err(e) => fail(e.to_string()),
-            },
-            K_COMMON => match serde_json::from_value::<Vec<PropDef>>(data) {
-                Ok(v) => catalog.common_props = v,
-                Err(e) => fail(e.to_string()),
-            },
-            K_RULE => match serde_json::from_value::<Rule>(data) {
-                Ok(v) => rules.push(v),
-                Err(e) => fail(e.to_string()),
-            },
-            K_TEMPLATE => match serde_json::from_value::<Template>(data) {
-                Ok(v) => templates.push(v),
-                Err(e) => fail(e.to_string()),
-            },
-            K_IAC => match serde_json::from_value::<IacTemplate>(data) {
-                Ok(v) => iac.push(v),
-                Err(e) => fail(e.to_string()),
-            },
-            K_PROMPT => match serde_json::from_value::<PromptDef>(data) {
-                Ok(v) => {
-                    prompts.insert(v.id.clone(), v);
-                }
-                Err(e) => fail(e.to_string()),
-            },
-            K_ENGINE => match serde_json::from_value::<EngineSettings>(data) {
-                Ok(v) => engine_settings = v,
-                Err(e) => fail(e.to_string()),
-            },
-            _ => {}
+    Ok(Loaded::assemble(rev, settings, rows))
+}
+
+impl Loaded {
+    /// The configuration exactly as shipped (settings defaults + embedded catalog, rules, templates, prompts,
+    /// engine settings, IaC templates) – what a fresh installation starts with. No database needed.
+    pub fn embedded_defaults() -> Loaded {
+        let mut rows: Vec<(String, String, Value)> = default_items().into_iter().map(|i| (i.kind.to_string(), i.id, i.data)).collect();
+        rows.sort_by(|a, b| a.0.cmp(&b.0));
+        Loaded::assemble(0, Settings::defaults(), rows)
+    }
+
+    fn assemble(rev: i64, settings: Settings, rows: Vec<(String, String, Value)>) -> Loaded {
+        let mut errors = vec![];
+        let mut catalog = Catalog::default();
+        let mut rules = vec![];
+        let mut templates = vec![];
+        let mut iac = vec![];
+        let mut prompts = HashMap::new();
+        let mut engine_settings = EngineSettings::default();
+        for (kind, id, data) in rows {
+            let mut fail = |e: String| errors.push((kind.clone(), id.clone(), e));
+            match kind.as_str() {
+                K_CATEGORY => match serde_json::from_value::<Category>(data) {
+                    Ok(v) => catalog.categories.push(v),
+                    Err(e) => fail(e.to_string()),
+                },
+                K_ZONE => match serde_json::from_value::<ZoneTypeDef>(data) {
+                    Ok(v) => catalog.zone_types.push(v),
+                    Err(e) => fail(e.to_string()),
+                },
+                K_EDGE => match serde_json::from_value::<EdgeTypeDef>(data) {
+                    Ok(v) => catalog.edge_types.push(v),
+                    Err(e) => fail(e.to_string()),
+                },
+                K_KIND => match serde_json::from_value::<KindDef>(data) {
+                    Ok(v) => catalog.kinds.push(v),
+                    Err(e) => fail(e.to_string()),
+                },
+                K_COMMON => match serde_json::from_value::<Vec<PropDef>>(data) {
+                    Ok(v) => catalog.common_props = v,
+                    Err(e) => fail(e.to_string()),
+                },
+                K_RULE => match serde_json::from_value::<Rule>(data) {
+                    Ok(v) => rules.push(v),
+                    Err(e) => fail(e.to_string()),
+                },
+                K_TEMPLATE => match serde_json::from_value::<Template>(data) {
+                    Ok(v) => templates.push(v),
+                    Err(e) => fail(e.to_string()),
+                },
+                K_IAC => match serde_json::from_value::<IacTemplate>(data) {
+                    Ok(v) => iac.push(v),
+                    Err(e) => fail(e.to_string()),
+                },
+                K_PROMPT => match serde_json::from_value::<PromptDef>(data) {
+                    Ok(v) => {
+                        prompts.insert(v.id.clone(), v);
+                    }
+                    Err(e) => fail(e.to_string()),
+                },
+                K_ENGINE => match serde_json::from_value::<EngineSettings>(data) {
+                    Ok(v) => engine_settings = v,
+                    Err(e) => fail(e.to_string()),
+                },
+                _ => {}
+            }
         }
+        templates.sort_by_key(|t| t.order);
+        let mut langs = settings.list("app.languages");
+        if langs.is_empty() {
+            langs.push(settings.str("app.defaultLanguage"));
+        }
+        let engine_cfgs = langs
+            .into_iter()
+            .map(|l| {
+                let c = EngineConfig { catalog: catalog.clone(), rules: rules.clone(), settings: engine_settings.clone(), iac: iac.clone(), lang: l.clone() };
+                (l, Arc::new(c))
+            })
+            .collect();
+        Loaded { rev, settings, catalog, rules, engine: engine_settings, templates, iac, prompts, errors, engine_cfgs }
     }
-    templates.sort_by_key(|t| t.order);
-    let mut langs = settings.list("app.languages");
-    if langs.is_empty() {
-        langs.push(settings.str("app.defaultLanguage"));
-    }
-    let engine_cfgs = langs
-        .into_iter()
-        .map(|l| {
-            let c = EngineConfig { catalog: catalog.clone(), rules: rules.clone(), settings: engine_settings.clone(), iac: iac.clone(), lang: l.clone() };
-            (l, Arc::new(c))
-        })
-        .collect();
-    Ok(Loaded { rev, settings, catalog, rules, engine: engine_settings, templates, iac, prompts, errors, engine_cfgs })
 }
 
 /// Validate an item before it is written (so the admin cannot break the running system).

@@ -103,6 +103,20 @@ pub struct Settings {
 }
 
 impl Settings {
+    /// The shipped defaults of every setting – no database involved.
+    pub fn defaults() -> Self {
+        Settings { values: registry().iter().map(|d| (d.key.clone(), d.default.clone())).collect(), from_db: HashMap::new() }
+    }
+
+    /// The same settings with `key` set to `value` (validated like an administrator's change).
+    pub fn with(mut self, key: &str, value: Value) -> Result<Self, String> {
+        let d = def(key).ok_or_else(|| format!("unknown setting '{key}'"))?;
+        let v = validate(d, &value).map_err(|e| format!("{key}: {e}"))?;
+        self.values.insert(key.to_string(), v);
+        self.from_db.insert(key.to_string(), true);
+        Ok(self)
+    }
+
     pub async fn load(pool: &PgPool, keys: &Keys) -> Result<Self, sqlx::Error> {
         let rows: Vec<(String, Value, bool)> = sqlx::query_as("select key, value, encrypted from settings").fetch_all(pool).await?;
         let mut values: HashMap<String, Value> = registry().iter().map(|d| (d.key.clone(), d.default.clone())).collect();

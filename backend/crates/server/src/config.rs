@@ -23,6 +23,8 @@ pub struct BootConfig {
     pub trust_proxy: bool,
     pub shutdown_grace_secs: u64,
     pub log_json: bool,
+    /// `SEED_DEMO_PROJECT`: overrides the setting `app.seedDemoProject` (useful before the first start, when no admin has set it).
+    pub seed_demo_project: Option<bool>,
 }
 
 fn env(key: &str) -> Option<String> {
@@ -72,6 +74,7 @@ impl BootConfig {
             trust_proxy: env_bool("TRUST_PROXY", false),
             shutdown_grace_secs: env_num("SHUTDOWN_GRACE_SECONDS", 25),
             log_json: env_bool("LOG_JSON", production),
+            seed_demo_project: env("SEED_DEMO_PROJECT").map(|v| matches!(v.to_lowercase().as_str(), "1" | "true" | "yes" | "on")),
         })
     }
 }

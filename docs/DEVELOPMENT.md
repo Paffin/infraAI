@@ -26,8 +26,25 @@ export APP_ENV=development DATABASE_URL=postgres://postgres@localhost:5432/infra
 cargo run -p server          # слушает :8080; без APP_SECRET в development используется временный
 ```
 
-Структура: `crates/engine` — чистая логика (без I/O), `crates/server` — HTTP, БД, ИИ. Интеграционные тесты сервера (`crates/server/tests`)
-поднимают приложение на реальной БД и мок-сервере OpenRouter.
+Структура: `crates/engine` — чистая логика (без I/O), `crates/server` — HTTP, БД, ИИ.
+
+### Тесты без моков и заглушек
+
+В тестах нет двойников внешних сервисов:
+
+* **чистые функции** — формирование запроса к OpenRouter (`build_body`), разбор ответа (`interpret`), разбор и проверка ответа модели
+  (`parse_generate`, `parse_patch`) тестируются на **настоящих** данных: ответы OpenRouter и модели записаны живыми прогонами
+  (`crates/server/tests/fixtures/llm`, запись — `LIVE_LLM_RECORD=<каталог>`);
+* **интеграционные тесты** (`crates/server/tests/api.rs`) поднимают настоящий роутер на настоящем PostgreSQL (своя БД на тест): ошибки сети,
+  бюджет, лимиты, предложения (просмотр, применение, устаревание, откат) — без обращения к модели;
+* **живые тесты** (`crates/server/tests/live.rs`, `#[ignore]`) — настоящий OpenRouter: связь и каталог моделей, чат, патч с применением,
+  генерация. Стоят центы, идут около минуты:
+
+```bash
+OPENROUTER_API_KEY=sk-or-… cargo test -p server --test live -- --ignored --nocapture     # LIVE_LLM_MODEL=… выбирает модель
+```
+
+* **IaC** проверяется настоящими инструментами: `make iac-check` ([IAC.md](IAC.md)).
 
 ## Фронтенд
 
