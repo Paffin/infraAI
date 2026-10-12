@@ -8,7 +8,8 @@ const app = useApp()
 </script>
 
 <template>
-  <div v-if="app.bootError" class="boot-error">
+  <div v-if="!app.ready" class="boot"><span class="spinner" />{{ t('app.loading') }}</div>
+  <div v-else-if="app.bootError" class="boot-error">
     <div class="banner banner-err">{{ t('error.generic', { message: app.bootError }) }}</div>
     <button class="btn" @click="app.init()">{{ t('common.retry') }}</button>
   </div>
@@ -18,5 +19,6 @@ const app = useApp()
 </template>
 
 <style>
+.boot { height: 100%; display: flex; gap: 10px; align-items: center; justify-content: center; color: var(--muted); }
 .boot-error { max-width: 480px; margin: 20vh auto; display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
 </style>
