@@ -128,6 +128,7 @@ onMounted(load)
               <span v-if="p.summary.counts.risk" class="tag tag-risk">{{ p.summary.counts.risk }} {{ t('checks.risk') }}</span>
               <span v-if="p.summary.counts.noData" class="tag tag-nodata">{{ p.summary.counts.noData }} {{ t('checks.nodata') }}</span>
               <span v-if="!p.summary.counts.critical && !p.summary.counts.risk && !p.summary.counts.noData" class="tag tag-ok">{{ t('checks.none') }}</span>
+              <span v-if="p.summary.coverage < 0.7" class="tag tag-nodata" :title="t('checks.confidence.hint')">{{ t('editor.score.confidence', { pct: Math.round(p.summary.coverage * 100) }) }}</span>
             </div>
           </div>
           <div class="foot faint">

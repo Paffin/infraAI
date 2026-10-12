@@ -3,12 +3,13 @@ import { computed, markRaw, nextTick, onMounted, ref, watch } from 'vue'
 import { ConnectionMode, VueFlow, useVueFlow, type NodeDragEvent } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { MiniMap } from '@vue-flow/minimap'
-import { LayoutDashboard, Minus, MousePointer2, Plus, Redo2, Spline, Square, Undo2 } from 'lucide-vue-next'
+import { LayoutDashboard, Minus, MousePointer2, PanelLeftOpen, Plus, Redo2, Spline, Square, Undo2 } from 'lucide-vue-next'
 import '@vue-flow/core/dist/style.css'
 import '@vue-flow/minimap/dist/style.css'
 import { lt, t } from '@/i18n'
 import { useApp } from '@/stores/app'
 import { useEditor, type Layer } from '@/stores/editor'
+import { useUi } from '@/stores/ui'
 import ArchEdge from './ArchEdge.vue'
 import ArchNode from './ArchNode.vue'
 import ArchZone from './ArchZone.vue'
@@ -17,6 +18,7 @@ import { MIN_ZONE_H, MIN_ZONE_W } from './layout'
 
 const app = useApp()
 const editor = useEditor()
+const ui = useUi()
 const nodeTypes = { card: markRaw(ArchNode), zone: markRaw(ArchZone) } as any
 const edgeTypes = { arch: markRaw(ArchEdge) } as any
 
@@ -185,7 +187,8 @@ function nodeColor(n: { id: string; type?: string }) {
       <div v-if="drawRect" class="draw-rect" :style="drawRect" />
     </div>
 
-    <div class="toolbar">
+    <button v-if="!ui.libraryOpen" class="open-lib" :title="t('library.expand')" :aria-label="t('library.expand')" @click="ui.libraryOpen = true"><PanelLeftOpen :size="16" /></button>
+    <div class="toolbar" :class="{ shifted: !ui.libraryOpen }">
       <template v-if="app.canEdit">
         <button class="tool" :class="{ on: editor.tool === 'select' }" @click="editor.setTool('select')"><MousePointer2 :size="14" />{{ t('tool.select') }}</button>
         <button class="tool" :class="{ on: editor.tool === 'connect' }" :disabled="editor.readonly" @click="editor.setTool('connect')"><Spline :size="14" />{{ t('tool.connect') }}</button>
@@ -243,6 +246,9 @@ function nodeColor(n: { id: string; type?: string }) {
 .draw-layer { position: absolute; inset: 0; z-index: 50; cursor: crosshair; }
 .draw-rect { position: absolute; border: 1.5px dashed var(--accent); background: rgba(46, 91, 236, .06); border-radius: 12px; }
 
+.open-lib { position: absolute; top: 14px; left: 14px; z-index: 61; width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); background: var(--surface); color: var(--text-2); }
+.open-lib:hover { background: var(--surface-2); }
+.toolbar.shifted { left: 56px; }
 .toolbar { position: absolute; top: 14px; left: 16px; right: 16px; display: flex; align-items: center; gap: 6px; z-index: 60; flex-wrap: wrap; justify-content: center; pointer-events: none; }
 .toolbar > * { pointer-events: auto; }
 .tool { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); background: var(--surface); color: var(--text-2); font-size: 13px; }

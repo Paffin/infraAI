@@ -15,10 +15,14 @@ export const useUi = defineStore('ui', () => {
   const tab = ref<RightTab>('checks')
   const modal = ref<ModalKind>(null)
   const showSimDetails = ref(true)
+  // on small screens the library starts collapsed (an explicit choice is remembered)
+  const stored = read('ia_library')
+  const libraryOpen = ref(stored ? stored === 'open' : window.innerWidth >= 1500)
 
   watch(aiMode, (v) => write('ia_ai_mode', v))
+  watch(libraryOpen, (v) => write('ia_library', v ? 'open' : 'closed'))
   /** AI features are usable: the server has a key, the user did not switch to manual mode. */
   const aiOn = computed(() => aiMode.value === 'ai' && ai.enabled)
 
-  return { aiMode, tab, modal, showSimDetails, aiOn }
+  return { aiMode, tab, modal, showSimDetails, libraryOpen, aiOn }
 })

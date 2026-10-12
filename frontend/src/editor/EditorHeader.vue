@@ -23,6 +23,8 @@ const toasts = useToasts()
 
 const score = computed(() => (editor.isEmpty ? null : editor.report?.score.value ?? null))
 const tone = computed(() => scoreTone(score.value))
+const confidence = computed(() => (editor.isEmpty || !editor.report ? null : Math.round(editor.report.score.coverage * 100)))
+const lowConfidence = computed(() => confidence.value !== null && confidence.value < 70)
 const saveText = computed(() => {
   switch (editor.saveState) {
     case 'saved': return t('editor.save.saved')
@@ -67,8 +69,8 @@ async function leave() {
       <button :class="{ on: ui.aiMode === 'manual' }" @click="ui.aiMode = 'manual'">{{ t('editor.mode.manual') }}</button>
     </div>
     <span class="spacer" />
-    <button class="score" :class="tone" :title="t('editor.score.title')" @click="ui.modal = 'score'">
-      {{ t('editor.score') }}<b>{{ score === null ? '—' : Math.round(score) }}</b><span>/100</span>
+    <button class="score" :class="[tone, lowConfidence && 'weak']" :title="lowConfidence ? t('checks.confidence.hint') : t('editor.score.title')" @click="ui.modal = 'score'">
+      {{ t('editor.score') }}<b>{{ score === null ? '—' : Math.round(score) }}</b><span>/100</span><i v-if="lowConfidence" class="conf">{{ t('editor.score.confidence', { pct: confidence ?? 0 }) }}</i>
     </button>
     <button class="btn btn-dark" @click="ui.modal = 'matrix'"><Zap :size="14" />{{ t('editor.sim') }}</button>
     <button class="btn btn-dark" @click="ui.modal = 'versions'"><History :size="14" />{{ t('editor.versions') }}</button>
@@ -99,6 +101,8 @@ async function leave() {
 .score.ok { color: #6fe39a; border-color: #1f6b3d; background: rgba(39, 194, 94, .1); }
 .score.risk { color: #ffc266; border-color: #7a5410; background: rgba(243, 160, 12, .1); }
 .score.crit { color: #ff8a8f; border-color: #8a2a30; background: rgba(192, 38, 45, .12); }
+.score.weak { border-style: dashed; }
+.score .conf { font-style: normal; font-size: 11.5px; opacity: .85; margin-left: 2px; }
 .score.none { color: var(--on-dark-muted); border-color: #3a4256; }
 .long { display: inline; } .short { display: none; }
 @media (max-width: 1600px) { .long { display: none; } .short { display: inline; } .crumbs .meta { display: none; } }

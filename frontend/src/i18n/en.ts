@@ -480,4 +480,7 @@ export default {
   'versions.drift.accept.confirm': 'The current architecture will be replaced by the imported one. You can undo or restore a version.',
   'compare.banner': 'Comparison: {label}',
   'compare.exit': 'Exit',
+  'library.collapse': 'Collapse the library',
+  'library.expand': 'Show the library',
+  'editor.score.confidence': 'confidence {pct}%',
 } as Record<string, string>

@@ -72,7 +72,7 @@ const isNodeActive = computed(() => active.value?.type === 'node' || active.valu
 
 <style scoped>
 .whatif { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); width: max-content; z-index: 60; display: flex; align-items: center; gap: 8px; padding: 9px 12px; background: var(--ink); color: var(--on-dark); border-radius: 12px; box-shadow: var(--shadow-3); max-width: calc(100% - 420px); flex-wrap: wrap; }
-@container (max-width: 1250px) { .whatif { left: 330px; right: 18px; transform: none; width: auto; max-width: none; justify-content: center; } }
+@container (max-width: 1250px) { .whatif { left: 18px; right: 18px; bottom: 62px; transform: none; width: auto; max-width: none; justify-content: center; } }
 .lbl { font-size: 13px; color: var(--on-dark-muted); margin-right: 2px; white-space: nowrap; }
 .w { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; background: transparent; border: 1px solid #343b50; border-radius: 7px; color: var(--on-dark); font-size: 13px; white-space: nowrap; }
 .w:hover { background: var(--ink-3); border-color: #4a5470; }

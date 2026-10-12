@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { Search } from 'lucide-vue-next'
+import { PanelLeftClose, Search } from 'lucide-vue-next'
 import * as api from '@/api/endpoints'
 import type { KindDef, TemplateMeta, Architecture } from '@/api/types'
 import Modal from '@/components/Modal.vue'
@@ -8,11 +8,13 @@ import { lt, t } from '@/i18n'
 import { errorMessage } from '@/lib/format'
 import { useApp } from '@/stores/app'
 import { useEditor } from '@/stores/editor'
+import { useUi } from '@/stores/ui'
 import { useToasts } from '@/stores/toasts'
 
 const app = useApp()
 const editor = useEditor()
 const toasts = useToasts()
+const ui = useUi()
 
 const q = ref('')
 const input = ref<HTMLInputElement | null>(null)
@@ -57,14 +59,15 @@ function applyTemplate(mode: 'replace' | 'add') {
   pending.value = null
 }
 
-defineExpose({ focus: () => input.value?.focus() })
+defineExpose({ focus: () => { ui.libraryOpen = true; setTimeout(() => input.value?.focus(), 30) } })
 </script>
 
 <template>
-  <aside class="library">
+  <aside v-show="ui.libraryOpen" class="library">
     <div class="search">
       <Search :size="15" />
       <input ref="input" v-model="q" class="input" :placeholder="t('library.search') + ' ( / )'" @keydown.esc="q = ''; input?.blur()" />
+      <button class="collapse" :title="t('library.collapse')" :aria-label="t('library.collapse')" @click="ui.libraryOpen = false"><PanelLeftClose :size="16" /></button>
     </div>
 
     <div class="scroll">
@@ -115,9 +118,11 @@ defineExpose({ focus: () => input.value?.focus() })
 
 <style scoped>
 .library { width: var(--sidebar-w); flex: none; background: var(--surface); border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
-.search { position: relative; padding: 14px 14px 10px; }
-.search svg { position: absolute; left: 25px; top: 24px; color: var(--faint); }
-.search .input { padding-left: 34px; height: 36px; background: var(--surface-2); }
+.search { position: relative; padding: 14px 14px 10px; display: flex; align-items: center; gap: 6px; }
+.collapse { flex: none; width: 30px; height: 30px; border: 0; background: transparent; color: var(--muted); border-radius: var(--radius-sm); display: inline-flex; align-items: center; justify-content: center; }
+.collapse:hover { background: var(--surface-sunken); color: var(--text); }
+.search > svg:first-child { position: absolute; left: 25px; top: 24px; color: var(--faint); }
+.search .input { padding-left: 34px; height: 36px; background: var(--surface-2); flex: 1; min-width: 0; }
 .scroll { flex: 1; overflow: auto; padding: 0 14px 18px; }
 section { margin-top: 14px; }
 h4 { font-size: 11.5px; letter-spacing: .09em; text-transform: uppercase; color: #6e7fa8; font-weight: 600; margin: 0 0 8px 2px; }

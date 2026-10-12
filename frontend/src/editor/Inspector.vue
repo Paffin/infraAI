@@ -237,4 +237,5 @@ select.in { text-align-last: right; padding-right: 2px; }
 .finds li { display: flex; align-items: flex-start; gap: 8px; }
 footer { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-top: 1px solid var(--line); }
 .del { color: var(--crit); }
+@container (max-width: 1260px) { .inspector { top: 104px; max-height: calc(100% - 280px); } }
 </style>

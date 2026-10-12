@@ -480,4 +480,7 @@ export default {
   'versions.drift.accept.confirm': 'Текущая схема будет заменена импортированной. Состояние можно вернуть через отмену или версию.',
   'compare.banner': 'Сравнение: {label}',
   'compare.exit': 'Выйти',
+  'library.collapse': 'Свернуть библиотеку',
+  'library.expand': 'Показать библиотеку',
+  'editor.score.confidence': 'достоверность {pct}%',
 } as Record<string, string>

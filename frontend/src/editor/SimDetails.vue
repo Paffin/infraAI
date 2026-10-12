@@ -36,4 +36,5 @@ header { display: flex; align-items: center; gap: 8px; margin: -4px -8px 2px 0; 
 h5 { margin: 6px 0; font-size: 10.5px; letter-spacing: .09em; text-transform: uppercase; color: #6e7fa8; font-weight: 600; }
 ul { margin: 0; padding-left: 16px; display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; line-height: 1.45; color: var(--text-2); }
 .small { font-size: 12px; margin: 8px 0 0; }
+@container (max-width: 1260px) { .simcard { top: 104px; max-height: calc(100% - 280px); } }
 </style>
