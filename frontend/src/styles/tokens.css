@@ -1,0 +1,70 @@
+/* Design tokens sampled from the product mockup. Every colour and size used in the UI comes from
+   here; administrators can override any of them through the `ui.theme` setting. */
+:root {
+  /* surfaces */
+  --ink: #14171f;
+  --ink-2: #1c2130;
+  --ink-3: #2a3042;
+  --bg: #f5f7fb;
+  --surface: #ffffff;
+  --surface-2: #f9fafc;
+  --surface-sunken: #eef1f6;
+  --line: #dfe5ee;
+  --line-strong: #cbd3e0;
+  --grid-dot: #d9dfea;
+
+  /* text */
+  --text: #161a24;
+  --text-2: #3d4454;
+  --muted: #5b6270;
+  --faint: #8b93a1;
+  --on-dark: #e8ebf2;
+  --on-dark-muted: #9aa3b5;
+
+  /* accent */
+  --accent: #2e5bec;
+  --accent-hover: #2349c9;
+  --accent-soft: #eaf0ff;
+  --accent-line: #b9ccff;
+
+  /* status */
+  --crit: #c0262d;
+  --crit-bg: #fdedee;
+  --crit-line: #f3c4c6;
+  --risk: #a85d00;
+  --risk-bg: #fff4e4;
+  --risk-line: #f6d9a8;
+  --nodata: #5b6270;
+  --nodata-bg: #eef0f4;
+  --nodata-line: #d9dde6;
+  --ok: #1a8d4a;
+  --ok-bg: #e9f6ed;
+  --ok-line: #bfe3cb;
+  --ok-dot: #27c25e;
+  --risk-dot: #f3a00c;
+  --info-dot: #8ba6f1;
+
+  /* edges (layers) */
+  --edge-traffic: #2b303b;
+  --edge-sync: #1f9d55;
+  --edge-async: #e08a00;
+  --edge-quorum: #7a42d7;
+  --edge-backup: #7c8594;
+  --edge-control: #3b82f6;
+
+  /* geometry */
+  --radius: 8px;
+  --radius-sm: 6px;
+  --radius-lg: 12px;
+  --header-h: 58px;
+  --promptbar-h: 66px;
+  --sidebar-w: 280px;
+  --rightpanel-w: 410px;
+  --shadow-1: 0 1px 2px rgba(20, 23, 31, 0.06), 0 1px 1px rgba(20, 23, 31, 0.04);
+  --shadow-2: 0 2px 4px rgba(20, 23, 31, 0.05), 0 8px 24px rgba(20, 23, 31, 0.08);
+  --shadow-3: 0 12px 40px rgba(20, 23, 31, 0.18);
+
+  /* type */
+  --font: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
