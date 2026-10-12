@@ -295,16 +295,17 @@
   "key": "llm.structuredOutput",
   "group": "llm",
   "type": "enum",
-  "default": "json_schema",
+  "default": "auto",
   "label": {
    "ru": "Режим структурированного вывода",
    "en": "Structured output mode"
   },
   "help": {
-   "ru": "json_schema — если модель поддерживает; иначе автоматически json_object; prompt — только инструкция в промпте. Ответ всегда валидируется на сервере.",
-   "en": "json_schema when the model supports it, otherwise json_object automatically; prompt — instruction only. The answer is always validated server-side."
+   "ru": "auto — json_schema для строгих схем и json_object для схем со свободными картами свойств (так работают генерация и правка: строгое декодирование обнуляет свойства узлов); json_schema — всегда схема, если модель поддерживает; json_object — валидный JSON без схемы; prompt — только инструкция в промпте. Ответ всегда валидируется на сервере.",
+   "en": "auto — json_schema for strict schemas and json_object for schemas with free-form property maps (generation and edits use these: constrained decoding empties node properties); json_schema — always the schema when the model supports it; json_object — valid JSON without a schema; prompt — instruction only. The answer is always validated server-side."
   },
   "options": [
+   "auto",
    "json_schema",
    "json_object",
    "prompt"

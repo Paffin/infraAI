@@ -84,7 +84,7 @@
 | `llm.maxOutputTokens` | number [256…200000] | `16000` | Максимум токенов ответа |
 | `llm.timeoutSeconds` | number [5…900] | `120` | Таймаут запроса, с |
 | `llm.retries` | number [0…6] | `2` | Повторов при 429/5xx |
-| `llm.structuredOutput` | enum (json_schema, json_object, prompt) | `json_schema` | Режим структурированного вывода. json_schema — если модель поддерживает; иначе автоматически json_object; prompt — только инструкция в промпте. Ответ всегда валидируется на сервере. |
+| `llm.structuredOutput` | enum (auto, json_schema, json_object, prompt) | `auto` | Режим структурированного вывода. auto — json_schema для строгих схем и json_object для схем со свободными картами свойств (так работают генерация и правка: строгое декодирование обнуляет свойства узлов); json_schema — всегда схема, если модель поддерживает; json_object — валидный JSON без схемы; prompt — только инструкция в промпте. Ответ всегда валидируется на сервере. |
 | `llm.reasoningEffort` | enum (, minimal, low, medium, high) | — | Усилие рассуждения |
 | `llm.provider.dataCollection` | enum (allow, deny) | `deny` | Хранение данных провайдером. deny — маршрутизация только к провайдерам, не сохраняющим ваши промпты. Топология инфраструктуры чувствительна: по умолчанию deny. |
 | `llm.provider.zdr` | boolean | `false` | Только Zero Data Retention |

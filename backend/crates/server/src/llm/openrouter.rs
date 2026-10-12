@@ -138,6 +138,19 @@ async fn month_spend(state: &AppState) -> f64 {
     sqlx::query_scalar::<_, Option<f64>>("select sum(cost_usd) from llm_calls where created_at >= date_trunc('month', now())").fetch_one(&state.pool).await.ok().flatten().unwrap_or(0.0)
 }
 
+/// A schema is *tight* when every object declares its properties: only then can constrained decoding
+/// fill it. Free-form objects (`{"type": "object"}` without `properties`) come back empty from it.
+pub fn schema_is_tight(schema: &Value) -> bool {
+    match schema {
+        Value::Object(o) => {
+            let free_form = o.get("type").and_then(|t| t.as_str()) == Some("object") && !o.contains_key("properties");
+            !free_form && o.values().all(schema_is_tight)
+        }
+        Value::Array(a) => a.iter().all(schema_is_tight),
+        _ => true,
+    }
+}
+
 pub async fn call(state: &AppState, cfg: &Loaded, ctx: &CallCtx, req: LlmRequest) -> Result<LlmResponse, LlmError> {
     let s = &cfg.settings;
     if !s.boolean("llm.enabled") {
@@ -176,7 +189,9 @@ pub async fn call(state: &AppState, cfg: &Loaded, ctx: &CallCtx, req: LlmRequest
         // structured output: json_schema > json_object > prompt-only, subject to model support
         if let (Some((name, schema)), false) = (&req.schema, degraded) {
             let mode = s.str("llm.structuredOutput");
-            if mode == "json_schema" && accepts(&supported, &["structured_outputs"]) {
+            // `auto`: strict schemas go as json_schema, schemas with free-form maps (node props, `set`) as json_object
+            let want_schema = mode == "json_schema" || (mode == "auto" && schema_is_tight(schema));
+            if want_schema && accepts(&supported, &["structured_outputs"]) {
                 body["response_format"] = json!({"type": "json_schema", "json_schema": {"name": name, "strict": false, "schema": schema}});
             } else if mode != "prompt" && accepts(&supported, &["response_format"]) {
                 body["response_format"] = json!({"type": "json_object"});
@@ -387,6 +402,18 @@ pub fn extract_json(text: &str) -> Option<Value> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn free_form_objects_make_a_schema_loose() {
+        use crate::llm::prompts::{generate_schema, patch_schema};
+        let tight = serde_json::json!({"type": "object", "properties": {"a": {"type": "string"}, "b": {"type": "array", "items": {"type": "object", "properties": {"c": {"type": "number"}}}}}});
+        assert!(super::schema_is_tight(&tight));
+        assert!(!super::schema_is_tight(&serde_json::json!({"type": "object", "properties": {"props": {"type": "object"}}})));
+        // the schemas the pipeline sends contain maps (node props, `set`): they must not be sent as json_schema in auto mode
+        let catalog = engine::defaults::catalog();
+        assert!(!super::schema_is_tight(&generate_schema(&catalog)));
+        assert!(!super::schema_is_tight(&patch_schema()));
+    }
+
     use super::*;
 
     #[test]

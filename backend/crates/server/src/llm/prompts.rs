@@ -143,6 +143,7 @@ pub fn report_digest(report: &Report, cfg: &Loaded, lang: &str) -> String {
         .collect();
     json!({
         "score": report.score.value, "confidence": report.score.coverage, "counts": report.counts,
+        "scoring": {"formula": "score = 100 - sum(penalties); a rule's penalty depends on its status", "penaltyCritical": cfg.engine.scoring.critical, "penaltyRisk": cfg.engine.scoring.risk, "penaltyNoData": cfg.engine.scoring.no_data, "noDataPenaltyCap": cfg.engine.scoring.no_data_cap, "breakdown": report.score.breakdown.iter().filter(|b| b.penalty > 0.0).map(|b| json!({"rule": b.rule_id, "status": b.status, "penalty": b.penalty})).collect::<Vec<_>>()},
         "objectives": report.objectives.iter().map(|o| json!({"id": o.id, "status": o.status, "required": o.required, "actual": o.actual, "assumed": o.assumed})).collect::<Vec<_>>(),
         "cost": {"total": report.cost.total, "currency": report.cost.currency, "incomplete": report.cost.incomplete},
         "scenarios": scen,
@@ -199,14 +200,26 @@ pub fn generate_schema(cat: &Catalog) -> Value {
     })
 }
 
+/// Fields of the patch operations (`engine::ops::Op`). Every field must be declared: constrained
+/// decoding only emits declared properties, so an item that lists just `op` yields empty operations.
+pub const OP_FIELDS: &[&str] = &["op", "id", "zone", "node", "edge", "set", "cascade"];
+
 pub fn patch_schema() -> Value {
     json!({
         "type": "object",
         "properties": {
             "rationale": {"type": "string"},
-            "ops": {"type": "array", "items": {"type": "object", "properties": {"op": {"type": "string", "enum": [
-                "add_zone", "update_zone", "remove_zone", "add_node", "update_node", "remove_node", "add_edge", "update_edge", "remove_edge", "set_requirements"
-            ]}}, "required": ["op"], "additionalProperties": true}},
+            "ops": {"type": "array", "items": {"type": "object", "properties": {
+                "op": {"type": "string", "enum": [
+                    "add_zone", "update_zone", "remove_zone", "add_node", "update_node", "remove_node", "add_edge", "update_edge", "remove_edge", "set_requirements"
+                ]},
+                "id": {"type": "string", "description": "id of the zone/node/edge for update_* and remove_*"},
+                "zone": {"type": "object", "description": "the whole zone for add_zone"},
+                "node": {"type": "object", "description": "the whole node for add_node (id, kind, name, zoneId, group, role, props)"},
+                "edge": {"type": "object", "description": "the whole edge for add_edge (id, source, target, type, label, props)"},
+                "set": {"type": "object", "description": "fields to change for update_* and set_requirements: name, kind, zoneId, group, role, type, label, source, target, props.<key>, or a requirement key; null clears"},
+                "cascade": {"type": "boolean", "description": "remove_zone: also remove what the zone contains"}
+            }, "required": ["op"]}},
             "assumptions": {"type": "array", "items": {"type": "string"}}
         },
         "required": ["rationale", "ops"]
@@ -276,4 +289,38 @@ pub fn sanitize(arch: &mut Architecture, cat: &Catalog) -> Vec<String> {
         coerce(&defs, &mut e.props, &e.id.clone(), &mut notes);
     }
     notes
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use engine::ops::Op;
+
+    #[test]
+    fn patch_schema_declares_every_field_of_every_operation() {
+        let samples = [
+            json!({"op": "add_zone", "zone": {"id": "z", "name": "Z", "type": "dc", "parentId": null, "role": null, "props": {}}}),
+            json!({"op": "update_zone", "id": "z", "set": {"name": "Y"}}),
+            json!({"op": "remove_zone", "id": "z", "cascade": true}),
+            json!({"op": "add_node", "node": {"id": "n", "kind": "redis", "name": "R", "zoneId": null, "group": null, "role": null, "props": {}}}),
+            json!({"op": "update_node", "id": "n", "set": {"props.replicas": 3}}),
+            json!({"op": "remove_node", "id": "n"}),
+            json!({"op": "add_edge", "edge": {"id": "e", "source": "a", "target": "b", "type": "traffic", "label": null, "props": {}}}),
+            json!({"op": "update_edge", "id": "e", "set": {"type": "sync"}}),
+            json!({"op": "remove_edge", "id": "e"}),
+            json!({"op": "set_requirements", "set": {"rpsPeak": 10}}),
+        ];
+        let schema = patch_schema();
+        let declared = schema["properties"]["ops"]["items"]["properties"].as_object().unwrap();
+        let ops_enum: Vec<&str> = schema["properties"]["ops"]["items"]["properties"]["op"]["enum"].as_array().unwrap().iter().filter_map(|v| v.as_str()).collect();
+        for s in samples {
+            let op: Op = serde_json::from_value(s.clone()).unwrap_or_else(|e| panic!("sample {s} is not a valid op: {e}"));
+            let back = serde_json::to_value(&op).unwrap();
+            for key in back.as_object().unwrap().keys() {
+                assert!(declared.contains_key(key), "operation field '{key}' is missing in the patch schema");
+                assert!(OP_FIELDS.contains(&key.as_str()), "'{key}' missing in OP_FIELDS");
+            }
+            assert!(ops_enum.contains(&back["op"].as_str().unwrap()), "op {} missing in the enum", back["op"]);
+        }
+    }
 }

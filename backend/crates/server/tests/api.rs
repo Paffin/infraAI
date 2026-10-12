@@ -210,7 +210,7 @@ async fn roles_are_enforced() {
     assert_eq!(s, StatusCode::UNAUTHORIZED);
     let (s, v) = app.patch(&admin, &format!("/api/admin/users/{admin_id}"), json!({"role": "viewer"})).await;
     assert_eq!(s, StatusCode::CONFLICT, "{v}");
-    assert_eq!(v["error"]["code"], "last_admin");
+    assert_eq!(v["error"]["code"], "self_lockout");
     app.cleanup().await;
 }
 
@@ -440,13 +440,14 @@ async fn ai_patch_flow_preview_apply_and_privacy_settings() {
     let codes: Vec<&str> = job["steps"].as_array().unwrap().iter().map(|s| s["code"].as_str().unwrap()).collect();
     assert!(codes.contains(&"repairing") && codes.contains(&"calling_model") && codes.contains(&"evaluating"), "{codes:?}");
 
-    // requests carried the privacy/fallback configuration and a JSON schema, plus the repair feedback
+    // requests carried the privacy/fallback configuration and a JSON response format, plus the repair feedback
     let reqs = mock.requests.lock().unwrap().clone();
     assert!(reqs.len() >= 2);
     assert_eq!(reqs[0]["provider"]["data_collection"], "deny");
     assert_eq!(reqs[0]["provider"]["require_parameters"], true);
     assert_eq!(reqs[0]["models"], json!(["mock/model", "mock/plain"]));
-    assert_eq!(reqs[0]["response_format"]["type"], "json_schema");
+    // `auto` mode: the patch schema contains free-form maps, so it is sent as json_object (strict decoding would empty them)
+    assert_eq!(reqs[0]["response_format"]["type"], "json_object");
     assert!(reqs[1]["messages"].to_string().contains("rejected by the validator"));
     assert!(reqs[0]["messages"][0]["content"].as_str().unwrap().contains("CURRENT ARCHITECTURE"));
     assert!(reqs[0]["messages"][1]["content"].as_str().unwrap().contains("<user_data>"), "user text is fenced as data");
