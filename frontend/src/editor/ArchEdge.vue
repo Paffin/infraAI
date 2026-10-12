@@ -48,7 +48,7 @@ const label = computed(() => {
   if (!e) return ''
   const parts: string[] = []
   if (e.label) return e.label
-  if (e.type !== 'traffic') parts.push(e.type)
+  if (def.value && def.value.semantics !== 'dependency') parts.push(e.type)
   const rtt = e.props.latencyMs
   if (typeof rtt === 'number') parts.push(`RTT ${rtt} ${t('unit.ms')}`)
   return parts.join(' · ')

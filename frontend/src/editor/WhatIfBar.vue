@@ -66,7 +66,7 @@ const isNodeActive = computed(() => active.value?.type === 'node' || active.valu
       </span>
       <button class="x" :title="t('sim.reset')" :aria-label="t('sim.reset')" @click="editor.exitSim()"><X :size="15" /></button>
     </template>
-    <button class="w ghost" :title="t('sim.matrix.title')" @click="ui.modal = 'matrix'"><Grid3x3 :size="13" />{{ t('sim.matrix') }}</button>
+    <button class="w ghost icon" :title="t('sim.matrix.title')" :aria-label="t('sim.matrix')" @click="ui.modal = 'matrix'"><Grid3x3 :size="14" /></button>
   </div>
 </template>
 
@@ -74,11 +74,12 @@ const isNodeActive = computed(() => active.value?.type === 'node' || active.valu
 .whatif { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); width: max-content; z-index: 60; display: flex; align-items: center; gap: 8px; padding: 9px 12px; background: var(--ink); color: var(--on-dark); border-radius: 12px; box-shadow: var(--shadow-3); max-width: calc(100% - 420px); flex-wrap: wrap; }
 @container (max-width: 1250px) { .whatif { left: 330px; right: 18px; transform: none; width: auto; max-width: none; justify-content: center; } }
 .lbl { font-size: 13px; color: var(--on-dark-muted); margin-right: 2px; white-space: nowrap; }
-.w { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 13px; background: transparent; border: 1px solid #343b50; border-radius: 7px; color: var(--on-dark); font-size: 13px; white-space: nowrap; }
+.w { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; background: transparent; border: 1px solid #343b50; border-radius: 7px; color: var(--on-dark); font-size: 13px; white-space: nowrap; }
 .w:hover { background: var(--ink-3); border-color: #4a5470; }
 .w.on { background: var(--crit); border-color: var(--crit); color: #fff; font-weight: 600; }
 .w.pick { background: var(--ink-3); border-color: var(--on-dark-muted); }
 .w.ghost { border-color: transparent; color: var(--on-dark-muted); }
+.w.icon { padding: 0; width: 30px; justify-content: center; }
 .w.ghost:hover { color: #fff; }
 .pop { position: relative; }
 .menu { position: absolute; bottom: 38px; left: 0; min-width: 190px; background: var(--ink-2); border: 1px solid #343b50; border-radius: 8px; padding: 4px; display: flex; flex-direction: column; box-shadow: var(--shadow-3); }

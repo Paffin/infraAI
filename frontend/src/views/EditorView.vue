@@ -131,7 +131,7 @@ const conflict = computed(() => editor.saveState === 'conflict')
 .state { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 12px; align-items: center; justify-content: center; }
 .conflict { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 80; max-width: 520px; box-shadow: var(--shadow-2); }
 .conflict p { margin: 4px 0 8px; }
-.previewbar { position: absolute; bottom: 74px; left: 50%; transform: translateX(-50%); z-index: 58; background: var(--accent); color: #fff; font-size: 12.5px; font-weight: 600; padding: 5px 14px; border-radius: 14px; box-shadow: var(--shadow-2); display: flex; align-items: center; gap: 10px; }
+.previewbar { position: absolute; top: 56px; left: 50%; transform: translateX(-50%); z-index: 58; background: var(--accent); color: #fff; font-size: 12.5px; font-weight: 600; padding: 5px 14px; border-radius: 14px; box-shadow: var(--shadow-2); display: flex; align-items: center; gap: 10px; }
 .previewbar .exit { border: 1px solid rgba(255, 255, 255, .6); background: transparent; color: #fff; border-radius: 10px; padding: 1px 10px; font-size: 12px; }
 .previewbar .exit:hover { background: rgba(255, 255, 255, .15); }
 </style>

@@ -465,15 +465,21 @@ export const useEditor = defineStore('editor', () => {
     }, { coalesce: `zone:${id}:${Object.keys(patch).join(',')}` })
   }
 
+  /** Pick the edge type for a new connection from the catalog (semantics and traits), not from ids. */
   function guessEdgeType(a: ArchNode, b: ArchNode): string {
     const ix = app.index!
+    const types = [...ix.edgeTypes.values()]
+    const of = (semantics: string, pred: (e: (typeof types)[number]) => boolean = () => true) => types.find((e) => e.semantics === semantics && pred(e))?.id
     const ka = ix.kinds.get(a.kind)
     const kb = ix.kinds.get(b.kind)
-    if (kb?.id === 'backup_storage' || kb?.traits.includes('backup-target')) return 'backup'
-    if (ka && kb && ka.id === kb.id && ka.behavior === 'consensus') return 'quorum'
-    if (ka && kb && ka.id === kb.id && ka.behavior === 'primary_replica') return 'sync'
-    if (ka?.id === 'monitoring' || ka?.id === 'gitops') return 'control'
-    return 'traffic'
+    const same = !!ka && ka.id === kb?.id
+    const guess =
+      (kb?.traits.includes('backup-target') && of('backup')) ||
+      (same && ka!.behavior === 'consensus' && of('membership')) ||
+      (same && ka!.behavior === 'primary_replica' && (of('replication', (e) => e.defaultProps.mode === 'sync') ?? of('replication'))) ||
+      ((ka?.traits.includes('monitoring') || ka?.traits.includes('gitops')) && of('control')) ||
+      of('dependency')
+    return guess || types[0]?.id || 'traffic'
   }
 
   function connect(source: string, target: string, type?: string): string | null {

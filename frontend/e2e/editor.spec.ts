@@ -113,4 +113,27 @@ test.describe('editor', () => {
     await page.locator('.tab', { hasText: 'Проверки' }).click()
     await expect(page.locator('.obj.critical').first()).toBeVisible({ timeout: 15_000 })
   })
+
+  test('drift: an imported snapshot is compared with the design and shown on the canvas', async ({ page }) => {
+    await createProject(page, uniqueName('drift'), '2 ЦОД + witness')
+    await expect(page.locator('.arch-node').first()).toBeVisible()
+    const id = page.url().split('/p/')[1]
+    const project = await page.evaluate(async (pid) => (await fetch('/api/projects/' + pid)).json(), id)
+    const actual = JSON.parse(JSON.stringify(project.architecture))
+    actual.nodes = actual.nodes.filter((n: { id: string }) => n.id !== 'mon-dc1')
+    actual.edges = actual.edges.filter((e: { source: string; target: string }) => e.source !== 'mon-dc1' && e.target !== 'mon-dc1')
+    actual.nodes.find((n: { id: string }) => n.id === 'app-dc1').props.replicas = 99
+    actual.nodes.push({ id: 'shadow-it', kind: 'redis', name: 'Shadow Redis', zoneId: 'dc1', group: null, role: null, props: {} })
+
+    await page.getByRole('button', { name: 'Версии · diff' }).click()
+    await page.locator('.drift input[type=file]').setInputFiles({ name: 'actual.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(actual)) })
+    await expect(page.locator('.difflist')).toContainText('Shadow Redis')
+    await expect(page.locator('.difflist')).toContainText('props.replicas')
+    await page.getByRole('button', { name: 'Показать на схеме' }).click()
+    await expect(page.locator('.previewbar .exit')).toBeVisible()
+    await expect(page.locator('.arch-node.proposed')).not.toHaveCount(0)
+    await expect(page.locator('.arch-node.ghost')).not.toHaveCount(0)
+    await page.locator('.previewbar .exit').click()
+    await expect(page.locator('.previewbar')).toHaveCount(0)
+  })
 })

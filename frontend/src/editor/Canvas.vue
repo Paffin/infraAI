@@ -111,8 +111,8 @@ function onDragOver(e: DragEvent) {
 
 // ------------------------------------------------------------------------------------ zone tool
 const drawing = ref<{ x0: number; y0: number; x1: number; y1: number } | null>(null)
-const drawZoneType = ref('dc')
 const zoneTypeOptions = computed(() => app.boot?.catalog.zoneTypes ?? [])
+const drawZoneType = ref(zoneTypeOptions.value.find((z) => z.level === 'site')?.id ?? zoneTypeOptions.value[0]?.id ?? '')
 
 function localPoint(e: PointerEvent) {
   const r = wrap.value!.getBoundingClientRect()
