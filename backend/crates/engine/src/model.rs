@@ -355,6 +355,26 @@ pub fn validate(
         }
     }
 
+    // references to other units (e.g. the DCS of a database) must resolve
+    let unit_keys: HashSet<&str> = arch.nodes.iter().map(|n| n.group.as_deref().filter(|g| !g.is_empty()).unwrap_or(n.id.as_str())).collect();
+    for n in &arch.nodes {
+        for def in cat.kind(&n.kind).map(|k| k.props.iter()).into_iter().flatten() {
+            if def.prop_type == crate::catalog::PropType::UnitRef {
+                if let Some(v) = n.props.get(&def.key).and_then(as_string).filter(|s| !s.is_empty()) {
+                    if !unit_keys.contains(v.as_str()) {
+                        let mut keys: Vec<&str> = unit_keys.iter().copied().collect();
+                        keys.sort();
+                        out.push(Issue::err(
+                            "unknown_unit_ref",
+                            Some(&n.id),
+                            format!("node '{}' prop '{}' references unknown group '{}' (use the `group` id of a cluster; existing: {})", n.id, def.key, v, keys.join(", ")),
+                        ));
+                    }
+                }
+            }
+        }
+    }
+
     for e in &arch.edges {
         if !valid_id(&e.id) {
             out.push(Issue::err("bad_id", Some(&e.id), format!("invalid edge id '{}'", e.id)));

@@ -28,7 +28,7 @@ fn one_u32() -> u32 {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
-#[serde(tag = "type", rename_all = "snake_case")]
+#[serde(tag = "type", rename_all = "snake_case", rename_all_fields = "camelCase")]
 pub enum Scenario {
     /// Normal operation (baseline: loads, capacity).
     None,

@@ -1,0 +1,714 @@
+[
+ {
+  "key": "app.name",
+  "group": "general",
+  "type": "string",
+  "default": "Infra Architect",
+  "label": {
+   "ru": "Название сервиса",
+   "en": "Service name"
+  }
+ },
+ {
+  "key": "app.defaultLanguage",
+  "group": "general",
+  "type": "enum",
+  "default": "ru",
+  "label": {
+   "ru": "Язык по умолчанию",
+   "en": "Default language"
+  },
+  "options": [
+   "ru",
+   "en"
+  ]
+ },
+ {
+  "key": "app.languages",
+  "group": "general",
+  "type": "string_list",
+  "default": [
+   "ru",
+   "en"
+  ],
+  "label": {
+   "ru": "Доступные языки",
+   "en": "Available languages"
+  }
+ },
+ {
+  "key": "app.publicUrl",
+  "group": "general",
+  "type": "string",
+  "default": "",
+  "label": {
+   "ru": "Публичный URL",
+   "en": "Public URL"
+  },
+  "help": {
+   "ru": "Используется для проверки Origin (CSRF) и ссылок. Пусто — проверяется совпадение Origin и Host.",
+   "en": "Used for Origin (CSRF) checks and links. Empty — Origin must match Host."
+  }
+ },
+ {
+  "key": "app.seedDemoProject",
+  "group": "general",
+  "type": "boolean",
+  "default": true,
+  "label": {
+   "ru": "Создавать демо-проект при первом запуске",
+   "en": "Create a demo project on first start"
+  }
+ },
+ {
+  "key": "ui.theme",
+  "group": "general",
+  "type": "json",
+  "default": {},
+  "label": {
+   "ru": "Тема интерфейса (CSS-переменные)",
+   "en": "UI theme (CSS variables)"
+  },
+  "help": {
+   "ru": "Объект вида {\"--accent\": \"#2e5bec\"}: переопределяет цвета интерфейса без пересборки.",
+   "en": "Object like {\"--accent\": \"#2e5bec\"}: overrides UI colors without a rebuild."
+  }
+ },
+ {
+  "key": "auth.sessionTtlHours",
+  "group": "auth",
+  "type": "number",
+  "default": 12,
+  "label": {
+   "ru": "Время жизни сессии, ч",
+   "en": "Session lifetime, hours"
+  },
+  "min": 1,
+  "max": 720
+ },
+ {
+  "key": "auth.minPasswordLength",
+  "group": "auth",
+  "type": "number",
+  "default": 12,
+  "label": {
+   "ru": "Минимальная длина пароля",
+   "en": "Minimum password length"
+  },
+  "min": 8,
+  "max": 128
+ },
+ {
+  "key": "auth.maxFailedAttempts",
+  "group": "auth",
+  "type": "number",
+  "default": 5,
+  "label": {
+   "ru": "Неудачных входов до блокировки",
+   "en": "Failed logins before lockout"
+  },
+  "min": 1,
+  "max": 100
+ },
+ {
+  "key": "auth.lockoutMinutes",
+  "group": "auth",
+  "type": "number",
+  "default": 15,
+  "label": {
+   "ru": "Длительность блокировки, мин",
+   "en": "Lockout duration, minutes"
+  },
+  "min": 1,
+  "max": 1440
+ },
+ {
+  "key": "llm.enabled",
+  "group": "llm",
+  "type": "boolean",
+  "default": true,
+  "label": {
+   "ru": "ИИ включён",
+   "en": "AI enabled"
+  },
+  "help": {
+   "ru": "Если выключено, сервис работает только в ручном режиме.",
+   "en": "When off, the service works in manual mode only."
+  }
+ },
+ {
+  "key": "llm.baseUrl",
+  "group": "llm",
+  "type": "string",
+  "default": "https://openrouter.ai/api/v1",
+  "label": {
+   "ru": "OpenRouter: базовый URL",
+   "en": "OpenRouter: base URL"
+  }
+ },
+ {
+  "key": "llm.apiKey",
+  "group": "llm",
+  "type": "secret",
+  "default": "",
+  "label": {
+   "ru": "OpenRouter: API-ключ",
+   "en": "OpenRouter: API key"
+  },
+  "help": {
+   "ru": "Хранится зашифрованным (AES-256-GCM). Если пусто, используется переменная окружения OPENROUTER_API_KEY.",
+   "en": "Stored encrypted (AES-256-GCM). If empty, the OPENROUTER_API_KEY environment variable is used."
+  }
+ },
+ {
+  "key": "llm.model.planner",
+  "group": "llm",
+  "type": "model",
+  "default": "anthropic/claude-sonnet-5.5",
+  "label": {
+   "ru": "Модель для проектирования и правок",
+   "en": "Model for design and edits"
+  },
+  "help": {
+   "ru": "Идентификатор модели OpenRouter. Выбирается из каталога моделей.",
+   "en": "OpenRouter model id. Pick from the model catalog."
+  }
+ },
+ {
+  "key": "llm.model.fast",
+  "group": "llm",
+  "type": "model",
+  "default": "anthropic/claude-haiku-5.5",
+  "label": {
+   "ru": "Быстрая модель (чат, объяснения)",
+   "en": "Fast model (chat, explanations)"
+  }
+ },
+ {
+  "key": "llm.model.fallbacks",
+  "group": "llm",
+  "type": "string_list",
+  "default": [],
+  "label": {
+   "ru": "Резервные модели",
+   "en": "Fallback models"
+  },
+  "help": {
+   "ru": "OpenRouter пробует их по порядку, если основная недоступна, ограничена по лимитам или отказала.",
+   "en": "OpenRouter tries them in order if the primary is down, rate-limited or refuses."
+  }
+ },
+ {
+  "key": "llm.temperature",
+  "group": "llm",
+  "type": "number",
+  "default": 0.2,
+  "label": {
+   "ru": "Temperature",
+   "en": "Temperature"
+  },
+  "min": 0,
+  "max": 2
+ },
+ {
+  "key": "llm.maxOutputTokens",
+  "group": "llm",
+  "type": "number",
+  "default": 16000,
+  "label": {
+   "ru": "Максимум токенов ответа",
+   "en": "Max output tokens"
+  },
+  "min": 256,
+  "max": 200000
+ },
+ {
+  "key": "llm.timeoutSeconds",
+  "group": "llm",
+  "type": "number",
+  "default": 120,
+  "label": {
+   "ru": "Таймаут запроса, с",
+   "en": "Request timeout, seconds"
+  },
+  "min": 5,
+  "max": 900
+ },
+ {
+  "key": "llm.retries",
+  "group": "llm",
+  "type": "number",
+  "default": 2,
+  "label": {
+   "ru": "Повторов при 429/5xx",
+   "en": "Retries on 429/5xx"
+  },
+  "min": 0,
+  "max": 6
+ },
+ {
+  "key": "llm.structuredOutput",
+  "group": "llm",
+  "type": "enum",
+  "default": "json_schema",
+  "label": {
+   "ru": "Режим структурированного вывода",
+   "en": "Structured output mode"
+  },
+  "help": {
+   "ru": "json_schema — если модель поддерживает; иначе автоматически json_object; prompt — только инструкция в промпте. Ответ всегда валидируется на сервере.",
+   "en": "json_schema when the model supports it, otherwise json_object automatically; prompt — instruction only. The answer is always validated server-side."
+  },
+  "options": [
+   "json_schema",
+   "json_object",
+   "prompt"
+  ]
+ },
+ {
+  "key": "llm.reasoningEffort",
+  "group": "llm",
+  "type": "enum",
+  "default": "",
+  "label": {
+   "ru": "Усилие рассуждения",
+   "en": "Reasoning effort"
+  },
+  "options": [
+   "",
+   "minimal",
+   "low",
+   "medium",
+   "high"
+  ]
+ },
+ {
+  "key": "llm.provider.dataCollection",
+  "group": "llm",
+  "type": "enum",
+  "default": "deny",
+  "label": {
+   "ru": "Хранение данных провайдером",
+   "en": "Provider data collection"
+  },
+  "help": {
+   "ru": "deny — маршрутизация только к провайдерам, не сохраняющим ваши промпты. Топология инфраструктуры чувствительна: по умолчанию deny.",
+   "en": "deny — route only to providers that do not store your prompts. Infrastructure topology is sensitive: deny by default."
+  },
+  "options": [
+   "allow",
+   "deny"
+  ]
+ },
+ {
+  "key": "llm.provider.zdr",
+  "group": "llm",
+  "type": "boolean",
+  "default": false,
+  "label": {
+   "ru": "Только Zero Data Retention",
+   "en": "Zero Data Retention only"
+  }
+ },
+ {
+  "key": "llm.provider.requireParameters",
+  "group": "llm",
+  "type": "boolean",
+  "default": true,
+  "label": {
+   "ru": "Только провайдеры, поддерживающие все параметры",
+   "en": "Only providers supporting all parameters"
+  }
+ },
+ {
+  "key": "llm.provider.allowFallbacks",
+  "group": "llm",
+  "type": "boolean",
+  "default": true,
+  "label": {
+   "ru": "Разрешить резервных провайдеров",
+   "en": "Allow backup providers"
+  }
+ },
+ {
+  "key": "llm.provider.sort",
+  "group": "llm",
+  "type": "enum",
+  "default": "",
+  "label": {
+   "ru": "Сортировка провайдеров",
+   "en": "Provider sorting"
+  },
+  "options": [
+   "",
+   "price",
+   "throughput",
+   "latency"
+  ]
+ },
+ {
+  "key": "llm.provider.only",
+  "group": "llm",
+  "type": "string_list",
+  "default": [],
+  "label": {
+   "ru": "Только эти провайдеры",
+   "en": "Only these providers"
+  }
+ },
+ {
+  "key": "llm.provider.ignore",
+  "group": "llm",
+  "type": "string_list",
+  "default": [],
+  "label": {
+   "ru": "Исключить провайдеров",
+   "en": "Ignore providers"
+  }
+ },
+ {
+  "key": "llm.appReferer",
+  "group": "llm",
+  "type": "string",
+  "default": "https://github.com/Paffin/infraAI",
+  "label": {
+   "ru": "HTTP-Referer",
+   "en": "HTTP-Referer"
+  }
+ },
+ {
+  "key": "llm.appTitle",
+  "group": "llm",
+  "type": "string",
+  "default": "Infra Architect",
+  "label": {
+   "ru": "X-Title",
+   "en": "X-Title"
+  }
+ },
+ {
+  "key": "llm.repairRounds",
+  "group": "llm",
+  "type": "number",
+  "default": 2,
+  "label": {
+   "ru": "Раундов исправления невалидного ответа",
+   "en": "Repair rounds for invalid output"
+  },
+  "help": {
+   "ru": "Ошибки валидации возвращаются модели для исправления.",
+   "en": "Validation errors are sent back to the model for repair."
+  },
+  "min": 0,
+  "max": 5
+ },
+ {
+  "key": "llm.refineRounds",
+  "group": "llm",
+  "type": "number",
+  "default": 2,
+  "label": {
+   "ru": "Раундов доработки по замечаниям движка",
+   "en": "Refine rounds from engine findings"
+  },
+  "help": {
+   "ru": "Критичные замечания движка передаются модели для исправления до показа результата.",
+   "en": "Critical engine findings are fed back to the model before showing the result."
+  },
+  "min": 0,
+  "max": 3
+ },
+ {
+  "key": "llm.autoFixRounds",
+  "group": "llm",
+  "type": "number",
+  "default": 2,
+  "label": {
+   "ru": "Раундов автоисправлений движка",
+   "en": "Engine auto-fix rounds"
+  },
+  "min": 0,
+  "max": 5,
+  "help": {
+   "ru": "После ответа модели движок сам применяет безопасные механические исправления критичных замечаний (масштабирование, DCS, арбитр, роль, группа) — детерминированно и с повторной проверкой. 0 — выключено.",
+   "en": "After the model answers, the engine applies safe mechanical fixes for critical findings (scaling, DCS, arbiter, role, group) — deterministically and re-verified. 0 — off."
+  }
+ },
+ {
+  "key": "llm.autoFixKinds",
+  "group": "llm",
+  "type": "string_list",
+  "default": [
+   "scale",
+   "set_dcs",
+   "add_witness",
+   "set_role",
+   "group"
+  ],
+  "label": {
+   "ru": "Виды автоисправлений",
+   "en": "Auto-fix kinds"
+  },
+  "help": {
+   "ru": "Какие виды исправлений движка разрешено применять автоматически. Утверждения о свойствах системы (шифрование, TLS, immutable) не применяются автоматически.",
+   "en": "Which engine fix kinds may be applied automatically. Claims about system properties (encryption, TLS, immutability) are never applied automatically."
+  }
+ },
+ {
+  "key": "llm.maxPromptChars",
+  "group": "llm",
+  "type": "number",
+  "default": 8000,
+  "label": {
+   "ru": "Максимальная длина запроса, символов",
+   "en": "Max request length, chars"
+  },
+  "min": 100,
+  "max": 100000
+ },
+ {
+  "key": "llm.maxOps",
+  "group": "llm",
+  "type": "number",
+  "default": 200,
+  "label": {
+   "ru": "Максимум операций в предложении",
+   "en": "Max operations per proposal"
+  },
+  "min": 1,
+  "max": 2000
+ },
+ {
+  "key": "llm.perUserPerHour",
+  "group": "llm",
+  "type": "number",
+  "default": 30,
+  "label": {
+   "ru": "Запросов к ИИ на пользователя в час",
+   "en": "AI requests per user per hour"
+  },
+  "help": {
+   "ru": "0 — без ограничения.",
+   "en": "0 — unlimited."
+  },
+  "min": 0,
+  "max": 10000
+ },
+ {
+  "key": "llm.monthlyBudgetUsd",
+  "group": "llm",
+  "type": "number",
+  "default": 0,
+  "label": {
+   "ru": "Месячный бюджет ИИ, USD",
+   "en": "Monthly AI budget, USD"
+  },
+  "help": {
+   "ru": "0 — без ограничения. Расход берётся из учёта OpenRouter.",
+   "en": "0 — unlimited. Spend comes from OpenRouter usage accounting."
+  },
+  "min": 0
+ },
+ {
+  "key": "llm.sendNotes",
+  "group": "llm",
+  "type": "boolean",
+  "default": true,
+  "label": {
+   "ru": "Отправлять заметки узлов модели",
+   "en": "Send node notes to the model"
+  }
+ },
+ {
+  "key": "llm.logPrompts",
+  "group": "llm",
+  "type": "boolean",
+  "default": false,
+  "label": {
+   "ru": "Сохранять тексты промптов в журнале",
+   "en": "Store prompt texts in the log"
+  },
+  "help": {
+   "ru": "По умолчанию сохраняются только хэши и метрики.",
+   "en": "Only hashes and metrics are stored by default."
+  }
+ },
+ {
+  "key": "llm.modelsCacheMinutes",
+  "group": "llm",
+  "type": "number",
+  "default": 60,
+  "label": {
+   "ru": "Кэш каталога моделей, мин",
+   "en": "Model catalog cache, minutes"
+  },
+  "min": 1,
+  "max": 1440
+ },
+ {
+  "key": "jobs.maxConcurrent",
+  "group": "jobs",
+  "type": "number",
+  "default": 4,
+  "label": {
+   "ru": "Параллельных ИИ-задач на экземпляр",
+   "en": "Concurrent AI jobs per instance"
+  },
+  "min": 1,
+  "max": 64
+ },
+ {
+  "key": "jobs.staleSeconds",
+  "group": "jobs",
+  "type": "number",
+  "default": 90,
+  "label": {
+   "ru": "Считать задачу потерянной через, с",
+   "en": "Treat a job as lost after, seconds"
+  },
+  "min": 30,
+  "max": 3600
+ },
+ {
+  "key": "limits.maxNodes",
+  "group": "limits",
+  "type": "number",
+  "default": 500,
+  "label": {
+   "ru": "Максимум узлов в схеме",
+   "en": "Max nodes per architecture"
+  },
+  "min": 10,
+  "max": 5000
+ },
+ {
+  "key": "limits.maxEdges",
+  "group": "limits",
+  "type": "number",
+  "default": 2000,
+  "label": {
+   "ru": "Максимум связей в схеме",
+   "en": "Max edges per architecture"
+  },
+  "min": 10,
+  "max": 20000
+ },
+ {
+  "key": "limits.maxZones",
+  "group": "limits",
+  "type": "number",
+  "default": 100,
+  "label": {
+   "ru": "Максимум зон в схеме",
+   "en": "Max zones per architecture"
+  },
+  "min": 1,
+  "max": 1000
+ },
+ {
+  "key": "limits.maxProjectsPerUser",
+  "group": "limits",
+  "type": "number",
+  "default": 200,
+  "label": {
+   "ru": "Максимум проектов на пользователя",
+   "en": "Max projects per user"
+  },
+  "min": 1,
+  "max": 100000
+ },
+ {
+  "key": "limits.maxVersionsPerProject",
+  "group": "limits",
+  "type": "number",
+  "default": 500,
+  "label": {
+   "ru": "Максимум версий проекта",
+   "en": "Max versions per project"
+  },
+  "min": 10,
+  "max": 100000
+ },
+ {
+  "key": "limits.maxBodyMb",
+  "group": "limits",
+  "type": "number",
+  "default": 4,
+  "label": {
+   "ru": "Максимальный размер запроса, МБ",
+   "en": "Max request body, MB"
+  },
+  "min": 1,
+  "max": 64
+ },
+ {
+  "key": "limits.waiverMinReasonChars",
+  "group": "limits",
+  "type": "number",
+  "default": 20,
+  "label": {
+   "ru": "Минимальная длина обоснования принятия риска",
+   "en": "Min length of the accept-risk justification"
+  },
+  "min": 0,
+  "max": 1000
+ },
+ {
+  "key": "limits.waiverMaxDays",
+  "group": "limits",
+  "type": "number",
+  "default": 180,
+  "label": {
+   "ru": "Максимальный срок принятия риска, дней",
+   "en": "Max accepted-risk duration, days"
+  },
+  "min": 1,
+  "max": 3650
+ },
+ {
+  "key": "retention.auditDays",
+  "group": "retention",
+  "type": "number",
+  "default": 365,
+  "label": {
+   "ru": "Хранить журнал аудита, дней",
+   "en": "Keep audit log, days"
+  },
+  "min": 1,
+  "max": 36500
+ },
+ {
+  "key": "retention.llmCallsDays",
+  "group": "retention",
+  "type": "number",
+  "default": 90,
+  "label": {
+   "ru": "Хранить журнал вызовов ИИ, дней",
+   "en": "Keep AI call log, days"
+  },
+  "min": 1,
+  "max": 36500
+ },
+ {
+  "key": "retention.jobsDays",
+  "group": "retention",
+  "type": "number",
+  "default": 30,
+  "label": {
+   "ru": "Хранить ИИ-задачи, дней",
+   "en": "Keep AI jobs, days"
+  },
+  "min": 1,
+  "max": 36500
+ },
+ {
+  "key": "observability.metricsEnabled",
+  "group": "observability",
+  "type": "boolean",
+  "default": true,
+  "label": {
+   "ru": "Метрики Prometheus (/metrics)",
+   "en": "Prometheus metrics (/metrics)"
+  }
+ }
+]
