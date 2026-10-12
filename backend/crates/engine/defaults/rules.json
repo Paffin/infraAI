@@ -1,0 +1,1623 @@
+[
+ {
+  "id": "HA-SPOF-01",
+  "category": "ha",
+  "check": "spof",
+  "enabled": true,
+  "severity": "critical",
+  "params": {
+   "ignoreTraits": []
+  },
+  "title": {
+   "ru": "Единых точек отказа нет",
+   "en": "No single point of failure"
+  },
+  "message": {
+   "ru": "Отказ «{node}» останавливает сервис. Недоступно: {reason}.",
+   "en": "Losing “{node}” stops the service. Unavailable: {reason}."
+  },
+  "ok": {
+   "ru": "Единых точек отказа нет",
+   "en": "No single points of failure"
+  },
+  "rationale": {
+   "ru": "Каждый компонент на пути запроса должен переживать потерю одного экземпляра. Движок проверяет это симуляцией отказа каждого узла.",
+   "en": "Every component on the request path must survive the loss of one instance. The engine verifies this by simulating the failure of every node."
+  },
+  "fixLabels": {
+   "set_replicas": {
+    "ru": "Увеличить «{node}» до {replicas} экземпляров",
+    "en": "Scale “{node}” to {replicas} instances"
+   },
+   "add_member": {
+    "ru": "Добавить «{unit}» на площадку {zone}",
+    "en": "Add “{unit}” on {zone}"
+   }
+  }
+ },
+ {
+  "id": "HA-SITE-01",
+  "category": "ha",
+  "check": "survive_site",
+  "enabled": true,
+  "severity": "critical",
+  "params": {},
+  "title": {
+   "ru": "Сервис переживает потерю площадки",
+   "en": "Service survives a site loss"
+  },
+  "message": {
+   "ru": "При потере «{zone}» сервис остановится. Недоступно: {reason}.",
+   "en": "If “{zone}” is lost the service stops. Unavailable: {reason}."
+  },
+  "ok": {
+   "ru": "Сервис переживает потерю любой площадки",
+   "en": "Service survives the loss of any site"
+  },
+  "rationale": {
+   "ru": "Движок «роняет» каждую площадку целиком и проверяет, обслуживаются ли пользователи.",
+   "en": "The engine drops each site entirely and checks whether users are still served."
+  },
+  "fixLabels": {
+   "add_member": {
+    "ru": "Добавить «{unit}» на площадку {zone}",
+    "en": "Add “{unit}” on {zone}"
+   }
+  }
+ },
+ {
+  "id": "HA-RTO-01",
+  "category": "dr",
+  "check": "rto",
+  "enabled": true,
+  "severity": "critical",
+  "params": {},
+  "title": {
+   "ru": "Восстановление укладывается в RTO",
+   "en": "Recovery fits the RTO"
+  },
+  "message": {
+   "ru": "При потере «{zone}» восстановление займёт {seconds} с ({kind}) при допустимом RTO {rto} с.",
+   "en": "Losing “{zone}” takes {seconds}s to recover ({kind}) with an RTO of {rto}s."
+  },
+  "ok": {
+   "ru": "Восстановление укладывается в RTO",
+   "en": "Recovery fits the RTO"
+  },
+  "requirementMessage": {
+   "ru": "В требованиях не задан RTO — восстановление проверить нельзя.",
+   "en": "No RTO in the requirements — recovery cannot be verified."
+  },
+  "rationale": {
+   "ru": "RTO = обнаружение отказа + переключение (автоматическое или ручное) + прогрев. Значения берутся из свойств компонентов и допущений.",
+   "en": "RTO = failure detection + failover (automatic or manual) + warm-up. Values come from component properties and assumptions."
+  }
+ },
+ {
+  "id": "DR-RPO-01",
+  "category": "dr",
+  "check": "rpo",
+  "enabled": true,
+  "severity": "critical",
+  "params": {
+   "excludeTraits": [
+    "mq",
+    "secrets",
+    "cache"
+   ]
+  },
+  "title": {
+   "ru": "Потеря данных укладывается в RPO",
+   "en": "Data loss fits the RPO"
+  },
+  "message": {
+   "ru": "При потере «{zone}» окно потери данных {seconds} с при допустимом RPO {rpo} с.",
+   "en": "Losing “{zone}” loses up to {seconds}s of data with an RPO of {rpo}s."
+  },
+  "ok": {
+   "ru": "Потеря данных укладывается в RPO",
+   "en": "Data loss fits the RPO"
+  },
+  "noDataMessage": {
+   "ru": "RPO при потере «{zone}» не подтверждён: значение определить нельзя или оно взято из допущений.",
+   "en": "The RPO for losing “{zone}” is unverified: it cannot be determined or comes from an assumption."
+  },
+  "requirementMessage": {
+   "ru": "В требованиях не задан RPO — потерю данных проверить нельзя.",
+   "en": "No RPO in the requirements — data loss cannot be verified."
+  },
+  "rationale": {
+   "ru": "RPO относится к бизнес-данным. Очереди оцениваются отдельным правилом (DR-KFK-01): их можно защитить паттерном outbox; кэш восстановим из источника; хранилище секретов реплицируется асинхронно по своей природе. Список исключений настраивается.",
+   "en": "The RPO applies to business data. Queues are assessed by a separate rule (DR-KFK-01): they can be protected with the outbox pattern; a cache is rebuilt from its source; a secrets store replicates asynchronously by nature. The exclusion list is configurable."
+  }
+ },
+ {
+  "id": "DR-GEO-01",
+  "category": "dr",
+  "check": "geo_spread",
+  "enabled": true,
+  "severity": "critical",
+  "params": {},
+  "title": {
+   "ru": "Данные в разных доменах катастрофы",
+   "en": "Data spans disaster domains"
+  },
+  "message": {
+   "ru": "Все данные находятся в одном домене катастрофы ({geo}): потеря региона уничтожит их.",
+   "en": "All data lives in one disaster domain ({geo}): losing the region destroys it."
+  },
+  "ok": {
+   "ru": "Данные размещены минимум в двух доменах катастрофы",
+   "en": "Data is placed in at least two disaster domains"
+  },
+  "noDataMessage": {
+   "ru": "У части площадок не задан гео-домен — независимость доменов катастрофы не проверить.",
+   "en": "Some sites have no geo domain — disaster-domain independence cannot be verified."
+  },
+  "rationale": {
+   "ru": "Два ЦОД в одном городе дают отказоустойчивость, но не катастрофоустойчивость: наводнение, пожар района или обесточивание поражают обе площадки.",
+   "en": "Two data centers in one city give high availability but not disaster tolerance: a flood, district fire or blackout hits both."
+  }
+ },
+ {
+  "id": "DR-GEO-02",
+  "category": "dr",
+  "check": "geo_survive",
+  "enabled": true,
+  "severity": "critical",
+  "params": {},
+  "title": {
+   "ru": "Сервис переживает потерю домена катастрофы",
+   "en": "Service survives a disaster-domain loss"
+  },
+  "message": {
+   "ru": "При потере домена «{geo}» не выполняются требования: {problems}. RTO {seconds} с, RPO {rpo} с, потеряны данные: {lost}.",
+   "en": "Losing the “{geo}” domain violates the requirements: {problems}. RTO {seconds}s, RPO {rpo}s, lost data: {lost}."
+  },
+  "ok": {
+   "ru": "Сервис переживает потерю домена катастрофы",
+   "en": "Service survives a disaster-domain loss"
+  },
+  "noDataMessage": {
+   "ru": "У площадки «{zone}» не задан гео-домен.",
+   "en": "Site “{zone}” has no geo domain."
+  }
+ },
+ {
+  "id": "DR-NET-01",
+  "category": "dr",
+  "check": "partition_safety",
+  "enabled": true,
+  "severity": "critical",
+  "params": {
+   "mode": "split_brain"
+  },
+  "title": {
+   "ru": "Разрыв канала не вызывает split-brain",
+   "en": "A link cut does not cause split-brain"
+  },
+  "message": {
+   "ru": "При разрыве канала «{link}» возможны два активных писателя в «{unit}» (split-brain): данные разойдутся.",
+   "en": "If link “{link}” is cut, “{unit}” may get two writers (split-brain): data will diverge."
+  },
+  "ok": {
+   "ru": "Разрыв любого канала не вызывает split-brain",
+   "en": "No single link cut causes split-brain"
+  },
+  "rationale": {
+   "ru": "Автоматическое переключение без кворума-арбитра повышает вторую реплику, пока старый primary жив. Нужны кворум и fencing.",
+   "en": "Automatic failover without a quorum arbiter promotes a second replica while the old primary is alive. Quorum and fencing are required."
+  }
+ },
+ {
+  "id": "DR-NET-02",
+  "category": "dr",
+  "check": "partition_safety",
+  "enabled": true,
+  "severity": "risk",
+  "params": {
+   "mode": "unavailable"
+  },
+  "title": {
+   "ru": "Сервис переживает разрыв канала",
+   "en": "Service survives a link cut"
+  },
+  "message": {
+   "ru": "При разрыве канала «{link}» сервис остановится: {reason}.",
+   "en": "If link “{link}” is cut the service stops: {reason}."
+  },
+  "ok": {
+   "ru": "Сервис переживает разрыв любого канала",
+   "en": "Service survives any single link cut"
+  }
+ },
+ {
+  "id": "HA-LB-01",
+  "category": "ha",
+  "check": "min_instances",
+  "enabled": true,
+  "severity": "risk",
+  "params": {
+   "trait": "balancer",
+   "min": 2,
+   "count": "instances",
+   "excludeTraits": [
+    "dns-routing"
+   ]
+  },
+  "title": {
+   "ru": "Балансировщики резервированы",
+   "en": "Load balancers are redundant"
+  },
+  "message": {
+   "ru": "«{unit}»: экземпляров {count}, нужно не менее {min}.",
+   "en": "“{unit}”: {count} instance(s), at least {min} required."
+  },
+  "ok": {
+   "ru": "Балансировщики резервированы",
+   "en": "Load balancers are redundant"
+  },
+  "fixLabels": {
+   "set_replicas": {
+    "ru": "Увеличить «{node}» до {replicas} экземпляров",
+    "en": "Scale “{node}” to {replicas} instances"
+   },
+   "add_member": {
+    "ru": "Добавить «{unit}» на площадку {zone}",
+    "en": "Add “{unit}” on {zone}"
+   }
+  }
+ },
+ {
+  "id": "HA-APP-01",
+  "category": "ha",
+  "check": "min_instances",
+  "enabled": true,
+  "severity": "risk",
+  "params": {
+   "trait": "workload",
+   "min": 2,
+   "count": "instances"
+  },
+  "title": {
+   "ru": "Приложения запущены минимум в двух экземплярах",
+   "en": "Workloads run at least two instances"
+  },
+  "message": {
+   "ru": "«{unit}»: экземпляров {count}, нужно не менее {min}.",
+   "en": "“{unit}”: {count} instance(s), at least {min} required."
+  },
+  "ok": {
+   "ru": "Приложения запущены минимум в двух экземплярах",
+   "en": "Workloads run at least two instances"
+  },
+  "fixLabels": {
+   "set_replicas": {
+    "ru": "Увеличить «{node}» до {replicas} экземпляров",
+    "en": "Scale “{node}” to {replicas} instances"
+   },
+   "add_member": {
+    "ru": "Добавить «{unit}» на площадку {zone}",
+    "en": "Add “{unit}” on {zone}"
+   }
+  }
+ },
+ {
+  "id": "HA-ZONE-01",
+  "category": "ha",
+  "check": "spread_sites",
+  "enabled": true,
+  "severity": "critical",
+  "params": {
+   "trait": "backup-required",
+   "minSites": 2,
+   "requireTolerance": "site",
+   "acceptReplication": true
+  },
+  "title": {
+   "ru": "Хранилища размещены минимум на двух площадках",
+   "en": "Data stores span at least two sites"
+  },
+  "message": {
+   "ru": "«{unit}» размещён на {sites} площадке: её потеря остановит или уничтожит данные.",
+   "en": "“{unit}” lives on {sites} site: losing it stops or destroys the data."
+  },
+  "ok": {
+   "ru": "Хранилища размещены минимум на двух площадках",
+   "en": "Data stores span at least two sites"
+  },
+  "fixLabels": {
+   "add_member": {
+    "ru": "Добавить реплику «{unit}» на площадку {zone}",
+    "en": "Add a replica of “{unit}” on {zone}"
+   }
+  }
+ },
+ {
+  "id": "HA-ZONE-02",
+  "category": "ha",
+  "check": "spread_sites",
+  "enabled": true,
+  "severity": "risk",
+  "params": {
+   "trait": "workload",
+   "minSites": 2,
+   "requireTolerance": "site"
+  },
+  "title": {
+   "ru": "Приложения размещены минимум на двух площадках",
+   "en": "Workloads span at least two sites"
+  },
+  "message": {
+   "ru": "«{unit}» размещён на {sites} площадке.",
+   "en": "“{unit}” lives on {sites} site."
+  },
+  "ok": {
+   "ru": "Приложения размещены минимум на двух площадках",
+   "en": "Workloads span at least two sites"
+  },
+  "fixLabels": {
+   "add_member": {
+    "ru": "Добавить «{unit}» на площадку {zone}",
+    "en": "Add “{unit}” on {zone}"
+   }
+  }
+ },
+ {
+  "id": "HA-QRM-01",
+  "category": "ha",
+  "check": "quorum_voters",
+  "enabled": true,
+  "severity": "critical",
+  "params": {
+   "mode": "odd_min3"
+  },
+  "title": {
+   "ru": "Кворум: нечётное число голосов, не менее трёх",
+   "en": "Quorum: odd number of votes, at least three"
+  },
+  "message": {
+   "ru": "Кворум «{unit}»: {votes} голос(ов) — нужно нечётное число не менее 3.",
+   "en": "Quorum of “{unit}”: {votes} vote(s) — an odd number of at least 3 is required."
+  },
+  "ok": {
+   "ru": "У всех кластеров консенсуса нечётное число голосов ≥ 3",
+   "en": "All consensus clusters have an odd number of votes ≥ 3"
+  },
+  "fixLabels": {
+   "add_witness": {
+    "ru": "Добавить арбитра «{unit}» на площадку {zone}",
+    "en": "Add an arbiter for “{unit}” on {zone}"
+   }
+  }
+ },
+ {
+  "id": "HA-QRM-02",
+  "category": "ha",
+  "check": "quorum_voters",
+  "enabled": true,
+  "severity": "critical",
+  "params": {
+   "mode": "survive_site"
+  },
+  "title": {
+   "ru": "Кворум переживает потерю площадки",
+   "en": "Quorum survives a site loss"
+  },
+  "message": {
+   "ru": "Потеря «{zone}» лишает «{unit}» кворума: остаётся {votes} из {total} голосов.",
+   "en": "Losing “{zone}” breaks the quorum of “{unit}”: {votes} of {total} votes remain."
+  },
+  "ok": {
+   "ru": "Кворум переживает потерю любой площадки",
+   "en": "Quorum survives the loss of any site"
+  },
+  "fixLabels": {
+   "add_witness": {
+    "ru": "Добавить арбитра «{unit}» на площадку {zone}",
+    "en": "Add an arbiter for “{unit}” on {zone}"
+   }
+  }
+ },
+ {
+  "id": "HA-WIT-01",
+  "category": "ha",
+  "check": "witness_independent",
+  "enabled": true,
+  "severity": "critical",
+  "params": {},
+  "title": {
+   "ru": "Арбитр независим от данных",
+   "en": "Arbiter is independent from the data"
+  },
+  "message": {
+   "ru": "Арбитр «{node}» находится на одной площадке с данными («{zone}») и погибнет вместе с ними.",
+   "en": "Arbiter “{node}” sits on the same site as the data (“{zone}”) and dies with it."
+  },
+  "ok": {
+   "ru": "Арбитры вынесены на независимые площадки",
+   "en": "Arbiters sit on independent sites"
+  }
+ },
+ {
+  "id": "HA-DB-01",
+  "category": "ha",
+  "check": "min_instances",
+  "enabled": true,
+  "severity": "critical",
+  "params": {
+   "behavior": "primary_replica",
+   "min": 2,
+   "count": "dataMembers",
+   "excludeTraits": [
+    "cache"
+   ]
+  },
+  "title": {
+   "ru": "У хранилищ есть реплика",
+   "en": "Data stores have a replica"
+  },
+  "message": {
+   "ru": "«{unit}» не имеет реплики: потеря primary означает потерю данных или сервиса.",
+   "en": "“{unit}” has no replica: losing the primary loses data or service."
+  },
+  "ok": {
+   "ru": "У всех хранилищ есть реплика",
+   "en": "All data stores have a replica"
+  },
+  "fixLabels": {
+   "add_member": {
+    "ru": "Добавить реплику «{unit}» на площадку {zone}",
+    "en": "Add a replica of “{unit}” on {zone}"
+   }
+  }
+ },
+ {
+  "id": "HA-DB-02",
+  "category": "ha",
+  "check": "failover_authority",
+  "enabled": true,
+  "severity": "critical",
+  "params": {},
+  "title": {
+   "ru": "Автопереключение защищено кворумом",
+   "en": "Automatic failover is protected by a quorum"
+  },
+  "message": {
+   "ru": "«{unit}»: автоматическое переключение без DCS и арбитра — при разрыве связи оба узла станут primary (split-brain).",
+   "en": "“{unit}”: automatic failover without a DCS or arbiter — on a partition both nodes become primary (split-brain)."
+  },
+  "ok": {
+   "ru": "Автопереключение везде защищено кворумом",
+   "en": "Automatic failover is protected by a quorum everywhere"
+  },
+  "rationale": {
+   "ru": "Только консенсус (etcd/Consul/Sentinel-кворум) гарантирует единственного лидера при разделении сети.",
+   "en": "Only consensus (etcd/Consul/Sentinel quorum) guarantees a single leader during a network partition."
+  },
+  "fixLabels": {
+   "set_dcs": {
+    "ru": "Подключить DCS «{dcs}»",
+    "en": "Use “{dcs}” as DCS"
+   },
+   "add_witness": {
+    "ru": "Добавить арбитра на площадку {zone}",
+    "en": "Add an arbiter on {zone}"
+   }
+  }
+ },
+ {
+  "id": "HA-DB-03",
+  "category": "dr",
+  "check": "replication_policy",
+  "enabled": true,
+  "severity": "critical",
+  "params": {
+   "trait": "datastore",
+   "excludeTraits": [
+    "mq",
+    "cache"
+   ]
+  },
+  "title": {
+   "ru": "Репликация БД соответствует RPO",
+   "en": "Database replication matches the RPO"
+  },
+  "message": {
+   "ru": "Асинхронная репликация «{source}» → «{target}» (лаг {lag} с) не гарантирует RPO {rpo} с.",
+   "en": "Asynchronous replication “{source}” → “{target}” (lag {lag}s) does not guarantee an RPO of {rpo}s."
+  },
+  "ok": {
+   "ru": "Репликация БД соответствует RPO",
+   "en": "Database replication matches the RPO"
+  },
+  "noDataMessage": {
+   "ru": "Лаг репликации «{source}» → «{target}» не указан: принято {lag} с.",
+   "en": "Replication lag of “{source}” → “{target}” is not declared: {lag}s assumed."
+  },
+  "requirementMessage": {
+   "ru": "В требованиях не задан RPO — репликацию проверить нельзя.",
+   "en": "No RPO in the requirements — replication cannot be verified."
+  },
+  "fixLabels": {
+   "make_sync": {
+    "ru": "Перевести «{source}» → «{target}» в синхронную репликацию",
+    "en": "Switch “{source}” → “{target}” to synchronous replication"
+   }
+  }
+ },
+ {
+  "id": "DR-KFK-01",
+  "category": "dr",
+  "check": "replication_policy",
+  "enabled": true,
+  "severity": "risk",
+  "params": {
+   "trait": "mq"
+  },
+  "title": {
+   "ru": "Репликация очередей соответствует RPO",
+   "en": "Queue replication matches the RPO"
+  },
+  "message": {
+   "ru": "Асинхронная репликация очередей «{source}» → «{target}» (лаг {lag} с): события в полёте могут потеряться при отказе площадки (RPO {rpo} с).",
+   "en": "Asynchronous queue replication “{source}” → “{target}” (lag {lag}s): in-flight events may be lost on a site failure (RPO {rpo}s)."
+  },
+  "ok": {
+   "ru": "Репликация очередей соответствует RPO либо митигация задана",
+   "en": "Queue replication matches the RPO or a mitigation is declared"
+  },
+  "noDataMessage": {
+   "ru": "Лаг репликации очередей «{source}» → «{target}» не указан: принято {lag} с.",
+   "en": "Queue replication lag “{source}” → “{target}” is not declared: {lag}s assumed."
+  },
+  "requirementMessage": {
+   "ru": "В требованиях не задан RPO.",
+   "en": "No RPO in the requirements."
+  },
+  "rationale": {
+   "ru": "Защитите критичные события паттерном transactional outbox и укажите митигацию в свойствах связи — тогда правило не считает асинхронность риском.",
+   "en": "Protect critical events with a transactional outbox and record the mitigation on the link — the rule then no longer flags the asynchrony."
+  }
+ },
+ {
+  "id": "HA-DB-04",
+  "category": "ha",
+  "check": "role_required",
+  "enabled": true,
+  "severity": "risk",
+  "params": {},
+  "title": {
+   "ru": "Ровно один primary",
+   "en": "Exactly one primary"
+  },
+  "message": {
+   "ru": "«{unit}»: ролей primary — {count}, должна быть ровно одна.",
+   "en": "“{unit}”: {count} primary role(s), exactly one is required."
+  },
+  "ok": {
+   "ru": "У каждого кластера ровно один primary",
+   "en": "Every cluster has exactly one primary"
+  },
+  "fixLabels": {
+   "set_role": {
+    "ru": "Назначить «{node}» primary",
+    "en": "Make “{node}” primary"
+   }
+  }
+ },
+ {
+  "id": "HA-DB-05",
+  "category": "ha",
+  "check": "prop",
+  "enabled": true,
+  "severity": "risk",
+  "params": {
+   "subject": "node",
+   "where": {
+    "behavior": "primary_replica",
+    "role": "replica",
+    "excludeTraits": [
+     "cache",
+     "secrets"
+    ],
+    "excludeZoneRoles": [
+     "standby"
+    ]
+   },
+   "key": "failover",
+   "op": "eq",
+   "value": "auto",
+   "onMissing": "skip"
+  },
+  "title": {
+   "ru": "Переключение БД автоматическое",
+   "en": "Database failover is automatic"
+  },
+  "message": {
+   "ru": "«{node}»: переключение «{actual}» — потребуется ручное вмешательство, это увеличит RTO.",
+   "en": "“{node}”: failover is “{actual}” — manual intervention is needed, which increases the RTO."
+  },
+  "ok": {
+   "ru": "Переключение БД автоматическое",
+   "en": "Database failover is automatic"
+  },
+  "fixLabels": {
+   "set_prop": {
+    "ru": "Включить автоматическое переключение у «{node}»",
+    "en": "Enable automatic failover on “{node}”"
+   }
+  },
+  "rationale": {
+   "ru": "Реплика, которая не может быть повышена автоматически, превращает любой отказ primary в ручную операцию. Реплики в зонах с ролью standby (DR-регион) намеренно переключаются вручную и не проверяются.",
+   "en": "A replica that cannot be promoted automatically turns every primary failure into a manual operation. Replicas in zones with the standby role (DR region) are switched manually by design and are not checked."
+  }
+ },
+ {
+  "id": "HA-CACHE-01",
+  "category": "ha",
+  "check": "cache_resilience",
+  "enabled": true,
+  "severity": "risk",
+  "params": {
+   "mode": "replication"
+  },
+  "title": {
+   "ru": "Кэш реплицирован между площадками",
+   "en": "Cache is replicated across sites"
+  },
+  "message": {
+   "ru": "Кэш «{unit}» не реплицирован между площадками: при потере площадки он потеряется, сессии и корзины пропадут.",
+   "en": "Cache “{unit}” is not replicated across sites: it is lost with the site, taking sessions and carts with it."
+  },
+  "ok": {
+   "ru": "Кэши реплицированы между площадками",
+   "en": "Caches are replicated across sites"
+  },
+  "fixLabels": {
+   "add_member": {
+    "ru": "Добавить реплику «{unit}» на площадку {zone}",
+    "en": "Add a replica of “{unit}” on {zone}"
+   }
+  }
+ },
+ {
+  "id": "HA-CACHE-02",
+  "category": "cap",
+  "check": "cache_resilience",
+  "enabled": true,
+  "severity": "risk",
+  "params": {
+   "mode": "cold"
+  },
+  "title": {
+   "ru": "Хранилища выдерживают холодный кэш",
+   "en": "Data stores survive a cold cache"
+  },
+  "message": {
+   "ru": "Без кэша «{unit}» остаётся {ratio}% ёмкости; узкое место — «{bottleneck}».",
+   "en": "Without cache “{unit}” only {ratio}% of the capacity remains; the bottleneck is “{bottleneck}”."
+  },
+  "ok": {
+   "ru": "Хранилища выдерживают холодный кэш",
+   "en": "Data stores survive a cold cache"
+  },
+  "noDataMessage": {
+   "ru": "Не указана доля запросов к БД при холодном кэше (fanoutColdCache на связи приложение → БД).",
+   "en": "Share of requests reaching the database with a cold cache is not declared (fanoutColdCache on the application → database edge)."
+  }
+ },
+ {
+  "id": "HA-K8S-01",
+  "category": "ha",
+  "check": "prop",
+  "enabled": true,
+  "severity": "risk",
+  "params": {
+   "subject": "node",
+   "where": {
+    "kind": "kubernetes"
+   },
+   "key": "hpaMin",
+   "op": "gte",
+   "value": 2,
+   "onMissing": "no_data"
+  },
+  "title": {
+   "ru": "Автомасштабирование Kubernetes настроено",
+   "en": "Kubernetes autoscaling is configured"
+  },
+  "message": {
+   "ru": "HPA «{node}»: минимум {actual} (нужно ≥ {expected}).",
+   "en": "HPA of “{node}”: minimum {actual} (≥ {expected} required)."
+  },
+  "ok": {
+   "ru": "Автомасштабирование Kubernetes настроено",
+   "en": "Kubernetes autoscaling is configured"
+  },
+  "noDataMessage": {
+   "ru": "У «{node}» не задан HPA min.",
+   "en": "HPA min of “{node}” is not set."
+  }
+ },
+ {
+  "id": "HA-GSLB-01",
+  "category": "ha",
+  "check": "prop",
+  "enabled": true,
+  "severity": "risk",
+  "params": {
+   "subject": "node",
+   "where": {
+    "trait": "dns-routing"
+   },
+   "key": "healthCheckSeconds",
+   "op": "lte",
+   "value": 10,
+   "onMissing": "skip"
+  },
+  "title": {
+   "ru": "Быстрое обнаружение отказа в GSLB",
+   "en": "Fast failure detection in GSLB"
+  },
+  "message": {
+   "ru": "Health-check «{node}» раз в {actual} с (нужно ≤ {expected} с): отказ обнаруживается медленно.",
+   "en": "Health-check of “{node}” every {actual}s (≤ {expected}s required): failures are detected slowly."
+  },
+  "ok": {
+   "ru": "Быстрое обнаружение отказа в GSLB",
+   "en": "Fast failure detection in GSLB"
+  }
+ },
+ {
+  "id": "HA-DEP-01",
+  "category": "ha",
+  "check": "no_cycles",
+  "enabled": true,
+  "severity": "risk",
+  "params": {},
+  "title": {
+   "ru": "Нет циклических зависимостей",
+   "en": "No circular dependencies"
+  },
+  "message": {
+   "ru": "Циклическая зависимость: {units}.",
+   "en": "Circular dependency: {units}."
+  },
+  "ok": {
+   "ru": "Циклических зависимостей нет",
+   "en": "No circular dependencies"
+  }
+ },
+ {
+  "id": "HA-GRP-01",
+  "category": "ha",
+  "check": "group_hygiene",
+  "enabled": true,
+  "severity": "risk",
+  "params": {},
+  "title": {
+   "ru": "Параллельные узлы сгруппированы",
+   "en": "Parallel nodes are grouped"
+  },
+  "message": {
+   "ru": "«{nodes}» получают трафик от одних и тех же источников, но не объединены в группу: движок считает их независимыми зависимостями, и потеря любой остановит сервис.",
+   "en": "“{nodes}” receive traffic from the same sources but are not grouped: the engine treats them as independent dependencies, so losing either stops the service."
+  },
+  "ok": {
+   "ru": "Параллельные узлы сгруппированы",
+   "en": "Parallel nodes are grouped"
+  },
+  "fixLabels": {
+   "group": {
+    "ru": "Объединить «{nodes}» в группу «{group}»",
+    "en": "Group “{nodes}” as “{group}”"
+   }
+  }
+ },
+ {
+  "id": "HA-OBS-01",
+  "category": "obs",
+  "check": "required_kind",
+  "enabled": true,
+  "severity": "risk",
+  "params": {
+   "trait": "monitoring",
+   "whenTrait": "workload"
+  },
+  "title": {
+   "ru": "Есть мониторинг",
+   "en": "Monitoring is present"
+  },
+  "message": {
+   "ru": "В архитектуре нет мониторинга: отказы и деградацию не заметят.",
+   "en": "The architecture has no monitoring: failures and degradation will go unnoticed."
+  },
+  "ok": {
+   "ru": "Мониторинг есть",
+   "en": "Monitoring is present"
+  },
+  "fixLabels": {
+   "add_required": {
+    "ru": "Добавить «{kind}»",
+    "en": "Add “{kind}”"
+   }
+  }
+ },
+ {
+  "id": "HA-OBS-02",
+  "category": "obs",
+  "check": "spread_sites",
+  "enabled": true,
+  "severity": "risk",
+  "params": {
+   "trait": "monitoring",
+   "minSites": 2,
+   "requireTolerance": "site"
+  },
+  "title": {
+   "ru": "Мониторинг переживает потерю площадки",
+   "en": "Monitoring survives a site loss"
+  },
+  "message": {
+   "ru": "Мониторинг «{unit}» на {sites} площадке: при её потере вы ослепнете.",
+   "en": "Monitoring “{unit}” lives on {sites} site: losing it blinds you."
+  },
+  "ok": {
+   "ru": "Мониторинг размещён минимум на двух площадках",
+   "en": "Monitoring spans at least two sites"
+  },
+  "fixLabels": {
+   "add_member": {
+    "ru": "Добавить «{unit}» на площадку {zone}",
+    "en": "Add “{unit}” on {zone}"
+   }
+  }
+ },
+ {
+  "id": "GOV-GIT-01",
+  "category": "gov",
+  "check": "required_kind",
+  "enabled": true,
+  "severity": "risk",
+  "params": {
+   "trait": "gitops",
+   "whenTrait": "workload"
+  },
+  "title": {
+   "ru": "Есть GitOps",
+   "en": "GitOps is present"
+  },
+  "message": {
+   "ru": "GitOps не найден: восстановление и откат выполняются вручную и не воспроизводимы.",
+   "en": "No GitOps found: recovery and rollback are manual and not reproducible."
+  },
+  "ok": {
+   "ru": "GitOps есть",
+   "en": "GitOps is present"
+  },
+  "fixLabels": {
+   "add_required": {
+    "ru": "Добавить «{kind}»",
+    "en": "Add “{kind}”"
+   }
+  }
+ },
+ {
+  "id": "SEC-VLT-01",
+  "category": "sec",
+  "check": "required_kind",
+  "enabled": true,
+  "severity": "risk",
+  "params": {
+   "trait": "secrets",
+   "whenTrait": "workload"
+  },
+  "title": {
+   "ru": "Есть менеджер секретов",
+   "en": "A secrets manager is present"
+  },
+  "message": {
+   "ru": "Менеджер секретов не найден: секреты, вероятно, хранятся в конфигурации.",
+   "en": "No secrets manager found: secrets are probably kept in configuration."
+  },
+  "ok": {
+   "ru": "Менеджер секретов есть",
+   "en": "A secrets manager is present"
+  },
+  "fixLabels": {
+   "add_required": {
+    "ru": "Добавить «{kind}»",
+    "en": "Add “{kind}”"
+   }
+  }
+ },
+ {
+  "id": "DR-BKP-01",
+  "category": "dr",
+  "check": "backup_exists",
+  "enabled": true,
+  "severity": "critical",
+  "params": {
+   "trait": "backup-required",
+   "acceptReplication": true
+  },
+  "title": {
+   "ru": "У данных есть резервная копия",
+   "en": "Data has a backup"
+  },
+  "message": {
+   "ru": "«{unit}» не имеет резервной копии (или репликации на другую площадку).",
+   "en": "“{unit}” has no backup (or replication to another site)."
+  },
+  "ok": {
+   "ru": "У всех хранилищ есть резервные копии",
+   "en": "All data stores are backed up"
+  },
+  "fixLabels": {
+   "add_backup": {
+    "ru": "Добавить резервное копирование «{unit}» ({zone})",
+    "en": "Add backups for “{unit}” ({zone})"
+   }
+  }
+ },
+ {
+  "id": "DR-BKP-02",
+  "category": "dr",
+  "check": "backup_offsite",
+  "enabled": true,
+  "severity": "critical",
+  "params": {},
+  "title": {
+   "ru": "Копии вне домена отказа",
+   "en": "Backups outside the failure domain"
+  },
+  "message": {
+   "ru": "Копия «{source}» → «{target}» лежит в том же домене отказа, что и источник («{zone}»).",
+   "en": "Backup “{source}” → “{target}” sits in the same failure domain as its source (“{zone}”)."
+  },
+  "ok": {
+   "ru": "Копии вынесены за пределы домена отказа",
+   "en": "Backups are outside the failure domain"
+  },
+  "noDataMessage": {
+   "ru": "Не задан гео-домен у «{source}» или «{target}»: независимость копии не проверить.",
+   "en": "Geo domain of “{source}” or “{target}” is not set: backup independence cannot be verified."
+  }
+ },
+ {
+  "id": "DR-BKP-03",
+  "category": "dr",
+  "check": "prop",
+  "enabled": true,
+  "severity": "risk",
+  "params": {
+   "subject": "node",
+   "where": {
+    "trait": "backup-target"
+   },
+   "key": "immutable",
+   "op": "eq",
+   "value": true,
+   "onMissing": "no_data"
+  },
+  "title": {
+   "ru": "Копии защищены от удаления (immutable)",
+   "en": "Backups are immutable"
+  },
+  "message": {
+   "ru": "Копии в «{node}» не immutable: шифровальщик или ошибка администратора удалит и их.",
+   "en": "Backups in “{node}” are not immutable: ransomware or an admin error deletes them too."
+  },
+  "ok": {
+   "ru": "Копии защищены от удаления",
+   "en": "Backups are protected from deletion"
+  },
+  "noDataMessage": {
+   "ru": "Не указано, защищены ли копии в «{node}» от удаления (immutable/WORM).",
+   "en": "It is not declared whether backups in “{node}” are protected from deletion (immutable/WORM)."
+  },
+  "fixLabels": {
+   "set_prop": {
+    "ru": "Включить immutable в «{node}»",
+    "en": "Enable immutability on “{node}”"
+   }
+  }
+ },
+ {
+  "id": "DR-BKP-04",
+  "category": "dr",
+  "check": "prop",
+  "enabled": true,
+  "severity": "risk",
+  "params": {
+   "subject": "node",
+   "where": {
+    "trait": "backup-target"
+   },
+   "key": "retentionDays",
+   "op": "gte",
+   "value": 14,
+   "onMissing": "no_data"
+  },
+  "title": {
+   "ru": "Срок хранения копий достаточен",
+   "en": "Backup retention is sufficient"
+  },
+  "message": {
+   "ru": "Срок хранения копий в «{node}» — {actual} дн., нужно не менее {expected}.",
+   "en": "Backup retention in “{node}” is {actual} days, at least {expected} required."
+  },
+  "ok": {
+   "ru": "Срок хранения копий достаточен",
+   "en": "Backup retention is sufficient"
+  },
+  "noDataMessage": {
+   "ru": "Не указан срок хранения копий в «{node}».",
+   "en": "Backup retention in “{node}” is not declared."
+  }
+ },
+ {
+  "id": "DR-BKP-05",
+  "category": "dr",
+  "check": "prop",
+  "enabled": true,
+  "severity": "risk",
+  "params": {
+   "subject": "node",
+   "where": {
+    "trait": "backup-target"
+   },
+   "key": "restoreTestedDays",
+   "op": "lte",
+   "value": 90,
+   "onMissing": "no_data"
+  },
+  "title": {
+   "ru": "Восстановление из копий проверялось",
+   "en": "Restores are tested"
+  },
+  "message": {
+   "ru": "Восстановление из «{node}» не проверялось {actual} дн. (допустимо {expected}).",
+   "en": "Restore from “{node}” was last tested {actual} days ago ({expected} allowed)."
+  },
+  "ok": {
+   "ru": "Восстановление из копий регулярно проверяется",
+   "en": "Restores are tested regularly"
+  },
+  "noDataMessage": {
+   "ru": "Нет данных о проверке восстановления из «{node}»: копия, которую не восстанавливали, — не копия.",
+   "en": "No data about restore tests from “{node}”: an untested backup is not a backup."
+  }
+ },
+ {
+  "id": "NET-LAT-01",
+  "category": "net",
+  "check": "prop",
+  "enabled": true,
+  "severity": "risk",
+  "params": {
+   "subject": "edge",
+   "where": {
+    "types": [
+     "sync"
+    ]
+   },
+   "key": "latencyMeasured",
+   "op": "eq",
+   "value": true,
+   "onMissing": "no_data",
+   "violationStatus": "no_data"
+  },
+  "title": {
+   "ru": "RTT синхронных каналов измерен",
+   "en": "Sync link RTT is measured"
+  },
+  "message": {
+   "ru": "RTT канала «{edge}» указан без замера.",
+   "en": "The RTT of “{edge}” is stated without a measurement."
+  },
+  "ok": {
+   "ru": "RTT синхронных каналов измерен",
+   "en": "Sync link RTT is measured"
+  },
+  "noDataMessage": {
+   "ru": "RTT канала «{edge}» указан без замера: фактическая задержка записи неизвестна.",
+   "en": "The RTT of “{edge}” is stated without a measurement: the real write latency is unknown."
+  }
+ },
+ {
+  "id": "NET-LAT-02",
+  "category": "net",
+  "check": "prop",
+  "enabled": true,
+  "severity": "risk",
+  "params": {
+   "subject": "edge",
+   "where": {
+    "types": [
+     "sync"
+    ]
+   },
+   "key": "latencyMs",
+   "op": "lte",
+   "valueRef": "assumptions.syncMaxRttMs",
+   "onMissing": "no_data"
+  },
+  "title": {
+   "ru": "RTT синхронной репликации в пределах нормы",
+   "en": "Sync replication RTT is within limits"
+  },
+  "message": {
+   "ru": "Синхронная репликация «{edge}»: RTT {actual} мс превышает {expected} мс — каждая запись станет медленнее.",
+   "en": "Synchronous replication “{edge}”: RTT {actual} ms exceeds {expected} ms — every write gets slower."
+  },
+  "ok": {
+   "ru": "RTT синхронной репликации в пределах нормы",
+   "en": "Sync replication RTT is within limits"
+  },
+  "noDataMessage": {
+   "ru": "Не указан RTT синхронной связи «{edge}».",
+   "en": "RTT of synchronous link “{edge}” is not declared."
+  }
+ },
+ {
+  "id": "NET-LINK-01",
+  "category": "net",
+  "check": "prop",
+  "enabled": true,
+  "severity": "risk",
+  "params": {
+   "subject": "edge",
+   "where": {
+    "types": [
+     "sync",
+     "async",
+     "quorum"
+    ],
+    "crossSite": true
+   },
+   "key": "paths",
+   "op": "gte",
+   "value": 2,
+   "onMissing": "no_data"
+  },
+  "title": {
+   "ru": "Межплощадочные связи резервированы",
+   "en": "Inter-site links are redundant"
+  },
+  "message": {
+   "ru": "Связь «{edge}» между площадками идёт по {actual} независимому пути — нет резервного канала.",
+   "en": "Link “{edge}” between sites has {actual} independent path(s) — no backup channel."
+  },
+  "ok": {
+   "ru": "Межплощадочные связи резервированы",
+   "en": "Inter-site links are redundant"
+  },
+  "noDataMessage": {
+   "ru": "Не указано число независимых путей связи «{edge}».",
+   "en": "The number of independent paths of link “{edge}” is not declared."
+  }
+ },
+ {
+  "id": "NET-TLS-01",
+  "category": "sec",
+  "check": "prop",
+  "enabled": true,
+  "severity": "risk",
+  "params": {
+   "subject": "edge",
+   "where": {
+    "crossSite": true
+   },
+   "key": "tls",
+   "op": "eq",
+   "value": true,
+   "onMissing": "no_data"
+  },
+  "title": {
+   "ru": "Межплощадочный трафик шифруется",
+   "en": "Inter-site traffic is encrypted"
+  },
+  "message": {
+   "ru": "Трафик «{edge}» между площадками не шифруется.",
+   "en": "Traffic “{edge}” between sites is not encrypted."
+  },
+  "ok": {
+   "ru": "Межплощадочный трафик шифруется",
+   "en": "Inter-site traffic is encrypted"
+  },
+  "noDataMessage": {
+   "ru": "Не указано, шифруется ли «{edge}».",
+   "en": "It is not declared whether “{edge}” is encrypted."
+  },
+  "fixLabels": {
+   "set_prop": {
+    "ru": "Включить TLS на «{node}»",
+    "en": "Enable TLS on “{node}”"
+   }
+  }
+ },
+ {
+  "id": "NET-BW-01",
+  "category": "net",
+  "check": "prop",
+  "enabled": true,
+  "severity": "risk",
+  "params": {
+   "subject": "edge",
+   "where": {
+    "types": [
+     "sync",
+     "async"
+    ],
+    "crossSite": true
+   },
+   "key": "bandwidthMbps",
+   "op": "present",
+   "onMissing": "no_data"
+  },
+  "title": {
+   "ru": "Пропускная способность репликации указана",
+   "en": "Replication bandwidth is declared"
+  },
+  "message": {
+   "ru": "Пропускная способность «{edge}» не указана.",
+   "en": "Bandwidth of “{edge}” is not declared."
+  },
+  "ok": {
+   "ru": "Пропускная способность репликации указана",
+   "en": "Replication bandwidth is declared"
+  },
+  "noDataMessage": {
+   "ru": "Не указана пропускная способность «{edge}»: хватит ли канала под поток записи, неизвестно.",
+   "en": "Bandwidth of “{edge}” is not declared: it is unknown whether the link carries the write stream."
+  }
+ },
+ {
+  "id": "NET-SEG-01",
+  "category": "sec",
+  "check": "forbidden_edge",
+  "enabled": true,
+  "severity": "critical",
+  "params": {
+   "from": {
+    "trait": "entry"
+   },
+   "to": {
+    "trait": "datastore"
+   }
+  },
+  "title": {
+   "ru": "Хранилища недоступны из интернета",
+   "en": "Data stores are not exposed to the internet"
+  },
+  "message": {
+   "ru": "«{source}» обращается напрямую к «{target}»: хранилище доступно из интернета.",
+   "en": "“{source}” talks directly to “{target}”: the data store is reachable from the internet."
+  },
+  "ok": {
+   "ru": "Хранилища не торчат в интернет",
+   "en": "No data store is exposed to the internet"
+  },
+  "fixLabels": {
+   "remove_edge": {
+    "ru": "Удалить связь «{source}» → «{target}»",
+    "en": "Remove the “{source}” → “{target}” link"
+   }
+  }
+ },
+ {
+  "id": "NET-WAF-01",
+  "category": "sec",
+  "check": "path_contains",
+  "enabled": true,
+  "severity": "risk",
+  "params": {
+   "from": {
+    "trait": "entry"
+   },
+   "to": {
+    "trait": "workload"
+   },
+   "via": {
+    "trait": "waf"
+   }
+  },
+  "title": {
+   "ru": "Входящий трафик проходит через WAF",
+   "en": "Inbound traffic passes a WAF"
+  },
+  "message": {
+   "ru": "Запросы доходят до «{node}» минуя WAF.",
+   "en": "Requests reach “{node}” without passing a WAF."
+  },
+  "ok": {
+   "ru": "Весь входящий трафик проходит через WAF",
+   "en": "All inbound traffic passes a WAF"
+  },
+  "fixLabels": {
+   "add_required": {
+    "ru": "Добавить «{kind}»",
+    "en": "Add “{kind}”"
+   }
+  }
+ },
+ {
+  "id": "SEC-ENC-01",
+  "category": "sec",
+  "check": "prop",
+  "enabled": true,
+  "severity": "risk",
+  "params": {
+   "subject": "node",
+   "where": {
+    "trait": "datastore",
+    "excludeTraits": [
+     "cache"
+    ]
+   },
+   "key": "encryptionAtRest",
+   "op": "eq",
+   "value": true,
+   "onMissing": "no_data"
+  },
+  "title": {
+   "ru": "Данные шифруются на диске",
+   "en": "Data is encrypted at rest"
+  },
+  "message": {
+   "ru": "«{node}»: шифрование на диске отключено.",
+   "en": "“{node}”: encryption at rest is off."
+  },
+  "ok": {
+   "ru": "Данные шифруются на диске",
+   "en": "Data is encrypted at rest"
+  },
+  "noDataMessage": {
+   "ru": "Не указано, шифруются ли данные «{node}» на диске.",
+   "en": "It is not declared whether the data of “{node}” is encrypted at rest."
+  },
+  "fixLabels": {
+   "set_prop": {
+    "ru": "Включить шифрование у «{node}»",
+    "en": "Enable encryption on “{node}”"
+   }
+  }
+ },
+ {
+  "id": "SEC-ENC-02",
+  "category": "sec",
+  "check": "prop",
+  "enabled": true,
+  "severity": "risk",
+  "params": {
+   "subject": "node",
+   "where": {
+    "trait": "backup-target"
+   },
+   "key": "encryptionAtRest",
+   "op": "eq",
+   "value": true,
+   "onMissing": "no_data"
+  },
+  "title": {
+   "ru": "Резервные копии шифруются",
+   "en": "Backups are encrypted"
+  },
+  "message": {
+   "ru": "Копии в «{node}» не шифруются.",
+   "en": "Backups in “{node}” are not encrypted."
+  },
+  "ok": {
+   "ru": "Резервные копии шифруются",
+   "en": "Backups are encrypted"
+  },
+  "noDataMessage": {
+   "ru": "Не указано, шифруются ли копии в «{node}».",
+   "en": "It is not declared whether backups in “{node}” are encrypted."
+  },
+  "fixLabels": {
+   "set_prop": {
+    "ru": "Включить шифрование у «{node}»",
+    "en": "Enable encryption on “{node}”"
+   }
+  }
+ },
+ {
+  "id": "CAP-01",
+  "category": "cap",
+  "check": "capacity",
+  "enabled": true,
+  "severity": "risk",
+  "params": {},
+  "title": {
+   "ru": "Ёмкость покрывает пик с запасом",
+   "en": "Capacity covers the peak with headroom"
+  },
+  "message": {
+   "ru": "«{unit}»: ёмкость {capacity} rps, нужно {needed} rps (пик + рост + запас).",
+   "en": "“{unit}”: capacity {capacity} rps, {needed} rps required (peak + growth + headroom)."
+  },
+  "ok": {
+   "ru": "Ёмкость покрывает пик с запасом",
+   "en": "Capacity covers the peak with headroom"
+  },
+  "noDataMessage": {
+   "ru": "Для «{unit}» не задана производительность экземпляра: ёмкость не проверить.",
+   "en": "The per-instance throughput of “{unit}” is not set: capacity cannot be verified."
+  },
+  "requirementMessage": {
+   "ru": "В требованиях не задан пиковый RPS — ёмкость проверить нельзя.",
+   "en": "No peak RPS in the requirements — capacity cannot be verified."
+  },
+  "fixLabels": {
+   "scale": {
+    "ru": "Масштабировать «{unit}» до {replicas} экземпляров на узел",
+    "en": "Scale “{unit}” to {replicas} instances per node"
+   }
+  }
+ },
+ {
+  "id": "CAP-02",
+  "category": "cap",
+  "check": "capacity_under_failure",
+  "enabled": true,
+  "severity": "risk",
+  "params": {},
+  "title": {
+   "ru": "Ёмкость переживает потерю площадки",
+   "en": "Capacity survives a site loss"
+  },
+  "message": {
+   "ru": "При потере «{zone}» остаётся {ratio}% ёмкости (нужно ≥ {min}%). Узкое место — «{unit}».",
+   "en": "Losing “{zone}” leaves {ratio}% of the capacity (≥ {min}% required). Bottleneck: “{unit}”."
+  },
+  "ok": {
+   "ru": "Ёмкость переживает потерю любой площадки",
+   "en": "Capacity survives the loss of any site"
+  },
+  "requirementMessage": {
+   "ru": "В требованиях не задан пиковый RPS.",
+   "en": "No peak RPS in the requirements."
+  },
+  "fixLabels": {
+   "scale": {
+    "ru": "Масштабировать «{unit}» ×{factor}",
+    "en": "Scale “{unit}” ×{factor}"
+   }
+  }
+ },
+ {
+  "id": "CAP-03",
+  "category": "cap",
+  "check": "prop",
+  "enabled": true,
+  "severity": "risk",
+  "params": {
+   "subject": "node",
+   "where": {
+    "kind": "postgresql",
+    "role": "primary"
+   },
+   "key": "connectionPooler",
+   "op": "eq",
+   "value": true,
+   "onMissing": "no_data"
+  },
+  "title": {
+   "ru": "Пулер соединений у PostgreSQL",
+   "en": "Connection pooler for PostgreSQL"
+  },
+  "message": {
+   "ru": "«{node}»: нет пулера соединений — рост числа pod-ов исчерпает max_connections.",
+   "en": "“{node}”: no connection pooler — scaling pods exhausts max_connections."
+  },
+  "ok": {
+   "ru": "Пулер соединений настроен",
+   "en": "Connection pooler is configured"
+  },
+  "noDataMessage": {
+   "ru": "Не указано, есть ли у «{node}» пулер соединений.",
+   "en": "It is not declared whether “{node}” has a connection pooler."
+  },
+  "fixLabels": {
+   "set_prop": {
+    "ru": "Отметить пулер у «{node}»",
+    "en": "Mark a pooler on “{node}”"
+   }
+  }
+ },
+ {
+  "id": "COST-01",
+  "category": "cost",
+  "check": "cost_budget",
+  "enabled": true,
+  "severity": "critical",
+  "params": {},
+  "title": {
+   "ru": "Стоимость укладывается в бюджет",
+   "en": "Cost fits the budget"
+  },
+  "message": {
+   "ru": "Оценка ≈ {total} {symbol}/мес — {percent}% бюджета {budget} {symbol}.",
+   "en": "Estimate ≈ {total} {symbol}/month — {percent}% of the {budget} {symbol} budget."
+  },
+  "ok": {
+   "ru": "Стоимость укладывается в бюджет",
+   "en": "Cost fits the budget"
+  },
+  "noDataMessage": {
+   "ru": "Оценка стоимости неполна: у {incomplete} узлов не хватает данных (vCPU/RAM). Сейчас ≈ {total} {symbol}/мес из {budget} {symbol}.",
+   "en": "The cost estimate is incomplete: {incomplete} node(s) lack data (vCPU/RAM). Currently ≈ {total} {symbol}/month of {budget} {symbol}."
+  },
+  "requirementMessage": {
+   "ru": "В требованиях не задан бюджет.",
+   "en": "No budget in the requirements."
+  }
+ },
+ {
+  "id": "GOV-ZONE-01",
+  "category": "gov",
+  "check": "prop",
+  "enabled": true,
+  "severity": "risk",
+  "params": {
+   "subject": "zone",
+   "where": {
+    "type": "dc"
+   },
+   "key": "tier",
+   "op": "present",
+   "onMissing": "no_data"
+  },
+  "title": {
+   "ru": "У площадок указан Tier",
+   "en": "Site tier is declared"
+  },
+  "message": {
+   "ru": "У площадки «{zone}» не указан Tier.",
+   "en": "Site “{zone}” has no tier."
+  },
+  "ok": {
+   "ru": "У площадок указан Tier",
+   "en": "Site tier is declared"
+  },
+  "noDataMessage": {
+   "ru": "У площадки «{zone}» не указан Tier: уровень отказоустойчивости инженерных систем неизвестен.",
+   "en": "Site “{zone}” has no tier: the resilience of its facility systems is unknown."
+  }
+ },
+ {
+  "id": "GOV-ZONE-02",
+  "category": "gov",
+  "check": "prop",
+  "enabled": true,
+  "severity": "risk",
+  "params": {
+   "subject": "zone",
+   "where": {
+    "level": "site"
+   },
+   "key": "geo",
+   "op": "present",
+   "onMissing": "no_data"
+  },
+  "title": {
+   "ru": "У площадок указан гео-домен",
+   "en": "Site geo domain is declared"
+  },
+  "message": {
+   "ru": "У площадки «{zone}» не указан гео-домен.",
+   "en": "Site “{zone}” has no geo domain."
+  },
+  "ok": {
+   "ru": "У площадок указан гео-домен",
+   "en": "Site geo domain is declared"
+  },
+  "noDataMessage": {
+   "ru": "У площадки «{zone}» не указан гео-домен: независимость от катастрофы не проверить.",
+   "en": "Site “{zone}” has no geo domain: independence from disasters cannot be verified."
+  }
+ }
+]

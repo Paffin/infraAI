@@ -1,0 +1,13 @@
+# rust
+/backend/target/
+# node
+node_modules/
+/frontend/dist/
+# env / secrets
+.env
+.env.*
+!.env.example
+# local data
+/data/
+*.log
+.DS_Store

@@ -1,0 +1,810 @@
+{
+ "id": "multi-region-pilot-light",
+ "name": {
+  "ru": "Multi-region, pilot light",
+  "en": "Multi-region, pilot light"
+ },
+ "description": {
+  "ru": "Основной регион + минимальный контур DR в другом регионе с асинхронной репликацией и масштабированием при катастрофе.",
+  "en": "Primary region plus a minimal DR footprint in another region with async replication that scales out on disaster."
+ },
+ "badge": "DR",
+ "enabled": true,
+ "order": 3,
+ "architecture": {
+  "schemaVersion": 1,
+  "meta": {
+   "name": "Multi-region, pilot light",
+   "description": "Основной регион на 3 AZ; во втором регионе — реплики данных и минимальный контур, масштабируется при катастрофе."
+  },
+  "requirements": {
+   "rpsPeak": 3000,
+   "growthPercent": 30,
+   "rtoSeconds": 3600,
+   "rpoSeconds": 300,
+   "budgetMonthly": 2500000,
+   "failureTolerance": "geo",
+   "availabilitySlo": 99.9
+  },
+  "zones": [
+   {
+    "id": "r1",
+    "name": "Регион 1 (основной)",
+    "type": "region",
+    "parentId": null,
+    "role": null,
+    "props": {}
+   },
+   {
+    "id": "r1-a",
+    "name": "r1 · AZ A",
+    "type": "az",
+    "parentId": "r1",
+    "role": null,
+    "props": {
+     "geo": "region-1",
+     "costModel": "cloud"
+    }
+   },
+   {
+    "id": "r1-b",
+    "name": "r1 · AZ B",
+    "type": "az",
+    "parentId": "r1",
+    "role": null,
+    "props": {
+     "geo": "region-1",
+     "costModel": "cloud"
+    }
+   },
+   {
+    "id": "r1-c",
+    "name": "r1 · AZ C",
+    "type": "az",
+    "parentId": "r1",
+    "role": null,
+    "props": {
+     "geo": "region-1",
+     "costModel": "cloud"
+    }
+   },
+   {
+    "id": "r2",
+    "name": "Регион 2 (DR · pilot light)",
+    "type": "region",
+    "parentId": null,
+    "role": null,
+    "props": {}
+   },
+   {
+    "id": "r2-a",
+    "name": "r2 · AZ A",
+    "type": "az",
+    "parentId": "r2",
+    "role": "standby",
+    "props": {
+     "geo": "region-2",
+     "costModel": "cloud"
+    }
+   }
+  ],
+  "nodes": [
+   {
+    "id": "users",
+    "kind": "users",
+    "name": "Пользователи",
+    "zoneId": null,
+    "group": null,
+    "role": null,
+    "props": {}
+   },
+   {
+    "id": "dns",
+    "kind": "gslb",
+    "name": "GSLB / DNS failover",
+    "zoneId": null,
+    "group": "gslb",
+    "role": null,
+    "props": {
+     "replicas": 3,
+     "healthCheckSeconds": 10,
+     "failThreshold": 3,
+     "dnsTtlSeconds": 60
+    }
+   },
+   {
+    "id": "waf",
+    "kind": "waf",
+    "name": "WAF",
+    "zoneId": null,
+    "group": "waf",
+    "role": null,
+    "props": {
+     "replicas": 3
+    }
+   },
+   {
+    "id": "lb-1",
+    "kind": "l7",
+    "name": "Ingress",
+    "zoneId": "r1-a",
+    "group": "ingress",
+    "role": null,
+    "props": {
+     "replicas": 2
+    }
+   },
+   {
+    "id": "lb-2",
+    "kind": "l7",
+    "name": "Ingress",
+    "zoneId": "r1-b",
+    "group": "ingress",
+    "role": null,
+    "props": {
+     "replicas": 2
+    }
+   },
+   {
+    "id": "lb-dr",
+    "kind": "l7",
+    "name": "Ingress (DR)",
+    "zoneId": "r2-a",
+    "group": "ingress",
+    "role": null,
+    "props": {
+     "replicas": 2
+    }
+   },
+   {
+    "id": "app-1",
+    "kind": "kubernetes",
+    "name": "Kubernetes · app",
+    "zoneId": "r1-a",
+    "group": "app",
+    "role": null,
+    "props": {
+     "replicas": 20,
+     "vcpu": 1,
+     "ramGb": 2,
+     "hpaMin": 15,
+     "hpaMax": 50
+    }
+   },
+   {
+    "id": "app-2",
+    "kind": "kubernetes",
+    "name": "Kubernetes · app",
+    "zoneId": "r1-b",
+    "group": "app",
+    "role": null,
+    "props": {
+     "replicas": 20,
+     "vcpu": 1,
+     "ramGb": 2,
+     "hpaMin": 15,
+     "hpaMax": 50
+    }
+   },
+   {
+    "id": "app-dr",
+    "kind": "kubernetes",
+    "name": "Kubernetes · app (pilot light)",
+    "zoneId": "r2-a",
+    "group": "app",
+    "role": null,
+    "props": {
+     "replicas": 2,
+     "failoverReplicas": 44,
+     "scaleUpSeconds": 600,
+     "vcpu": 1,
+     "ramGb": 2,
+     "hpaMin": 2,
+     "hpaMax": 60
+    }
+   },
+   {
+    "id": "etcd-1",
+    "kind": "etcd",
+    "name": "etcd",
+    "zoneId": "r1-a",
+    "group": "etcd1",
+    "role": "voter",
+    "props": {}
+   },
+   {
+    "id": "etcd-2",
+    "kind": "etcd",
+    "name": "etcd",
+    "zoneId": "r1-b",
+    "group": "etcd1",
+    "role": "voter",
+    "props": {}
+   },
+   {
+    "id": "etcd-3",
+    "kind": "etcd",
+    "name": "etcd",
+    "zoneId": "r1-c",
+    "group": "etcd1",
+    "role": "voter",
+    "props": {}
+   },
+   {
+    "id": "pg-1",
+    "kind": "postgresql",
+    "name": "PostgreSQL primary",
+    "zoneId": "r1-a",
+    "group": "pg",
+    "role": "primary",
+    "props": {
+     "version": "16",
+     "vcpu": 16,
+     "ramGb": 64,
+     "diskGb": 1000,
+     "failover": "auto",
+     "failoverSeconds": 30,
+     "dcs": "etcd1",
+     "connectionPooler": true,
+     "encryptionAtRest": true
+    }
+   },
+   {
+    "id": "pg-2",
+    "kind": "postgresql",
+    "name": "PostgreSQL sync replica",
+    "zoneId": "r1-b",
+    "group": "pg",
+    "role": "replica",
+    "props": {
+     "version": "16",
+     "vcpu": 16,
+     "ramGb": 64,
+     "diskGb": 1000,
+     "failover": "auto",
+     "failoverSeconds": 30,
+     "dcs": "etcd1",
+     "connectionPooler": true,
+     "encryptionAtRest": true
+    }
+   },
+   {
+    "id": "pg-dr",
+    "kind": "postgresql",
+    "name": "PostgreSQL DR replica",
+    "zoneId": "r2-a",
+    "group": "pg",
+    "role": "replica",
+    "props": {
+     "version": "16",
+     "vcpu": 16,
+     "ramGb": 64,
+     "diskGb": 1000,
+     "failover": "manual",
+     "dcs": "etcd1",
+     "connectionPooler": true,
+     "encryptionAtRest": true
+    }
+   },
+   {
+    "id": "redis-1",
+    "kind": "redis",
+    "name": "Redis (master)",
+    "zoneId": "r1-a",
+    "group": "redis",
+    "role": "primary",
+    "props": {
+     "mode": "sentinel",
+     "vcpu": 2,
+     "ramGb": 16
+    }
+   },
+   {
+    "id": "redis-2",
+    "kind": "redis",
+    "name": "Redis (replica)",
+    "zoneId": "r1-b",
+    "group": "redis",
+    "role": "replica",
+    "props": {
+     "mode": "sentinel",
+     "vcpu": 2,
+     "ramGb": 16
+    }
+   },
+   {
+    "id": "redis-3",
+    "kind": "redis",
+    "name": "Redis Sentinel",
+    "zoneId": "r1-c",
+    "group": "redis",
+    "role": "witness",
+    "props": {
+     "mode": "sentinel",
+     "vcpu": 1,
+     "ramGb": 1
+    }
+   },
+   {
+    "id": "s3-1",
+    "kind": "object_storage",
+    "name": "Объектное хранилище",
+    "zoneId": "r1-a",
+    "group": "s3",
+    "role": null,
+    "props": {
+     "replicas": 2,
+     "diskGb": 10000,
+     "encryptionAtRest": true
+    }
+   },
+   {
+    "id": "s3-2",
+    "kind": "object_storage",
+    "name": "Объектное хранилище",
+    "zoneId": "r1-b",
+    "group": "s3",
+    "role": null,
+    "props": {
+     "replicas": 2,
+     "diskGb": 10000,
+     "encryptionAtRest": true
+    }
+   },
+   {
+    "id": "s3-dr",
+    "kind": "object_storage",
+    "name": "Объектное хранилище (DR)",
+    "zoneId": "r2-a",
+    "group": "s3-dr",
+    "role": null,
+    "props": {
+     "replicas": 3,
+     "diskGb": 20000,
+     "encryptionAtRest": true
+    }
+   },
+   {
+    "id": "backup",
+    "kind": "backup_storage",
+    "name": "Бэкапы (immutable, регион 2)",
+    "zoneId": "r2-a",
+    "group": null,
+    "role": null,
+    "props": {
+     "immutable": true,
+     "retentionDays": 35,
+     "backupIntervalSeconds": 300,
+     "restoreSeconds": 5400,
+     "restoreTestedDays": 45,
+     "encryptionAtRest": true,
+     "diskGb": 20000
+    }
+   },
+   {
+    "id": "mon-1",
+    "kind": "monitoring",
+    "name": "Мониторинг",
+    "zoneId": "r1-b",
+    "group": "monitoring",
+    "role": null,
+    "props": {
+     "replicas": 2
+    }
+   },
+   {
+    "id": "mon-dr",
+    "kind": "monitoring",
+    "name": "Мониторинг (DR)",
+    "zoneId": "r2-a",
+    "group": "monitoring",
+    "role": null,
+    "props": {
+     "replicas": 1
+    }
+   },
+   {
+    "id": "gitops",
+    "kind": "gitops",
+    "name": "GitOps · Argo CD",
+    "zoneId": "r2-a",
+    "group": "gitops",
+    "role": null,
+    "props": {
+     "replicas": 2
+    }
+   },
+   {
+    "id": "vault",
+    "kind": "vault",
+    "name": "Vault",
+    "zoneId": "r1-a",
+    "group": "vault",
+    "role": "primary",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 4
+    }
+   },
+   {
+    "id": "vault-dr",
+    "kind": "vault",
+    "name": "Vault DR",
+    "zoneId": "r2-a",
+    "group": "vault",
+    "role": "replica",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 4
+    }
+   }
+  ],
+  "edges": [
+   {
+    "id": "e-users--dns",
+    "source": "users",
+    "target": "dns",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-dns--waf",
+    "source": "dns",
+    "target": "waf",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-waf--lb-1",
+    "source": "waf",
+    "target": "lb-1",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-lb-1--app-1",
+    "source": "lb-1",
+    "target": "app-1",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-app-1--s3-1",
+    "source": "app-1",
+    "target": "s3-1",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "fanout": 0.1,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-gitops--app-1",
+    "source": "gitops",
+    "target": "app-1",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-waf--lb-2",
+    "source": "waf",
+    "target": "lb-2",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-lb-2--app-2",
+    "source": "lb-2",
+    "target": "app-2",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-app-2--s3-2",
+    "source": "app-2",
+    "target": "s3-2",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "fanout": 0.1,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-gitops--app-2",
+    "source": "gitops",
+    "target": "app-2",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-waf--lb-dr",
+    "source": "waf",
+    "target": "lb-dr",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-lb-dr--app-dr",
+    "source": "lb-dr",
+    "target": "app-dr",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-app-dr--s3-dr",
+    "source": "app-dr",
+    "target": "s3-dr",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "fanout": 0.1,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-gitops--app-dr",
+    "source": "gitops",
+    "target": "app-dr",
+    "type": "control",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-app-1--pg-1",
+    "source": "app-1",
+    "target": "pg-1",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "fanout": 0.3,
+     "fanoutColdCache": 0.8,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-app-2--pg-2",
+    "source": "app-2",
+    "target": "pg-2",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "fanout": 0.3,
+     "fanoutColdCache": 0.8,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-app-dr--pg-dr",
+    "source": "app-dr",
+    "target": "pg-dr",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "fanout": 0.3,
+     "fanoutColdCache": 0.8,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-app-1--redis-1",
+    "source": "app-1",
+    "target": "redis-1",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "fanout": 1
+    }
+   },
+   {
+    "id": "e-app-2--redis-2",
+    "source": "app-2",
+    "target": "redis-2",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "fanout": 1
+    }
+   },
+   {
+    "id": "e-pg-1--pg-2",
+    "source": "pg-1",
+    "target": "pg-2",
+    "type": "sync",
+    "label": null,
+    "props": {
+     "latencyMs": 0.8,
+     "latencyMeasured": true,
+     "tls": true,
+     "bandwidthMbps": 25000,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-pg-1--pg-dr",
+    "source": "pg-1",
+    "target": "pg-dr",
+    "type": "async",
+    "label": "cross-region · async",
+    "props": {
+     "lagSeconds": 5,
+     "latencyMs": 28,
+     "latencyMeasured": true,
+     "tls": true,
+     "bandwidthMbps": 2000,
+     "paths": 2
+    }
+   },
+   {
+    "id": "e-redis-1--redis-2",
+    "source": "redis-1",
+    "target": "redis-2",
+    "type": "async",
+    "label": null,
+    "props": {
+     "lagSeconds": 1,
+     "latencyMs": 0.8,
+     "latencyMeasured": true,
+     "tls": true,
+     "paths": 3,
+     "bandwidthMbps": 25000
+    }
+   },
+   {
+    "id": "e-redis-3--redis-1",
+    "source": "redis-3",
+    "target": "redis-1",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "tls": true,
+     "paths": 2
+    }
+   },
+   {
+    "id": "e-redis-3--redis-2",
+    "source": "redis-3",
+    "target": "redis-2",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "tls": true,
+     "paths": 2
+    }
+   },
+   {
+    "id": "e-etcd-1--etcd-2",
+    "source": "etcd-1",
+    "target": "etcd-2",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 0.8,
+     "tls": true,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-etcd-2--etcd-3",
+    "source": "etcd-2",
+    "target": "etcd-3",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 0.9,
+     "tls": true,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-etcd-1--etcd-3",
+    "source": "etcd-1",
+    "target": "etcd-3",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 0.9,
+     "tls": true,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-s3-1--s3-2",
+    "source": "s3-1",
+    "target": "s3-2",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 0.9,
+     "tls": true,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-s3-1--s3-dr",
+    "source": "s3-1",
+    "target": "s3-dr",
+    "type": "async",
+    "label": "cross-region replication",
+    "props": {
+     "lagSeconds": 30,
+     "latencyMs": 28,
+     "latencyMeasured": true,
+     "tls": true,
+     "bandwidthMbps": 2000,
+     "paths": 2
+    }
+   },
+   {
+    "id": "e-pg-2--backup",
+    "source": "pg-2",
+    "target": "backup",
+    "type": "backup",
+    "label": "WAL + full",
+    "props": {
+     "intervalSeconds": 300,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-vault--backup",
+    "source": "vault",
+    "target": "backup",
+    "type": "backup",
+    "label": null,
+    "props": {
+     "intervalSeconds": 3600,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-vault--vault-dr",
+    "source": "vault",
+    "target": "vault-dr",
+    "type": "async",
+    "label": null,
+    "props": {
+     "lagSeconds": 5,
+     "latencyMs": 28,
+     "latencyMeasured": true,
+     "tls": true,
+     "bandwidthMbps": 2000,
+     "paths": 2
+    }
+   },
+   {
+    "id": "e-mon-1--app-1",
+    "source": "mon-1",
+    "target": "app-1",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-mon-dr--app-dr",
+    "source": "mon-dr",
+    "target": "app-dr",
+    "type": "control",
+    "label": null,
+    "props": {}
+   }
+  ]
+ }
+}

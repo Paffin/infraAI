@@ -1,0 +1,317 @@
+//! Engine configuration: rules, assumptions, scoring, pricing, reference templates.
+//! Everything here is data – loaded from the database (seeded from `defaults/*.json`) and
+//! editable in the admin panel. The engine never contains a magic threshold of its own.
+
+use crate::catalog::Catalog;
+use crate::model::Architecture;
+use crate::text::LText;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use std::collections::BTreeMap;
+
+// -------------------------------------------------------------------------------------------
+// Rules
+// -------------------------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[serde(rename_all = "snake_case")]
+pub enum Severity {
+    Risk,
+    Critical,
+}
+
+/// The implementation a rule is bound to. A rule is *configuration* (id, texts, severity,
+/// params) on top of one of these generic, well-tested check implementations.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[serde(rename_all = "snake_case")]
+pub enum CheckType {
+    Spof,
+    SurviveSite,
+    Rto,
+    Rpo,
+    GeoSurvive,
+    GeoSpread,
+    PartitionSafety,
+    MinInstances,
+    SpreadSites,
+    QuorumVoters,
+    WitnessIndependent,
+    ReplicationPolicy,
+    FailoverAuthority,
+    BackupExists,
+    BackupOffsite,
+    Prop,
+    Capacity,
+    CapacityUnderFailure,
+    CostBudget,
+    PathContains,
+    ForbiddenEdge,
+    NoCycles,
+    RequiredKind,
+    CacheResilience,
+    GroupHygiene,
+    RoleRequired,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Rule {
+    pub id: String,
+    pub category: String,
+    pub check: CheckType,
+    #[serde(default = "yes")]
+    pub enabled: bool,
+    /// Status reported when the check is violated.
+    #[serde(default = "default_severity")]
+    pub severity: Severity,
+    /// Override of the scoring weight for this rule (otherwise by status).
+    #[serde(default)]
+    pub weight: Option<f64>,
+    #[serde(default)]
+    pub params: Value,
+    pub title: LText,
+    /// Message per violation; placeholders come from the check (`{node}`, `{zone}`, …).
+    pub message: LText,
+    /// Message for `no_data` findings (premises declared by the architect cannot be verified).
+    #[serde(default)]
+    pub no_data_message: Option<LText>,
+    /// Message for `no_data` findings caused by a missing *requirement* (finding key `req`).
+    #[serde(default)]
+    pub requirement_message: Option<LText>,
+    /// Shown when the rule passes.
+    #[serde(default)]
+    pub ok: LText,
+    /// Why this matters (best-practice rationale).
+    #[serde(default)]
+    pub rationale: Option<LText>,
+    #[serde(default)]
+    pub remediation: Option<LText>,
+    /// fix kind -> label template, e.g. `add_replica` -> "Добавить реплику в {zone}".
+    #[serde(default)]
+    pub fix_labels: BTreeMap<String, LText>,
+    #[serde(default)]
+    pub references: Vec<String>,
+}
+
+fn yes() -> bool {
+    true
+}
+fn default_severity() -> Severity {
+    Severity::Risk
+}
+
+// -------------------------------------------------------------------------------------------
+// Engine settings (assumptions, scoring, scenario budget, price book)
+// -------------------------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct Assumptions {
+    /// Replication lag assumed for async links without a declared `lagSeconds`.
+    pub async_lag_seconds: f64,
+    /// Time for a human to perform a manual failover.
+    pub manual_failover_seconds: f64,
+    /// Time to restore a stateful service from backup after a destructive failure.
+    pub restore_seconds: f64,
+    /// Interval of backup edges without a declared `intervalSeconds`.
+    pub backup_interval_seconds: f64,
+    pub default_failover_seconds: f64,
+    pub default_election_seconds: f64,
+    pub default_health_check_seconds: f64,
+    pub default_fail_threshold: f64,
+    /// Fraction of peak capacity that must remain during a failure (0.8 = 80%).
+    pub min_capacity_during_failure: f64,
+    /// Capacity headroom above peak (+growth) required in normal operation, percent.
+    pub headroom_percent: f64,
+    /// Maximum acceptable RTT for synchronous replication, ms.
+    pub sync_max_rtt_ms: f64,
+    /// Failure tolerance used when requirements do not specify one.
+    pub default_failure_tolerance: String,
+    /// Sites that host members of one unit are assumed to be connected by the unit's own
+    /// network (full mesh) even if no edge is drawn between them. A `link` scenario still
+    /// cuts that mesh. Disable to require explicit edges.
+    pub implicit_mesh: bool,
+    /// If true, sites can reach each other through a third site (transit routing), so a single
+    /// cut link never partitions anything while a path via another site exists. Default false:
+    /// the conservative, pairwise model.
+    pub transit_routing: bool,
+    /// Scale-out time for nodes with `failoverReplicas` when `scaleUpSeconds` is not declared.
+    pub default_scale_up_seconds: f64,
+}
+
+impl Default for Assumptions {
+    fn default() -> Self {
+        Self {
+            async_lag_seconds: 5.0,
+            manual_failover_seconds: 1800.0,
+            restore_seconds: 14400.0,
+            backup_interval_seconds: 86400.0,
+            default_failover_seconds: 30.0,
+            default_election_seconds: 10.0,
+            default_health_check_seconds: 10.0,
+            default_fail_threshold: 3.0,
+            min_capacity_during_failure: 0.8,
+            headroom_percent: 30.0,
+            sync_max_rtt_ms: 5.0,
+            default_failure_tolerance: "site".into(),
+            implicit_mesh: true,
+            transit_routing: false,
+            default_scale_up_seconds: 300.0,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct Scoring {
+    pub critical: f64,
+    pub risk: f64,
+    pub no_data: f64,
+    /// Upper bound of the total penalty coming from `no_data` rules.
+    pub no_data_cap: f64,
+}
+
+impl Default for Scoring {
+    fn default() -> Self {
+        Self { critical: 15.0, risk: 4.0, no_data: 1.5, no_data_cap: 12.0 }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct ScenarioSettings {
+    /// Hard cap on simulated scenarios per evaluation (combinatorial explosion guard).
+    pub max_count: usize,
+    pub include_pairs: bool,
+    pub include_instances: bool,
+    pub include_nodes: bool,
+}
+
+impl Default for ScenarioSettings {
+    fn default() -> Self {
+        Self { max_count: 400, include_pairs: true, include_instances: true, include_nodes: true }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase", default)]
+pub struct PriceModel {
+    pub vcpu_month: f64,
+    pub ram_gb_month: f64,
+    /// storage class -> price per GB per month
+    pub disk_gb_month: BTreeMap<String, f64>,
+    pub default_disk_class: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct CostSettings {
+    pub currency: String,
+    pub symbol: String,
+    pub default_model: String,
+    pub models: BTreeMap<String, PriceModel>,
+    /// Utilisation of the budget (percent) from which the rule reports `risk`.
+    pub warn_percent: f64,
+}
+
+impl Default for CostSettings {
+    fn default() -> Self {
+        Self {
+            currency: "RUB".into(),
+            symbol: "₽".into(),
+            default_model: "onprem".into(),
+            models: BTreeMap::new(),
+            warn_percent: 90.0,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct ExportSettings {
+    pub terraform_required_version: String,
+    /// Body of the `terraform { … }` backend block (remote state belongs here, not in the code).
+    pub terraform_backend: String,
+    pub helm_namespace: String,
+    pub adr_status: String,
+    /// lang -> key -> text for generated documents (ADR, runbook).
+    pub texts: BTreeMap<String, BTreeMap<String, String>>,
+}
+
+impl Default for ExportSettings {
+    fn default() -> Self {
+        Self {
+            terraform_required_version: ">= 1.6.0".into(),
+            terraform_backend: "backend \"local\" {\n    path = \"terraform.tfstate\"\n  }".into(),
+            helm_namespace: "apps".into(),
+            adr_status: "Proposed".into(),
+            texts: BTreeMap::new(),
+        }
+    }
+}
+
+impl ExportSettings {
+    /// Text for `key` in `lang` (falls back to `en`, then to the key itself).
+    pub fn text(&self, lang: &str, key: &str) -> String {
+        self.texts
+            .get(lang)
+            .and_then(|m| m.get(key))
+            .or_else(|| self.texts.get("en").and_then(|m| m.get(key)))
+            .cloned()
+            .unwrap_or_else(|| key.to_string())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase", default)]
+pub struct EngineSettings {
+    pub assumptions: Assumptions,
+    pub scoring: Scoring,
+    pub scenarios: ScenarioSettings,
+    pub cost: CostSettings,
+    pub export: ExportSettings,
+}
+
+/// Everything the engine needs for one evaluation.
+#[derive(Debug, Clone)]
+pub struct EngineConfig {
+    pub catalog: Catalog,
+    pub rules: Vec<Rule>,
+    pub settings: EngineSettings,
+    /// Language used for names of nodes generated by deterministic fixes (`ru`, `en`, …).
+    pub lang: String,
+}
+
+// -------------------------------------------------------------------------------------------
+// Reference architectures
+// -------------------------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Template {
+    pub id: String,
+    pub name: LText,
+    #[serde(default)]
+    pub description: Option<LText>,
+    /// Short badge shown next to the name (`DR`, `HA`).
+    #[serde(default)]
+    pub badge: Option<String>,
+    #[serde(default = "yes")]
+    pub enabled: bool,
+    #[serde(default)]
+    pub order: i32,
+    pub architecture: Architecture,
+}
+
+/// Accepted risk. Matching findings no longer count against the score but remain visible.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Waiver {
+    pub fingerprint: String,
+    #[serde(default)]
+    pub reason: String,
+    #[serde(default)]
+    pub by: Option<String>,
+    #[serde(default)]
+    pub at: Option<String>,
+}

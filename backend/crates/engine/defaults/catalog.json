@@ -1,0 +1,2884 @@
+{
+ "categories": [
+  {
+   "id": "edge",
+   "order": 1,
+   "name": {
+    "ru": "Сеть и вход",
+    "en": "Network & edge"
+   }
+  },
+  {
+   "id": "compute",
+   "order": 2,
+   "name": {
+    "ru": "Вычисления",
+    "en": "Compute"
+   }
+  },
+  {
+   "id": "data",
+   "order": 3,
+   "name": {
+    "ru": "Данные",
+    "en": "Data"
+   }
+  },
+  {
+   "id": "platform",
+   "order": 4,
+   "name": {
+    "ru": "Платформа",
+    "en": "Platform"
+   }
+  }
+ ],
+ "zoneTypes": [
+  {
+   "id": "dc",
+   "level": "site",
+   "color": "#2e5bec",
+   "name": {
+    "ru": "ЦОД",
+    "en": "Data center"
+   },
+   "props": [
+    {
+     "key": "tier",
+     "type": "enum",
+     "label": {
+      "ru": "Tier",
+      "en": "Tier"
+     },
+     "options": [
+      {
+       "value": "I",
+       "label": "Tier I"
+      },
+      {
+       "value": "II",
+       "label": "Tier II"
+      },
+      {
+       "value": "III",
+       "label": "Tier III"
+      },
+      {
+       "value": "IV",
+       "label": "Tier IV"
+      }
+     ]
+    },
+    {
+     "key": "geo",
+     "type": "string",
+     "label": {
+      "ru": "Гео-домен (город/метро)",
+      "en": "Geo domain (city/metro)"
+     },
+     "help": {
+      "ru": "Площадки с одинаковым значением считаются одним домена катастрофы (наводнение, обесточивание района).",
+      "en": "Sites with the same value share one disaster domain (flood, regional blackout)."
+     }
+    },
+    {
+     "key": "costModel",
+     "type": "string",
+     "label": {
+      "ru": "Модель стоимости",
+      "en": "Cost model"
+     },
+     "default": "onprem"
+    },
+    {
+     "key": "provider",
+     "type": "string",
+     "label": {
+      "ru": "Провайдер",
+      "en": "Provider"
+     }
+    }
+   ]
+  },
+  {
+   "id": "cloud",
+   "level": "site",
+   "color": "#7a42d7",
+   "name": {
+    "ru": "Облако / регион",
+    "en": "Cloud / region site"
+   },
+   "props": [
+    {
+     "key": "geo",
+     "type": "string",
+     "label": {
+      "ru": "Гео-домен",
+      "en": "Geo domain"
+     }
+    },
+    {
+     "key": "costModel",
+     "type": "string",
+     "label": {
+      "ru": "Модель стоимости",
+      "en": "Cost model"
+     },
+     "default": "cloud"
+    },
+    {
+     "key": "provider",
+     "type": "string",
+     "label": {
+      "ru": "Провайдер",
+      "en": "Provider"
+     }
+    }
+   ]
+  },
+  {
+   "id": "az",
+   "level": "site",
+   "color": "#0e766e",
+   "name": {
+    "ru": "Зона доступности (AZ)",
+    "en": "Availability zone"
+   },
+   "props": [
+    {
+     "key": "costModel",
+     "type": "string",
+     "label": {
+      "ru": "Модель стоимости",
+      "en": "Cost model"
+     },
+     "default": "cloud"
+    },
+    {
+     "key": "provider",
+     "type": "string",
+     "label": {
+      "ru": "Провайдер",
+      "en": "Provider"
+     }
+    }
+   ]
+  },
+  {
+   "id": "region",
+   "level": "geo",
+   "color": "#4c596c",
+   "name": {
+    "ru": "Регион",
+    "en": "Region"
+   },
+   "props": [
+    {
+     "key": "provider",
+     "type": "string",
+     "label": {
+      "ru": "Провайдер",
+      "en": "Provider"
+     }
+    }
+   ]
+  },
+  {
+   "id": "rack",
+   "level": "rack",
+   "color": "#8b93a1",
+   "name": {
+    "ru": "Стойка",
+    "en": "Rack"
+   },
+   "props": []
+  },
+  {
+   "id": "group",
+   "level": "group",
+   "color": "#8b93a1",
+   "name": {
+    "ru": "Группа (визуальная)",
+    "en": "Group (visual)"
+   },
+   "props": []
+  }
+ ],
+ "edgeTypes": [
+  {
+   "id": "traffic",
+   "semantics": "dependency",
+   "directed": true,
+   "layer": "network",
+   "name": {
+    "ru": "Трафик",
+    "en": "Traffic"
+   },
+   "style": {
+    "color": "#14171f",
+    "width": 1.6
+   },
+   "props": [
+    {
+     "key": "hard",
+     "type": "boolean",
+     "label": {
+      "ru": "Жёсткая зависимость",
+      "en": "Hard dependency"
+     },
+     "help": {
+      "ru": "Если выключено — отказ цели деградирует сервис, но не останавливает его (кэш).",
+      "en": "When off, losing the target degrades but does not stop the source (cache)."
+     }
+    },
+    {
+     "key": "fanout",
+     "type": "number",
+     "label": {
+      "ru": "Доля запросов к цели",
+      "en": "Requests to target per request"
+     },
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "fanoutColdCache",
+     "type": "number",
+     "label": {
+      "ru": "Доля при «холодном» кэше",
+      "en": "Fan-out with cold cache"
+     },
+     "min": 0,
+     "max": 100,
+     "advanced": true
+    },
+    {
+     "key": "tls",
+     "type": "boolean",
+     "label": {
+      "ru": "TLS",
+      "en": "TLS"
+     }
+    },
+    {
+     "key": "latencyMs",
+     "type": "number",
+     "unit": "ms",
+     "label": {
+      "ru": "RTT",
+      "en": "RTT"
+     },
+     "min": 0
+    },
+    {
+     "key": "paths",
+     "type": "number",
+     "label": {
+      "ru": "Независимых путей",
+      "en": "Independent paths"
+     },
+     "min": 1,
+     "max": 16
+    }
+   ]
+  },
+  {
+   "id": "sync",
+   "semantics": "replication",
+   "directed": true,
+   "layer": "data",
+   "name": {
+    "ru": "Синхронная репликация",
+    "en": "Synchronous replication"
+   },
+   "style": {
+    "color": "#1f9d55",
+    "width": 2.6
+   },
+   "defaultProps": {
+    "mode": "sync"
+   },
+   "props": [
+    {
+     "key": "latencyMs",
+     "type": "number",
+     "unit": "ms",
+     "label": {
+      "ru": "RTT",
+      "en": "RTT"
+     },
+     "min": 0
+    },
+    {
+     "key": "latencyMeasured",
+     "type": "boolean",
+     "label": {
+      "ru": "RTT измерен",
+      "en": "RTT measured"
+     }
+    },
+    {
+     "key": "bandwidthMbps",
+     "type": "number",
+     "unit": "Mbit/s",
+     "label": {
+      "ru": "Пропускная способность",
+      "en": "Bandwidth"
+     },
+     "min": 0
+    },
+    {
+     "key": "onReplicaLoss",
+     "type": "enum",
+     "label": {
+      "ru": "При потере реплики",
+      "en": "On replica loss"
+     },
+     "default": "degrade",
+     "options": [
+      {
+       "value": "degrade",
+       "label": {
+        "ru": "Продолжить (async)",
+        "en": "Continue (async)"
+       }
+      },
+      {
+       "value": "block",
+       "label": {
+        "ru": "Блокировать запись",
+        "en": "Block writes"
+       }
+      }
+     ]
+    },
+    {
+     "key": "tls",
+     "type": "boolean",
+     "label": {
+      "ru": "TLS",
+      "en": "TLS"
+     }
+    },
+    {
+     "key": "paths",
+     "type": "number",
+     "label": {
+      "ru": "Независимых путей",
+      "en": "Independent paths"
+     },
+     "min": 1,
+     "max": 16
+    }
+   ]
+  },
+  {
+   "id": "async",
+   "semantics": "replication",
+   "directed": true,
+   "layer": "data",
+   "name": {
+    "ru": "Асинхронная репликация",
+    "en": "Asynchronous replication"
+   },
+   "style": {
+    "color": "#e08a00",
+    "dash": "6 4",
+    "width": 2
+   },
+   "defaultProps": {
+    "mode": "async"
+   },
+   "props": [
+    {
+     "key": "lagSeconds",
+     "type": "number",
+     "unit": "s",
+     "label": {
+      "ru": "Задержка репликации",
+      "en": "Replication lag"
+     },
+     "min": 0
+    },
+    {
+     "key": "mitigation",
+     "type": "string",
+     "label": {
+      "ru": "Митигация потери данных",
+      "en": "Data-loss mitigation"
+     },
+     "help": {
+      "ru": "Как защищены данные в полёте (например, transactional outbox). Если указано, правило не считает асинхронность риском, а митигация попадает в ADR.",
+      "en": "How in-flight data is protected (e.g. transactional outbox). If set, the rule does not flag asynchrony as a risk and the mitigation is listed in the ADR."
+     }
+    },
+    {
+     "key": "latencyMs",
+     "type": "number",
+     "unit": "ms",
+     "label": {
+      "ru": "RTT",
+      "en": "RTT"
+     },
+     "min": 0
+    },
+    {
+     "key": "latencyMeasured",
+     "type": "boolean",
+     "label": {
+      "ru": "RTT измерен",
+      "en": "RTT measured"
+     }
+    },
+    {
+     "key": "bandwidthMbps",
+     "type": "number",
+     "unit": "Mbit/s",
+     "label": {
+      "ru": "Пропускная способность",
+      "en": "Bandwidth"
+     },
+     "min": 0
+    },
+    {
+     "key": "tls",
+     "type": "boolean",
+     "label": {
+      "ru": "TLS",
+      "en": "TLS"
+     }
+    },
+    {
+     "key": "paths",
+     "type": "number",
+     "label": {
+      "ru": "Независимых путей",
+      "en": "Independent paths"
+     },
+     "min": 1,
+     "max": 16
+    }
+   ]
+  },
+  {
+   "id": "quorum",
+   "semantics": "membership",
+   "directed": false,
+   "layer": "network",
+   "name": {
+    "ru": "Кворум",
+    "en": "Quorum"
+   },
+   "style": {
+    "color": "#7a42d7",
+    "dash": "2 5",
+    "width": 2
+   },
+   "props": [
+    {
+     "key": "latencyMs",
+     "type": "number",
+     "unit": "ms",
+     "label": {
+      "ru": "RTT",
+      "en": "RTT"
+     },
+     "min": 0
+    },
+    {
+     "key": "tls",
+     "type": "boolean",
+     "label": {
+      "ru": "TLS",
+      "en": "TLS"
+     }
+    },
+    {
+     "key": "paths",
+     "type": "number",
+     "label": {
+      "ru": "Независимых путей",
+      "en": "Independent paths"
+     },
+     "min": 1,
+     "max": 16
+    }
+   ]
+  },
+  {
+   "id": "backup",
+   "semantics": "backup",
+   "directed": true,
+   "layer": "dr",
+   "name": {
+    "ru": "Резервное копирование",
+    "en": "Backup"
+   },
+   "style": {
+    "color": "#7c8594",
+    "dash": "8 5",
+    "width": 1.8
+   },
+   "props": [
+    {
+     "key": "intervalSeconds",
+     "type": "number",
+     "unit": "s",
+     "label": {
+      "ru": "Интервал копирования (RPO бэкапа)",
+      "en": "Backup interval (backup RPO)"
+     },
+     "min": 0
+    },
+    {
+     "key": "tls",
+     "type": "boolean",
+     "label": {
+      "ru": "TLS",
+      "en": "TLS"
+     }
+    }
+   ]
+  },
+  {
+   "id": "control",
+   "semantics": "control",
+   "directed": true,
+   "layer": "network",
+   "name": {
+    "ru": "Управление / наблюдаемость",
+    "en": "Control / observability"
+   },
+   "style": {
+    "color": "#3b82f6",
+    "dash": "1 4",
+    "width": 1.4
+   },
+   "props": []
+  }
+ ],
+ "commonProps": [
+  {
+   "key": "replicas",
+   "type": "number",
+   "label": {
+    "ru": "Экземпляры",
+    "en": "Instances"
+   },
+   "min": 1,
+   "max": 1000,
+   "default": 1,
+   "group": "capacity"
+  },
+  {
+   "key": "vcpu",
+   "type": "number",
+   "unit": "vCPU",
+   "label": {
+    "ru": "vCPU на экземпляр",
+    "en": "vCPU per instance"
+   },
+   "min": 0,
+   "group": "capacity"
+  },
+  {
+   "key": "ramGb",
+   "type": "number",
+   "unit": "GB",
+   "label": {
+    "ru": "RAM на экземпляр",
+    "en": "RAM per instance"
+   },
+   "min": 0,
+   "group": "capacity"
+  },
+  {
+   "key": "diskGb",
+   "type": "number",
+   "unit": "GB",
+   "label": {
+    "ru": "Диск на экземпляр",
+    "en": "Disk per instance"
+   },
+   "min": 0,
+   "group": "capacity"
+  },
+  {
+   "key": "storageClass",
+   "type": "enum",
+   "label": {
+    "ru": "Класс хранилища",
+    "en": "Storage class"
+   },
+   "group": "capacity",
+   "advanced": true,
+   "options": [
+    {
+     "value": "nvme",
+     "label": "NVMe"
+    },
+    {
+     "value": "ssd",
+     "label": "SSD"
+    },
+    {
+     "value": "hdd",
+     "label": "HDD"
+    }
+   ]
+  },
+  {
+   "key": "rpsPerReplica",
+   "type": "number",
+   "unit": "rps",
+   "label": {
+    "ru": "Производительность экземпляра",
+    "en": "Throughput per instance"
+   },
+   "min": 0,
+   "group": "capacity",
+   "advanced": true,
+   "help": {
+    "ru": "Переопределяет значение по умолчанию для вида компонента.",
+    "en": "Overrides the per-kind default."
+   }
+  },
+  {
+   "key": "notes",
+   "type": "string",
+   "label": {
+    "ru": "Заметки",
+    "en": "Notes"
+   },
+   "group": "docs",
+   "advanced": true
+  },
+  {
+   "key": "failoverReplicas",
+   "type": "number",
+   "label": {
+    "ru": "Экземпляры после масштабирования при катастрофе",
+    "en": "Instances after disaster scale-out"
+   },
+   "min": 1,
+   "group": "scaling",
+   "advanced": true,
+   "help": {
+    "ru": "Pilot light / warm standby: число экземпляров, до которого узел масштабируется при потере другой площадки.",
+    "en": "Pilot light / warm standby: instance count the node scales out to when another site is lost."
+   }
+  },
+  {
+   "key": "scaleUpSeconds",
+   "type": "number",
+   "unit": "s",
+   "label": {
+    "ru": "Время масштабирования",
+    "en": "Scale-out time"
+   },
+   "min": 0,
+   "group": "scaling",
+   "advanced": true
+  }
+ ],
+ "kinds": [
+  {
+   "id": "users",
+   "category": "edge",
+   "abbr": "USR",
+   "color": "#524fb9",
+   "behavior": "stateless",
+   "traits": [
+    "entry",
+    "external"
+   ],
+   "name": {
+    "ru": "Пользователи",
+    "en": "Users"
+   },
+   "description": {
+    "ru": "Источник нагрузки (интернет, клиенты).",
+    "en": "Load source (internet, clients)."
+   },
+   "props": []
+  },
+  {
+   "id": "gslb",
+   "category": "edge",
+   "abbr": "DNS",
+   "color": "#3a58c4",
+   "behavior": "stateless",
+   "traits": [
+    "balancer",
+    "dns-routing",
+    "edge"
+   ],
+   "name": {
+    "ru": "GSLB / DNS",
+    "en": "GSLB / DNS"
+   },
+   "subtitle": {
+    "ru": "health-check {healthCheckSeconds} с",
+    "en": "health-check {healthCheckSeconds}s"
+   },
+   "capacity": {
+    "rpsPerReplica": 100000
+   },
+   "props": [
+    {
+     "key": "replicas",
+     "type": "number",
+     "label": {
+      "ru": "Точки присутствия",
+      "en": "Points of presence"
+     },
+     "min": 1,
+     "default": 3,
+     "group": "capacity"
+    },
+    {
+     "key": "healthCheckSeconds",
+     "type": "number",
+     "unit": "s",
+     "label": {
+      "ru": "Интервал health-check",
+      "en": "Health-check interval"
+     },
+     "min": 1,
+     "default": 5,
+     "group": "failover"
+    },
+    {
+     "key": "failThreshold",
+     "type": "number",
+     "label": {
+      "ru": "Порог отказов",
+      "en": "Failure threshold"
+     },
+     "min": 1,
+     "default": 1,
+     "group": "failover"
+    },
+    {
+     "key": "dnsTtlSeconds",
+     "type": "number",
+     "unit": "s",
+     "label": {
+      "ru": "DNS TTL",
+      "en": "DNS TTL"
+     },
+     "min": 0,
+     "default": 30,
+     "group": "failover"
+    },
+    {
+     "key": "vcpu",
+     "type": "number",
+     "unit": "vCPU",
+     "label": {
+      "ru": "vCPU на экземпляр",
+      "en": "vCPU per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 1
+    },
+    {
+     "key": "ramGb",
+     "type": "number",
+     "unit": "GB",
+     "label": {
+      "ru": "RAM на экземпляр",
+      "en": "RAM per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 1
+    }
+   ],
+   "iac": {
+    "terraform": {
+     "source": "./modules/gslb",
+     "inputs": {
+      "health_check_seconds": "healthCheckSeconds",
+      "dns_ttl_seconds": "dnsTtlSeconds"
+     }
+    }
+   },
+   "runbook": {
+    "failover": [
+     {
+      "ru": "GSLB выводит неработающую площадку из выдачи после {healthCheckSeconds} с × порог отказов; клиенты переключаются с учётом DNS TTL.",
+      "en": "GSLB removes the failed site after {healthCheckSeconds}s × failure threshold; clients switch according to DNS TTL."
+     }
+    ]
+   }
+  },
+  {
+   "id": "cdn",
+   "category": "edge",
+   "abbr": "CDN",
+   "color": "#2d6cdf",
+   "behavior": "stateless",
+   "traits": [
+    "edge",
+    "cdn"
+   ],
+   "name": {
+    "ru": "CDN",
+    "en": "CDN"
+   },
+   "capacity": {
+    "rpsPerReplica": 200000
+   },
+   "props": [
+    {
+     "key": "replicas",
+     "type": "number",
+     "label": {
+      "ru": "Точки присутствия",
+      "en": "Points of presence"
+     },
+     "min": 1,
+     "default": 3,
+     "group": "capacity"
+    },
+    {
+     "key": "vcpu",
+     "type": "number",
+     "unit": "vCPU",
+     "label": {
+      "ru": "vCPU на экземпляр",
+      "en": "vCPU per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 1
+    },
+    {
+     "key": "ramGb",
+     "type": "number",
+     "unit": "GB",
+     "label": {
+      "ru": "RAM на экземпляр",
+      "en": "RAM per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 1
+    }
+   ],
+   "iac": {
+    "terraform": {
+     "source": "./modules/cdn",
+     "inputs": {}
+    }
+   }
+  },
+  {
+   "id": "waf",
+   "category": "edge",
+   "abbr": "WAF",
+   "color": "#bf1340",
+   "behavior": "stateless",
+   "traits": [
+    "waf",
+    "edge"
+   ],
+   "name": {
+    "ru": "WAF",
+    "en": "WAF"
+   },
+   "subtitle": "{replicas}× · {mode}",
+   "capacity": {
+    "rpsPerReplica": 20000
+   },
+   "props": [
+    {
+     "key": "replicas",
+     "type": "number",
+     "label": {
+      "ru": "Экземпляры",
+      "en": "Instances"
+     },
+     "min": 1,
+     "default": 2,
+     "group": "capacity"
+    },
+    {
+     "key": "mode",
+     "type": "enum",
+     "label": {
+      "ru": "Режим",
+      "en": "Mode"
+     },
+     "default": "block",
+     "group": "security",
+     "options": [
+      {
+       "value": "block",
+       "label": "block"
+      },
+      {
+       "value": "detect",
+       "label": "detect"
+      }
+     ]
+    },
+    {
+     "key": "vcpu",
+     "type": "number",
+     "unit": "vCPU",
+     "label": {
+      "ru": "vCPU на экземпляр",
+      "en": "vCPU per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 2
+    },
+    {
+     "key": "ramGb",
+     "type": "number",
+     "unit": "GB",
+     "label": {
+      "ru": "RAM на экземпляр",
+      "en": "RAM per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 4
+    }
+   ],
+   "iac": {
+    "terraform": {
+     "source": "./modules/waf",
+     "inputs": {
+      "mode": "mode"
+     }
+    }
+   }
+  },
+  {
+   "id": "l7",
+   "category": "edge",
+   "abbr": "L7",
+   "color": "#bf1340",
+   "behavior": "stateless",
+   "traits": [
+    "balancer",
+    "ingress",
+    "edge"
+   ],
+   "name": {
+    "ru": "L7 / Ingress",
+    "en": "L7 / Ingress"
+   },
+   "subtitle": "{replicas}× VRRP",
+   "capacity": {
+    "rpsPerReplica": 8000
+   },
+   "props": [
+    {
+     "key": "replicas",
+     "type": "number",
+     "label": {
+      "ru": "Экземпляры",
+      "en": "Instances"
+     },
+     "min": 1,
+     "default": 2,
+     "group": "capacity"
+    },
+    {
+     "key": "healthCheckSeconds",
+     "type": "number",
+     "unit": "s",
+     "label": {
+      "ru": "Интервал health-check",
+      "en": "Health-check interval"
+     },
+     "min": 1,
+     "default": 3,
+     "group": "failover"
+    },
+    {
+     "key": "failThreshold",
+     "type": "number",
+     "label": {
+      "ru": "Порог отказов",
+      "en": "Failure threshold"
+     },
+     "min": 1,
+     "default": 2,
+     "group": "failover"
+    },
+    {
+     "key": "vcpu",
+     "type": "number",
+     "unit": "vCPU",
+     "label": {
+      "ru": "vCPU на экземпляр",
+      "en": "vCPU per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 2
+    },
+    {
+     "key": "ramGb",
+     "type": "number",
+     "unit": "GB",
+     "label": {
+      "ru": "RAM на экземпляр",
+      "en": "RAM per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 4
+    }
+   ],
+   "iac": {
+    "helm": {
+     "chart": "ingress-nginx",
+     "repo": "https://kubernetes.github.io/ingress-nginx",
+     "version": "4.*",
+     "values": {
+      "controller.replicaCount": "replicas"
+     }
+    },
+    "terraform": {
+     "source": "./modules/l7",
+     "inputs": {
+      "replicas": "replicas"
+     }
+    }
+   }
+  },
+  {
+   "id": "l4",
+   "category": "edge",
+   "abbr": "L4",
+   "color": "#2d6cdf",
+   "behavior": "stateless",
+   "traits": [
+    "balancer",
+    "edge"
+   ],
+   "name": {
+    "ru": "LB / VRRP",
+    "en": "L4 LB / VRRP"
+   },
+   "subtitle": "{replicas}× VRRP",
+   "capacity": {
+    "rpsPerReplica": 50000
+   },
+   "props": [
+    {
+     "key": "replicas",
+     "type": "number",
+     "label": {
+      "ru": "Экземпляры",
+      "en": "Instances"
+     },
+     "min": 1,
+     "default": 2,
+     "group": "capacity"
+    },
+    {
+     "key": "healthCheckSeconds",
+     "type": "number",
+     "unit": "s",
+     "label": {
+      "ru": "Интервал health-check",
+      "en": "Health-check interval"
+     },
+     "min": 1,
+     "default": 3,
+     "group": "failover"
+    },
+    {
+     "key": "failThreshold",
+     "type": "number",
+     "label": {
+      "ru": "Порог отказов",
+      "en": "Failure threshold"
+     },
+     "min": 1,
+     "default": 2,
+     "group": "failover"
+    },
+    {
+     "key": "vcpu",
+     "type": "number",
+     "unit": "vCPU",
+     "label": {
+      "ru": "vCPU на экземпляр",
+      "en": "vCPU per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 2
+    },
+    {
+     "key": "ramGb",
+     "type": "number",
+     "unit": "GB",
+     "label": {
+      "ru": "RAM на экземпляр",
+      "en": "RAM per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 4
+    }
+   ],
+   "iac": {
+    "terraform": {
+     "source": "./modules/l4",
+     "inputs": {
+      "replicas": "replicas"
+     }
+    }
+   }
+  },
+  {
+   "id": "vpn_dci",
+   "category": "edge",
+   "abbr": "VPN",
+   "color": "#4c596c",
+   "behavior": "stateless",
+   "traits": [
+    "network-link"
+   ],
+   "name": {
+    "ru": "VPN / DCI",
+    "en": "VPN / DCI"
+   },
+   "subtitle": "{bandwidthMbps} Mbit/s",
+   "props": [
+    {
+     "key": "bandwidthMbps",
+     "type": "number",
+     "unit": "Mbit/s",
+     "label": {
+      "ru": "Пропускная способность",
+      "en": "Bandwidth"
+     },
+     "min": 0,
+     "group": "capacity"
+    },
+    {
+     "key": "vcpu",
+     "type": "number",
+     "unit": "vCPU",
+     "label": {
+      "ru": "vCPU на экземпляр",
+      "en": "vCPU per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 2
+    },
+    {
+     "key": "ramGb",
+     "type": "number",
+     "unit": "GB",
+     "label": {
+      "ru": "RAM на экземпляр",
+      "en": "RAM per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 4
+    }
+   ],
+   "iac": {
+    "terraform": {
+     "source": "./modules/vpn",
+     "inputs": {
+      "bandwidth_mbps": "bandwidthMbps"
+     }
+    }
+   }
+  },
+  {
+   "id": "kubernetes",
+   "category": "compute",
+   "abbr": "K8s",
+   "color": "#2a64e0",
+   "behavior": "stateless",
+   "traits": [
+    "workload",
+    "platform"
+   ],
+   "name": {
+    "ru": "Kubernetes",
+    "en": "Kubernetes"
+   },
+   "subtitle": "{replicas} pods · HPA {hpaMin}–{hpaMax}",
+   "capacity": {
+    "rpsPerReplica": 150
+   },
+   "props": [
+    {
+     "key": "replicas",
+     "type": "number",
+     "label": {
+      "ru": "Pod-ы приложения",
+      "en": "Application pods"
+     },
+     "min": 1,
+     "default": 3,
+     "group": "capacity"
+    },
+    {
+     "key": "hpaMin",
+     "type": "number",
+     "label": {
+      "ru": "HPA min",
+      "en": "HPA min"
+     },
+     "min": 1,
+     "group": "scaling"
+    },
+    {
+     "key": "hpaMax",
+     "type": "number",
+     "label": {
+      "ru": "HPA max",
+      "en": "HPA max"
+     },
+     "min": 1,
+     "group": "scaling"
+    },
+    {
+     "key": "version",
+     "type": "string",
+     "label": {
+      "ru": "Версия Kubernetes",
+      "en": "Kubernetes version"
+     },
+     "group": "platform",
+     "advanced": true
+    },
+    {
+     "key": "vcpu",
+     "type": "number",
+     "unit": "vCPU",
+     "label": {
+      "ru": "vCPU на экземпляр",
+      "en": "vCPU per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 1
+    },
+    {
+     "key": "ramGb",
+     "type": "number",
+     "unit": "GB",
+     "label": {
+      "ru": "RAM на экземпляр",
+      "en": "RAM per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 2
+    }
+   ],
+   "iac": {
+    "terraform": {
+     "source": "./modules/kubernetes",
+     "inputs": {
+      "node_count": "replicas",
+      "k8s_version": "version"
+     }
+    },
+    "helm": {
+     "chart": "app",
+     "repo": "oci://registry.example.org/charts",
+     "version": "1.*",
+     "values": {
+      "replicaCount": "replicas",
+      "autoscaling.minReplicas": "hpaMin",
+      "autoscaling.maxReplicas": "hpaMax"
+     }
+    }
+   },
+   "runbook": {
+    "failover": [
+     {
+      "ru": "Трафик перераспределяется между оставшимися кластерами; проверьте HPA и PodDisruptionBudget.",
+      "en": "Traffic shifts to the remaining clusters; check HPA and PodDisruptionBudgets."
+     }
+    ]
+   }
+  },
+  {
+   "id": "vm_pool",
+   "category": "compute",
+   "abbr": "VM",
+   "color": "#3a58c4",
+   "behavior": "stateless",
+   "traits": [
+    "workload"
+   ],
+   "name": {
+    "ru": "Пул ВМ",
+    "en": "VM pool"
+   },
+   "subtitle": "{replicas}× VM · {vcpu} vCPU",
+   "capacity": {
+    "rpsPerReplica": 120
+   },
+   "props": [
+    {
+     "key": "replicas",
+     "type": "number",
+     "label": {
+      "ru": "Виртуальные машины",
+      "en": "Virtual machines"
+     },
+     "min": 1,
+     "default": 2,
+     "group": "capacity"
+    },
+    {
+     "key": "vcpu",
+     "type": "number",
+     "unit": "vCPU",
+     "label": {
+      "ru": "vCPU на экземпляр",
+      "en": "vCPU per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 2
+    },
+    {
+     "key": "ramGb",
+     "type": "number",
+     "unit": "GB",
+     "label": {
+      "ru": "RAM на экземпляр",
+      "en": "RAM per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 4
+    },
+    {
+     "key": "diskGb",
+     "type": "number",
+     "unit": "GB",
+     "label": {
+      "ru": "Диск на экземпляр",
+      "en": "Disk per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 50
+    }
+   ],
+   "iac": {
+    "terraform": {
+     "source": "./modules/vm_pool",
+     "inputs": {
+      "instances": "replicas",
+      "vcpu": "vcpu",
+      "ram_gb": "ramGb",
+      "disk_gb": "diskGb"
+     }
+    }
+   }
+  },
+  {
+   "id": "functions",
+   "category": "compute",
+   "abbr": "FN",
+   "color": "#3a58c4",
+   "behavior": "stateless",
+   "traits": [
+    "workload",
+    "serverless"
+   ],
+   "name": {
+    "ru": "Functions",
+    "en": "Functions"
+   },
+   "capacity": {
+    "rpsPerReplica": 500
+   },
+   "props": [
+    {
+     "key": "replicas",
+     "type": "number",
+     "label": {
+      "ru": "Параллельные экземпляры",
+      "en": "Concurrent instances"
+     },
+     "min": 1,
+     "default": 10,
+     "group": "capacity"
+    },
+    {
+     "key": "vcpu",
+     "type": "number",
+     "unit": "vCPU",
+     "label": {
+      "ru": "vCPU на экземпляр",
+      "en": "vCPU per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 0.5
+    },
+    {
+     "key": "ramGb",
+     "type": "number",
+     "unit": "GB",
+     "label": {
+      "ru": "RAM на экземпляр",
+      "en": "RAM per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 1
+    }
+   ],
+   "iac": {
+    "terraform": {
+     "source": "./modules/functions",
+     "inputs": {}
+    }
+   }
+  },
+  {
+   "id": "api_gateway",
+   "category": "compute",
+   "abbr": "GW",
+   "color": "#3a58c4",
+   "behavior": "stateless",
+   "traits": [
+    "gateway",
+    "edge"
+   ],
+   "name": {
+    "ru": "API Gateway",
+    "en": "API Gateway"
+   },
+   "subtitle": "{replicas}×",
+   "capacity": {
+    "rpsPerReplica": 5000
+   },
+   "props": [
+    {
+     "key": "replicas",
+     "type": "number",
+     "label": {
+      "ru": "Экземпляры",
+      "en": "Instances"
+     },
+     "min": 1,
+     "default": 2,
+     "group": "capacity"
+    },
+    {
+     "key": "vcpu",
+     "type": "number",
+     "unit": "vCPU",
+     "label": {
+      "ru": "vCPU на экземпляр",
+      "en": "vCPU per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 2
+    },
+    {
+     "key": "ramGb",
+     "type": "number",
+     "unit": "GB",
+     "label": {
+      "ru": "RAM на экземпляр",
+      "en": "RAM per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 4
+    }
+   ],
+   "iac": {
+    "terraform": {
+     "source": "./modules/api_gateway",
+     "inputs": {
+      "replicas": "replicas"
+     }
+    }
+   }
+  },
+  {
+   "id": "postgresql",
+   "category": "data",
+   "abbr": "PG",
+   "color": "#0e766e",
+   "behavior": "primary_replica",
+   "traits": [
+    "datastore",
+    "stateful",
+    "backup-required",
+    "sql"
+   ],
+   "name": {
+    "ru": "PostgreSQL",
+    "en": "PostgreSQL"
+   },
+   "subtitle": "{version} · {vcpu} vCPU",
+   "capacity": {
+    "rpsPerReplica": 4000
+   },
+   "roles": [
+    {
+     "id": "primary",
+     "name": {
+      "ru": "Primary",
+      "en": "Primary"
+     }
+    },
+    {
+     "id": "replica",
+     "name": {
+      "ru": "Реплика",
+      "en": "Replica"
+     }
+    },
+    {
+     "id": "witness",
+     "name": {
+      "ru": "Witness (арбитр)",
+      "en": "Witness (arbiter)"
+     }
+    }
+   ],
+   "props": [
+    {
+     "key": "version",
+     "type": "string",
+     "label": {
+      "ru": "Версия",
+      "en": "Version"
+     },
+     "default": "16",
+     "group": "platform"
+    },
+    {
+     "key": "failover",
+     "type": "enum",
+     "label": {
+      "ru": "Переключение (failover)",
+      "en": "Failover"
+     },
+     "default": "auto",
+     "group": "failover",
+     "options": [
+      {
+       "value": "auto",
+       "label": {
+        "ru": "Автоматическое",
+        "en": "Automatic"
+       }
+      },
+      {
+       "value": "manual",
+       "label": {
+        "ru": "Ручное",
+        "en": "Manual"
+       }
+      },
+      {
+       "value": "none",
+       "label": {
+        "ru": "Нет",
+        "en": "None"
+       }
+      }
+     ]
+    },
+    {
+     "key": "failoverSeconds",
+     "type": "number",
+     "unit": "s",
+     "label": {
+      "ru": "Время автопереключения",
+      "en": "Automatic failover time"
+     },
+     "min": 0,
+     "default": 30,
+     "group": "failover"
+    },
+    {
+     "key": "dcs",
+     "type": "unit_ref",
+     "refBehavior": "consensus",
+     "label": {
+      "ru": "Хранилище кворума (DCS)",
+      "en": "Quorum store (DCS)"
+     },
+     "group": "failover",
+     "help": {
+      "ru": "Кластер консенсуса (etcd/Consul), по которому выбирается лидер (Patroni). Без DCS или witness автопереключение небезопасно (split-brain).",
+      "en": "Consensus cluster (etcd/Consul) used for leader election (Patroni). Without a DCS or witness automatic failover is unsafe (split-brain)."
+     }
+    },
+    {
+     "key": "votes",
+     "type": "number",
+     "label": {
+      "ru": "Голоса",
+      "en": "Votes"
+     },
+     "min": 0,
+     "default": 1,
+     "group": "failover",
+     "advanced": true
+    },
+    {
+     "key": "connectionPooler",
+     "type": "boolean",
+     "label": {
+      "ru": "Пулер соединений (PgBouncer)",
+      "en": "Connection pooler (PgBouncer)"
+     },
+     "group": "performance"
+    },
+    {
+     "key": "encryptionAtRest",
+     "type": "boolean",
+     "label": {
+      "ru": "Шифрование на диске",
+      "en": "Encryption at rest"
+     },
+     "group": "security"
+    },
+    {
+     "key": "vcpu",
+     "type": "number",
+     "unit": "vCPU",
+     "label": {
+      "ru": "vCPU на экземпляр",
+      "en": "vCPU per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 8
+    },
+    {
+     "key": "ramGb",
+     "type": "number",
+     "unit": "GB",
+     "label": {
+      "ru": "RAM на экземпляр",
+      "en": "RAM per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 32
+    },
+    {
+     "key": "diskGb",
+     "type": "number",
+     "unit": "GB",
+     "label": {
+      "ru": "Диск на экземпляр",
+      "en": "Disk per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 500
+    }
+   ],
+   "iac": {
+    "terraform": {
+     "source": "./modules/postgresql",
+     "inputs": {
+      "pg_version": "version",
+      "replicas": "replicas",
+      "vcpu": "vcpu",
+      "ram_gb": "ramGb",
+      "disk_gb": "diskGb"
+     }
+    }
+   },
+   "runbook": {
+    "failover": [
+     {
+      "ru": "Проверьте состояние кластера: patronictl list (лидер, лаг реплик).",
+      "en": "Check cluster state: patronictl list (leader, replica lag)."
+     },
+     {
+      "ru": "При автоматическом переключении убедитесь, что новый лидер принимает запись и приложения переподключились.",
+      "en": "After automatic failover verify the new leader accepts writes and applications reconnected."
+     },
+     {
+      "ru": "Верните отказавший узел в кластер как реплику (reinit при расхождении таймлайнов).",
+      "en": "Re-add the failed node as a replica (reinit if timelines diverged)."
+     }
+    ],
+    "restore": [
+     {
+      "ru": "Восстановите кластер из последней резервной копии и WAL (PITR) на целевую точку.",
+      "en": "Restore the cluster from the latest backup and WAL (PITR) to the target point."
+     },
+     {
+      "ru": "Проверьте целостность данных и переключите приложения.",
+      "en": "Verify data integrity and switch applications over."
+     }
+    ],
+    "verify": [
+     {
+      "ru": "SELECT pg_is_in_recovery() = false на лидере; запись и чтение проходят.",
+      "en": "SELECT pg_is_in_recovery() = false on the leader; reads and writes succeed."
+     }
+    ]
+   }
+  },
+  {
+   "id": "redis",
+   "category": "data",
+   "abbr": "RDS",
+   "color": "#12756c",
+   "behavior": "primary_replica",
+   "traits": [
+    "datastore",
+    "stateful",
+    "cache",
+    "soft-dependency"
+   ],
+   "name": {
+    "ru": "Redis",
+    "en": "Redis"
+   },
+   "subtitle": "{mode}",
+   "capacity": {
+    "rpsPerReplica": 50000
+   },
+   "roles": [
+    {
+     "id": "primary",
+     "name": {
+      "ru": "Master",
+      "en": "Master"
+     }
+    },
+    {
+     "id": "replica",
+     "name": {
+      "ru": "Реплика",
+      "en": "Replica"
+     }
+    },
+    {
+     "id": "witness",
+     "name": {
+      "ru": "Sentinel (арбитр)",
+      "en": "Sentinel (arbiter)"
+     }
+    }
+   ],
+   "props": [
+    {
+     "key": "mode",
+     "type": "enum",
+     "label": {
+      "ru": "Режим",
+      "en": "Mode"
+     },
+     "default": "standalone",
+     "group": "platform",
+     "options": [
+      {
+       "value": "standalone",
+       "label": "standalone"
+      },
+      {
+       "value": "sentinel",
+       "label": "sentinel"
+      },
+      {
+       "value": "cluster",
+       "label": "cluster"
+      }
+     ]
+    },
+    {
+     "key": "failover",
+     "type": "enum",
+     "label": {
+      "ru": "Переключение (failover)",
+      "en": "Failover"
+     },
+     "default": "auto",
+     "group": "failover",
+     "options": [
+      {
+       "value": "auto",
+       "label": {
+        "ru": "Автоматическое",
+        "en": "Automatic"
+       }
+      },
+      {
+       "value": "manual",
+       "label": {
+        "ru": "Ручное",
+        "en": "Manual"
+       }
+      },
+      {
+       "value": "none",
+       "label": {
+        "ru": "Нет",
+        "en": "None"
+       }
+      }
+     ]
+    },
+    {
+     "key": "failoverSeconds",
+     "type": "number",
+     "unit": "s",
+     "label": {
+      "ru": "Время автопереключения",
+      "en": "Automatic failover time"
+     },
+     "min": 0,
+     "default": 15,
+     "group": "failover"
+    },
+    {
+     "key": "votes",
+     "type": "number",
+     "label": {
+      "ru": "Голоса",
+      "en": "Votes"
+     },
+     "min": 0,
+     "default": 1,
+     "group": "failover",
+     "advanced": true
+    },
+    {
+     "key": "encryptionAtRest",
+     "type": "boolean",
+     "label": {
+      "ru": "Шифрование на диске",
+      "en": "Encryption at rest"
+     },
+     "group": "security"
+    },
+    {
+     "key": "vcpu",
+     "type": "number",
+     "unit": "vCPU",
+     "label": {
+      "ru": "vCPU на экземпляр",
+      "en": "vCPU per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 2
+    },
+    {
+     "key": "ramGb",
+     "type": "number",
+     "unit": "GB",
+     "label": {
+      "ru": "RAM на экземпляр",
+      "en": "RAM per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 8
+    },
+    {
+     "key": "diskGb",
+     "type": "number",
+     "unit": "GB",
+     "label": {
+      "ru": "Диск на экземпляр",
+      "en": "Disk per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 20
+    }
+   ],
+   "iac": {
+    "helm": {
+     "chart": "redis",
+     "repo": "oci://registry-1.docker.io/bitnamicharts",
+     "version": "20.*",
+     "values": {
+      "architecture": "mode"
+     }
+    },
+    "terraform": {
+     "source": "./modules/redis",
+     "inputs": {
+      "replicas": "replicas",
+      "ram_gb": "ramGb"
+     }
+    }
+   },
+   "runbook": {
+    "failover": [
+     {
+      "ru": "Sentinel выбирает нового master; проверьте redis-cli -p 26379 sentinel masters и что клиенты используют Sentinel-discovery.",
+      "en": "Sentinel elects a new master; check redis-cli -p 26379 sentinel masters and that clients use Sentinel discovery."
+     }
+    ]
+   }
+  },
+  {
+   "id": "kafka",
+   "category": "data",
+   "abbr": "KFK",
+   "color": "#0e766e",
+   "behavior": "quorum_log",
+   "traits": [
+    "datastore",
+    "stateful",
+    "mq"
+   ],
+   "name": {
+    "ru": "Kafka",
+    "en": "Kafka"
+   },
+   "subtitle": {
+    "ru": "{replicas} брокера · RF{replicationFactor}",
+    "en": "{replicas} brokers · RF{replicationFactor}"
+   },
+   "capacity": {
+    "rpsPerReplica": 20000
+   },
+   "props": [
+    {
+     "key": "replicas",
+     "type": "number",
+     "label": {
+      "ru": "Брокеры",
+      "en": "Brokers"
+     },
+     "min": 1,
+     "default": 3,
+     "group": "capacity"
+    },
+    {
+     "key": "replicationFactor",
+     "type": "number",
+     "label": {
+      "ru": "Replication factor",
+      "en": "Replication factor"
+     },
+     "min": 1,
+     "default": 3,
+     "group": "durability"
+    },
+    {
+     "key": "minInsync",
+     "type": "number",
+     "label": {
+      "ru": "min.insync.replicas",
+      "en": "min.insync.replicas"
+     },
+     "min": 1,
+     "default": 2,
+     "group": "durability"
+    },
+    {
+     "key": "encryptionAtRest",
+     "type": "boolean",
+     "label": {
+      "ru": "Шифрование на диске",
+      "en": "Encryption at rest"
+     },
+     "group": "security"
+    },
+    {
+     "key": "vcpu",
+     "type": "number",
+     "unit": "vCPU",
+     "label": {
+      "ru": "vCPU на экземпляр",
+      "en": "vCPU per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 4
+    },
+    {
+     "key": "ramGb",
+     "type": "number",
+     "unit": "GB",
+     "label": {
+      "ru": "RAM на экземпляр",
+      "en": "RAM per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 16
+    },
+    {
+     "key": "diskGb",
+     "type": "number",
+     "unit": "GB",
+     "label": {
+      "ru": "Диск на экземпляр",
+      "en": "Disk per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 500
+    }
+   ],
+   "iac": {
+    "helm": {
+     "chart": "kafka",
+     "repo": "oci://registry-1.docker.io/bitnamicharts",
+     "version": "31.*",
+     "values": {
+      "controller.replicaCount": "replicas"
+     }
+    },
+    "terraform": {
+     "source": "./modules/kafka",
+     "inputs": {
+      "brokers": "replicas",
+      "replication_factor": "replicationFactor",
+      "min_insync": "minInsync"
+     }
+    }
+   }
+  },
+  {
+   "id": "clickhouse",
+   "category": "data",
+   "abbr": "CH",
+   "color": "#0e766e",
+   "behavior": "quorum_log",
+   "traits": [
+    "datastore",
+    "stateful",
+    "backup-required",
+    "analytics"
+   ],
+   "name": {
+    "ru": "ClickHouse",
+    "en": "ClickHouse"
+   },
+   "capacity": {
+    "rpsPerReplica": 500
+   },
+   "props": [
+    {
+     "key": "replicas",
+     "type": "number",
+     "label": {
+      "ru": "Реплики",
+      "en": "Replicas"
+     },
+     "min": 1,
+     "default": 2,
+     "group": "capacity"
+    },
+    {
+     "key": "minInsync",
+     "type": "number",
+     "label": {
+      "ru": "Минимум живых реплик",
+      "en": "Minimum live replicas"
+     },
+     "min": 1,
+     "default": 1,
+     "group": "durability"
+    },
+    {
+     "key": "encryptionAtRest",
+     "type": "boolean",
+     "label": {
+      "ru": "Шифрование на диске",
+      "en": "Encryption at rest"
+     },
+     "group": "security"
+    },
+    {
+     "key": "vcpu",
+     "type": "number",
+     "unit": "vCPU",
+     "label": {
+      "ru": "vCPU на экземпляр",
+      "en": "vCPU per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 8
+    },
+    {
+     "key": "ramGb",
+     "type": "number",
+     "unit": "GB",
+     "label": {
+      "ru": "RAM на экземпляр",
+      "en": "RAM per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 32
+    },
+    {
+     "key": "diskGb",
+     "type": "number",
+     "unit": "GB",
+     "label": {
+      "ru": "Диск на экземпляр",
+      "en": "Disk per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 1000
+    }
+   ],
+   "iac": {
+    "terraform": {
+     "source": "./modules/clickhouse",
+     "inputs": {
+      "replicas": "replicas",
+      "vcpu": "vcpu",
+      "ram_gb": "ramGb",
+      "disk_gb": "diskGb"
+     }
+    }
+   }
+  },
+  {
+   "id": "object_storage",
+   "category": "data",
+   "abbr": "S3",
+   "color": "#4c596c",
+   "behavior": "stateless",
+   "traits": [
+    "datastore",
+    "stateful",
+    "object-store",
+    "backup-required"
+   ],
+   "name": {
+    "ru": "Объектное хранилище",
+    "en": "Object storage"
+   },
+   "capacity": {
+    "rpsPerReplica": 3000
+   },
+   "props": [
+    {
+     "key": "replicas",
+     "type": "number",
+     "label": {
+      "ru": "Узлы",
+      "en": "Nodes"
+     },
+     "min": 1,
+     "default": 3,
+     "group": "capacity"
+    },
+    {
+     "key": "encryptionAtRest",
+     "type": "boolean",
+     "label": {
+      "ru": "Шифрование на диске",
+      "en": "Encryption at rest"
+     },
+     "group": "security"
+    },
+    {
+     "key": "vcpu",
+     "type": "number",
+     "unit": "vCPU",
+     "label": {
+      "ru": "vCPU на экземпляр",
+      "en": "vCPU per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 2
+    },
+    {
+     "key": "ramGb",
+     "type": "number",
+     "unit": "GB",
+     "label": {
+      "ru": "RAM на экземпляр",
+      "en": "RAM per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 8
+    },
+    {
+     "key": "diskGb",
+     "type": "number",
+     "unit": "GB",
+     "label": {
+      "ru": "Диск на экземпляр",
+      "en": "Disk per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 2000
+    }
+   ],
+   "iac": {
+    "terraform": {
+     "source": "./modules/object_storage",
+     "inputs": {
+      "disk_gb": "diskGb"
+     }
+    }
+   }
+  },
+  {
+   "id": "opensearch",
+   "category": "data",
+   "abbr": "ES",
+   "color": "#0e766e",
+   "behavior": "quorum_log",
+   "traits": [
+    "datastore",
+    "stateful",
+    "backup-required",
+    "search"
+   ],
+   "name": {
+    "ru": "OpenSearch",
+    "en": "OpenSearch"
+   },
+   "capacity": {
+    "rpsPerReplica": 800
+   },
+   "props": [
+    {
+     "key": "replicas",
+     "type": "number",
+     "label": {
+      "ru": "Узлы",
+      "en": "Nodes"
+     },
+     "min": 1,
+     "default": 3,
+     "group": "capacity"
+    },
+    {
+     "key": "minInsync",
+     "type": "number",
+     "label": {
+      "ru": "Минимум живых узлов",
+      "en": "Minimum live nodes"
+     },
+     "min": 1,
+     "default": 2,
+     "group": "durability"
+    },
+    {
+     "key": "encryptionAtRest",
+     "type": "boolean",
+     "label": {
+      "ru": "Шифрование на диске",
+      "en": "Encryption at rest"
+     },
+     "group": "security"
+    },
+    {
+     "key": "vcpu",
+     "type": "number",
+     "unit": "vCPU",
+     "label": {
+      "ru": "vCPU на экземпляр",
+      "en": "vCPU per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 4
+    },
+    {
+     "key": "ramGb",
+     "type": "number",
+     "unit": "GB",
+     "label": {
+      "ru": "RAM на экземпляр",
+      "en": "RAM per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 16
+    },
+    {
+     "key": "diskGb",
+     "type": "number",
+     "unit": "GB",
+     "label": {
+      "ru": "Диск на экземпляр",
+      "en": "Disk per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 500
+    }
+   ],
+   "iac": {
+    "terraform": {
+     "source": "./modules/opensearch",
+     "inputs": {
+      "nodes": "replicas",
+      "vcpu": "vcpu",
+      "ram_gb": "ramGb",
+      "disk_gb": "diskGb"
+     }
+    }
+   }
+  },
+  {
+   "id": "backup_storage",
+   "category": "data",
+   "abbr": "S3",
+   "color": "#4c596c",
+   "behavior": "stateless",
+   "traits": [
+    "backup-target"
+   ],
+   "name": {
+    "ru": "Бэкапы (offsite)",
+    "en": "Backups (offsite)"
+   },
+   "subtitle": {
+    "ru": "{retentionDays} дн",
+    "en": "{retentionDays} d"
+   },
+   "props": [
+    {
+     "key": "immutable",
+     "type": "boolean",
+     "label": {
+      "ru": "Immutable (WORM)",
+      "en": "Immutable (WORM)"
+     },
+     "group": "durability",
+     "help": {
+      "ru": "Защита от удаления и шифровальщиков: Object Lock / WORM.",
+      "en": "Protection against deletion and ransomware: Object Lock / WORM."
+     }
+    },
+    {
+     "key": "retentionDays",
+     "type": "number",
+     "unit": "d",
+     "label": {
+      "ru": "Срок хранения",
+      "en": "Retention"
+     },
+     "min": 0,
+     "group": "durability"
+    },
+    {
+     "key": "backupIntervalSeconds",
+     "type": "number",
+     "unit": "s",
+     "label": {
+      "ru": "Интервал копирования",
+      "en": "Backup interval"
+     },
+     "min": 0,
+     "group": "durability"
+    },
+    {
+     "key": "restoreSeconds",
+     "type": "number",
+     "unit": "s",
+     "label": {
+      "ru": "Время восстановления",
+      "en": "Restore time"
+     },
+     "min": 0,
+     "group": "durability"
+    },
+    {
+     "key": "restoreTestedDays",
+     "type": "number",
+     "unit": "d",
+     "label": {
+      "ru": "Дней с последней проверки восстановления",
+      "en": "Days since last restore test"
+     },
+     "min": 0,
+     "group": "durability"
+    },
+    {
+     "key": "encryptionAtRest",
+     "type": "boolean",
+     "label": {
+      "ru": "Шифрование на диске",
+      "en": "Encryption at rest"
+     },
+     "group": "security"
+    },
+    {
+     "key": "vcpu",
+     "type": "number",
+     "unit": "vCPU",
+     "label": {
+      "ru": "vCPU на экземпляр",
+      "en": "vCPU per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 1
+    },
+    {
+     "key": "ramGb",
+     "type": "number",
+     "unit": "GB",
+     "label": {
+      "ru": "RAM на экземпляр",
+      "en": "RAM per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 2
+    },
+    {
+     "key": "diskGb",
+     "type": "number",
+     "unit": "GB",
+     "label": {
+      "ru": "Диск на экземпляр",
+      "en": "Disk per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 5000
+    }
+   ],
+   "iac": {
+    "terraform": {
+     "source": "./modules/backup_storage",
+     "inputs": {
+      "retention_days": "retentionDays",
+      "immutable": "immutable"
+     }
+    }
+   },
+   "runbook": {
+    "restore": [
+     {
+      "ru": "Найдите последнюю консистентную копию в «{node}» и восстановите данные на новую площадку.",
+      "en": "Locate the latest consistent copy in “{node}” and restore it onto a new site."
+     }
+    ]
+   }
+  },
+  {
+   "id": "etcd",
+   "category": "platform",
+   "abbr": "ETC",
+   "color": "#7a42d7",
+   "behavior": "consensus",
+   "traits": [
+    "consensus",
+    "platform"
+   ],
+   "name": {
+    "ru": "etcd",
+    "en": "etcd"
+   },
+   "roles": [
+    {
+     "id": "voter",
+     "name": {
+      "ru": "Участник кворума",
+      "en": "Voter"
+     }
+    },
+    {
+     "id": "witness",
+     "name": {
+      "ru": "Witness",
+      "en": "Witness"
+     }
+    }
+   ],
+   "props": [
+    {
+     "key": "votes",
+     "type": "number",
+     "label": {
+      "ru": "Голосов на экземпляр",
+      "en": "Votes per instance"
+     },
+     "min": 0,
+     "default": 1,
+     "group": "failover",
+     "advanced": true
+    },
+    {
+     "key": "electionSeconds",
+     "type": "number",
+     "unit": "s",
+     "label": {
+      "ru": "Время выбора лидера",
+      "en": "Leader election time"
+     },
+     "min": 0,
+     "default": 5,
+     "group": "failover"
+    },
+    {
+     "key": "vcpu",
+     "type": "number",
+     "unit": "vCPU",
+     "label": {
+      "ru": "vCPU на экземпляр",
+      "en": "vCPU per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 2
+    },
+    {
+     "key": "ramGb",
+     "type": "number",
+     "unit": "GB",
+     "label": {
+      "ru": "RAM на экземпляр",
+      "en": "RAM per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 4
+    },
+    {
+     "key": "diskGb",
+     "type": "number",
+     "unit": "GB",
+     "label": {
+      "ru": "Диск на экземпляр",
+      "en": "Disk per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 50
+    }
+   ],
+   "iac": {
+    "terraform": {
+     "source": "./modules/etcd",
+     "inputs": {
+      "replicas": "replicas"
+     }
+    }
+   },
+   "runbook": {
+    "failover": [
+     {
+      "ru": "Проверьте etcdctl endpoint status --cluster: есть лидер и большинство участников.",
+      "en": "Check etcdctl endpoint status --cluster: a leader exists and a majority is healthy."
+     }
+    ]
+   }
+  },
+  {
+   "id": "vault",
+   "category": "platform",
+   "abbr": "VLT",
+   "color": "#c2410c",
+   "behavior": "primary_replica",
+   "traits": [
+    "secrets",
+    "stateful",
+    "backup-required",
+    "platform"
+   ],
+   "name": {
+    "ru": "Vault",
+    "en": "Vault"
+   },
+   "subtitle": "failover: {failover}",
+   "roles": [
+    {
+     "id": "primary",
+     "name": {
+      "ru": "Active",
+      "en": "Active"
+     }
+    },
+    {
+     "id": "replica",
+     "name": {
+      "ru": "DR / standby",
+      "en": "DR / standby"
+     }
+    }
+   ],
+   "props": [
+    {
+     "key": "failover",
+     "type": "enum",
+     "label": {
+      "ru": "Переключение (failover)",
+      "en": "Failover"
+     },
+     "default": "manual",
+     "group": "failover",
+     "options": [
+      {
+       "value": "auto",
+       "label": {
+        "ru": "Автоматическое",
+        "en": "Automatic"
+       }
+      },
+      {
+       "value": "manual",
+       "label": {
+        "ru": "Ручное (DR promote)",
+        "en": "Manual (DR promote)"
+       }
+      },
+      {
+       "value": "none",
+       "label": {
+        "ru": "Нет",
+        "en": "None"
+       }
+      }
+     ]
+    },
+    {
+     "key": "encryptionAtRest",
+     "type": "boolean",
+     "label": {
+      "ru": "Шифрование на диске",
+      "en": "Encryption at rest"
+     },
+     "group": "security",
+     "default": true
+    },
+    {
+     "key": "vcpu",
+     "type": "number",
+     "unit": "vCPU",
+     "label": {
+      "ru": "vCPU на экземпляр",
+      "en": "vCPU per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 2
+    },
+    {
+     "key": "ramGb",
+     "type": "number",
+     "unit": "GB",
+     "label": {
+      "ru": "RAM на экземпляр",
+      "en": "RAM per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 4
+    },
+    {
+     "key": "diskGb",
+     "type": "number",
+     "unit": "GB",
+     "label": {
+      "ru": "Диск на экземпляр",
+      "en": "Disk per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 50
+    }
+   ],
+   "iac": {
+    "terraform": {
+     "source": "./modules/vault",
+     "inputs": {
+      "replicas": "replicas"
+     }
+    }
+   }
+  },
+  {
+   "id": "monitoring",
+   "category": "platform",
+   "abbr": "OBS",
+   "color": "#7a42d7",
+   "behavior": "stateless",
+   "traits": [
+    "monitoring",
+    "platform"
+   ],
+   "name": {
+    "ru": "Мониторинг",
+    "en": "Monitoring"
+   },
+   "subtitle": "Prometheus HA",
+   "props": [
+    {
+     "key": "replicas",
+     "type": "number",
+     "label": {
+      "ru": "Экземпляры",
+      "en": "Instances"
+     },
+     "min": 1,
+     "default": 2,
+     "group": "capacity"
+    },
+    {
+     "key": "vcpu",
+     "type": "number",
+     "unit": "vCPU",
+     "label": {
+      "ru": "vCPU на экземпляр",
+      "en": "vCPU per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 2
+    },
+    {
+     "key": "ramGb",
+     "type": "number",
+     "unit": "GB",
+     "label": {
+      "ru": "RAM на экземпляр",
+      "en": "RAM per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 8
+    },
+    {
+     "key": "diskGb",
+     "type": "number",
+     "unit": "GB",
+     "label": {
+      "ru": "Диск на экземпляр",
+      "en": "Disk per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 200
+    }
+   ],
+   "iac": {
+    "helm": {
+     "chart": "kube-prometheus-stack",
+     "repo": "https://prometheus-community.github.io/helm-charts",
+     "version": "*",
+     "values": {
+      "prometheus.prometheusSpec.replicas": "replicas"
+     }
+    },
+    "terraform": {
+     "source": "./modules/monitoring",
+     "inputs": {
+      "replicas": "replicas"
+     }
+    }
+   }
+  },
+  {
+   "id": "gitops",
+   "category": "platform",
+   "abbr": "CI",
+   "color": "#6d3fc4",
+   "behavior": "stateless",
+   "traits": [
+    "gitops",
+    "platform"
+   ],
+   "name": {
+    "ru": "GitOps",
+    "en": "GitOps"
+   },
+   "subtitle": "Argo CD",
+   "props": [
+    {
+     "key": "replicas",
+     "type": "number",
+     "label": {
+      "ru": "Экземпляры",
+      "en": "Instances"
+     },
+     "min": 1,
+     "default": 2,
+     "group": "capacity"
+    },
+    {
+     "key": "vcpu",
+     "type": "number",
+     "unit": "vCPU",
+     "label": {
+      "ru": "vCPU на экземпляр",
+      "en": "vCPU per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 2
+    },
+    {
+     "key": "ramGb",
+     "type": "number",
+     "unit": "GB",
+     "label": {
+      "ru": "RAM на экземпляр",
+      "en": "RAM per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 4
+    },
+    {
+     "key": "diskGb",
+     "type": "number",
+     "unit": "GB",
+     "label": {
+      "ru": "Диск на экземпляр",
+      "en": "Disk per instance"
+     },
+     "min": 0,
+     "group": "capacity",
+     "default": 50
+    }
+   ],
+   "iac": {
+    "helm": {
+     "chart": "argo-cd",
+     "repo": "https://argoproj.github.io/argo-helm",
+     "version": "*",
+     "values": {
+      "controller.replicas": "replicas"
+     }
+    },
+    "terraform": {
+     "source": "./modules/gitops",
+     "inputs": {
+      "replicas": "replicas"
+     }
+    }
+   }
+  }
+ ]
+}

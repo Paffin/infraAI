@@ -1,0 +1,950 @@
+{
+ "id": "event-driven-kafka",
+ "name": {
+  "ru": "Event-driven на Kafka",
+  "en": "Event-driven on Kafka"
+ },
+ "description": {
+  "ru": "Шина событий Kafka на трёх AZ, продюсеры/консьюмеры, ClickHouse для аналитики.",
+  "en": "Kafka event backbone across three AZs, producers/consumers, ClickHouse analytics."
+ },
+ "badge": "HA",
+ "enabled": true,
+ "order": 4,
+ "architecture": {
+  "schemaVersion": 1,
+  "meta": {
+   "name": "Event-driven на Kafka",
+   "description": "Асинхронная обработка событий: Kafka как шина, продюсеры и консьюмеры в трёх AZ."
+  },
+  "requirements": {
+   "rpsPeak": 3000,
+   "growthPercent": 50,
+   "rtoSeconds": 300,
+   "rpoSeconds": 0,
+   "budgetMonthly": 3000000,
+   "failureTolerance": "site",
+   "availabilitySlo": 99.95
+  },
+  "zones": [
+   {
+    "id": "region",
+    "name": "Регион eu-1",
+    "type": "region",
+    "parentId": null,
+    "role": null,
+    "props": {}
+   },
+   {
+    "id": "az-a",
+    "name": "AZ A",
+    "type": "az",
+    "parentId": "region",
+    "role": null,
+    "props": {
+     "geo": "eu-1",
+     "costModel": "cloud"
+    }
+   },
+   {
+    "id": "az-b",
+    "name": "AZ B",
+    "type": "az",
+    "parentId": "region",
+    "role": null,
+    "props": {
+     "geo": "eu-1",
+     "costModel": "cloud"
+    }
+   },
+   {
+    "id": "az-c",
+    "name": "AZ C",
+    "type": "az",
+    "parentId": "region",
+    "role": null,
+    "props": {
+     "geo": "eu-1",
+     "costModel": "cloud"
+    }
+   }
+  ],
+  "nodes": [
+   {
+    "id": "users",
+    "kind": "users",
+    "name": "Клиенты / интеграции",
+    "zoneId": null,
+    "group": null,
+    "role": null,
+    "props": {}
+   },
+   {
+    "id": "cdn",
+    "kind": "cdn",
+    "name": "CDN",
+    "zoneId": null,
+    "group": "cdn",
+    "role": null,
+    "props": {}
+   },
+   {
+    "id": "waf",
+    "kind": "waf",
+    "name": "WAF",
+    "zoneId": null,
+    "group": "waf",
+    "role": null,
+    "props": {
+     "replicas": 3
+    }
+   },
+   {
+    "id": "gw",
+    "kind": "api_gateway",
+    "name": "API Gateway",
+    "zoneId": null,
+    "group": "gw",
+    "role": null,
+    "props": {
+     "replicas": 3,
+     "vcpu": 2,
+     "ramGb": 4
+    }
+   },
+   {
+    "id": "prod-a",
+    "kind": "kubernetes",
+    "name": "Продюсеры (API)",
+    "zoneId": "az-a",
+    "group": "producers",
+    "role": null,
+    "props": {
+     "replicas": 15,
+     "vcpu": 1,
+     "ramGb": 2,
+     "hpaMin": 10,
+     "hpaMax": 40
+    }
+   },
+   {
+    "id": "cons-a",
+    "kind": "kubernetes",
+    "name": "Консьюмеры (workers)",
+    "zoneId": "az-a",
+    "group": "consumers",
+    "role": null,
+    "props": {
+     "replicas": 8,
+     "vcpu": 1,
+     "ramGb": 2,
+     "hpaMin": 6,
+     "hpaMax": 30
+    }
+   },
+   {
+    "id": "kafka-a",
+    "kind": "kafka",
+    "name": "Kafka",
+    "zoneId": "az-a",
+    "group": "kafka",
+    "role": null,
+    "props": {
+     "replicas": 1,
+     "replicationFactor": 3,
+     "minInsync": 2,
+     "vcpu": 8,
+     "ramGb": 32,
+     "diskGb": 2000,
+     "storageClass": "nvme",
+     "encryptionAtRest": true
+    }
+   },
+   {
+    "id": "ch-a",
+    "kind": "clickhouse",
+    "name": "ClickHouse",
+    "zoneId": "az-a",
+    "group": "clickhouse",
+    "role": null,
+    "props": {
+     "replicas": 1,
+     "vcpu": 16,
+     "ramGb": 64,
+     "diskGb": 4000,
+     "storageClass": "nvme",
+     "minInsync": 2,
+     "encryptionAtRest": true
+    }
+   },
+   {
+    "id": "mon-a",
+    "kind": "monitoring",
+    "name": "Мониторинг",
+    "zoneId": "az-a",
+    "group": "monitoring",
+    "role": null,
+    "props": {
+     "replicas": 1
+    }
+   },
+   {
+    "id": "prod-b",
+    "kind": "kubernetes",
+    "name": "Продюсеры (API)",
+    "zoneId": "az-b",
+    "group": "producers",
+    "role": null,
+    "props": {
+     "replicas": 15,
+     "vcpu": 1,
+     "ramGb": 2,
+     "hpaMin": 10,
+     "hpaMax": 40
+    }
+   },
+   {
+    "id": "cons-b",
+    "kind": "kubernetes",
+    "name": "Консьюмеры (workers)",
+    "zoneId": "az-b",
+    "group": "consumers",
+    "role": null,
+    "props": {
+     "replicas": 8,
+     "vcpu": 1,
+     "ramGb": 2,
+     "hpaMin": 6,
+     "hpaMax": 30
+    }
+   },
+   {
+    "id": "kafka-b",
+    "kind": "kafka",
+    "name": "Kafka",
+    "zoneId": "az-b",
+    "group": "kafka",
+    "role": null,
+    "props": {
+     "replicas": 1,
+     "replicationFactor": 3,
+     "minInsync": 2,
+     "vcpu": 8,
+     "ramGb": 32,
+     "diskGb": 2000,
+     "storageClass": "nvme",
+     "encryptionAtRest": true
+    }
+   },
+   {
+    "id": "ch-b",
+    "kind": "clickhouse",
+    "name": "ClickHouse",
+    "zoneId": "az-b",
+    "group": "clickhouse",
+    "role": null,
+    "props": {
+     "replicas": 1,
+     "vcpu": 16,
+     "ramGb": 64,
+     "diskGb": 4000,
+     "storageClass": "nvme",
+     "minInsync": 2,
+     "encryptionAtRest": true
+    }
+   },
+   {
+    "id": "mon-b",
+    "kind": "monitoring",
+    "name": "Мониторинг",
+    "zoneId": "az-b",
+    "group": "monitoring",
+    "role": null,
+    "props": {
+     "replicas": 1
+    }
+   },
+   {
+    "id": "prod-c",
+    "kind": "kubernetes",
+    "name": "Продюсеры (API)",
+    "zoneId": "az-c",
+    "group": "producers",
+    "role": null,
+    "props": {
+     "replicas": 15,
+     "vcpu": 1,
+     "ramGb": 2,
+     "hpaMin": 10,
+     "hpaMax": 40
+    }
+   },
+   {
+    "id": "cons-c",
+    "kind": "kubernetes",
+    "name": "Консьюмеры (workers)",
+    "zoneId": "az-c",
+    "group": "consumers",
+    "role": null,
+    "props": {
+     "replicas": 8,
+     "vcpu": 1,
+     "ramGb": 2,
+     "hpaMin": 6,
+     "hpaMax": 30
+    }
+   },
+   {
+    "id": "kafka-c",
+    "kind": "kafka",
+    "name": "Kafka",
+    "zoneId": "az-c",
+    "group": "kafka",
+    "role": null,
+    "props": {
+     "replicas": 1,
+     "replicationFactor": 3,
+     "minInsync": 2,
+     "vcpu": 8,
+     "ramGb": 32,
+     "diskGb": 2000,
+     "storageClass": "nvme",
+     "encryptionAtRest": true
+    }
+   },
+   {
+    "id": "ch-c",
+    "kind": "clickhouse",
+    "name": "ClickHouse",
+    "zoneId": "az-c",
+    "group": "clickhouse",
+    "role": null,
+    "props": {
+     "replicas": 1,
+     "vcpu": 16,
+     "ramGb": 64,
+     "diskGb": 4000,
+     "storageClass": "nvme",
+     "minInsync": 2,
+     "encryptionAtRest": true
+    }
+   },
+   {
+    "id": "mon-c",
+    "kind": "monitoring",
+    "name": "Мониторинг",
+    "zoneId": "az-c",
+    "group": "monitoring",
+    "role": null,
+    "props": {
+     "replicas": 1
+    }
+   },
+   {
+    "id": "pg-a",
+    "kind": "postgresql",
+    "name": "PostgreSQL primary",
+    "zoneId": "az-a",
+    "group": "pg",
+    "role": "primary",
+    "props": {
+     "version": "16",
+     "vcpu": 8,
+     "ramGb": 32,
+     "diskGb": 500,
+     "failover": "auto",
+     "failoverSeconds": 30,
+     "dcs": "etcd",
+     "connectionPooler": true,
+     "encryptionAtRest": true
+    }
+   },
+   {
+    "id": "pg-b",
+    "kind": "postgresql",
+    "name": "PostgreSQL sync replica",
+    "zoneId": "az-b",
+    "group": "pg",
+    "role": "replica",
+    "props": {
+     "version": "16",
+     "vcpu": 8,
+     "ramGb": 32,
+     "diskGb": 500,
+     "failover": "auto",
+     "failoverSeconds": 30,
+     "dcs": "etcd",
+     "connectionPooler": true,
+     "encryptionAtRest": true
+    }
+   },
+   {
+    "id": "etcd-a",
+    "kind": "etcd",
+    "name": "etcd",
+    "zoneId": "az-a",
+    "group": "etcd",
+    "role": "voter",
+    "props": {}
+   },
+   {
+    "id": "etcd-b",
+    "kind": "etcd",
+    "name": "etcd",
+    "zoneId": "az-b",
+    "group": "etcd",
+    "role": "voter",
+    "props": {}
+   },
+   {
+    "id": "etcd-c",
+    "kind": "etcd",
+    "name": "etcd",
+    "zoneId": "az-c",
+    "group": "etcd",
+    "role": "voter",
+    "props": {}
+   },
+   {
+    "id": "s3-a",
+    "kind": "object_storage",
+    "name": "Объектное хранилище",
+    "zoneId": "az-a",
+    "group": "s3",
+    "role": null,
+    "props": {
+     "replicas": 1,
+     "diskGb": 7000,
+     "encryptionAtRest": true
+    }
+   },
+   {
+    "id": "s3-b",
+    "kind": "object_storage",
+    "name": "Объектное хранилище",
+    "zoneId": "az-b",
+    "group": "s3",
+    "role": null,
+    "props": {
+     "replicas": 1,
+     "diskGb": 7000,
+     "encryptionAtRest": true
+    }
+   },
+   {
+    "id": "s3-c",
+    "kind": "object_storage",
+    "name": "Объектное хранилище",
+    "zoneId": "az-c",
+    "group": "s3",
+    "role": null,
+    "props": {
+     "replicas": 1,
+     "diskGb": 7000,
+     "encryptionAtRest": true
+    }
+   },
+   {
+    "id": "backup",
+    "kind": "backup_storage",
+    "name": "Бэкапы (immutable)",
+    "zoneId": "az-c",
+    "group": null,
+    "role": null,
+    "props": {
+     "immutable": true,
+     "retentionDays": 30,
+     "backupIntervalSeconds": 300,
+     "restoreSeconds": 5400,
+     "restoreTestedDays": 30,
+     "encryptionAtRest": true,
+     "diskGb": 20000
+    }
+   },
+   {
+    "id": "gitops",
+    "kind": "gitops",
+    "name": "GitOps · Argo CD",
+    "zoneId": "az-c",
+    "group": "gitops",
+    "role": null,
+    "props": {
+     "replicas": 2
+    }
+   },
+   {
+    "id": "vault",
+    "kind": "vault",
+    "name": "Vault",
+    "zoneId": "az-a",
+    "group": "vault",
+    "role": "primary",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 4
+    }
+   },
+   {
+    "id": "vault-b",
+    "kind": "vault",
+    "name": "Vault (standby)",
+    "zoneId": "az-b",
+    "group": "vault",
+    "role": "replica",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 4
+    }
+   }
+  ],
+  "edges": [
+   {
+    "id": "e-users--cdn",
+    "source": "users",
+    "target": "cdn",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-cdn--waf",
+    "source": "cdn",
+    "target": "waf",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-waf--gw",
+    "source": "waf",
+    "target": "gw",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-gw--prod-a",
+    "source": "gw",
+    "target": "prod-a",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-prod-a--kafka-a",
+    "source": "prod-a",
+    "target": "kafka-a",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "fanout": 1,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-cons-a--kafka-a",
+    "source": "cons-a",
+    "target": "kafka-a",
+    "type": "control",
+    "label": "consume",
+    "props": {}
+   },
+   {
+    "id": "e-cons-a--ch-a",
+    "source": "cons-a",
+    "target": "ch-a",
+    "type": "control",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-mon-a--prod-a",
+    "source": "mon-a",
+    "target": "prod-a",
+    "type": "control",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-gitops--prod-a",
+    "source": "gitops",
+    "target": "prod-a",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-gitops--cons-a",
+    "source": "gitops",
+    "target": "cons-a",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-cons-a--s3-a",
+    "source": "cons-a",
+    "target": "s3-a",
+    "type": "control",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-gw--prod-b",
+    "source": "gw",
+    "target": "prod-b",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-prod-b--kafka-b",
+    "source": "prod-b",
+    "target": "kafka-b",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "fanout": 1,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-cons-b--kafka-b",
+    "source": "cons-b",
+    "target": "kafka-b",
+    "type": "control",
+    "label": "consume",
+    "props": {}
+   },
+   {
+    "id": "e-cons-b--ch-b",
+    "source": "cons-b",
+    "target": "ch-b",
+    "type": "control",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-mon-b--prod-b",
+    "source": "mon-b",
+    "target": "prod-b",
+    "type": "control",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-gitops--prod-b",
+    "source": "gitops",
+    "target": "prod-b",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-gitops--cons-b",
+    "source": "gitops",
+    "target": "cons-b",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-cons-b--s3-b",
+    "source": "cons-b",
+    "target": "s3-b",
+    "type": "control",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-gw--prod-c",
+    "source": "gw",
+    "target": "prod-c",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-prod-c--kafka-c",
+    "source": "prod-c",
+    "target": "kafka-c",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "fanout": 1,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-cons-c--kafka-c",
+    "source": "cons-c",
+    "target": "kafka-c",
+    "type": "control",
+    "label": "consume",
+    "props": {}
+   },
+   {
+    "id": "e-cons-c--ch-c",
+    "source": "cons-c",
+    "target": "ch-c",
+    "type": "control",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-mon-c--prod-c",
+    "source": "mon-c",
+    "target": "prod-c",
+    "type": "control",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-gitops--prod-c",
+    "source": "gitops",
+    "target": "prod-c",
+    "type": "control",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-gitops--cons-c",
+    "source": "gitops",
+    "target": "cons-c",
+    "type": "control",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-cons-c--s3-c",
+    "source": "cons-c",
+    "target": "s3-c",
+    "type": "control",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-prod-a--pg-a",
+    "source": "prod-a",
+    "target": "pg-a",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "fanout": 0.2,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-prod-b--pg-b",
+    "source": "prod-b",
+    "target": "pg-b",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "fanout": 0.2,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-prod-c--pg-a",
+    "source": "prod-c",
+    "target": "pg-a",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "fanout": 0.2,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-pg-a--pg-b",
+    "source": "pg-a",
+    "target": "pg-b",
+    "type": "sync",
+    "label": null,
+    "props": {
+     "latencyMs": 0.8,
+     "latencyMeasured": true,
+     "tls": true,
+     "bandwidthMbps": 25000,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-etcd-a--etcd-b",
+    "source": "etcd-a",
+    "target": "etcd-b",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 0.9,
+     "tls": true,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-etcd-b--etcd-c",
+    "source": "etcd-b",
+    "target": "etcd-c",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 0.9,
+     "tls": true,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-etcd-a--etcd-c",
+    "source": "etcd-a",
+    "target": "etcd-c",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 0.9,
+     "tls": true,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-kafka-a--kafka-b",
+    "source": "kafka-a",
+    "target": "kafka-b",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 0.9,
+     "tls": true,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-kafka-b--kafka-c",
+    "source": "kafka-b",
+    "target": "kafka-c",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 0.9,
+     "tls": true,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-ch-a--ch-b",
+    "source": "ch-a",
+    "target": "ch-b",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 0.9,
+     "tls": true,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-ch-b--ch-c",
+    "source": "ch-b",
+    "target": "ch-c",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 0.9,
+     "tls": true,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-pg-b--backup",
+    "source": "pg-b",
+    "target": "backup",
+    "type": "backup",
+    "label": null,
+    "props": {
+     "intervalSeconds": 300,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-ch-a--backup",
+    "source": "ch-a",
+    "target": "backup",
+    "type": "backup",
+    "label": null,
+    "props": {
+     "intervalSeconds": 3600,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-s3-a--backup",
+    "source": "s3-a",
+    "target": "backup",
+    "type": "backup",
+    "label": null,
+    "props": {
+     "intervalSeconds": 3600,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-s3-a--s3-b",
+    "source": "s3-a",
+    "target": "s3-b",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 0.9,
+     "tls": true,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-s3-b--s3-c",
+    "source": "s3-b",
+    "target": "s3-c",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 0.9,
+     "tls": true,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-vault--backup",
+    "source": "vault",
+    "target": "backup",
+    "type": "backup",
+    "label": null,
+    "props": {
+     "intervalSeconds": 3600,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-vault--vault-b",
+    "source": "vault",
+    "target": "vault-b",
+    "type": "async",
+    "label": null,
+    "props": {
+     "lagSeconds": 1,
+     "latencyMs": 0.8,
+     "latencyMeasured": true,
+     "tls": true,
+     "paths": 3,
+     "bandwidthMbps": 25000
+    }
+   }
+  ]
+ }
+}

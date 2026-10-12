@@ -1,0 +1,688 @@
+//! Documents and infrastructure-as-code generated from the single architecture model.
+//!
+//! * Terraform/OpenTofu: a *validating scaffold* – root module wiring plus stub modules, driven
+//!   by the catalog's `iac.terraform` mapping (module sources and input names are configuration,
+//!   not code). No secrets are ever generated; remote state belongs in the backend block from
+//!   settings.
+//! * Helm: `helmfile.yaml` + per-release values for kinds with an `iac.helm` mapping.
+//! * ADR and Runbook: Markdown with every number traceable to the engine's report.
+//! * Mermaid: a diagram for documentation.
+
+use crate::catalog::{Semantics, ZoneLevel};
+use crate::config::{EngineConfig, Waiver};
+use crate::evaluate::{render_message, Ctx, Report, Status};
+use crate::model::{as_f64, Architecture};
+use crate::sim::{standard_scenarios, RecoveryKind, Scenario, ServiceState};
+use crate::text::{display_value, fmt_seconds, interpolate};
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ExportFile {
+    pub path: String,
+    pub content: String,
+}
+
+pub const FORMATS: &[&str] = &["json", "terraform", "helm", "adr", "runbook", "mermaid"];
+
+fn file(path: impl Into<String>, content: impl Into<String>) -> ExportFile {
+    ExportFile { path: path.into(), content: content.into() }
+}
+
+fn ident(s: &str, taken: &mut HashSet<String>) -> String {
+    let mut out: String = s
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c.to_ascii_lowercase() } else { '_' })
+        .collect();
+    while out.contains("__") {
+        out = out.replace("__", "_");
+    }
+    let mut out = out.trim_matches('_').to_string();
+    if out.is_empty() {
+        out = "n".into();
+    }
+    if out.chars().next().map(|c| c.is_ascii_digit()).unwrap_or(false) {
+        out = format!("n_{}", out);
+    }
+    let base = out.clone();
+    let mut i = 2;
+    while taken.contains(&out) {
+        out = format!("{}_{}", base, i);
+        i += 1;
+    }
+    taken.insert(out.clone());
+    out
+}
+
+// -------------------------------------------------------------------------------------------
+// Terraform
+// -------------------------------------------------------------------------------------------
+
+fn hcl_str(s: &str) -> String {
+    let e = s.replace('\\', "\\\\").replace('"', "\\\"").replace("${", "$${").replace("%{", "%%{").replace('\n', "\\n");
+    format!("\"{}\"", e)
+}
+
+fn hcl_value(v: &Value) -> Option<String> {
+    match v {
+        Value::Bool(b) => Some(b.to_string()),
+        Value::Number(n) => Some(n.to_string()),
+        Value::String(s) => Some(hcl_str(s)),
+        _ => None,
+    }
+}
+
+const RESERVED_MODULE_ARGS: &[&str] = &["source", "version", "count", "for_each", "providers", "depends_on"];
+
+fn module_input_name(name: &str) -> String {
+    if RESERVED_MODULE_ARGS.contains(&name) {
+        format!("{}_value", name)
+    } else {
+        name.to_string()
+    }
+}
+
+pub fn terraform(arch: &Architecture, cfg: &EngineConfig) -> Vec<ExportFile> {
+    let ctx = Ctx::new(arch, cfg);
+    let ix = &ctx.ix;
+    let ex = &cfg.settings.export;
+    let mut files = vec![];
+    let mut taken: HashSet<String> = HashSet::new();
+    let mut mod_names: Vec<Option<String>> = vec![None; arch.nodes.len()];
+    let mut unmapped: Vec<String> = vec![];
+
+    for (ni, n) in arch.nodes.iter().enumerate() {
+        let has = ix.kind[ni].and_then(|k| k.iac.as_ref()).and_then(|i| i.terraform.as_ref()).is_some();
+        if has {
+            mod_names[ni] = Some(ident(&n.id, &mut taken));
+        } else {
+            unmapped.push(format!("{} ({})", n.name, n.kind));
+        }
+    }
+
+    // dependency ordering without cycles: a depends_on b means b is created first
+    let mut deps: Vec<BTreeSet<usize>> = vec![BTreeSet::new(); arch.nodes.len()];
+    let reaches = |deps: &Vec<BTreeSet<usize>>, from: usize, to: usize| -> bool {
+        let mut stack = vec![from];
+        let mut seen = HashSet::new();
+        while let Some(x) = stack.pop() {
+            if x == to {
+                return true;
+            }
+            if seen.insert(x) {
+                stack.extend(deps[x].iter().copied());
+            }
+        }
+        false
+    };
+    let mut candidates: Vec<(usize, usize)> = vec![];
+    for (ei, ends) in ix.edge_ends.iter().enumerate() {
+        let Some((s, t)) = ends else { continue };
+        match ix.sem(ei) {
+            Some(Semantics::Dependency) => candidates.push((*s, *t)),
+            Some(Semantics::Replication) => candidates.push((*t, *s)),
+            _ => {}
+        }
+    }
+    for (a, b) in candidates {
+        if a == b || mod_names[a].is_none() || mod_names[b].is_none() {
+            continue;
+        }
+        if !reaches(&deps, b, a) {
+            deps[a].insert(b);
+        }
+    }
+
+    // zones
+    let mut main = String::new();
+    main.push_str("# Generated by Infra Architect from the architecture model.\n");
+    main.push_str("# This is a SCAFFOLD: replace the stub modules in ./modules with real implementations.\n");
+    main.push_str(&format!("# Architecture: {}\n\n", arch.meta.name.clone().unwrap_or_default()));
+    main.push_str("locals {\n  zones = {\n");
+    for z in &arch.zones {
+        main.push_str(&format!(
+            "    {} = {{ name = {}, type = {}, role = {}, geo = {} }}\n",
+            hcl_str(&z.id),
+            hcl_str(&z.name),
+            hcl_str(&z.zone_type),
+            hcl_str(z.role.as_deref().unwrap_or("")),
+            hcl_str(&z.props.get("geo").and_then(|v| v.as_str()).unwrap_or("").to_string()),
+        ));
+    }
+    main.push_str("  }\n}\n\n");
+
+    let mut module_dirs: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    for (ni, n) in arch.nodes.iter().enumerate() {
+        let Some(mname) = &mod_names[ni] else { continue };
+        let tf = ix.kind[ni].and_then(|k| k.iac.as_ref()).and_then(|i| i.terraform.as_ref()).unwrap();
+        main.push_str(&format!("module {} {{\n  source = {}\n", hcl_str(mname), hcl_str(&tf.source)));
+        if let (Some(v), false) = (&tf.version, tf.source.starts_with("./") || tf.source.starts_with("../")) {
+            main.push_str(&format!("  version = {}\n", hcl_str(v)));
+        }
+        main.push('\n');
+        main.push_str(&format!("  name  = {}\n", hcl_str(&n.name)));
+        match &n.zone_id {
+            Some(z) => main.push_str(&format!("  zone  = {}\n", hcl_str(z))),
+            None => main.push_str("  zone  = \"\"\n"),
+        }
+        main.push_str(&format!("  group = {}\n", hcl_str(n.group.as_deref().unwrap_or(""))));
+        main.push_str(&format!("  role  = {}\n", hcl_str(n.role.as_deref().unwrap_or(""))));
+        let mut inputs: BTreeSet<String> = BTreeSet::new();
+        for (input, prop) in &tf.inputs {
+            if let Some(v) = ix.eff[ni].map.get(prop).and_then(hcl_value) {
+                let name = module_input_name(input);
+                main.push_str(&format!("  {} = {}\n", name, v));
+            }
+            inputs.insert(module_input_name(input));
+        }
+        if !deps[ni].is_empty() {
+            let list: Vec<String> = deps[ni].iter().filter_map(|&d| mod_names[d].as_ref().map(|m| format!("module.{}", m))).collect();
+            main.push_str(&format!("\n  depends_on = [{}]\n", list.join(", ")));
+        }
+        main.push_str("}\n\n");
+        if tf.source.starts_with("./") {
+            module_dirs.entry(tf.source.trim_start_matches("./").to_string()).or_default().extend(inputs);
+        }
+    }
+    files.push(file("main.tf", main));
+    files.push(file(
+        "versions.tf",
+        format!("terraform {{\n  required_version = {}\n\n  {}\n}}\n", hcl_str(&ex.terraform_required_version), ex.terraform_backend),
+    ));
+    files.push(file(
+        "README.md",
+        format!(
+            "# Terraform / OpenTofu scaffold\n\nGenerated from the architecture model. Modules under `modules/` are **stubs** (`terraform_data`): they declare the inputs the architecture provides and nothing else. Implement them for your platform, keep secrets in your secret manager (never in variables or state-in-git) and configure remote state in `versions.tf`.\n\n```\ntofu init && tofu validate\n```\n\n{}",
+            if unmapped.is_empty() {
+                String::new()
+            } else {
+                format!("## Components without a Terraform mapping\n\n{}\n", unmapped.iter().map(|u| format!("- {u}")).collect::<Vec<_>>().join("\n"))
+            }
+        ),
+    ));
+    for (dir, inputs) in module_dirs {
+        let mut vars = String::new();
+        for v in ["name", "zone", "group", "role"] {
+            vars.push_str(&format!("variable \"{v}\" {{\n  type    = string\n  default = \"\"\n}}\n\n"));
+        }
+        for i in &inputs {
+            vars.push_str(&format!("variable \"{i}\" {{\n  type    = any\n  default = null\n}}\n\n"));
+        }
+        let mut obj = String::from("{\n    name  = var.name\n    zone  = var.zone\n    group = var.group\n    role  = var.role\n");
+        for i in &inputs {
+            obj.push_str(&format!("    {i} = var.{i}\n"));
+        }
+        obj.push_str("  }");
+        files.push(file(format!("{dir}/variables.tf"), vars));
+        files.push(file(
+            format!("{dir}/main.tf"),
+            format!("# Stub module generated by Infra Architect. Replace with real resources.\nresource \"terraform_data\" \"this\" {{\n  input = {obj}\n}}\n"),
+        ));
+        files.push(file(format!("{dir}/outputs.tf"), "output \"id\" {\n  value = terraform_data.this.id\n}\n"));
+    }
+    files
+}
+
+// -------------------------------------------------------------------------------------------
+// Helm / helmfile
+// -------------------------------------------------------------------------------------------
+
+fn yaml_scalar(v: &Value) -> String {
+    match v {
+        Value::Bool(b) => b.to_string(),
+        Value::Number(n) => n.to_string(),
+        Value::String(s) => serde_json::to_string(s).unwrap_or_else(|_| "\"\"".into()),
+        _ => "null".into(),
+    }
+}
+
+fn nested_yaml(map: &BTreeMap<String, Value>) -> String {
+    #[derive(Default)]
+    struct Node {
+        leaf: Option<Value>,
+        children: BTreeMap<String, Node>,
+    }
+    fn insert(n: &mut Node, parts: &[&str], v: Value) {
+        if parts.is_empty() {
+            n.leaf = Some(v);
+            return;
+        }
+        let c = n.children.entry(parts[0].to_string()).or_default();
+        insert(c, &parts[1..], v);
+    }
+    fn emit(n: &Node, indent: usize, out: &mut String) {
+        for (k, c) in &n.children {
+            let pad = "  ".repeat(indent);
+            if let Some(v) = &c.leaf {
+                out.push_str(&format!("{pad}{k}: {}\n", yaml_scalar(v)));
+            } else {
+                out.push_str(&format!("{pad}{k}:\n"));
+                emit(c, indent + 1, out);
+            }
+        }
+    }
+    let mut root = Node::default();
+    for (k, v) in map {
+        let parts: Vec<&str> = k.split('.').collect();
+        insert(&mut root, &parts, v.clone());
+    }
+    let mut out = String::new();
+    emit(&root, 0, &mut out);
+    out
+}
+
+pub fn helm(arch: &Architecture, cfg: &EngineConfig) -> Vec<ExportFile> {
+    let ctx = Ctx::new(arch, cfg);
+    let ix = &ctx.ix;
+    let ex = &cfg.settings.export;
+    let mut taken = HashSet::new();
+    let mut repos: BTreeMap<String, String> = BTreeMap::new(); // url -> name
+    let mut releases = String::new();
+    let mut files = vec![];
+    for (ni, n) in arch.nodes.iter().enumerate() {
+        let Some(h) = ix.kind[ni].and_then(|k| k.iac.as_ref()).and_then(|i| i.helm.as_ref()) else { continue };
+        let rel = ident(&n.id, &mut taken).replace('_', "-");
+        let chart = match &h.repo {
+            Some(url) => {
+                let next = repos.len() + 1;
+                let name = repos.entry(url.clone()).or_insert_with(|| format!("repo{next}")).clone();
+                format!("{}/{}", name, h.chart)
+            }
+            None => h.chart.clone(),
+        };
+        releases.push_str(&format!("  - name: {rel}\n    namespace: {}\n    chart: {}\n", yaml_scalar(&json!(ex.helm_namespace)), yaml_scalar(&json!(chart))));
+        if let Some(v) = &h.version {
+            releases.push_str(&format!("    version: {}\n", yaml_scalar(&json!(v))));
+        }
+        releases.push_str(&format!("    values:\n      - values/{rel}.yaml\n"));
+        let mut values: BTreeMap<String, Value> = BTreeMap::new();
+        for (vk, pk) in &h.values {
+            if let Some(v) = ix.eff[ni].map.get(pk) {
+                if !v.is_null() {
+                    values.insert(vk.clone(), v.clone());
+                }
+            }
+        }
+        values.insert("global.node".into(), json!(n.id));
+        if let Some(z) = &n.zone_id {
+            values.insert("global.zone".into(), json!(z));
+        }
+        files.push(file(format!("values/{rel}.yaml"), format!("# {} ({})\n{}", n.name, n.kind, nested_yaml(&values))));
+    }
+    let mut hf = String::from("# Generated by Infra Architect. Review chart names, versions and values before use.\n");
+    if !repos.is_empty() {
+        hf.push_str("repositories:\n");
+        for (url, name) in &repos {
+            if let Some(rest) = url.strip_prefix("oci://") {
+                hf.push_str(&format!("  - name: {name}\n    url: {rest}\n    oci: true\n"));
+            } else {
+                hf.push_str(&format!("  - name: {name}\n    url: {url}\n"));
+            }
+        }
+    }
+    hf.push_str("releases:\n");
+    hf.push_str(&releases);
+    files.insert(0, file("helmfile.yaml", hf));
+    files
+}
+
+// -------------------------------------------------------------------------------------------
+// Mermaid
+// -------------------------------------------------------------------------------------------
+
+pub fn mermaid(arch: &Architecture, cfg: &EngineConfig) -> String {
+    let ctx = Ctx::new(arch, cfg);
+    let ix = &ctx.ix;
+    let mut taken = HashSet::new();
+    let mut nid: HashMap<String, String> = HashMap::new();
+    for n in &arch.nodes {
+        nid.insert(n.id.clone(), ident(&n.id, &mut taken));
+    }
+    let mut zid: HashMap<String, String> = HashMap::new();
+    for z in &arch.zones {
+        zid.insert(z.id.clone(), format!("z_{}", ident(&z.id, &mut taken)));
+    }
+    let esc = |s: &str| s.replace('"', "'");
+    let mut out = String::from("flowchart TB\n");
+    fn emit_zone(arch: &Architecture, zid: &HashMap<String, String>, nid: &HashMap<String, String>, parent: Option<&str>, indent: usize, out: &mut String, esc: &dyn Fn(&str) -> String, ix: &crate::graph::Index<'_>) {
+        let pad = "  ".repeat(indent);
+        for z in arch.zones.iter().filter(|z| z.parent_id.as_deref() == parent) {
+            out.push_str(&format!("{pad}subgraph {}[\"{}\"]\n", zid[&z.id], esc(&z.name)));
+            emit_zone(arch, zid, nid, Some(&z.id), indent + 1, out, esc, ix);
+            for (ni, n) in arch.nodes.iter().enumerate() {
+                if n.zone_id.as_deref() == Some(&z.id) {
+                    let sub = ix.kind[ni].map(|k| k.abbr.clone()).unwrap_or_default();
+                    out.push_str(&format!("{pad}  {}[\"{}<br/><small>{}</small>\"]\n", nid[&n.id], esc(&n.name), esc(&sub)));
+                }
+            }
+            out.push_str(&format!("{pad}end\n"));
+        }
+    }
+    emit_zone(arch, &zid, &nid, None, 1, &mut out, &esc, ix);
+    for (ni, n) in arch.nodes.iter().enumerate() {
+        if n.zone_id.is_none() {
+            let sub = ix.kind[ni].map(|k| k.abbr.clone()).unwrap_or_default();
+            out.push_str(&format!("  {}[\"{}<br/><small>{}</small>\"]\n", nid[&n.id], esc(&n.name), esc(&sub)));
+        }
+    }
+    for (ei, e) in arch.edges.iter().enumerate() {
+        let (Some(s), Some(t)) = (nid.get(&e.source), nid.get(&e.target)) else { continue };
+        let label = e.label.clone().unwrap_or_default();
+        let lab = if label.is_empty() { String::new() } else { format!("|\"{}\"|", esc(&label)) };
+        let arrow = match (ix.sem(ei), e.edge_type.as_str()) {
+            (Some(Semantics::Replication), "sync") => format!("=={}=>", lab.replace('|', "|")),
+            (Some(Semantics::Replication), _) => format!("-.{}.->", lab),
+            (Some(Semantics::Membership), _) => format!("-.-{}", lab),
+            (Some(Semantics::Backup), _) => format!("-.{}.->", lab),
+            (Some(Semantics::Control), _) => format!("-.-{}", lab),
+            _ => format!("-->{}", lab),
+        };
+        let arrow = if arrow.starts_with("==") { format!("=={}==>", lab) } else { arrow };
+        out.push_str(&format!("  {} {} {}\n", s, arrow, t));
+    }
+    out
+}
+
+// -------------------------------------------------------------------------------------------
+// ADR
+// -------------------------------------------------------------------------------------------
+
+fn dur(s: f64) -> String {
+    fmt_seconds(s).replace('s', " s").replace('m', " min").replace('h', " h")
+}
+
+pub fn adr(arch: &Architecture, cfg: &EngineConfig, report: &Report, waivers: &[Waiver], lang: &str, date: &str) -> ExportFile {
+    let ex = &cfg.settings.export;
+    let t = |k: &str| ex.text(lang, k);
+    let name = arch.meta.name.clone().unwrap_or_else(|| "architecture".into());
+    let ctx = Ctx::new(arch, cfg);
+    let ix = &ctx.ix;
+    let mut out = String::new();
+    let mut vars = BTreeMap::new();
+    vars.insert("n".to_string(), json!("0001"));
+    vars.insert("name".to_string(), json!(name));
+    out.push_str(&format!("# {}\n\n", interpolate(&t("adr.title"), &vars)));
+    out.push_str(&format!("**{}:** {} · **{}:** {}\n\n", t("adr.status"), ex.adr_status, t("adr.date"), date));
+    if let Some(d) = &arch.meta.description {
+        out.push_str(&format!("{}\n\n", d));
+    }
+
+    // context
+    let r = &arch.requirements;
+    let ns = t("adr.not_set");
+    let num = |v: Option<f64>, unit: &str| v.map(|x| format!("{} {}", display_value(&json!(x)), unit).trim().to_string()).unwrap_or_else(|| ns.clone());
+    out.push_str(&format!("## {}\n\n", t("adr.context")));
+    out.push_str(&format!("- {}: {}\n", t("adr.req.rps"), num(r.rps_peak, "rps")));
+    out.push_str(&format!("- {}: {}\n", t("adr.req.growth"), num(r.growth_percent, "%")));
+    out.push_str(&format!("- {}: {}\n", t("adr.req.rto"), r.rto_seconds.map(dur).unwrap_or_else(|| ns.clone())));
+    out.push_str(&format!("- {}: {}\n", t("adr.req.rpo"), r.rpo_seconds.map(dur).unwrap_or_else(|| ns.clone())));
+    out.push_str(&format!("- {}: {}\n", t("adr.req.slo"), num(r.availability_slo, "%")));
+    out.push_str(&format!("- {}: {}\n", t("adr.req.budget"), r.budget_monthly.map(|b| format!("{} {}", b, report.cost.symbol)).unwrap_or_else(|| ns.clone())));
+    let tol = r.failure_tolerance.clone().unwrap_or_else(|| cfg.settings.assumptions.default_failure_tolerance.clone());
+    out.push_str(&format!("- {}: {}\n", t("adr.req.tolerance"), t(&format!("tolerance.{tol}"))));
+    if let Some(n) = &r.notes {
+        out.push_str(&format!("- {}: {}\n", t("adr.req.notes"), n));
+    }
+
+    // decision
+    out.push_str(&format!("\n## {}\n\n### {}\n\n", t("adr.decision"), t("adr.zones")));
+    out.push_str(&format!("| {} | {} | {} |\n|---|---|---|\n", t("adr.col.zone"), t("adr.col.role"), t("adr.col.geo")));
+    for z in &arch.zones {
+        if ix.zone_level(arch.zones.iter().position(|x| x.id == z.id).unwrap()) == ZoneLevel::Group {
+            continue;
+        }
+        out.push_str(&format!(
+            "| {} | {} | {} |\n",
+            z.name,
+            z.role.clone().unwrap_or_default(),
+            z.props.get("geo").and_then(|v| v.as_str()).unwrap_or("")
+        ));
+    }
+    out.push_str(&format!("\n### {}\n\n| {} | {} | {} |\n|---|---|---|\n", t("adr.units"), t("adr.col.service"), t("adr.col.sites"), t("adr.col.instances")));
+    for (u, unit) in ix.units.iter().enumerate() {
+        if unit.traits.contains("entry") {
+            continue;
+        }
+        let sites: Vec<String> = ix.unit_sites(u).iter().map(|&s| ix.zone_name(s).to_string()).collect();
+        let inst: u32 = unit.members.iter().map(|&m| ix.replicas(m)).sum();
+        out.push_str(&format!("| {} | {} | {} |\n", unit.name, if sites.is_empty() { "—".into() } else { sites.join(", ") }, inst));
+    }
+
+    // consequences
+    out.push_str(&format!("\n## {}\n\n", t("adr.consequences")));
+    out.push_str(&format!("**{}: {}/100** ({}: {:.0}%)\n\n", t("adr.score"), report.score.value, t("adr.coverage"), report.score.coverage * 100.0));
+    for o in &report.objectives {
+        let mark = match o.status {
+            Status::Ok => "✓",
+            Status::Critical | Status::Risk => "✗",
+            _ => "?",
+        };
+        let fmt = |v: &Option<Value>| v.as_ref().map(|x| if let Some(f) = as_f64(x) { dur_or_num(&o.id, f) } else { display_value(x) }).unwrap_or_else(|| ns.clone());
+        out.push_str(&format!("- {} **{}**: {} / {}{}\n", mark, o.id, fmt(&o.actual), fmt(&o.required), if o.assumed { " *(assumed)*" } else { "" }));
+    }
+    out.push_str(&format!("\n### {}\n\n| {} | {} | {} | {} | {} |\n|---|---|---|---|---|\n", t("adr.scenarios"), t("adr.col.scenario"), t("adr.col.state"), t("adr.col.recovery"), t("adr.col.rpo"), t("adr.col.capacity")));
+    for s in &report.scenarios {
+        let state = match s.state {
+            ServiceState::Up => t("state.up"),
+            ServiceState::Degraded => t("state.degraded"),
+            ServiceState::Down => t("state.down"),
+        };
+        let mut v = BTreeMap::new();
+        v.insert("seconds".to_string(), json!(s.recovery_seconds.map(dur).unwrap_or_default()));
+        let rec = interpolate(&t(&format!("recovery.{}", match s.recovery_kind { RecoveryKind::None => "none", RecoveryKind::Auto => "auto", RecoveryKind::Manual => "manual", RecoveryKind::Never => "never" })), &v);
+        let flags = format!("{}{}", if s.split_brain { " ⚠ split-brain" } else { "" }, if s.data_lost { " ⚠ data lost" } else { "" });
+        out.push_str(&format!(
+            "| {} | {}{} | {} | {}{} | {} |\n",
+            s.failed.join(" + "),
+            state,
+            flags,
+            rec,
+            s.rpo_seconds.map(dur).unwrap_or_else(|| "?".into()),
+            if s.rpo_assumed { "*" } else { "" },
+            s.capacity_ratio.map(|c| format!("{:.0}%", c * 100.0)).unwrap_or_else(|| "?".into())
+        ));
+    }
+
+    // findings
+    let open: Vec<_> = report.findings.iter().filter(|f| f.accepted.is_none() && matches!(f.status, Status::Critical | Status::Risk)).collect();
+    out.push_str(&format!("\n## {}\n\n", t("adr.risks")));
+    if open.is_empty() {
+        out.push_str(&format!("{}\n", t("adr.none")));
+    }
+    for f in open {
+        if let Some(rule) = cfg.rules.iter().find(|r| r.id == f.rule_id) {
+            out.push_str(&format!("- **{}** `{}` — {}\n", t(&format!("status.{}", status_key(f.status))), f.rule_id, render_message(rule, f, lang)));
+        }
+    }
+    out.push_str(&format!("\n## {}\n\n", t("adr.accepted")));
+    let accepted: Vec<_> = report.findings.iter().filter(|f| f.accepted.is_some()).collect();
+    if accepted.is_empty() && waivers.is_empty() {
+        out.push_str(&format!("{}\n", t("adr.none")));
+    }
+    for f in accepted {
+        if let (Some(rule), Some(a)) = (cfg.rules.iter().find(|r| r.id == f.rule_id), &f.accepted) {
+            out.push_str(&format!(
+                "- `{}` — {}\n  - {}: {}{}{}\n",
+                f.rule_id,
+                render_message(rule, f, lang),
+                t("adr.reason"),
+                a.reason,
+                a.by.as_ref().map(|b| format!(" ({}: {})", t("adr.by"), b)).unwrap_or_default(),
+                a.at.as_ref().map(|b| format!(" ({}: {})", t("adr.at"), b)).unwrap_or_default()
+            ));
+        }
+    }
+    out.push_str(&format!("\n## {}\n\n", t("adr.mitigations")));
+    let mut any = false;
+    for (ei, e) in arch.edges.iter().enumerate() {
+        if let Some(m) = ix.edge_eff[ei].text("mitigation") {
+            any = true;
+            let (s, tg) = ix.edge_ends[ei].map(|(s, tg)| (ix.node_name(s).to_string(), ix.node_name(tg).to_string())).unwrap_or_default();
+            out.push_str(&format!("- {} → {}: {}\n", s, tg, m));
+            let _ = e;
+        }
+    }
+    if !any {
+        out.push_str(&format!("{}\n", t("adr.none")));
+    }
+    out.push_str(&format!("\n## {}\n\n", t("adr.nodata")));
+    let nd: Vec<_> = report.findings.iter().filter(|f| f.status == Status::NoData).collect();
+    if nd.is_empty() {
+        out.push_str(&format!("{}\n", t("adr.none")));
+    }
+    for f in nd {
+        if let Some(rule) = cfg.rules.iter().find(|r| r.id == f.rule_id) {
+            out.push_str(&format!("- `{}` — {}\n", f.rule_id, render_message(rule, f, lang)));
+        }
+    }
+    out.push_str(&format!("\n## {}\n\n**{} {}/month**", t("adr.cost"), display_value(&json!(report.cost.total)), report.cost.symbol));
+    if report.cost.incomplete > 0 {
+        out.push_str(&format!(" (incomplete: {} nodes)", report.cost.incomplete));
+    }
+    out.push_str("\n\n");
+    for (k, v) in &report.cost.by_category {
+        out.push_str(&format!("- {}: {} {}\n", k, display_value(&json!(v)), report.cost.symbol));
+    }
+    out.push_str(&format!("\n---\n*{}*\n", t("adr.generated")));
+    file("ADR-0001.md", out)
+}
+
+fn status_key(s: Status) -> &'static str {
+    match s {
+        Status::Critical => "critical",
+        Status::Risk => "risk",
+        Status::NoData => "no_data",
+        _ => "ok",
+    }
+}
+
+fn dur_or_num(id: &str, f: f64) -> String {
+    match id {
+        "rto" | "rpo" => dur(f),
+        _ => display_value(&json!(f)),
+    }
+}
+
+// -------------------------------------------------------------------------------------------
+// Runbook
+// -------------------------------------------------------------------------------------------
+
+pub fn runbook(arch: &Architecture, cfg: &EngineConfig, lang: &str) -> ExportFile {
+    let ex = &cfg.settings.export;
+    let t = |k: &str| ex.text(lang, k);
+    let ctx = Ctx::new(arch, cfg);
+    let ix = &ctx.ix;
+    let name = arch.meta.name.clone().unwrap_or_else(|| "architecture".into());
+    let mut v = BTreeMap::new();
+    v.insert("name".to_string(), json!(name));
+    let mut out = format!("# {}\n\n{}\n\n", interpolate(&t("runbook.title"), &v), t("runbook.intro"));
+    out.push_str(&format!("## {}\n\n1. {}\n2. {}\n3. {}\n\n", t("runbook.general"), t("runbook.general.1"), t("runbook.general.2"), t("runbook.general.3")));
+
+    for sc in standard_scenarios(ix).into_iter().filter(|s| !matches!(s, Scenario::Instance { .. } | Scenario::Node { .. })) {
+        let r = ctx.sim(&sc);
+        let mut sv = BTreeMap::new();
+        sv.insert("failed".to_string(), json!(r.failed.join(" + ")));
+        out.push_str(&format!("## {}\n\n", interpolate(&t("runbook.scenario"), &sv)));
+        let state = match r.state {
+            ServiceState::Up => t("state.up"),
+            ServiceState::Degraded => t("state.degraded"),
+            ServiceState::Down => t("state.down"),
+        };
+        out.push_str(&format!("**{}:** {}", t("runbook.impact"), state));
+        if !r.down_units.is_empty() {
+            out.push_str(&format!(" — {}: {}", t("adr.reason"), r.down_units.join(", ")));
+        }
+        if let Some(c) = r.capacity_ratio {
+            out.push_str(&format!(" · {}: {:.0}%", t("adr.col.capacity"), c * 100.0));
+        }
+        out.push_str("\n\n");
+        let mut rv = BTreeMap::new();
+        rv.insert("seconds".to_string(), json!(r.recovery.seconds.map(dur).unwrap_or_default()));
+        let kind = match r.recovery.kind { RecoveryKind::None => "none", RecoveryKind::Auto => "auto", RecoveryKind::Manual => "manual", RecoveryKind::Never => "never" };
+        out.push_str(&format!("**{}:** {}\n\n", t("runbook.rto"), interpolate(&t(&format!("recovery.{kind}")), &rv)));
+        out.push_str(&format!("**{}:** {}\n\n", t("runbook.rpo"), r.rpo_seconds.map(dur).unwrap_or_else(|| "?".into())));
+
+        if !r.events.is_empty() {
+            out.push_str(&format!("### {}\n\n", t("runbook.auto")));
+            for e in &r.events {
+                let vars: BTreeMap<String, Value> = e.vars.iter().map(|(k, v)| {
+                    let v2 = match (k.as_str(), v) {
+                        ("seconds", Value::Number(n)) => json!(dur(n.as_f64().unwrap_or(0.0))),
+                        ("rpo", Value::Number(n)) => json!(dur(n.as_f64().unwrap_or(0.0))),
+                        _ => v.clone(),
+                    };
+                    (k.clone(), v2)
+                }).collect();
+                let key = format!("event.{}", e.code);
+                let txt = ex.text(lang, &key);
+                if txt != key {
+                    out.push_str(&format!("- {}\n", interpolate(&txt, &vars)));
+                }
+            }
+            out.push('\n');
+        }
+
+        // operator steps from the catalog snippets of the involved units
+        let mut steps: Vec<String> = vec![];
+        let mut verify: Vec<String> = vec![];
+        for e in &r.events {
+            let Some(uk) = &e.unit else { continue };
+            let Some(&u) = ix.unit_ix.get(uk) else { continue };
+            let Some(kind) = ix.kind[ix.units[u].members[0]] else { continue };
+            let Some(rb) = &kind.runbook else { continue };
+            let pick: &Vec<crate::text::LText> = match e.code.as_str() {
+                "promoted" | "manual_failover" | "primary_lost" | "fenced" => &rb.failover,
+                "restore_from_backup" => &rb.restore,
+                _ => continue,
+            };
+            let mut vars: BTreeMap<String, Value> = BTreeMap::new();
+            vars.insert("node".into(), e.vars.get("node").cloned().unwrap_or(json!(ix.units[u].name)));
+            vars.insert("group".into(), json!(ix.units[u].key));
+            for st in pick {
+                let line = st.render(lang, &vars);
+                if !steps.contains(&line) {
+                    steps.push(line);
+                }
+            }
+            for st in &rb.verify {
+                let line = st.render(lang, &vars);
+                if !verify.contains(&line) {
+                    verify.push(line);
+                }
+            }
+        }
+        out.push_str(&format!("### {}\n\n", t("runbook.steps")));
+        if steps.is_empty() {
+            out.push_str(&format!("{}\n\n", t("runbook.no_steps")));
+        } else {
+            for (i, s) in steps.iter().enumerate() {
+                out.push_str(&format!("{}. {}\n", i + 1, s));
+            }
+            out.push('\n');
+        }
+        if !verify.is_empty() {
+            out.push_str(&format!("### {}\n\n", t("runbook.verify")));
+            for s in verify {
+                out.push_str(&format!("- {}\n", s));
+            }
+            out.push('\n');
+        }
+        out.push_str(&format!("_{}_\n\n", t("runbook.after")));
+    }
+    file("RUNBOOK.md", out)
+}
+
+/// Generate one export format.
+pub fn generate(format: &str, arch: &Architecture, cfg: &EngineConfig, report: &Report, waivers: &[Waiver], lang: &str, date: &str) -> Option<Vec<ExportFile>> {
+    match format {
+        "json" => Some(vec![file("architecture.json", serde_json::to_string_pretty(arch).ok()?)]),
+        "terraform" => Some(terraform(arch, cfg)),
+        "helm" => Some(helm(arch, cfg)),
+        "adr" => Some(vec![adr(arch, cfg, report, waivers, lang, date)]),
+        "runbook" => Some(vec![runbook(arch, cfg, lang)]),
+        "mermaid" => Some(vec![file("architecture.mmd", mermaid(arch, cfg))]),
+        _ => None,
+    }
+}
