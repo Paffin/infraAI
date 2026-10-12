@@ -174,13 +174,28 @@ impl Settings {
     }
 }
 
+/// Integral floats are stored as integers (`12.0` → `12`) so that a value equal to its default is recognised.
+fn canonical(v: Value) -> Value {
+    match v.as_f64() {
+        Some(f) if v.is_f64() && f.fract() == 0.0 && f.abs() < 9e15 => json!(f as i64),
+        _ => v,
+    }
+}
+
+fn same_value(a: &Value, b: &Value) -> bool {
+    match (a.as_f64(), b.as_f64()) {
+        (Some(x), Some(y)) => x == y,
+        _ => a == b,
+    }
+}
+
 /// Persist changes. Secrets are encrypted; an empty secret removes the stored value.
 pub async fn save(pool: &PgPool, keys: &Keys, changes: &serde_json::Map<String, Value>, actor: &str) -> Result<Vec<String>, String> {
     let mut tx = pool.begin().await.map_err(|e| e.to_string())?;
     let mut changed = vec![];
     for (k, v) in changes {
         let d = def(k).ok_or_else(|| format!("unknown setting '{k}'"))?;
-        let norm = validate(d, v).map_err(|e| format!("{k}: {e}"))?;
+        let norm = canonical(validate(d, v).map_err(|e| format!("{k}: {e}"))?);
         if d.ty == "secret" {
             let s = norm.as_str().unwrap_or("");
             if s.is_empty() {
@@ -194,7 +209,7 @@ pub async fn save(pool: &PgPool, keys: &Keys, changes: &serde_json::Map<String, 
                     .await
                     .map_err(|e| e.to_string())?;
             }
-        } else if norm == d.default {
+        } else if same_value(&norm, &d.default) {
             sqlx::query("delete from settings where key = $1").bind(k).execute(&mut *tx).await.map_err(|e| e.to_string())?;
         } else {
             sqlx::query("insert into settings (key, value, encrypted, updated_by) values ($1, $2, false, $3) on conflict (key) do update set value = $2, encrypted = false, updated_by = $3, updated_at = now()")

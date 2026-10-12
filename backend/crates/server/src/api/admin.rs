@@ -45,7 +45,10 @@ pub struct SaveSettings {
 
 pub async fn put_settings(State(state): State<AppState>, user: AuthUser, ConnectInfo(addr): ConnectInfo<SocketAddr>, headers: HeaderMap, Json(b): Json<SaveSettings>) -> ApiResult<Json<Value>> {
     user.require_admin()?;
-    let keys = settings::save(&state.pool, &state.keys, &b.changes, &user.email).await.map_err(|e| ApiError::bad_request("invalid_setting", e))?;
+    let keys = settings::save(&state.pool, &state.keys, &b.changes, &user.email).await.map_err(|e| {
+        let (key, reason) = e.split_once(": ").map(|(k, r)| (k.to_string(), r.to_string())).unwrap_or_default();
+        ApiError::bad_request("invalid_setting", e).with_details(json!({"key": key, "reason": reason}))
+    })?;
     changed(&state).await?;
     // log keys only; secret values never leave this function
     audit::log(&state.pool, Some(&user), "settings.update", "settings", "", json!({"keys": keys}), &ip(&state, &headers, addr)).await;
@@ -236,6 +239,7 @@ pub async fn config_put(
         return Err(ApiError::not_found("unknown config kind"));
     }
     validate_item(&kind, &id, &b.data).map_err(|e| ApiError::bad_request("invalid_config", e))?;
+    let old: Option<Value> = sqlx::query_scalar("select data from config_items where kind = $1 and id = $2").bind(&kind).bind(&id).fetch_optional(&state.pool).await?;
     let r = sqlx::query("update config_items set data = $3, modified = (origin = 'default'), updated_at = now(), updated_by = $4 where kind = $1 and id = $2")
         .bind(&kind)
         .bind(&id)
@@ -247,7 +251,11 @@ pub async fn config_put(
         return Err(ApiError::not_found("config item not found"));
     }
     changed(&state).await?;
-    audit::log(&state.pool, Some(&user), "config.update", &kind, &id, json!({}), &ip(&state, &headers, addr)).await;
+    let changed_keys: Vec<String> = match (&old, &b.data) {
+        (Some(Value::Object(o)), Value::Object(n)) => o.keys().chain(n.keys()).filter(|k| o.get(*k) != n.get(*k)).cloned().collect::<std::collections::BTreeSet<_>>().into_iter().collect(),
+        _ => vec![],
+    };
+    audit::log(&state.pool, Some(&user), "config.update", &kind, &id, json!({"changedKeys": changed_keys}), &ip(&state, &headers, addr)).await;
     Ok(Json(json!({"ok": true})))
 }
 
@@ -296,10 +304,13 @@ pub async fn config_delete(
     Path((kind, id)): Path<(String, String)>,
 ) -> ApiResult<Json<Value>> {
     user.require_admin()?;
-    let r = sqlx::query("delete from config_items where kind = $1 and id = $2 and origin = 'custom'").bind(&kind).bind(&id).execute(&state.pool).await?;
-    if r.rows_affected() == 0 {
-        return Err(ApiError::conflict("not_deletable", "only custom items can be deleted; built-in items can be disabled or reset"));
+    let origin: Option<String> = sqlx::query_scalar("select origin from config_items where kind = $1 and id = $2").bind(&kind).bind(&id).fetch_optional(&state.pool).await?;
+    match origin.as_deref() {
+        None => return Err(ApiError::not_found("config item not found")),
+        Some("custom") => {}
+        Some(_) => return Err(ApiError::conflict("not_deletable", "only custom items can be deleted; built-in items can be disabled or reset")),
     }
+    sqlx::query("delete from config_items where kind = $1 and id = $2 and origin = 'custom'").bind(&kind).bind(&id).execute(&state.pool).await?;
     changed(&state).await?;
     audit::log(&state.pool, Some(&user), "config.delete", &kind, &id, json!({}), &ip(&state, &headers, addr)).await;
     Ok(Json(json!({"ok": true})))
@@ -418,7 +429,7 @@ pub async fn config_import(State(state): State<AppState>, user: AuthUser, Connec
 
 pub async fn users_list(State(state): State<AppState>, user: AuthUser) -> ApiResult<Json<Value>> {
     user.require_admin()?;
-    let rows = sqlx::query("select id, email, name, role, disabled, must_change_password, created_at, last_login_at, locked_until from users order by lower(email)").fetch_all(&state.pool).await?;
+    let rows = sqlx::query("select id, email, name, role, disabled, must_change_password, created_at, last_login_at, case when locked_until > now() then locked_until end as locked_until from users order by lower(email)").fetch_all(&state.pool).await?;
     Ok(Json(json!({"users": rows.iter().map(|r| json!({
         "id": r.get::<Uuid, _>("id"), "email": r.get::<String, _>("email"), "name": r.get::<String, _>("name"), "role": r.get::<String, _>("role"),
         "disabled": r.get::<bool, _>("disabled"), "mustChangePassword": r.get::<bool, _>("must_change_password"),
@@ -489,6 +500,9 @@ pub async fn users_patch(
     };
     let (cur_role, cur_disabled): (String, bool) =
         sqlx::query_as("select role, disabled from users where id = $1").bind(id).fetch_optional(&state.pool).await?.ok_or_else(|| ApiError::not_found("user not found"))?;
+    if id == user.id && (new_role.map(|r| r != Role::Admin).unwrap_or(false) || b.disabled == Some(true)) {
+        return Err(ApiError::conflict("self_lockout", "you cannot demote or disable your own account"));
+    }
     let losing_admin = (cur_role == "admin" && !cur_disabled) && (new_role.map(|r| r != Role::Admin).unwrap_or(false) || b.disabled == Some(true));
     if losing_admin && other_admins(&state, id).await? == 0 {
         return Err(ApiError::conflict("last_admin", "there must be at least one active administrator"));
@@ -556,7 +570,7 @@ pub async fn audit_list(State(state): State<AppState>, user: AuthUser, Query(q):
     user.require_admin()?;
     let rows = sqlx::query(
         "select id, at, actor, action, target_type, target_id, details, ip from audit_log
-         where ($1::bigint is null or id < $1) and ($2::text is null or action like $2 || '%') and ($3::text is null or lower(actor) like '%' || lower($3) || '%')
+         where ($1::bigint is null or id < $1) and ($2::text is null or left(action, length($2)) = $2) and ($3::text is null or lower(actor) like '%' || lower($3) || '%')
          order by id desc limit $4",
     )
     .bind(q.before)

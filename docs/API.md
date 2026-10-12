@@ -1,0 +1,182 @@
+# HTTP API
+
+Base path `/api`. JSON in, JSON out. Authentication is a session cookie (`ia_session`, HttpOnly,
+SameSite=Lax) obtained from `POST /api/auth/login`. All errors share one shape:
+
+```json
+{ "error": { "code": "conflict", "message": "the project was changed by someone else", "details": { "currentRev": 7 } } }
+```
+
+State-changing requests carrying an `Origin` header must come from the same origin (or the
+configured `app.publicUrl`); otherwise `403 forbidden`.
+
+Roles: `viewer` (read) < `editor` (write projects, use AI, accept risks) < `admin` (settings, catalog,
+users, audit). `chat` AI requests are available to every role.
+
+Non-API endpoints: `GET /healthz` (liveness), `GET /readyz` (database + not draining),
+`GET /metrics` (Prometheus; optional `Authorization: Bearer $METRICS_TOKEN`).
+
+## Auth
+
+| Method | Path | Body | Response |
+|---|---|---|---|
+| POST | `/auth/login` | `{email, password}` | `{user}` + cookie. `401 unauthorized`, `429 locked` / `rate_limited` |
+| POST | `/auth/logout` | – | `{ok}` |
+| GET | `/auth/me` | – | `{user}` |
+| POST | `/auth/password` | `{current, new}` | `{ok}` (re-issues the session) |
+| GET | `/public/config` | – | `{appName, defaultLanguage, languages, theme}` (no auth) |
+
+`user = {id, email, name, role, mustChangePassword}`. While `mustChangePassword` is true (temporary password issued by
+the first start or by an administrator) every endpoint except `/auth/me`, `/auth/password` and `/auth/logout`
+answers `403 password_change_required`.
+
+## Bootstrap
+
+`GET /bootstrap` → everything the editor needs (supports `If-None-Match` → `304`):
+
+```
+{ user, rev, version, engineVersion,
+  app: {name, defaultLanguage, languages, theme, quickPrompts},   // quickPrompts: [{label: LText, prompt: LText}] (setting ui.quickPrompts)
+  catalog: Catalog,            // kinds, edgeTypes, zoneTypes, categories, commonProps
+  rules: Rule[],               // texts for rendering findings
+  templates: [{id, name, description, badge, order, nodeCount, requirements}],
+  exportFormats: ["json","terraform","helm","adr","runbook","mermaid"],
+  ai: {enabled, configured, maxPromptChars, plannerModel, fastModel},
+  limits: {maxNodes, maxEdges, maxZones, waiverMinReasonChars, waiverMaxDays},
+  engine: {currency, symbol, minCapacityDuringFailure, headroomPercent, defaultFailureTolerance} }
+```
+
+`LText` values (names, texts) are a string or `{ru, en, …}`; resolve with a fallback to `en`, then `ru`.
+
+## Projects
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/projects` | `{projects:[{id,name,description,owner,updatedAt,createdAt,headVersion,draftRev,nodeCount,summary}]}`; `summary` = `ReportSummary` of the latest version |
+| POST | `/projects` | `{name, description?, templateId? \| architecture?, lang?}` → `{id}` (editor) |
+| GET | `/projects/{id}` | `{project, architecture, rev, waivers}` |
+| PATCH | `/projects/{id}` | `{name?, description?}` |
+| DELETE | `/projects/{id}` | soft delete (owner or admin) |
+| PUT | `/projects/{id}/draft` | `{architecture, expectedRev}` → `{rev}`; `409 conflict` with `details.currentRev` |
+| GET | `/projects/{id}/versions` | `{versions:[{n,message,author,summary,createdAt}]}` |
+| POST | `/projects/{id}/versions` | `{message, lang?}` → `{n}` (snapshot of the draft + report summary) |
+| GET | `/projects/{id}/versions/{n}` | `{n,message,author,architecture,summary,createdAt}` |
+| POST | `/projects/{id}/versions/{n}/restore` | `{expectedRev}` → `{rev}` |
+| GET | `/projects/{id}/diff?from=draft\|N&to=draft\|N&ui=0` | `ArchDiff` |
+| POST | `/projects/{id}/waivers` | `{fingerprint, reason, expiresInDays?, lang?}` → `{id}` (accept a risk) |
+| DELETE | `/projects/{id}/waivers/{wid}` | revoke |
+| GET | `/projects/{id}/export/{format}?lang=&version=&download=1` | JSON `{format, files:[{path,content}]}`; with `download=1` a file or a zip |
+
+Saving the draft is *not* a version. Versions are explicit snapshots (and are created automatically
+around applied AI proposals).
+
+## Engine (stateless)
+
+| Method | Path | Body → Response |
+|---|---|---|
+| POST | `/evaluate` | `{architecture, projectId?, lang?}` → `Report` (accepted risks of `projectId` are applied) |
+| POST | `/simulate` | `{architecture, scenario}` → `SimResult` |
+| POST | `/diff` | `{from, to, ui?}` → `ArchDiff` (design vs. an imported snapshot, any two architectures; canvas positions are ignored unless `ui: true`; nothing is stored) |
+| POST | `/ops/apply` | `{architecture, ops, preview?, projectId?, lang?}` → `{architecture, cascadedEdges, renamed}`; with `preview: true` also `{diff, before, after, introduced, resolved}` |
+| GET | `/templates/{id}` | full `Template` (`{id,name,description,badge,architecture}`) |
+
+`scenario` is one of
+`{"type":"none"}`, `{"type":"instance","nodeId":"…","count":1}`, `{"type":"node","nodeId":"…"}`,
+`{"type":"unit","unit":"<group>"}`, `{"type":"zone","zoneId":"…"}`,
+`{"type":"link","a":"<zoneId>","b":"<zoneId>"}`, `{"type":"sites","zoneIds":["…","…"]}`,
+`{"type":"geo","geo":"<label>"}`.
+
+### Report
+
+```
+{ engineVersion, issues: Issue[],
+  counts: {critical, risk, noData, ok, na, accepted},          // per rule
+  rules: [{ruleId, category, status, findings, accepted}],
+  findings: [{ id, ruleId, category, status, subjects:{nodes,edges,zones}, vars, fixes:[{id,kind,vars,ops}],
+               scenario?, accepted?:{reason,by,at} }],         // id = stable fingerprint (waivers)
+  objectives: [{id: rto|rpo|site_loss|spof|capacity, status, required, actual, assumed}],
+  scenarios: [ScenarioSummary], baselineLoads: [UnitLoad],
+  score: {value, penalty, coverage, breakdown:[{ruleId,status,penalty}]},
+  cost: {currency, symbol, total, nodes:[{nodeId,amount,missing,model}], byCategory, byZone, byKind, incomplete, budget},
+  units: {<groupKey>: <display name>} }
+```
+
+`status` ∈ `critical | risk | no_data | ok | na`. Render a finding's text with the rule's `message`
+(or `noDataMessage` / `requirementMessage` when `status = no_data`; `requirementMessage` when the
+fingerprint ends with `:req`) and `finding.vars`; fix button labels come from `rule.fixLabels[fix.kind]`
+rendered with `{...finding.vars, ...fix.vars}`. A fix is a list of patch operations (`ops`).
+
+### SimResult
+
+```
+{ scenario, state: up|degraded|down, recovery:{kind: none|auto|manual|never, seconds},
+  rpoSeconds|null, rpoAssumed, rpoItems, dataLost:[unit], splitBrain:[unit], capacityRatio|null, bottleneck,
+  unitLoads, downUnits:[name], events:[{code,unit?,node?,vars}], failed:[names],
+  nodeStates:{<nodeId>: up|partial|down|stalled|fenced|promoted|isolated},
+  edgeStates:{<edgeId>: ok|cut|dead} }
+```
+
+`events[].code` values: `promoted manual_failover primary_lost fenced split_brain quorum_lost quorum_ok
+no_candidate no_failover writes_blocked async_fallback restore_from_backup data_lost replicated_elsewhere
+reroute scale_out capacity_overload soft_dependency_lost`.
+
+### Patch operations
+
+```
+{"op":"add_zone","zone":Zone}            {"op":"update_zone","id":"…","set":{"name":"…","props.geo":"…"}}   {"op":"remove_zone","id":"…","cascade":false}
+{"op":"add_node","node":Node}            {"op":"update_node","id":"…","set":{"zoneId":"…","props.replicas":3}}  {"op":"remove_node","id":"…"}
+{"op":"add_edge","edge":Edge}            {"op":"update_edge","id":"…","set":{"type":"sync","props.latencyMs":1.2}}  {"op":"remove_edge","id":"…"}
+{"op":"set_requirements","set":{"rpsPeak":5000}}
+```
+
+`set` keys: `name kind zoneId group role ui props.<key>` (nodes), `name type parentId role props.<key>`
+(zones), `type label source target props.<key>` (edges). `null` clears. Operations are atomic: either all
+apply and the result validates, or nothing changes (`400 ops_invalid`).
+
+## AI
+
+Requires an OpenRouter key (`llm.apiKey` or `OPENROUTER_API_KEY`) and `llm.enabled`.
+
+| Method | Path | Notes |
+|---|---|---|
+| POST | `/projects/{id}/ai/jobs` | `{kind: generate\|patch\|fix\|chat, prompt?, findingId?, lang?}` → `{jobId}`. `409 llm_not_configured/llm_disabled/job_running`, `429 ai_rate_limited`, `400 prompt_too_long` |
+| GET | `/ai/jobs/{id}` | `{id,kind,status: queued\|running\|succeeded\|failed\|cancelled, steps:[{code,detail,at}], result, error, errorCode}` – poll every ~1 s |
+| POST | `/ai/jobs/{id}/cancel` | |
+| GET | `/projects/{id}/chat?after=<messageId>` | `{messages:[{id,role,content,proposalId,proposalStatus,createdAt}], runningJobId}`; a `system` message is `"<errorCode>|<text>"` |
+| DELETE | `/projects/{id}/chat` | clear |
+| GET | `/proposals/{id}` | `{id,status,mode: ops\|replace, ops?, architecture?, rationale, preview:{diff,before,after,introduced,resolved}, baseRev}` |
+| POST | `/proposals/{id}/apply` | `{expectedRev?}` → `{rev, architecture, version}`; `409 proposal_stale/conflict/proposal_closed` |
+| POST | `/proposals/{id}/reject` | |
+
+Step codes: `preparing calling_model model_answer(debug) repairing evaluating refining autofix previewing`.
+Result: `{proposalId, rationale, assumptions[], autoFixes[]}` for `generate/patch/fix`; `{answer}` for `chat`;
+`{noChanges:true}` if the model proposed nothing. Error codes: `llm_not_configured llm_disabled llm_budget
+llm_auth llm_credits llm_rate_limited llm_http llm_timeout llm_empty llm_truncated invalid_output interrupted`.
+
+The model never changes the project by itself: a proposal is a preview (diff, before/after score,
+introduced/resolved findings) that the user applies explicitly. Applying snapshots the previous state as a
+version first.
+
+## Admin (role `admin`)
+
+| Method | Path | Notes |
+|---|---|---|
+| GET/PUT | `/admin/settings` | GET → `{settings:[SettingDef & {value, modified}\|{secretSet, secretSource}], rev}`; PUT `{changes:{key:value}}`. Secrets are write-only; an empty secret clears it. A number equal to its default is stored as "not modified". An invalid value → `400 invalid_setting` with `details:{key, reason}` (first failing key) |
+| GET | `/admin/llm/models?q=&structured=1&refresh=1&limit=` | cached OpenRouter catalog `{models:[{id,name,contextLength,promptPerMillion,completionPerMillion,structuredOutputs,responseFormat,supportedParameters}], total}`; `503 llm_unreachable` when OpenRouter is down |
+| POST | `/admin/llm/test` | `{ping?: true}` → key info, planner/fast model checks, warnings, optional 1-token ping |
+| GET | `/admin/llm/usage?days=` | spend per day / model / user, month spend vs. budget |
+| GET | `/admin/config` | per-kind counters + items that failed to parse |
+| GET | `/admin/config/{kind}` | `{items:[{id,data,origin,modified,updateAvailable,hasDefault,updatedAt,updatedBy}]}` (jsonb: object keys come back sorted by length, not in the original order) |
+| POST | `/admin/config/{kind}` | `{id, data}` create a custom item. `data.id` must equal `id`. Not available for the single-document kinds `catalog.common_props` (id `common`) and `engine` (id `engine`): `400 invalid_kind` |
+| PUT | `/admin/config/{kind}/{id}` | `{data}` (validated against the engine types; `data.id == id`). The audit event lists the changed top-level keys |
+| DELETE | `/admin/config/{kind}/{id}` | custom items only: `404` for an unknown id, `409 not_deletable` for a built-in one |
+| POST | `/admin/config/{kind}/{id}/reset` | back to the built-in default (also dismisses `updateAvailable`) |
+| GET | `/admin/config-export` · POST `/admin/config-import` | `{settings, items, dryRun?}` backup/migration of everything changed; secrets are never exported |
+| GET/POST | `/admin/users` | create returns `temporaryPassword` if none was given (the user must change it on the first sign-in) |
+| PATCH | `/admin/users/{id}` | `{name?, role?, disabled?}`. The last active admin is protected (`409 last_admin`) and nobody can demote or disable their own account (`409 self_lockout`). `lockedUntil` is `null` once the lock expired |
+| POST | `/admin/users/{id}/reset-password` | `{password?}` (the user must change it again) |
+| GET | `/admin/audit?limit=&before=&action=&actor=` | `action` is a literal prefix (`config.` lists all configuration changes), `actor` a case-insensitive substring; `before` is the id cursor |
+| GET | `/admin/system` | version, db, migrations, config rev, jobs, env flags (never secrets) |
+
+Config `kind` values: `catalog.kind catalog.edge_type catalog.zone_type catalog.category catalog.common_props
+rule template prompt engine`. Prompt templates use `{{name}}` placeholders (double braces, exact spelling).

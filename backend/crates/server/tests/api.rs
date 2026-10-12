@@ -327,6 +327,49 @@ async fn diff_endpoint_compares_two_architectures_without_storing_anything() {
 }
 
 #[tokio::test]
+async fn admin_edge_cases_numeric_defaults_missing_items_self_lockout_and_audit_prefix() {
+    let app = TestApp::new().await;
+    let c = app.login_admin().await;
+
+    // saving a number equal to its default must not leave the setting "modified"
+    let (s, v) = app.put(&c, "/api/admin/settings", json!({"changes": {"auth.sessionTtlHours": 24}})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    let (s, v) = app.put(&c, "/api/admin/settings", json!({"changes": {"auth.sessionTtlHours": 12.0}})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    let item = v["settings"].as_array().unwrap().iter().find(|x| x["key"] == "auth.sessionTtlHours").unwrap();
+    assert_eq!(item["modified"], false, "{item}");
+
+    // invalid values name the key and the reason
+    let (s, v) = app.put(&c, "/api/admin/settings", json!({"changes": {"auth.sessionTtlHours": 100000}})).await;
+    assert_eq!(s, StatusCode::BAD_REQUEST, "{v}");
+    assert_eq!(v["error"]["code"], "invalid_setting");
+    assert_eq!(v["error"]["details"]["key"], "auth.sessionTtlHours");
+
+    // unknown items are 404, built-in ones cannot be deleted
+    let (s, _) = app.delete(&c, "/api/admin/config/rule/NO-SUCH-RULE").await;
+    assert_eq!(s, StatusCode::NOT_FOUND);
+    let (s, v) = app.delete(&c, "/api/admin/config/rule/HA-SPOF-01").await;
+    assert_eq!(s, StatusCode::CONFLICT, "{v}");
+    assert_eq!(v["error"]["code"], "not_deletable");
+
+    // an administrator cannot lock themselves out even when another admin exists
+    let other = app.create_user(&c, "second-admin@test.local", "admin").await;
+    let _ = other;
+    let (_, me) = app.get(&c, "/api/auth/me").await;
+    let my_id = me["user"]["id"].as_str().unwrap().to_string();
+    let (s, v) = app.patch(&c, &format!("/api/admin/users/{my_id}"), json!({"role": "editor"})).await;
+    assert_eq!(s, StatusCode::CONFLICT, "{v}");
+    assert_eq!(v["error"]["code"], "self_lockout");
+
+    // audit filter is a literal prefix: `_` is not a wildcard
+    let (_, a) = app.get(&c, "/api/admin/audit?action=user.cre_te").await;
+    assert_eq!(a["events"].as_array().unwrap().len(), 0, "{a}");
+    let (_, a) = app.get(&c, "/api/admin/audit?action=user.create").await;
+    assert!(!a["events"].as_array().unwrap().is_empty());
+    app.cleanup().await;
+}
+
+#[tokio::test]
 async fn exports_zip_and_json() {
     let app = TestApp::new().await;
     let c = app.login_admin().await;
