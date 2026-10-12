@@ -77,7 +77,7 @@ pub async fn bootstrap(State(state): State<AppState>, user: AuthUser, headers: H
         "catalog": cfg.catalog,
         "rules": cfg.rules,
         "templates": templates,
-        "exportFormats": engine::export::FORMATS,
+        "exportFormats": engine::export::FORMATS.iter().map(|f| json!({"id": f, "group": engine::export::group_of(f)})).collect::<Vec<_>>(),
         "ai": {
             "enabled": cfg.settings.boolean("llm.enabled") && state.llm_key(&cfg).is_some(),
             "configured": state.llm_key(&cfg).is_some(),

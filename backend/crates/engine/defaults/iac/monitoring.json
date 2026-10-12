@@ -1,0 +1,74 @@
+{
+ "id": "monitoring",
+ "title": {
+  "ru": "Мониторинг (kube-prometheus-stack)",
+  "en": "Monitoring (kube-prometheus-stack)"
+ },
+ "enabled": true,
+ "target": "kubernetes",
+ "granularity": "unit",
+ "vars": [
+  {
+   "name": "storageClass",
+   "expr": "(k8s.storageClasses[p.storageClass]|default(none)) or none if p.storageClass else none"
+  }
+ ],
+ "releases": [
+  {
+   "id": "kps",
+   "name": "{{ name }}",
+   "namespace": "{{ ns }}",
+   "chart": "kube-prometheus-stack",
+   "repo": "https://prometheus-community.github.io/helm-charts",
+   "version": "92.3.0",
+   "values": {
+    "prometheus": {
+     "prometheusSpec": {
+      "replicas": "{{ site.instances }}",
+      "resources": {
+       "requests": {
+        "cpu": "{{ p.vcpu }}",
+        "memory": "{{ p.ramGb }}Gi"
+       },
+       "limits": {
+        "memory": "{{ p.ramGb }}Gi"
+       }
+      },
+      "storageSpec": {
+       "volumeClaimTemplate": {
+        "spec": {
+         "storageClassName": "{{ storageClass }}",
+         "accessModes": [
+          "ReadWriteOnce"
+         ],
+         "resources": {
+          "requests": {
+           "storage": "{{ p.diskGb }}Gi"
+          }
+         }
+        }
+       }
+      },
+      "podAntiAffinity": "hard",
+      "podAntiAffinityTopologyKey": "{{ k8s.hostLabel }}"
+     }
+    },
+    "alertmanager": {
+     "alertmanagerSpec": {
+      "replicas": "{{ [site.instances, 3]|min }}"
+     }
+    }
+   }
+  }
+ ],
+ "notes": [
+  {
+   "when": "site.instances < 2",
+   "level": "warn",
+   "text": {
+    "ru": "Один экземпляр Prometheus — единая точка отказа мониторинга; задайте минимум 2.",
+    "en": "A single Prometheus instance is a single point of failure for monitoring; use at least 2."
+   }
+  }
+ ]
+}

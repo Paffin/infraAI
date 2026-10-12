@@ -5,7 +5,7 @@
 use crate::crypto::{sha256_hex, Keys};
 use crate::settings::Settings;
 use engine::catalog::{Catalog, Category, EdgeTypeDef, KindDef, PropDef, ZoneTypeDef};
-use engine::config::{EngineConfig, EngineSettings, Rule, Template};
+use engine::config::{EngineConfig, EngineSettings, IacTemplate, Rule, Template};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sqlx::PgPool;
@@ -23,8 +23,9 @@ pub const K_RULE: &str = "rule";
 pub const K_TEMPLATE: &str = "template";
 pub const K_PROMPT: &str = "prompt";
 pub const K_ENGINE: &str = "engine";
+pub const K_IAC: &str = "iac";
 
-pub const ALL_KINDS: &[&str] = &[K_KIND, K_EDGE, K_ZONE, K_CATEGORY, K_COMMON, K_RULE, K_TEMPLATE, K_PROMPT, K_ENGINE];
+pub const ALL_KINDS: &[&str] = &[K_KIND, K_EDGE, K_ZONE, K_CATEGORY, K_COMMON, K_RULE, K_TEMPLATE, K_PROMPT, K_ENGINE, K_IAC];
 
 pub const PROMPTS_JSON: &str = include_str!("../defaults/prompts.json");
 
@@ -68,6 +69,9 @@ pub fn default_items() -> Vec<DefaultItem> {
     push_list(&mut out, K_RULE, Some(&rules));
     for (i, (id, raw)) in engine::defaults::TEMPLATES_JSON.iter().enumerate() {
         out.push(DefaultItem { kind: K_TEMPLATE, id: id.to_string(), data: serde_json::from_str(raw).expect("template"), sort: i as i32 });
+    }
+    for (i, (id, raw)) in engine::defaults::IAC_JSON.iter().enumerate() {
+        out.push(DefaultItem { kind: K_IAC, id: id.to_string(), data: serde_json::from_str(raw).expect("iac template"), sort: i as i32 });
     }
     let prompts: Value = serde_json::from_str(PROMPTS_JSON).expect("prompts.json");
     push_list(&mut out, K_PROMPT, Some(&prompts));
@@ -143,6 +147,7 @@ pub struct Loaded {
     pub rules: Vec<Rule>,
     pub engine: EngineSettings,
     pub templates: Vec<Template>,
+    pub iac: Vec<IacTemplate>,
     pub prompts: HashMap<String, PromptDef>,
     /// Items that failed to parse (kind, id, error) – surfaced in the admin panel.
     pub errors: Vec<(String, String, String)>,
@@ -170,6 +175,7 @@ pub async fn load(pool: &PgPool, keys: &Keys) -> Result<Loaded, sqlx::Error> {
     let mut catalog = Catalog::default();
     let mut rules = vec![];
     let mut templates = vec![];
+    let mut iac = vec![];
     let mut prompts = HashMap::new();
     let mut engine_settings = EngineSettings::default();
     for (kind, id, data) in rows {
@@ -203,6 +209,10 @@ pub async fn load(pool: &PgPool, keys: &Keys) -> Result<Loaded, sqlx::Error> {
                 Ok(v) => templates.push(v),
                 Err(e) => fail(e.to_string()),
             },
+            K_IAC => match serde_json::from_value::<IacTemplate>(data) {
+                Ok(v) => iac.push(v),
+                Err(e) => fail(e.to_string()),
+            },
             K_PROMPT => match serde_json::from_value::<PromptDef>(data) {
                 Ok(v) => {
                     prompts.insert(v.id.clone(), v);
@@ -224,11 +234,11 @@ pub async fn load(pool: &PgPool, keys: &Keys) -> Result<Loaded, sqlx::Error> {
     let engine_cfgs = langs
         .into_iter()
         .map(|l| {
-            let c = EngineConfig { catalog: catalog.clone(), rules: rules.clone(), settings: engine_settings.clone(), lang: l.clone() };
+            let c = EngineConfig { catalog: catalog.clone(), rules: rules.clone(), settings: engine_settings.clone(), iac: iac.clone(), lang: l.clone() };
             (l, Arc::new(c))
         })
         .collect();
-    Ok(Loaded { rev, settings, catalog, rules, engine: engine_settings, templates, prompts, errors, engine_cfgs })
+    Ok(Loaded { rev, settings, catalog, rules, engine: engine_settings, templates, iac, prompts, errors, engine_cfgs })
 }
 
 /// Validate an item before it is written (so the admin cannot break the running system).
@@ -248,6 +258,15 @@ pub fn validate_item(kind: &str, id: &str, data: &Value) -> Result<(), String> {
         K_TEMPLATE => serde_json::from_value::<Template>(data.clone()).map(|_| ()),
         K_PROMPT => serde_json::from_value::<PromptDef>(data.clone()).map(|_| ()),
         K_ENGINE => serde_json::from_value::<EngineSettings>(data.clone()).map(|_| ()),
+        K_IAC => {
+            // the template must parse and every expression in it must compile
+            let t: IacTemplate = serde_json::from_value(data.clone()).map_err(|e| e.to_string())?;
+            let errs = engine::iac::validate_template(&t);
+            if !errs.is_empty() {
+                return Err(errs.join("; "));
+            }
+            Ok(())
+        }
         _ => return Err(format!("unknown config kind '{kind}'")),
     };
     r.map_err(|e| e.to_string())

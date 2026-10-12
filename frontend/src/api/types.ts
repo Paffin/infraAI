@@ -307,7 +307,7 @@ export interface Bootstrap {
   catalog: Catalog
   rules: Rule[]
   templates: TemplateMeta[]
-  exportFormats: string[]
+  exportFormats: ExportFormatInfo[]
   ai: { enabled: boolean; configured: boolean; maxPromptChars: number; plannerModel: string; fastModel: string }
   limits: { maxNodes: number; maxEdges: number; maxZones: number; waiverMinReasonChars: number; waiverMaxDays: number }
   engine: { currency: string; symbol: string; minCapacityDuringFailure: number; headroomPercent: number; defaultFailureTolerance: string }
@@ -371,6 +371,24 @@ export interface Proposal {
   rationale: string
   preview: { diff: ArchDiff; before: ReportSummary; after: ReportSummary; introduced: string[]; resolved: string[] }
   createdAt: string
+}
+
+export interface ExportFormatInfo { id: string; group: 'iac' | 'docs' | 'data' }
+
+export interface IacCluster { nodes: string[]; name: string; slug: string; zones: string[] }
+export interface IacGenerated { unit: string; name: string; kind: string; cluster: string; nodes: string[]; items: string[] }
+export interface IacSkipped { unit: string; name: string; kind: string; nodes: string[]; code: string; message: string; props: string[] }
+export interface IacNote { level: 'info' | 'warn'; unit: string | null; message: string }
+export interface IacPrerequisite { cluster: string; id: string; title: string; release: string; namespace: string; chart: string; repo: string; version: string }
+export interface IacSecret { cluster: string; namespace: string; name: string; keys: string[]; unit: string; hint: string | null }
+/** What an infrastructure-as-code export did and did not produce. */
+export interface IacReport {
+  clusters: IacCluster[]
+  generated: IacGenerated[]
+  skipped: IacSkipped[]
+  notes: IacNote[]
+  prerequisites: IacPrerequisite[]
+  secrets: IacSecret[]
 }
 
 export interface ExportFile { path: string; content: string }

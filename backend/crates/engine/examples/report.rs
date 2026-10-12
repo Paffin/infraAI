@@ -19,7 +19,7 @@ fn main() {
     } else {
         serde_json::from_str(&std::fs::read_to_string(&what).expect("read file")).expect("parse architecture")
     };
-    let cfg = EngineConfig { catalog: defaults::catalog(), rules: defaults::rules(), settings: defaults::engine_settings(), lang: lang.clone() };
+    let cfg = EngineConfig { catalog: defaults::catalog(), rules: defaults::rules(), settings: defaults::engine_settings(), iac: defaults::iac_templates(), lang: lang.clone() };
     let rep = evaluate(&arch, &cfg, &[]);
     println!(
         "score {} (coverage {:.0}%)  critical {}  risk {}  no_data {}  ok {}  n/a {}  cost {} {}",

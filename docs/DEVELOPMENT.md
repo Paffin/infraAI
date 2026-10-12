@@ -5,6 +5,7 @@
 ```bash
 make test            # cargo test --workspace (с PostgreSQL) + typecheck/vitest/build фронтенда
 make up              # приложение + БД: http://localhost:8080
+make iac-check       # IaC эталонных архитектур против схем Kubernetes/CRD, Helm и Terraform (см. IAC.md)
 ```
 
 Без Docker: Rust (stable), Node 22, PostgreSQL 14+.

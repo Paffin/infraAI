@@ -168,7 +168,8 @@
      "vcpu": 1,
      "ramGb": 2,
      "hpaMin": 15,
-     "hpaMax": 50
+     "hpaMax": 50,
+     "clusterName": "region-1"
     }
    },
    {
@@ -183,7 +184,8 @@
      "vcpu": 1,
      "ramGb": 2,
      "hpaMin": 15,
-     "hpaMax": 50
+     "hpaMax": 50,
+     "clusterName": "region-1"
     }
    },
    {
@@ -200,7 +202,8 @@
      "vcpu": 1,
      "ramGb": 2,
      "hpaMin": 2,
-     "hpaMax": 60
+     "hpaMax": 60,
+     "clusterName": "region-dr"
     }
    },
    {

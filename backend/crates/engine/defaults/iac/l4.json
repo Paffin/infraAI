@@ -1,0 +1,13 @@
+{
+ "id": "l4",
+ "title": {
+  "ru": "L4-балансировщик",
+  "en": "L4 load balancer"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "L4-балансировщики (HAProxy/Keepalived, облачный NLB, MetalLB) зависят от сети и поставщика — например, MetalLB требует пулы IP-адресов, которых нет в модели. Добавьте шаблон под вашу платформу.",
+  "en": "L4 load balancers (HAProxy/Keepalived, cloud NLB, MetalLB) depend on your network and provider – MetalLB, for instance, needs IP address pools that are not in the model. Add a template for your platform."
+ }
+}

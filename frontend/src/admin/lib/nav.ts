@@ -2,7 +2,7 @@
 
 import type { Component } from 'vue'
 import {
-  Activity, Bot, Boxes, DatabaseBackup, Gauge, LayoutTemplate, MessageSquareText, ScrollText, ShieldCheck, SlidersHorizontal, Users,
+  Activity, Bot, Boxes, DatabaseBackup, FileCode2, Gauge, LayoutTemplate, MessageSquareText, ScrollText, ShieldCheck, SlidersHorizontal, Users,
 } from 'lucide-vue-next'
 
 export interface NavItem {
@@ -43,6 +43,7 @@ export const NAV: NavGroup[] = [
       },
       { id: 'rules', to: '/admin/rules', label: 'admin.nav.rules', icon: ShieldCheck, kind: 'rule' },
       { id: 'templates', to: '/admin/templates', label: 'admin.nav.templates', icon: LayoutTemplate, kind: 'template' },
+      { id: 'iac', to: '/admin/iac', label: 'admin.nav.iac', icon: FileCode2, kind: 'iac' },
       { id: 'prompts', to: '/admin/prompts', label: 'admin.nav.prompts', icon: MessageSquareText, kind: 'prompt' },
       { id: 'engine', to: '/admin/engine', label: 'admin.nav.engine', icon: Gauge, kind: 'engine' },
     ],

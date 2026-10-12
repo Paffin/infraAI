@@ -1,0 +1,13 @@
+{
+ "id": "users",
+ "title": {
+  "ru": "Внешние пользователи",
+  "en": "External users"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Внешние пользователи — не инфраструктура, развёртывать нечего.",
+  "en": "External users are not infrastructure – there is nothing to deploy."
+ }
+}

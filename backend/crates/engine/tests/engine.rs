@@ -11,7 +11,7 @@ use engine::sim::{simulate, NodeState, RecoveryKind, Scenario, ServiceState};
 use serde_json::json;
 
 fn cfg() -> EngineConfig {
-    EngineConfig { catalog: defaults::catalog(), rules: defaults::rules(), settings: defaults::engine_settings(), lang: "ru".into() }
+    EngineConfig { catalog: defaults::catalog(), rules: defaults::rules(), settings: defaults::engine_settings(), iac: defaults::iac_templates(), lang: "ru".into() }
 }
 
 fn template(id: &str) -> Architecture {
@@ -410,37 +410,17 @@ fn exports_are_generated_from_the_model() {
     let a = template("two-dc-witness");
     let rep = evaluate(&a, &c, &[]);
     for f in engine::export::FORMATS {
-        let files = engine::export::generate(f, &a, &c, &rep, &[], "ru", "2026-10-12").unwrap_or_else(|| panic!("format {f}"));
-        assert!(!files.is_empty(), "{f}");
-        assert!(files.iter().all(|x| !x.content.trim().is_empty()), "{f} has an empty file");
+        let out = engine::export::generate(f, &a, &c, &rep, &[], "ru", "2026-10-12").unwrap_or_else(|| panic!("format {f}"));
+        assert!(!out.files.is_empty(), "{f}");
+        assert!(out.files.iter().all(|x| !x.content.trim().is_empty()), "{f} has an empty file");
+        assert_eq!(out.report.is_some(), engine::export::group_of(f) == "iac", "{f}: only IaC formats carry a report");
     }
-    let tf = engine::export::terraform(&a, &c);
-    let main = tf.iter().find(|f| f.path == "main.tf").unwrap();
-    assert!(main.content.contains("module \"pg_primary\""));
-    assert!(main.content.contains("depends_on"), "dependency ordering");
-    assert!(!main.content.lines().any(|l| l.trim_start().starts_with("version =")), "reserved module argument must not be used as an input");
-    assert!(main.content.contains("pg_version"));
-    assert!(tf.iter().any(|f| f.path == "modules/postgresql/main.tf"));
-    let hf = engine::export::helm(&a, &c);
-    assert!(hf.iter().any(|f| f.path == "helmfile.yaml" && f.content.contains("releases:")));
     let adr = engine::export::adr(&a, &c, &rep, &[], "ru", "2026-10-12");
     assert!(adr.content.contains("99/100") || adr.content.contains("100/100") || adr.content.contains("/100"));
     let rb = engine::export::runbook(&a, &c, "en");
     assert!(rb.content.contains("Scenario:") && rb.content.contains("patronictl list"), "{}", rb.content);
     let mm = engine::export::mermaid(&a, &c);
     assert!(mm.starts_with("flowchart TB") && mm.contains("subgraph"));
-}
-
-#[test]
-fn hcl_strings_are_escaped() {
-    let c = cfg();
-    let mut a = template("two-dc-witness");
-    a.nodes[1].name = "evil \"name\" ${jndi:x} %{ if }".into();
-    let tf = engine::export::terraform(&a, &c);
-    let main = &tf.iter().find(|f| f.path == "main.tf").unwrap().content;
-    assert!(main.contains("$${jndi"), "template interpolation must be escaped: {main}");
-    assert!(!main.contains("\"${") && !main.contains(" ${jndi"));
-    assert!(main.contains("%%{ if }"));
 }
 
 #[test]

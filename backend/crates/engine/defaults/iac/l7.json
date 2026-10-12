@@ -1,0 +1,62 @@
+{
+ "id": "l7",
+ "title": {
+  "ru": "Ingress-контроллер (Traefik)",
+  "en": "Ingress controller (Traefik)"
+ },
+ "enabled": true,
+ "target": "kubernetes",
+ "granularity": "unit",
+ "releases": [
+  {
+   "id": "traefik",
+   "name": "{{ name }}",
+   "namespace": "{{ ns }}",
+   "chart": "traefik",
+   "repo": "https://traefik.github.io/charts",
+   "version": "41.7.1",
+   "values": {
+    "deployment": {
+     "replicas": "{{ site.instances }}"
+    },
+    "podDisruptionBudget": {
+     "enabled": true,
+     "maxUnavailable": 1
+    },
+    "resources": {
+     "requests": {
+      "cpu": "{{ p.vcpu }}",
+      "memory": "{{ p.ramGb }}Gi"
+     },
+     "limits": {
+      "cpu": "{{ p.vcpu }}",
+      "memory": "{{ p.ramGb }}Gi"
+     }
+    },
+    "topologySpreadConstraints": [
+     {
+      "maxSkew": 1,
+      "topologyKey": "{{ k8s.zoneLabel }}",
+      "whenUnsatisfiable": "ScheduleAnyway",
+      "labelSelector": {
+       "matchLabels": {
+        "app.kubernetes.io/name": "traefik",
+        "app.kubernetes.io/instance": "{{ name }}-{{ ns }}"
+       }
+      }
+     }
+    ]
+   }
+  }
+ ],
+ "notes": [
+  {
+   "when": "p.hosting == 'vm'",
+   "level": "info",
+   "text": {
+    "ru": "Ingress-контроллер установлен в кластер, хотя у узла указано размещение «vm».",
+    "en": "The ingress controller is installed on the cluster although the node says hosting “vm”."
+   }
+  }
+ ]
+}

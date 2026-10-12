@@ -1,0 +1,149 @@
+{
+ "id": "kafka",
+ "title": {
+  "ru": "Kafka на Kubernetes (Strimzi, KRaft)",
+  "en": "Kafka on Kubernetes (Strimzi, KRaft)"
+ },
+ "enabled": true,
+ "target": "kubernetes",
+ "granularity": "unit",
+ "requires": [
+  "strimzi"
+ ],
+ "vars": [
+  {
+   "name": "storageClass",
+   "expr": "(k8s.storageClasses[p.storageClass]|default(none)) or none if p.storageClass else none"
+  },
+  {
+   "name": "rack",
+   "expr": "site.zones|length > 1"
+  }
+ ],
+ "unsupported": [
+  {
+   "when": "unit.multiSite",
+   "text": {
+    "ru": "Strimzi не растягивает кластер Kafka на несколько кластеров Kubernetes. Разместите брокеры в одном кластере (по зонам) или смоделируйте отдельные сервисы Kafka, связанные MirrorMaker 2.",
+    "en": "Strimzi cannot stretch a Kafka cluster over several Kubernetes clusters. Place the brokers in one cluster (spread over zones) or model separate Kafka services connected with MirrorMaker 2."
+   }
+  },
+  {
+   "when": "p.minInsync > p.replicationFactor",
+   "text": {
+    "ru": "min.insync.replicas ({{ p.minInsync }}) больше replication factor ({{ p.replicationFactor }}): запись в такие топики невозможна.",
+    "en": "min.insync.replicas ({{ p.minInsync }}) exceeds the replication factor ({{ p.replicationFactor }}): such topics could never be written."
+   }
+  }
+ ],
+ "objects": [
+  {
+   "id": "nodepool",
+   "body": {
+    "apiVersion": "kafka.strimzi.io/v1",
+    "kind": "KafkaNodePool",
+    "metadata": {
+     "name": "{{ name }}-pool",
+     "namespace": "{{ ns }}",
+     "labels": {
+      "strimzi.io/cluster": "{{ name }}"
+     }
+    },
+    "spec": {
+     "replicas": "{{ site.instances }}",
+     "roles": [
+      "controller",
+      "broker"
+     ],
+     "storage": {
+      "type": "jbod",
+      "volumes": [
+       {
+        "id": 0,
+        "type": "persistent-claim",
+        "size": "{{ p.diskGb }}Gi",
+        "class": "{{ storageClass }}",
+        "deleteClaim": false,
+        "kraftMetadata": "shared"
+       }
+      ]
+     },
+     "resources": {
+      "requests": {
+       "cpu": "{{ p.vcpu }}",
+       "memory": "{{ p.ramGb }}Gi"
+      },
+      "limits": {
+       "cpu": "{{ p.vcpu }}",
+       "memory": "{{ p.ramGb }}Gi"
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "kafka",
+   "body": {
+    "apiVersion": "kafka.strimzi.io/v1",
+    "kind": "Kafka",
+    "metadata": {
+     "name": "{{ name }}",
+     "namespace": "{{ ns }}"
+    },
+    "spec": {
+     "kafka": {
+      "listeners": [
+       {
+        "name": "plain",
+        "port": 9092,
+        "type": "internal",
+        "tls": false
+       },
+       {
+        "name": "tls",
+        "port": 9093,
+        "type": "internal",
+        "tls": true
+       }
+      ],
+      "config": {
+       "default.replication.factor": "{{ p.replicationFactor }}",
+       "min.insync.replicas": "{{ p.minInsync }}",
+       "offsets.topic.replication.factor": "{{ p.replicationFactor }}",
+       "transaction.state.log.replication.factor": "{{ p.replicationFactor }}",
+       "transaction.state.log.min.isr": "{{ p.minInsync }}"
+      },
+      "rack": {
+       "$if": "rack",
+       "then": {
+        "topologyKey": "{{ k8s.zoneLabel }}"
+       }
+      }
+     },
+     "entityOperator": {
+      "topicOperator": {},
+      "userOperator": {}
+     }
+    }
+   }
+  }
+ ],
+ "notes": [
+  {
+   "when": "site.instances < p.replicationFactor",
+   "level": "warn",
+   "text": {
+    "ru": "Брокеров ({{ site.instances }}) меньше replication factor ({{ p.replicationFactor }}): топики с таким фактором создать не удастся.",
+    "en": "There are fewer brokers ({{ site.instances }}) than the replication factor ({{ p.replicationFactor }}): topics with that factor cannot be created."
+   }
+  },
+  {
+   "when": "p.encryptionAtRest",
+   "level": "info",
+   "text": {
+    "ru": "Шифрование на диске обеспечивается StorageClass: выберите зашифрованный класс (export.k8s.storageClasses).",
+    "en": "Encryption at rest is provided by the StorageClass: pick an encrypted class (export.k8s.storageClasses)."
+   }
+  }
+ ]
+}

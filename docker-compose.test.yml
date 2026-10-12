@@ -2,7 +2,10 @@
 #
 #   docker compose -f docker-compose.test.yml run --rm backend
 #   docker compose -f docker-compose.test.yml run --rm frontend
+#   docker compose -f docker-compose.test.yml run --rm iac-export && docker compose -f docker-compose.test.yml run --rm --build iac-check
 #   docker compose -f docker-compose.test.yml down -v
+#
+# Behind a TLS-intercepting proxy add  -f docker-compose.ca.yml  and set CA_BUNDLE=/path/to/ca.pem
 services:
   db:
     image: ${REGISTRY:-docker.io/library}/postgres:16-alpine
@@ -39,6 +42,36 @@ services:
       - node-modules:/web/node_modules
     command: ["sh", "-c", "npm ci --no-audit --no-fund && npm run typecheck && npm test && npm run build"]
 
+  # IaC generated for the reference architectures …
+  iac-export:
+    image: ${REGISTRY:-docker.io/library}/rust:${RUST_VERSION:-1.97}-slim-bookworm
+    working_dir: /src
+    environment:
+      CARGO_TARGET_DIR: /cache/target
+      CARGO_HOME: /cache/cargo
+    volumes:
+      - ./backend:/src
+      - ./deploy/iac-check/export-all.sh:/export-all.sh:ro
+      - cargo-cache:/cache
+      - iac-out:/out
+    command: ["sh", "/export-all.sh", "/out"]
+
+  # … and validated against the real Kubernetes/CRD schemas, Helm charts and Terraform providers
+  iac-check:
+    build:
+      context: deploy/iac-check
+      args:
+        REGISTRY: ${IAC_REGISTRY:-docker.io}
+    image: infra-architect-iac-check
+    environment:
+      K8S_VERSION: ${K8S_VERSION:-1.32.0}
+    volumes:
+      - iac-out:/out:ro
+      - ./backend/crates/engine/defaults:/defaults:ro
+      - iac-cache:/cache
+
 volumes:
   cargo-cache:
   node-modules:
+  iac-out:
+  iac-cache:

@@ -198,7 +198,7 @@ pub async fn export(State(state): State<AppState>, _user: AuthUser, Path((id, fo
     let cfg2 = cfg.clone();
     let l2 = lang.clone();
     let fmt = format.clone();
-    let files = tokio::task::spawn_blocking(move || {
+    let export = tokio::task::spawn_blocking(move || {
         let ec = cfg2.engine_config(&l2);
         let report = engine::evaluate::evaluate(&arch, &ec, &waivers);
         engine::export::generate(&fmt, &arch, &ec, &report, &waivers, &l2, &today())
@@ -206,11 +206,12 @@ pub async fn export(State(state): State<AppState>, _user: AuthUser, Path((id, fo
     .await
     .map_err(ApiError::internal)?
     .ok_or_else(|| ApiError::bad_request("unknown_format", "unknown format"))?;
+    let files = export.files;
 
     let slug: String = name.chars().map(|c| if c.is_ascii_alphanumeric() { c.to_ascii_lowercase() } else { '-' }).collect::<String>().trim_matches('-').to_string();
     let slug = if slug.is_empty() { "architecture".to_string() } else { slug };
     if q.download.unwrap_or(0) == 0 {
-        return json_response(json!({"format": format, "files": files}));
+        return json_response(json!({"format": format, "files": files, "report": export.report}));
     }
     if files.len() == 1 {
         let f = &files[0];

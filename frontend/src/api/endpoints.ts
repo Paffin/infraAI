@@ -1,7 +1,7 @@
 import { http, qs } from './client'
 import type {
   AdminUser, AiJob, ArchDiff, Architecture, AuditEvent, Bootstrap, ChatMessage, ConfigError, ConfigExport, ConfigImportResult,
-  ConfigItem, ConfigKindCounter, ExportFile, LlmModel, LlmTestResult, LlmUsage, Op, ProjectDetail, ProjectListItem, Proposal,
+  ConfigItem, ConfigKindCounter, ExportFile, IacReport, LlmModel, LlmTestResult, LlmUsage, Op, ProjectDetail, ProjectListItem, Proposal,
   Report, ReportSummary, Scenario, SettingDef, SimResult, SystemInfo, Template, User, VersionItem,
 } from './types'
 
@@ -29,7 +29,7 @@ export const projects = {
   diff: (id: string, from: string | number, to: string | number) => http.get<ArchDiff>(`/projects/${id}/diff${qs({ from, to })}`),
   createWaiver: (id: string, b: { fingerprint: string; reason: string; expiresInDays?: number; lang?: string }) => http.post<{ id: string }>(`/projects/${id}/waivers`, b),
   revokeWaiver: (id: string, wid: string) => http.del<{ ok: boolean }>(`/projects/${id}/waivers/${wid}`),
-  export: (id: string, format: string, lang?: string) => http.get<{ format: string; files: ExportFile[] }>(`/projects/${id}/export/${format}${qs({ lang })}`),
+  export: (id: string, format: string, lang?: string) => http.get<{ format: string; files: ExportFile[]; report: IacReport | null }>(`/projects/${id}/export/${format}${qs({ lang })}`),
   exportUrl: (id: string, format: string, lang?: string) => `/api/projects/${id}/export/${format}${qs({ lang, download: 1 })}`,
 }
 

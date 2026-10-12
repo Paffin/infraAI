@@ -1,0 +1,13 @@
+{
+ "id": "backup_storage",
+ "title": {
+  "ru": "Хранилище резервных копий",
+  "en": "Backup storage"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Хранилище копий — внешний S3-совместимый сервис: его бакет и адрес (свойства bucket, endpoint) подставляются в шаблоны баз данных, а само хранилище создаётся у вашего поставщика.",
+  "en": "Backup storage is an external S3-compatible service: its bucket and address (properties bucket, endpoint) are wired into the database templates, while the storage itself is created at your provider."
+ }
+}

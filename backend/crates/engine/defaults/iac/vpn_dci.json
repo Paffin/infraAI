@@ -1,0 +1,13 @@
+{
+ "id": "vpn_dci",
+ "title": {
+  "ru": "Канал между площадками (VPN/DCI)",
+  "en": "Site interconnect (VPN/DCI)"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Каналы между площадками зависят от оборудования и провайдера связи. Добавьте шаблон под вашу сеть.",
+  "en": "Site interconnects depend on your network equipment and carrier. Add a template for your network."
+ }
+}

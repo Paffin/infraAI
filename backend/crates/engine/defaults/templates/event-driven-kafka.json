@@ -124,7 +124,8 @@
      "vcpu": 1,
      "ramGb": 2,
      "hpaMin": 10,
-     "hpaMax": 40
+     "hpaMax": 40,
+     "clusterName": "main"
     }
    },
    {
@@ -139,7 +140,8 @@
      "vcpu": 1,
      "ramGb": 2,
      "hpaMin": 6,
-     "hpaMax": 30
+     "hpaMax": 30,
+     "clusterName": "main"
     }
    },
    {
@@ -200,7 +202,8 @@
      "vcpu": 1,
      "ramGb": 2,
      "hpaMin": 10,
-     "hpaMax": 40
+     "hpaMax": 40,
+     "clusterName": "main"
     }
    },
    {
@@ -215,7 +218,8 @@
      "vcpu": 1,
      "ramGb": 2,
      "hpaMin": 6,
-     "hpaMax": 30
+     "hpaMax": 30,
+     "clusterName": "main"
     }
    },
    {
@@ -276,7 +280,8 @@
      "vcpu": 1,
      "ramGb": 2,
      "hpaMin": 10,
-     "hpaMax": 40
+     "hpaMax": 40,
+     "clusterName": "main"
     }
    },
    {
@@ -291,7 +296,8 @@
      "vcpu": 1,
      "ramGb": 2,
      "hpaMin": 6,
-     "hpaMax": 30
+     "hpaMax": 30,
+     "clusterName": "main"
     }
    },
    {

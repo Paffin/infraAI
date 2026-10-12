@@ -1,0 +1,13 @@
+{
+ "id": "api_gateway",
+ "title": {
+  "ru": "API-шлюз",
+  "en": "API gateway"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "API-шлюзы различаются (Kong, Envoy Gateway, APISIX, облачные шлюзы). Добавьте шаблон под ваш продукт.",
+  "en": "API gateways differ (Kong, Envoy Gateway, APISIX, cloud gateways). Add a template for your product."
+ }
+}

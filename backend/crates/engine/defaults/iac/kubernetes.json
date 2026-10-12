@@ -1,0 +1,275 @@
+{
+ "id": "kubernetes",
+ "title": {
+  "ru": "Приложение в кластере Kubernetes",
+  "en": "Application on a Kubernetes cluster"
+ },
+ "enabled": true,
+ "target": "kubernetes",
+ "granularity": "unit",
+ "needs": [
+  {
+   "prop": "image",
+   "hint": {
+    "ru": "Укажите образ приложения (свойство «Образ контейнера») — без него Deployment создать нельзя.",
+    "en": "Set the application image (the “Container image” property) – a Deployment cannot be generated without it."
+   }
+  }
+ ],
+ "vars": [
+  {
+   "name": "port",
+   "expr": "p.port or 8080"
+  },
+  {
+   "name": "cpuTarget",
+   "expr": "70"
+  },
+  {
+   "name": "hpaMin",
+   "expr": "site.members|map(attribute='props.hpaMin')|select|sum"
+  },
+  {
+   "name": "hpaMax",
+   "expr": "site.members|map(attribute='props.hpaMax')|select|sum"
+  },
+  {
+   "name": "hpa",
+   "expr": "hpaMin > 0 and hpaMax > 0"
+  },
+  {
+   "name": "pods",
+   "expr": "site.instances"
+  }
+ ],
+ "objects": [
+  {
+   "id": "deployment",
+   "body": {
+    "apiVersion": "apps/v1",
+    "kind": "Deployment",
+    "metadata": {
+     "name": "{{ name }}",
+     "namespace": "{{ ns }}",
+     "annotations": {
+      "infra-architect/description": "{{ unit.name }}"
+     }
+    },
+    "spec": {
+     "replicas": {
+      "$if": "not hpa",
+      "then": "{{ pods }}"
+     },
+     "selector": {
+      "matchLabels": {
+       "app.kubernetes.io/name": "{{ name }}"
+      }
+     },
+     "strategy": {
+      "type": "RollingUpdate",
+      "rollingUpdate": {
+       "maxUnavailable": 0,
+       "maxSurge": 1
+      }
+     },
+     "template": {
+      "metadata": {
+       "labels": {
+        "app.kubernetes.io/name": "{{ name }}"
+       }
+      },
+      "spec": {
+       "securityContext": {
+        "runAsNonRoot": true,
+        "seccompProfile": {
+         "type": "RuntimeDefault"
+        }
+       },
+       "topologySpreadConstraints": [
+        {
+         "maxSkew": 1,
+         "topologyKey": "{{ k8s.zoneLabel }}",
+         "whenUnsatisfiable": "ScheduleAnyway",
+         "labelSelector": {
+          "matchLabels": {
+           "app.kubernetes.io/name": "{{ name }}"
+          }
+         }
+        },
+        {
+         "maxSkew": 1,
+         "topologyKey": "{{ k8s.hostLabel }}",
+         "whenUnsatisfiable": "ScheduleAnyway",
+         "labelSelector": {
+          "matchLabels": {
+           "app.kubernetes.io/name": "{{ name }}"
+          }
+         }
+        }
+       ],
+       "containers": [
+        {
+         "name": "app",
+         "image": "{{ p.image }}",
+         "imagePullPolicy": "IfNotPresent",
+         "ports": [
+          {
+           "name": "http",
+           "containerPort": "{{ port }}"
+          }
+         ],
+         "resources": {
+          "requests": {
+           "cpu": "{{ p.vcpu }}",
+           "memory": "{{ p.ramGb }}Gi"
+          },
+          "limits": {
+           "cpu": "{{ p.vcpu }}",
+           "memory": "{{ p.ramGb }}Gi"
+          }
+         },
+         "readinessProbe": {
+          "$if": "p.healthPath",
+          "then": {
+           "httpGet": {
+            "path": "{{ p.healthPath }}",
+            "port": "http"
+           },
+           "periodSeconds": 5
+          },
+          "else": {
+           "tcpSocket": {
+            "port": "http"
+           },
+           "periodSeconds": 5
+          }
+         },
+         "livenessProbe": {
+          "$if": "p.healthPath",
+          "then": {
+           "httpGet": {
+            "path": "{{ p.healthPath }}",
+            "port": "http"
+           },
+           "periodSeconds": 10,
+           "failureThreshold": 3
+          },
+          "else": {
+           "tcpSocket": {
+            "port": "http"
+           },
+           "periodSeconds": 10,
+           "failureThreshold": 3
+          }
+         },
+         "securityContext": {
+          "allowPrivilegeEscalation": false,
+          "capabilities": {
+           "drop": [
+            "ALL"
+           ]
+          }
+         }
+        }
+       ]
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "service",
+   "body": {
+    "apiVersion": "v1",
+    "kind": "Service",
+    "metadata": {
+     "name": "{{ name }}",
+     "namespace": "{{ ns }}"
+    },
+    "spec": {
+     "selector": {
+      "app.kubernetes.io/name": "{{ name }}"
+     },
+     "ports": [
+      {
+       "name": "http",
+       "port": "{{ port }}",
+       "targetPort": "http"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "hpa",
+   "when": "hpa",
+   "body": {
+    "apiVersion": "autoscaling/v2",
+    "kind": "HorizontalPodAutoscaler",
+    "metadata": {
+     "name": "{{ name }}",
+     "namespace": "{{ ns }}"
+    },
+    "spec": {
+     "scaleTargetRef": {
+      "apiVersion": "apps/v1",
+      "kind": "Deployment",
+      "name": "{{ name }}"
+     },
+     "minReplicas": "{{ hpaMin }}",
+     "maxReplicas": "{{ hpaMax }}",
+     "metrics": [
+      {
+       "type": "Resource",
+       "resource": {
+        "name": "cpu",
+        "target": {
+         "type": "Utilization",
+         "averageUtilization": "{{ cpuTarget }}"
+        }
+       }
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "pdb",
+   "when": "pods > 1 or hpa",
+   "body": {
+    "apiVersion": "policy/v1",
+    "kind": "PodDisruptionBudget",
+    "metadata": {
+     "name": "{{ name }}",
+     "namespace": "{{ ns }}"
+    },
+    "spec": {
+     "maxUnavailable": 1,
+     "selector": {
+      "matchLabels": {
+       "app.kubernetes.io/name": "{{ name }}"
+      }
+     }
+    }
+   }
+  }
+ ],
+ "notes": [
+  {
+   "when": "hpa and hpaMin > pods",
+   "level": "warn",
+   "text": {
+    "ru": "HPA min ({{ hpaMin }}) больше числа pod-ов в модели ({{ pods }}): в работе их будет не меньше HPA min.",
+    "en": "HPA min ({{ hpaMin }}) is above the pod count in the model ({{ pods }}): at run time there will be at least HPA min pods."
+   }
+  },
+  {
+   "when": "hpa and hpaMax < pods",
+   "level": "warn",
+   "text": {
+    "ru": "HPA max ({{ hpaMax }}) меньше числа pod-ов в модели ({{ pods }}): автомасштабирование не даст набрать расчётную ёмкость.",
+    "en": "HPA max ({{ hpaMax }}) is below the pod count in the model ({{ pods }}): autoscaling cannot reach the planned capacity."
+   }
+  }
+ ]
+}

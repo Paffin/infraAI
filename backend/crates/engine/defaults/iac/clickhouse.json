@@ -1,0 +1,13 @@
+{
+ "id": "clickhouse",
+ "title": {
+  "ru": "ClickHouse",
+  "en": "ClickHouse"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Для ClickHouse нужен оператор и ClickHouse Keeper; конфигурация зависит от выбранного оператора (Altinity или ClickHouse Inc.). Добавьте шаблон под ваш выбор.",
+  "en": "ClickHouse needs an operator and ClickHouse Keeper, and the configuration depends on the operator you pick (Altinity or ClickHouse Inc.). Add a template for your choice."
+ }
+}

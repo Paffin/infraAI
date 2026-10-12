@@ -376,7 +376,17 @@ async fn exports_zip_and_json() {
     let pid = app.first_project(&c).await;
     let (s, v) = app.get(&c, &format!("/api/projects/{pid}/export/terraform?lang=ru")).await;
     assert_eq!(s, StatusCode::OK, "{v}");
-    assert!(v["files"].as_array().unwrap().iter().any(|f| f["path"] == "main.tf"));
+    assert!(v["files"].as_array().unwrap().iter().any(|f| f["path"] == "app-dc1/00-platform/main.tf"), "{v}");
+    // the report says what was and was not generated – in the requested language
+    let report = &v["report"];
+    assert!(report["generated"].as_array().unwrap().iter().any(|g| g["kind"] == "postgresql"), "{report}");
+    assert!(report["skipped"].as_array().unwrap().iter().any(|g| g["code"] == "needs_input" && g["props"][0] == "image"), "{report}");
+    assert!(report["skipped"].as_array().unwrap().iter().any(|g| g["code"] == "no_generator"), "{report}");
+    assert!(!report["prerequisites"].as_array().unwrap().is_empty());
+    let (s, d) = app.get(&c, &format!("/api/projects/{pid}/export/adr?lang=en")).await;
+    assert_eq!(s, StatusCode::OK);
+    assert!(d["report"].is_null(), "documents carry no IaC report");
+
     let (s, h, _) = app.request(Method::GET, &format!("/api/projects/{pid}/export/terraform?download=1"), None, Some(c.clone()), &[]).await;
     assert_eq!(s, StatusCode::OK);
     assert_eq!(h.get("content-type").unwrap(), "application/zip");
@@ -385,6 +395,64 @@ async fn exports_zip_and_json() {
     assert!(h.get("content-disposition").unwrap().to_str().unwrap().contains("ADR-0001.md"));
     let (s, _) = app.get(&c, &format!("/api/projects/{pid}/export/nope")).await;
     assert_eq!(s, StatusCode::BAD_REQUEST);
+
+    // bootstrap announces the formats with their group
+    let (_, boot) = app.get(&c, "/api/bootstrap").await;
+    let formats = boot["exportFormats"].as_array().unwrap();
+    assert!(formats.iter().any(|f| f["id"] == "kubernetes" && f["group"] == "iac"), "{formats:?}");
+    assert!(formats.iter().any(|f| f["id"] == "adr" && f["group"] == "docs"));
+    app.cleanup().await;
+}
+
+#[tokio::test]
+async fn iac_templates_are_configuration_checked_when_saved_and_effective_immediately() {
+    let app = TestApp::new().await;
+    let c = app.login_admin().await;
+    let pid = app.first_project(&c).await;
+
+    // the shipped generators are config items like any other
+    let (s, list) = app.get(&c, "/api/admin/config/iac").await;
+    assert_eq!(s, StatusCode::OK, "{list}");
+    let item = |id: &str| list["items"].as_array().unwrap().iter().find(|i| i["id"] == id).unwrap_or_else(|| panic!("{id} not listed")).clone();
+    let mut data = item("postgresql")["data"].clone();
+
+    // a typo in an expression is refused with its location, nothing is stored
+    let mut broken = data.clone();
+    broken["objects"][0]["body"]["spec"]["instances"] = json!("{{ site.instances + }}");
+    let (s, v) = app.put(&c, "/api/admin/config/iac/postgresql", json!({"data": broken})).await;
+    assert_eq!(s, StatusCode::BAD_REQUEST, "{v}");
+    assert!(v["error"]["message"].as_str().unwrap().contains("objects[0].body.spec.instances"), "{v}");
+
+    // a valid change takes effect on the next export without a restart
+    data["objects"][0]["body"]["metadata"]["annotations"]["team"] = json!("db-platform");
+    let (s, v) = app.put(&c, "/api/admin/config/iac/postgresql", json!({"data": data})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    let mut seen = false;
+    for _ in 0..40 {
+        let (_, e) = app.get(&c, &format!("/api/projects/{pid}/export/kubernetes?lang=en")).await;
+        if e["files"].as_array().unwrap().iter().any(|f| f["path"].as_str().unwrap().ends_with("pg-cluster.yaml") && f["content"].as_str().unwrap().contains("team: db-platform")) {
+            seen = true;
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+    }
+    assert!(seen, "the edited template was not used by the export");
+
+    // disabling a generator is reported, not silently ignored
+    let mut kafka = item("kafka")["data"].clone();
+    kafka["enabled"] = json!(false);
+    let (s, _) = app.put(&c, "/api/admin/config/iac/kafka", json!({"data": kafka})).await;
+    assert_eq!(s, StatusCode::OK);
+    let mut disabled = false;
+    for _ in 0..40 {
+        let (_, e) = app.get(&c, &format!("/api/projects/{pid}/export/kubernetes?lang=en")).await;
+        if e["report"]["skipped"].as_array().unwrap().iter().any(|x| x["kind"] == "kafka" && x["code"] == "disabled") {
+            disabled = true;
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+    }
+    assert!(disabled);
     app.cleanup().await;
 }
 

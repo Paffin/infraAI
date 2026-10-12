@@ -1,0 +1,59 @@
+{
+ "id": "gitops",
+ "title": {
+  "ru": "GitOps (Argo CD)",
+  "en": "GitOps (Argo CD)"
+ },
+ "enabled": true,
+ "target": "kubernetes",
+ "granularity": "unit",
+ "releases": [
+  {
+   "id": "argocd",
+   "name": "{{ name }}",
+   "namespace": "{{ ns }}",
+   "chart": "argo-cd",
+   "repo": "https://argoproj.github.io/argo-helm",
+   "version": "10.10.3",
+   "values": {
+    "controller": {
+     "replicas": 1
+    },
+    "server": {
+     "replicas": "{{ site.instances }}",
+     "pdb": {
+      "enabled": "{{ site.instances > 1 }}"
+     }
+    },
+    "repoServer": {
+     "replicas": "{{ site.instances }}",
+     "pdb": {
+      "enabled": "{{ site.instances > 1 }}"
+     }
+    },
+    "applicationSet": {
+     "replicas": "{{ site.instances }}",
+     "pdb": {
+      "enabled": "{{ site.instances > 1 }}"
+     }
+    },
+    "redis-ha": {
+     "enabled": "{{ site.instances >= 3 }}"
+    },
+    "redis": {
+     "enabled": "{{ site.instances < 3 }}"
+    }
+   }
+  }
+ ],
+ "notes": [
+  {
+   "when": "site.instances in [1, 2]",
+   "level": "info",
+   "text": {
+    "ru": "Для HA-режима Redis в Argo CD нужны минимум 3 экземпляра ({{ site.instances }} в модели): используется одиночный Redis.",
+    "en": "Argo CD’s HA Redis needs at least 3 instances ({{ site.instances }} in the model): a single Redis is used."
+   }
+  }
+ ]
+}

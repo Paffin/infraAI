@@ -1,0 +1,13 @@
+{
+ "id": "opensearch",
+ "title": {
+  "ru": "OpenSearch",
+  "en": "OpenSearch"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Для OpenSearch нет проверенного шаблона: схемы CRD оператора не подтверждены. Добавьте шаблон под ваш оператор.",
+  "en": "There is no verified template for OpenSearch: the operator CRD schemas have not been confirmed. Add a template for your operator."
+ }
+}

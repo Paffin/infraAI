@@ -1,0 +1,13 @@
+{
+ "id": "cdn",
+ "title": {
+  "ru": "CDN",
+  "en": "CDN"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "CDN настраивается у провайдера CDN: нейтрального к поставщику ресурса нет. Добавьте шаблон под вашего провайдера.",
+  "en": "A CDN is configured at the CDN provider: there is no vendor-neutral resource. Add a template for your provider."
+ }
+}

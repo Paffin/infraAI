@@ -73,9 +73,33 @@ jobs:
           docker run --rm -v "$PWD/deploy/k8s:/k8s:ro" registry.k8s.io/kustomize/kustomize:v5.4.3 build /k8s > /tmp/all.yaml
           docker run --rm -v /tmp/all.yaml:/all.yaml:ro ghcr.io/yannh/kubeconform:latest -strict -summary -ignore-missing-schemas /all.yaml
 
+  iac:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: backend
+      - name: Generate IaC for the reference architectures
+        working-directory: backend
+        run: |
+          mkdir -p /tmp/iac-out
+          cargo build -q -p engine --example export
+          for tpl in demo two-dc-witness three-az-region multi-region-pilot-light event-driven-kafka; do
+            for fmt in kubernetes helm terraform; do
+              ./target/debug/examples/export "$tpl" "$fmt" "/tmp/iac-out/$tpl/$fmt" en > /dev/null 2> "/tmp/iac-out/$tpl-$fmt.report.json"
+            done
+          done
+      - name: Validate against Kubernetes and CRD schemas, Helm charts and Terraform providers
+        run: |
+          docker build -t infra-architect-iac-check deploy/iac-check
+          docker volume create iac-cache
+          docker run --rm -v /tmp/iac-out:/out:ro -v "$PWD/backend/crates/engine/defaults:/defaults:ro" -v iac-cache:/cache infra-architect-iac-check
+
   image:
     runs-on: ubuntu-latest
-    needs: [backend, frontend, docs]
+    needs: [backend, frontend, docs, iac]
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3

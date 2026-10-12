@@ -15,6 +15,7 @@ pub mod defaults;
 pub mod evaluate;
 pub mod export;
 pub mod graph;
+pub mod iac;
 pub mod model;
 pub mod ops;
 pub mod sim;

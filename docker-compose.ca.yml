@@ -1,0 +1,29 @@
+# Optional overlay for the test stack behind a TLS-intercepting proxy: trust an extra CA bundle.
+#
+#   CA_BUNDLE=/path/to/ca.pem docker compose -f docker-compose.test.yml -f docker-compose.ca.yml run --rm backend
+secrets:
+  ca:
+    file: ${CA_BUNDLE:?set CA_BUNDLE to the path of a PEM file}
+
+services:
+  backend:
+    environment: &ca-env
+      SSL_CERT_FILE: /etc/ssl/extra-ca.pem
+      CARGO_HTTP_CAINFO: /etc/ssl/extra-ca.pem
+      NODE_EXTRA_CA_CERTS: /etc/ssl/extra-ca.pem
+    volumes:
+      - ${CA_BUNDLE:?set CA_BUNDLE to the path of a PEM file}:/etc/ssl/extra-ca.pem:ro
+  frontend:
+    environment: *ca-env
+    volumes:
+      - ${CA_BUNDLE:?set CA_BUNDLE to the path of a PEM file}:/etc/ssl/extra-ca.pem:ro
+  iac-export:
+    environment: *ca-env
+    volumes:
+      - ${CA_BUNDLE:?set CA_BUNDLE to the path of a PEM file}:/etc/ssl/extra-ca.pem:ro
+  iac-check:
+    build:
+      secrets: [ca]
+    environment: *ca-env
+    volumes:
+      - ${CA_BUNDLE:?set CA_BUNDLE to the path of a PEM file}:/etc/ssl/extra-ca.pem:ro

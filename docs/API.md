@@ -40,7 +40,7 @@ answers `403 password_change_required`.
   catalog: Catalog,            // kinds, edgeTypes, zoneTypes, categories, commonProps
   rules: Rule[],               // texts for rendering findings
   templates: [{id, name, description, badge, order, nodeCount, requirements}],
-  exportFormats: ["json","terraform","helm","adr","runbook","mermaid"],
+  exportFormats: [{id, group}],   // id: json|kubernetes|helm|terraform|adr|runbook|mermaid; group: iac|docs|data
   ai: {enabled, configured, maxPromptChars, plannerModel, fastModel},
   limits: {maxNodes, maxEdges, maxZones, waiverMinReasonChars, waiverMaxDays},
   engine: {currency, symbol, minCapacityDuringFailure, headroomPercent, defaultFailureTolerance} }
@@ -65,7 +65,7 @@ answers `403 password_change_required`.
 | GET | `/projects/{id}/diff?from=draft\|N&to=draft\|N&ui=0` | `ArchDiff` |
 | POST | `/projects/{id}/waivers` | `{fingerprint, reason, expiresInDays?, lang?}` → `{id}` (accept a risk) |
 | DELETE | `/projects/{id}/waivers/{wid}` | revoke |
-| GET | `/projects/{id}/export/{format}?lang=&version=&download=1` | JSON `{format, files:[{path,content}]}`; with `download=1` a file or a zip |
+| GET | `/projects/{id}/export/{format}?lang=&version=&download=1` | JSON `{format, files:[{path,content}], report}`; `report` (only for `kubernetes`/`helm`/`terraform`, see [IAC.md](IAC.md)) = `{clusters, generated, skipped:[{unit,name,kind,nodes,code,message,props}], notes, prerequisites, secrets}`; with `download=1` a file or a zip |
 
 Saving the draft is *not* a version. Versions are explicit snapshots (and are created automatically
 around applied AI proposals).

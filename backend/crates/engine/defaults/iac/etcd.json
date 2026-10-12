@@ -1,0 +1,13 @@
+{
+ "id": "etcd",
+ "title": {
+  "ru": "etcd",
+  "en": "etcd"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "etcd кластера Kubernetes управляется дистрибутивом Kubernetes; отдельный etcd для внешних систем (Patroni и др.) разворачивается на ВМ. Добавьте шаблон под вашу платформу.",
+  "en": "The etcd of a Kubernetes cluster is managed by the distribution; a separate etcd for external systems (Patroni etc.) runs on VMs. Add a template for your platform."
+ }
+}

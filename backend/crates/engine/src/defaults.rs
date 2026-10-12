@@ -5,7 +5,7 @@
 //! server's seeding logic, which tracks a content hash per item).
 
 use crate::catalog::Catalog;
-use crate::config::{EngineSettings, Rule, Template};
+use crate::config::{EngineSettings, IacTemplate, Rule, Template};
 use crate::model::Architecture;
 use crate::text::LText;
 use serde::{Deserialize, Serialize};
@@ -20,6 +20,32 @@ pub const TEMPLATES_JSON: &[(&str, &str)] = &[
     ("three-az-region", include_str!("../defaults/templates/three-az-region.json")),
     ("multi-region-pilot-light", include_str!("../defaults/templates/multi-region-pilot-light.json")),
     ("event-driven-kafka", include_str!("../defaults/templates/event-driven-kafka.json")),
+];
+
+/// Infrastructure-as-code generators, one per catalog kind (see `iac`).
+pub const IAC_JSON: &[(&str, &str)] = &[
+    ("users", include_str!("../defaults/iac/users.json")),
+    ("gslb", include_str!("../defaults/iac/gslb.json")),
+    ("cdn", include_str!("../defaults/iac/cdn.json")),
+    ("waf", include_str!("../defaults/iac/waf.json")),
+    ("l4", include_str!("../defaults/iac/l4.json")),
+    ("l7", include_str!("../defaults/iac/l7.json")),
+    ("vpn_dci", include_str!("../defaults/iac/vpn_dci.json")),
+    ("kubernetes", include_str!("../defaults/iac/kubernetes.json")),
+    ("vm_pool", include_str!("../defaults/iac/vm_pool.json")),
+    ("functions", include_str!("../defaults/iac/functions.json")),
+    ("api_gateway", include_str!("../defaults/iac/api_gateway.json")),
+    ("postgresql", include_str!("../defaults/iac/postgresql.json")),
+    ("redis", include_str!("../defaults/iac/redis.json")),
+    ("kafka", include_str!("../defaults/iac/kafka.json")),
+    ("clickhouse", include_str!("../defaults/iac/clickhouse.json")),
+    ("object_storage", include_str!("../defaults/iac/object_storage.json")),
+    ("opensearch", include_str!("../defaults/iac/opensearch.json")),
+    ("backup_storage", include_str!("../defaults/iac/backup_storage.json")),
+    ("etcd", include_str!("../defaults/iac/etcd.json")),
+    ("vault", include_str!("../defaults/iac/vault.json")),
+    ("monitoring", include_str!("../defaults/iac/monitoring.json")),
+    ("gitops", include_str!("../defaults/iac/gitops.json")),
 ];
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -43,6 +69,10 @@ pub fn rules() -> Vec<Rule> {
 
 pub fn templates() -> Vec<Template> {
     TEMPLATES_JSON.iter().map(|(id, s)| serde_json::from_str(s).unwrap_or_else(|e| panic!("embedded template {id} is valid: {e}"))).collect()
+}
+
+pub fn iac_templates() -> Vec<IacTemplate> {
+    IAC_JSON.iter().map(|(id, s)| serde_json::from_str(s).unwrap_or_else(|e| panic!("embedded iac template {id} is valid: {e}"))).collect()
 }
 
 pub fn demo_project() -> DemoProject {

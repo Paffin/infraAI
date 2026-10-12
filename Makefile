@@ -1,9 +1,9 @@
 # Everything runs in containers; `make help` lists the targets.
 COMPOSE ?= docker compose
-TEST    ?= $(COMPOSE) -f docker-compose.test.yml
+TEST    ?= $(COMPOSE) -f docker-compose.test.yml $(if $(CA_BUNDLE),-f docker-compose.ca.yml)
 
 .DEFAULT_GOAL := help
-.PHONY: help up ha down logs build test test-backend test-frontend smoke fmt lint clean
+.PHONY: help up ha down logs build test test-backend test-frontend iac-check smoke fmt lint clean
 
 help: ## show this help
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  %-14s %s\n", $$1, $$2}'
@@ -33,6 +33,10 @@ test-backend: ## cargo test (engine + server against a real PostgreSQL)
 
 test-frontend: ## typecheck, unit tests and production build of the web app
 	$(TEST) run --rm frontend
+
+iac-check: ## generate IaC for the reference architectures and validate it (Kubernetes/CRD schemas, Helm, Terraform)
+	$(TEST) run --rm iac-export
+	$(TEST) run --rm --build iac-check
 
 smoke: ## end-to-end check of a running stack (reads ADMIN_* from .env)
 	@set -a; . ./.env; set +a; ./deploy/smoke.sh http://localhost:$${APP_PORT:-8080} "$${ADMIN_EMAIL:-admin@example.com}" "$$ADMIN_PASSWORD"

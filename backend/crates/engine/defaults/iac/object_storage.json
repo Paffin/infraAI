@@ -1,0 +1,13 @@
+{
+ "id": "object_storage",
+ "title": {
+  "ru": "Объектное хранилище",
+  "en": "Object storage"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "S3-совместимое хранилище — это внешний сервис (облачный S3, Ceph/Rook, SeaweedFS, …); его адрес указывается в свойствах узла и используется шаблонами БД для бэкапов. Развернуть его можно шаблоном под ваш продукт.",
+  "en": "S3-compatible storage is an external service (cloud S3, Ceph/Rook, SeaweedFS, …); its address is set in the node properties and used by the database templates for backups. Deploy it with a template for your product."
+ }
+}

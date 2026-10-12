@@ -703,6 +703,51 @@
    "min": 0,
    "group": "scaling",
    "advanced": true
+  },
+  {
+   "key": "hosting",
+   "type": "enum",
+   "label": {
+    "ru": "Размещение",
+    "en": "Hosting"
+   },
+   "default": "auto",
+   "group": "platform",
+   "advanced": true,
+   "options": [
+    {
+     "value": "auto",
+     "label": {
+      "ru": "Авто — в кластере Kubernetes зоны, если он есть",
+      "en": "Auto – on the zone’s Kubernetes cluster if there is one"
+     }
+    },
+    {
+     "value": "kubernetes",
+     "label": {
+      "ru": "Kubernetes",
+      "en": "Kubernetes"
+     }
+    },
+    {
+     "value": "vm",
+     "label": {
+      "ru": "Виртуальные машины",
+      "en": "Virtual machines"
+     }
+    },
+    {
+     "value": "managed",
+     "label": {
+      "ru": "Управляемый сервис облака",
+      "en": "Managed cloud service"
+     }
+    }
+   ],
+   "help": {
+    "ru": "Определяет, создаются ли для узла манифесты Kubernetes при экспорте IaC. «Авто» — если в зоне есть кластер Kubernetes.",
+    "en": "Decides whether Kubernetes manifests are generated for the node when exporting IaC. “Auto” deploys onto the zone’s cluster when there is one."
+   }
   }
  ],
  "kinds": [
@@ -820,15 +865,6 @@
      "default": 1
     }
    ],
-   "iac": {
-    "terraform": {
-     "source": "./modules/gslb",
-     "inputs": {
-      "health_check_seconds": "healthCheckSeconds",
-      "dns_ttl_seconds": "dnsTtlSeconds"
-     }
-    }
-   },
    "runbook": {
     "failover": [
      {
@@ -891,13 +927,7 @@
      "group": "capacity",
      "default": 1
     }
-   ],
-   "iac": {
-    "terraform": {
-     "source": "./modules/cdn",
-     "inputs": {}
-    }
-   }
+   ]
   },
   {
    "id": "waf",
@@ -973,15 +1003,7 @@
      "group": "capacity",
      "default": 4
     }
-   ],
-   "iac": {
-    "terraform": {
-     "source": "./modules/waf",
-     "inputs": {
-      "mode": "mode"
-     }
-    }
-   }
+   ]
   },
   {
    "id": "l7",
@@ -1060,24 +1082,53 @@
      "min": 0,
      "group": "capacity",
      "default": 4
-    }
-   ],
-   "iac": {
-    "helm": {
-     "chart": "ingress-nginx",
-     "repo": "https://kubernetes.github.io/ingress-nginx",
-     "version": "4.*",
-     "values": {
-      "controller.replicaCount": "replicas"
-     }
     },
-    "terraform": {
-     "source": "./modules/l7",
-     "inputs": {
-      "replicas": "replicas"
+    {
+     "key": "hosting",
+     "type": "enum",
+     "label": {
+      "ru": "Размещение",
+      "en": "Hosting"
+     },
+     "default": "vm",
+     "group": "platform",
+     "advanced": true,
+     "options": [
+      {
+       "value": "auto",
+       "label": {
+        "ru": "Авто — в кластере Kubernetes зоны, если он есть",
+        "en": "Auto – on the zone’s Kubernetes cluster if there is one"
+       }
+      },
+      {
+       "value": "kubernetes",
+       "label": {
+        "ru": "Kubernetes",
+        "en": "Kubernetes"
+       }
+      },
+      {
+       "value": "vm",
+       "label": {
+        "ru": "Виртуальные машины",
+        "en": "Virtual machines"
+       }
+      },
+      {
+       "value": "managed",
+       "label": {
+        "ru": "Управляемый сервис облака",
+        "en": "Managed cloud service"
+       }
+      }
+     ],
+     "help": {
+      "ru": "Балансировщики перед кластером обычно живут вне Kubernetes (VRRP/HAProxy, облачный LB): по умолчанию — виртуальные машины. Выберите «Kubernetes», чтобы развернуть ingress-контроллер в кластере.",
+      "en": "Balancers in front of a cluster usually live outside Kubernetes (VRRP/HAProxy, cloud LB): the default is virtual machines. Choose “Kubernetes” to deploy an ingress controller onto the cluster."
      }
     }
-   }
+   ]
   },
   {
    "id": "l4",
@@ -1155,16 +1206,53 @@
      "min": 0,
      "group": "capacity",
      "default": 4
-    }
-   ],
-   "iac": {
-    "terraform": {
-     "source": "./modules/l4",
-     "inputs": {
-      "replicas": "replicas"
+    },
+    {
+     "key": "hosting",
+     "type": "enum",
+     "label": {
+      "ru": "Размещение",
+      "en": "Hosting"
+     },
+     "default": "vm",
+     "group": "platform",
+     "advanced": true,
+     "options": [
+      {
+       "value": "auto",
+       "label": {
+        "ru": "Авто — в кластере Kubernetes зоны, если он есть",
+        "en": "Auto – on the zone’s Kubernetes cluster if there is one"
+       }
+      },
+      {
+       "value": "kubernetes",
+       "label": {
+        "ru": "Kubernetes",
+        "en": "Kubernetes"
+       }
+      },
+      {
+       "value": "vm",
+       "label": {
+        "ru": "Виртуальные машины",
+        "en": "Virtual machines"
+       }
+      },
+      {
+       "value": "managed",
+       "label": {
+        "ru": "Управляемый сервис облака",
+        "en": "Managed cloud service"
+       }
+      }
+     ],
+     "help": {
+      "ru": "Балансировщики перед кластером обычно живут вне Kubernetes (VRRP/HAProxy, облачный LB): по умолчанию — виртуальные машины. Выберите «Kubernetes», чтобы развернуть ingress-контроллер в кластере.",
+      "en": "Balancers in front of a cluster usually live outside Kubernetes (VRRP/HAProxy, cloud LB): the default is virtual machines. Choose “Kubernetes” to deploy an ingress controller onto the cluster."
      }
     }
-   }
+   ]
   },
   {
    "id": "vpn_dci",
@@ -1216,15 +1304,7 @@
      "group": "capacity",
      "default": 4
     }
-   ],
-   "iac": {
-    "terraform": {
-     "source": "./modules/vpn",
-     "inputs": {
-      "bandwidth_mbps": "bandwidthMbps"
-     }
-    }
-   }
+   ]
   },
   {
    "id": "kubernetes",
@@ -1234,7 +1314,8 @@
    "behavior": "stateless",
    "traits": [
     "workload",
-    "platform"
+    "platform",
+    "k8s-cluster"
    ],
    "name": {
     "ru": "Kubernetes",
@@ -1309,27 +1390,62 @@
      "min": 0,
      "group": "capacity",
      "default": 2
-    }
-   ],
-   "iac": {
-    "terraform": {
-     "source": "./modules/kubernetes",
-     "inputs": {
-      "node_count": "replicas",
-      "k8s_version": "version"
+    },
+    {
+     "key": "image",
+     "type": "string",
+     "label": {
+      "ru": "Образ контейнера",
+      "en": "Container image"
+     },
+     "group": "platform",
+     "help": {
+      "ru": "Образ приложения (например registry.example.com/shop/api:1.4.2). Нужен для генерации Deployment.",
+      "en": "Application image (for example registry.example.com/shop/api:1.4.2). Required to generate a Deployment."
      }
     },
-    "helm": {
-     "chart": "app",
-     "repo": "oci://registry.example.org/charts",
-     "version": "1.*",
-     "values": {
-      "replicaCount": "replicas",
-      "autoscaling.minReplicas": "hpaMin",
-      "autoscaling.maxReplicas": "hpaMax"
+    {
+     "key": "port",
+     "type": "number",
+     "label": {
+      "ru": "Порт приложения",
+      "en": "Application port"
+     },
+     "min": 1,
+     "max": 65535,
+     "default": 8080,
+     "group": "platform",
+     "advanced": true
+    },
+    {
+     "key": "healthPath",
+     "type": "string",
+     "label": {
+      "ru": "Путь health-check (HTTP)",
+      "en": "Health-check path (HTTP)"
+     },
+     "group": "platform",
+     "advanced": true,
+     "help": {
+      "ru": "Если не задан, проверки готовности и живости — TCP на порт приложения.",
+      "en": "If empty, readiness and liveness are TCP checks on the application port."
+     }
+    },
+    {
+     "key": "clusterName",
+     "type": "string",
+     "label": {
+      "ru": "Имя кластера",
+      "en": "Cluster name"
+     },
+     "group": "platform",
+     "advanced": true,
+     "help": {
+      "ru": "Узлы Kubernetes с одним именем кластера — один кластер, растянутый на их зоны (например, три AZ региона). Без имени каждый узел — отдельный кластер. Используется при экспорте IaC.",
+      "en": "Kubernetes nodes with the same cluster name form one cluster stretched over their zones (for example three AZs of a region). Without a name every node is a cluster of its own. Used when exporting IaC."
      }
     }
-   },
+   ],
    "runbook": {
     "failover": [
      {
@@ -1404,18 +1520,7 @@
      "group": "capacity",
      "default": 50
     }
-   ],
-   "iac": {
-    "terraform": {
-     "source": "./modules/vm_pool",
-     "inputs": {
-      "instances": "replicas",
-      "vcpu": "vcpu",
-      "ram_gb": "ramGb",
-      "disk_gb": "diskGb"
-     }
-    }
-   }
+   ]
   },
   {
    "id": "functions",
@@ -1470,13 +1575,7 @@
      "group": "capacity",
      "default": 1
     }
-   ],
-   "iac": {
-    "terraform": {
-     "source": "./modules/functions",
-     "inputs": {}
-    }
-   }
+   ]
   },
   {
    "id": "api_gateway",
@@ -1532,15 +1631,7 @@
      "group": "capacity",
      "default": 4
     }
-   ],
-   "iac": {
-    "terraform": {
-     "source": "./modules/api_gateway",
-     "inputs": {
-      "replicas": "replicas"
-     }
-    }
-   }
+   ]
   },
   {
    "id": "postgresql",
@@ -1722,18 +1813,6 @@
      "default": 500
     }
    ],
-   "iac": {
-    "terraform": {
-     "source": "./modules/postgresql",
-     "inputs": {
-      "pg_version": "version",
-      "replicas": "replicas",
-      "vcpu": "vcpu",
-      "ram_gb": "ramGb",
-      "disk_gb": "diskGb"
-     }
-    }
-   },
    "runbook": {
     "failover": [
      {
@@ -1938,23 +2017,6 @@
      "default": 20
     }
    ],
-   "iac": {
-    "helm": {
-     "chart": "redis",
-     "repo": "oci://registry-1.docker.io/bitnamicharts",
-     "version": "20.*",
-     "values": {
-      "architecture": "mode"
-     }
-    },
-    "terraform": {
-     "source": "./modules/redis",
-     "inputs": {
-      "replicas": "replicas",
-      "ram_gb": "ramGb"
-     }
-    }
-   },
    "runbook": {
     "failover": [
      {
@@ -2065,25 +2127,7 @@
      "group": "capacity",
      "default": 500
     }
-   ],
-   "iac": {
-    "helm": {
-     "chart": "kafka",
-     "repo": "oci://registry-1.docker.io/bitnamicharts",
-     "version": "31.*",
-     "values": {
-      "controller.replicaCount": "replicas"
-     }
-    },
-    "terraform": {
-     "source": "./modules/kafka",
-     "inputs": {
-      "brokers": "replicas",
-      "replication_factor": "replicationFactor",
-      "min_insync": "minInsync"
-     }
-    }
-   }
+   ]
   },
   {
    "id": "clickhouse",
@@ -2172,18 +2216,7 @@
      "group": "capacity",
      "default": 1000
     }
-   ],
-   "iac": {
-    "terraform": {
-     "source": "./modules/clickhouse",
-     "inputs": {
-      "replicas": "replicas",
-      "vcpu": "vcpu",
-      "ram_gb": "ramGb",
-      "disk_gb": "diskGb"
-     }
-    }
-   }
+   ]
   },
   {
    "id": "object_storage",
@@ -2260,16 +2293,35 @@
      "min": 0,
      "group": "capacity",
      "default": 2000
-    }
-   ],
-   "iac": {
-    "terraform": {
-     "source": "./modules/object_storage",
-     "inputs": {
-      "disk_gb": "diskGb"
+    },
+    {
+     "key": "bucket",
+     "type": "string",
+     "label": {
+      "ru": "Бакет",
+      "en": "Bucket"
+     },
+     "group": "platform",
+     "help": {
+      "ru": "Имя бакета S3 для резервных копий и архива WAL; используется при генерации IaC баз данных.",
+      "en": "S3 bucket for backups and WAL archive; used when generating database IaC."
+     }
+    },
+    {
+     "key": "endpoint",
+     "type": "string",
+     "label": {
+      "ru": "Адрес S3 (endpoint)",
+      "en": "S3 endpoint"
+     },
+     "group": "platform",
+     "advanced": true,
+     "help": {
+      "ru": "URL S3-совместимого сервиса. Пусто — используется адрес по умолчанию клиента (облачный S3).",
+      "en": "URL of the S3-compatible service. Empty means the client default (cloud S3)."
      }
     }
-   }
+   ]
   },
   {
    "id": "opensearch",
@@ -2358,18 +2410,7 @@
      "group": "capacity",
      "default": 500
     }
-   ],
-   "iac": {
-    "terraform": {
-     "source": "./modules/opensearch",
-     "inputs": {
-      "nodes": "replicas",
-      "vcpu": "vcpu",
-      "ram_gb": "ramGb",
-      "disk_gb": "diskGb"
-     }
-    }
-   }
+   ]
   },
   {
    "id": "backup_storage",
@@ -2490,17 +2531,35 @@
      "min": 0,
      "group": "capacity",
      "default": 5000
-    }
-   ],
-   "iac": {
-    "terraform": {
-     "source": "./modules/backup_storage",
-     "inputs": {
-      "retention_days": "retentionDays",
-      "immutable": "immutable"
+    },
+    {
+     "key": "bucket",
+     "type": "string",
+     "label": {
+      "ru": "Бакет",
+      "en": "Bucket"
+     },
+     "group": "platform",
+     "help": {
+      "ru": "Имя бакета S3 для резервных копий и архива WAL; используется при генерации IaC баз данных.",
+      "en": "S3 bucket for backups and WAL archive; used when generating database IaC."
+     }
+    },
+    {
+     "key": "endpoint",
+     "type": "string",
+     "label": {
+      "ru": "Адрес S3 (endpoint)",
+      "en": "S3 endpoint"
+     },
+     "group": "platform",
+     "advanced": true,
+     "help": {
+      "ru": "URL S3-совместимого сервиса. Пусто — используется адрес по умолчанию клиента (облачный S3).",
+      "en": "URL of the S3-compatible service. Empty means the client default (cloud S3)."
      }
     }
-   },
+   ],
    "runbook": {
     "restore": [
      {
@@ -2602,14 +2661,6 @@
      "default": 50
     }
    ],
-   "iac": {
-    "terraform": {
-     "source": "./modules/etcd",
-     "inputs": {
-      "replicas": "replicas"
-     }
-    }
-   },
    "runbook": {
     "failover": [
      {
@@ -2732,15 +2783,7 @@
      "group": "capacity",
      "default": 50
     }
-   ],
-   "iac": {
-    "terraform": {
-     "source": "./modules/vault",
-     "inputs": {
-      "replicas": "replicas"
-     }
-    }
-   }
+   ]
   },
   {
    "id": "monitoring",
@@ -2805,23 +2848,7 @@
      "group": "capacity",
      "default": 200
     }
-   ],
-   "iac": {
-    "helm": {
-     "chart": "kube-prometheus-stack",
-     "repo": "https://prometheus-community.github.io/helm-charts",
-     "version": "*",
-     "values": {
-      "prometheus.prometheusSpec.replicas": "replicas"
-     }
-    },
-    "terraform": {
-     "source": "./modules/monitoring",
-     "inputs": {
-      "replicas": "replicas"
-     }
-    }
-   }
+   ]
   },
   {
    "id": "gitops",
@@ -2886,23 +2913,7 @@
      "group": "capacity",
      "default": 50
     }
-   ],
-   "iac": {
-    "helm": {
-     "chart": "argo-cd",
-     "repo": "https://argoproj.github.io/argo-helm",
-     "version": "*",
-     "values": {
-      "controller.replicas": "replicas"
-     }
-    },
-    "terraform": {
-     "source": "./modules/gitops",
-     "inputs": {
-      "replicas": "replicas"
-     }
-    }
-   }
+   ]
   }
  ]
 }

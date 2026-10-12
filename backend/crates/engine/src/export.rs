@@ -1,22 +1,21 @@
 //! Documents and infrastructure-as-code generated from the single architecture model.
 //!
-//! * Terraform/OpenTofu: a *validating scaffold* – root module wiring plus stub modules, driven
-//!   by the catalog's `iac.terraform` mapping (module sources and input names are configuration,
-//!   not code). No secrets are ever generated; remote state belongs in the backend block from
-//!   settings.
-//! * Helm: `helmfile.yaml` + per-release values for kinds with an `iac.helm` mapping.
+//! * Kubernetes manifests, Helm (helmfile) and Terraform/OpenTofu: see [`crate::iac`] – real
+//!   artifacts generated from admin-editable templates, with an honest report of what could
+//!   not be generated. No secrets are ever generated.
 //! * ADR and Runbook: Markdown with every number traceable to the engine's report.
 //! * Mermaid: a diagram for documentation.
 
 use crate::catalog::{Semantics, ZoneLevel};
 use crate::config::{EngineConfig, Waiver};
 use crate::evaluate::{render_message, Ctx, Report, Status};
+use crate::iac;
 use crate::model::{as_f64, Architecture};
 use crate::sim::{standard_scenarios, RecoveryKind, Scenario, ServiceState};
 use crate::text::{display_value, fmt_seconds, interpolate};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -25,7 +24,33 @@ pub struct ExportFile {
     pub content: String,
 }
 
-pub const FORMATS: &[&str] = &["json", "terraform", "helm", "adr", "runbook", "mermaid"];
+pub const FORMATS: &[&str] = &["json", "kubernetes", "helm", "terraform", "adr", "runbook", "mermaid"];
+
+/// UI group of a format: `iac` (deployable code), `docs` (documents) or `data`.
+pub fn group_of(format: &str) -> &'static str {
+    match format {
+        "kubernetes" | "helm" | "terraform" => "iac",
+        "json" => "data",
+        _ => "docs",
+    }
+}
+
+/// Result of one export: the files and, for IaC formats, what was and was not generated.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Export {
+    pub files: Vec<ExportFile>,
+    pub report: Option<iac::Report>,
+}
+
+impl Export {
+    fn docs(files: Vec<ExportFile>) -> Option<Export> {
+        Some(Export { files, report: None })
+    }
+    fn iac(b: iac::Bundle) -> Option<Export> {
+        Some(Export { files: b.files, report: Some(b.report) })
+    }
+}
 
 fn file(path: impl Into<String>, content: impl Into<String>) -> ExportFile {
     ExportFile { path: path.into(), content: content.into() }
@@ -51,272 +76,6 @@ fn ident(s: &str, taken: &mut HashSet<String>) -> String {
     }
     taken.insert(out.clone());
     out
-}
-
-// -------------------------------------------------------------------------------------------
-// Terraform
-// -------------------------------------------------------------------------------------------
-
-fn hcl_str(s: &str) -> String {
-    let e = s.replace('\\', "\\\\").replace('"', "\\\"").replace("${", "$${").replace("%{", "%%{").replace('\n', "\\n");
-    format!("\"{}\"", e)
-}
-
-fn hcl_value(v: &Value) -> Option<String> {
-    match v {
-        Value::Bool(b) => Some(b.to_string()),
-        Value::Number(n) => Some(n.to_string()),
-        Value::String(s) => Some(hcl_str(s)),
-        _ => None,
-    }
-}
-
-const RESERVED_MODULE_ARGS: &[&str] = &["source", "version", "count", "for_each", "providers", "depends_on"];
-
-fn module_input_name(name: &str) -> String {
-    if RESERVED_MODULE_ARGS.contains(&name) {
-        format!("{}_value", name)
-    } else {
-        name.to_string()
-    }
-}
-
-pub fn terraform(arch: &Architecture, cfg: &EngineConfig) -> Vec<ExportFile> {
-    let ctx = Ctx::new(arch, cfg);
-    let ix = &ctx.ix;
-    let ex = &cfg.settings.export;
-    let mut files = vec![];
-    let mut taken: HashSet<String> = HashSet::new();
-    let mut mod_names: Vec<Option<String>> = vec![None; arch.nodes.len()];
-    let mut unmapped: Vec<String> = vec![];
-
-    for (ni, n) in arch.nodes.iter().enumerate() {
-        let has = ix.kind[ni].and_then(|k| k.iac.as_ref()).and_then(|i| i.terraform.as_ref()).is_some();
-        if has {
-            mod_names[ni] = Some(ident(&n.id, &mut taken));
-        } else {
-            unmapped.push(format!("{} ({})", n.name, n.kind));
-        }
-    }
-
-    // dependency ordering without cycles: a depends_on b means b is created first
-    let mut deps: Vec<BTreeSet<usize>> = vec![BTreeSet::new(); arch.nodes.len()];
-    let reaches = |deps: &Vec<BTreeSet<usize>>, from: usize, to: usize| -> bool {
-        let mut stack = vec![from];
-        let mut seen = HashSet::new();
-        while let Some(x) = stack.pop() {
-            if x == to {
-                return true;
-            }
-            if seen.insert(x) {
-                stack.extend(deps[x].iter().copied());
-            }
-        }
-        false
-    };
-    let mut candidates: Vec<(usize, usize)> = vec![];
-    for (ei, ends) in ix.edge_ends.iter().enumerate() {
-        let Some((s, t)) = ends else { continue };
-        match ix.sem(ei) {
-            Some(Semantics::Dependency) => candidates.push((*s, *t)),
-            Some(Semantics::Replication) => candidates.push((*t, *s)),
-            _ => {}
-        }
-    }
-    for (a, b) in candidates {
-        if a == b || mod_names[a].is_none() || mod_names[b].is_none() {
-            continue;
-        }
-        if !reaches(&deps, b, a) {
-            deps[a].insert(b);
-        }
-    }
-
-    // zones
-    let mut main = String::new();
-    main.push_str("# Generated by Infra Architect from the architecture model.\n");
-    main.push_str("# This is a SCAFFOLD: replace the stub modules in ./modules with real implementations.\n");
-    main.push_str(&format!("# Architecture: {}\n\n", arch.meta.name.clone().unwrap_or_default()));
-    main.push_str("locals {\n  zones = {\n");
-    for z in &arch.zones {
-        main.push_str(&format!(
-            "    {} = {{ name = {}, type = {}, role = {}, geo = {} }}\n",
-            hcl_str(&z.id),
-            hcl_str(&z.name),
-            hcl_str(&z.zone_type),
-            hcl_str(z.role.as_deref().unwrap_or("")),
-            hcl_str(z.props.get("geo").and_then(|v| v.as_str()).unwrap_or("")),
-        ));
-    }
-    main.push_str("  }\n}\n\n");
-
-    let mut module_dirs: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
-    for (ni, n) in arch.nodes.iter().enumerate() {
-        let Some(mname) = &mod_names[ni] else { continue };
-        let tf = ix.kind[ni].and_then(|k| k.iac.as_ref()).and_then(|i| i.terraform.as_ref()).unwrap();
-        main.push_str(&format!("module {} {{\n  source = {}\n", hcl_str(mname), hcl_str(&tf.source)));
-        if let (Some(v), false) = (&tf.version, tf.source.starts_with("./") || tf.source.starts_with("../")) {
-            main.push_str(&format!("  version = {}\n", hcl_str(v)));
-        }
-        main.push('\n');
-        main.push_str(&format!("  name  = {}\n", hcl_str(&n.name)));
-        match &n.zone_id {
-            Some(z) => main.push_str(&format!("  zone  = {}\n", hcl_str(z))),
-            None => main.push_str("  zone  = \"\"\n"),
-        }
-        main.push_str(&format!("  group = {}\n", hcl_str(n.group.as_deref().unwrap_or(""))));
-        main.push_str(&format!("  role  = {}\n", hcl_str(n.role.as_deref().unwrap_or(""))));
-        let mut inputs: BTreeSet<String> = BTreeSet::new();
-        for (input, prop) in &tf.inputs {
-            if let Some(v) = ix.eff[ni].map.get(prop).and_then(hcl_value) {
-                let name = module_input_name(input);
-                main.push_str(&format!("  {} = {}\n", name, v));
-            }
-            inputs.insert(module_input_name(input));
-        }
-        if !deps[ni].is_empty() {
-            let list: Vec<String> = deps[ni].iter().filter_map(|&d| mod_names[d].as_ref().map(|m| format!("module.{}", m))).collect();
-            main.push_str(&format!("\n  depends_on = [{}]\n", list.join(", ")));
-        }
-        main.push_str("}\n\n");
-        if tf.source.starts_with("./") {
-            module_dirs.entry(tf.source.trim_start_matches("./").to_string()).or_default().extend(inputs);
-        }
-    }
-    files.push(file("main.tf", main));
-    files.push(file("versions.tf", format!("terraform {{\n  required_version = {}\n\n  {}\n}}\n", hcl_str(&ex.terraform_required_version), ex.terraform_backend)));
-    files.push(file(
-        "README.md",
-        format!(
-            "# Terraform / OpenTofu scaffold\n\nGenerated from the architecture model. Modules under `modules/` are **stubs** (`terraform_data`): they declare the inputs the architecture provides and nothing else. Implement them for your platform, keep secrets in your secret manager (never in variables or state-in-git) and configure remote state in `versions.tf`.\n\n```\ntofu init && tofu validate\n```\n\n{}",
-            if unmapped.is_empty() {
-                String::new()
-            } else {
-                format!("## Components without a Terraform mapping\n\n{}\n", unmapped.iter().map(|u| format!("- {u}")).collect::<Vec<_>>().join("\n"))
-            }
-        ),
-    ));
-    for (dir, inputs) in module_dirs {
-        let mut vars = String::new();
-        for v in ["name", "zone", "group", "role"] {
-            vars.push_str(&format!("variable \"{v}\" {{\n  type    = string\n  default = \"\"\n}}\n\n"));
-        }
-        for i in &inputs {
-            vars.push_str(&format!("variable \"{i}\" {{\n  type    = any\n  default = null\n}}\n\n"));
-        }
-        let mut obj = String::from("{\n    name  = var.name\n    zone  = var.zone\n    group = var.group\n    role  = var.role\n");
-        for i in &inputs {
-            obj.push_str(&format!("    {i} = var.{i}\n"));
-        }
-        obj.push_str("  }");
-        files.push(file(format!("{dir}/variables.tf"), vars));
-        files.push(file(format!("{dir}/main.tf"), format!("# Stub module generated by Infra Architect. Replace with real resources.\nresource \"terraform_data\" \"this\" {{\n  input = {obj}\n}}\n")));
-        files.push(file(format!("{dir}/outputs.tf"), "output \"id\" {\n  value = terraform_data.this.id\n}\n"));
-    }
-    files
-}
-
-// -------------------------------------------------------------------------------------------
-// Helm / helmfile
-// -------------------------------------------------------------------------------------------
-
-fn yaml_scalar(v: &Value) -> String {
-    match v {
-        Value::Bool(b) => b.to_string(),
-        Value::Number(n) => n.to_string(),
-        Value::String(s) => serde_json::to_string(s).unwrap_or_else(|_| "\"\"".into()),
-        _ => "null".into(),
-    }
-}
-
-fn nested_yaml(map: &BTreeMap<String, Value>) -> String {
-    #[derive(Default)]
-    struct Node {
-        leaf: Option<Value>,
-        children: BTreeMap<String, Node>,
-    }
-    fn insert(n: &mut Node, parts: &[&str], v: Value) {
-        if parts.is_empty() {
-            n.leaf = Some(v);
-            return;
-        }
-        let c = n.children.entry(parts[0].to_string()).or_default();
-        insert(c, &parts[1..], v);
-    }
-    fn emit(n: &Node, indent: usize, out: &mut String) {
-        for (k, c) in &n.children {
-            let pad = "  ".repeat(indent);
-            if let Some(v) = &c.leaf {
-                out.push_str(&format!("{pad}{k}: {}\n", yaml_scalar(v)));
-            } else {
-                out.push_str(&format!("{pad}{k}:\n"));
-                emit(c, indent + 1, out);
-            }
-        }
-    }
-    let mut root = Node::default();
-    for (k, v) in map {
-        let parts: Vec<&str> = k.split('.').collect();
-        insert(&mut root, &parts, v.clone());
-    }
-    let mut out = String::new();
-    emit(&root, 0, &mut out);
-    out
-}
-
-pub fn helm(arch: &Architecture, cfg: &EngineConfig) -> Vec<ExportFile> {
-    let ctx = Ctx::new(arch, cfg);
-    let ix = &ctx.ix;
-    let ex = &cfg.settings.export;
-    let mut taken = HashSet::new();
-    let mut repos: BTreeMap<String, String> = BTreeMap::new(); // url -> name
-    let mut releases = String::new();
-    let mut files = vec![];
-    for (ni, n) in arch.nodes.iter().enumerate() {
-        let Some(h) = ix.kind[ni].and_then(|k| k.iac.as_ref()).and_then(|i| i.helm.as_ref()) else { continue };
-        let rel = ident(&n.id, &mut taken).replace('_', "-");
-        let chart = match &h.repo {
-            Some(url) => {
-                let next = repos.len() + 1;
-                let name = repos.entry(url.clone()).or_insert_with(|| format!("repo{next}")).clone();
-                format!("{}/{}", name, h.chart)
-            }
-            None => h.chart.clone(),
-        };
-        releases.push_str(&format!("  - name: {rel}\n    namespace: {}\n    chart: {}\n", yaml_scalar(&json!(ex.helm_namespace)), yaml_scalar(&json!(chart))));
-        if let Some(v) = &h.version {
-            releases.push_str(&format!("    version: {}\n", yaml_scalar(&json!(v))));
-        }
-        releases.push_str(&format!("    values:\n      - values/{rel}.yaml\n"));
-        let mut values: BTreeMap<String, Value> = BTreeMap::new();
-        for (vk, pk) in &h.values {
-            if let Some(v) = ix.eff[ni].map.get(pk) {
-                if !v.is_null() {
-                    values.insert(vk.clone(), v.clone());
-                }
-            }
-        }
-        values.insert("global.node".into(), json!(n.id));
-        if let Some(z) = &n.zone_id {
-            values.insert("global.zone".into(), json!(z));
-        }
-        files.push(file(format!("values/{rel}.yaml"), format!("# {} ({})\n{}", n.name, n.kind, nested_yaml(&values))));
-    }
-    let mut hf = String::from("# Generated by Infra Architect. Review chart names, versions and values before use.\n");
-    if !repos.is_empty() {
-        hf.push_str("repositories:\n");
-        for (url, name) in &repos {
-            if let Some(rest) = url.strip_prefix("oci://") {
-                hf.push_str(&format!("  - name: {name}\n    url: {rest}\n    oci: true\n"));
-            } else {
-                hf.push_str(&format!("  - name: {name}\n    url: {url}\n"));
-            }
-        }
-    }
-    hf.push_str("releases:\n");
-    hf.push_str(&releases);
-    files.insert(0, file("helmfile.yaml", hf));
-    files
 }
 
 // -------------------------------------------------------------------------------------------
@@ -698,14 +457,15 @@ pub fn runbook(arch: &Architecture, cfg: &EngineConfig, lang: &str) -> ExportFil
 }
 
 /// Generate one export format.
-pub fn generate(format: &str, arch: &Architecture, cfg: &EngineConfig, report: &Report, waivers: &[Waiver], lang: &str, date: &str) -> Option<Vec<ExportFile>> {
+pub fn generate(format: &str, arch: &Architecture, cfg: &EngineConfig, report: &Report, waivers: &[Waiver], lang: &str, date: &str) -> Option<Export> {
     match format {
-        "json" => Some(vec![file("architecture.json", serde_json::to_string_pretty(arch).ok()?)]),
-        "terraform" => Some(terraform(arch, cfg)),
-        "helm" => Some(helm(arch, cfg)),
-        "adr" => Some(vec![adr(arch, cfg, report, waivers, lang, date)]),
-        "runbook" => Some(vec![runbook(arch, cfg, lang)]),
-        "mermaid" => Some(vec![file("architecture.mmd", mermaid(arch, cfg))]),
+        "json" => Export::docs(vec![file("architecture.json", serde_json::to_string_pretty(arch).ok()?)]),
+        "kubernetes" => Export::iac(iac::kubernetes(arch, cfg, lang)),
+        "helm" => Export::iac(iac::helm(arch, cfg, lang)),
+        "terraform" => Export::iac(iac::terraform(arch, cfg, lang)),
+        "adr" => Export::docs(vec![adr(arch, cfg, report, waivers, lang, date)]),
+        "runbook" => Export::docs(vec![runbook(arch, cfg, lang)]),
+        "mermaid" => Export::docs(vec![file("architecture.mmd", mermaid(arch, cfg))]),
         _ => None,
     }
 }

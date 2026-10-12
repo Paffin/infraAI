@@ -22,6 +22,7 @@ export const CONFIG_KINDS: KindMeta[] = [
   { kind: 'catalog.common_props', section: 'catalog', sub: 'common_props', single: true },
   { kind: 'rule', section: 'rules', single: false },
   { kind: 'template', section: 'templates', single: false },
+  { kind: 'iac', section: 'iac', single: false },
   { kind: 'prompt', section: 'prompts', single: false },
   { kind: 'engine', section: 'engine', single: true },
 ]
@@ -43,8 +44,8 @@ export function kindPath(kind: string, itemId?: string): { path: string; query?:
   return itemId ? { path, query: { item: itemId } } : { path }
 }
 
-export const SECTION_IDS = ['settings', 'llm', 'catalog', 'rules', 'templates', 'prompts', 'engine', 'backup', 'users', 'audit', 'system'] as const
-export const CONFIG_SECTIONS = ['catalog', 'rules', 'templates', 'prompts', 'engine'] as const
+export const SECTION_IDS = ['settings', 'llm', 'catalog', 'rules', 'templates', 'iac', 'prompts', 'engine', 'backup', 'users', 'audit', 'system'] as const
+export const CONFIG_SECTIONS = ['catalog', 'rules', 'templates', 'iac', 'prompts', 'engine'] as const
 export type SectionId = typeof SECTION_IDS[number]
 
 export function normalizeSection(s: unknown): SectionId {
@@ -77,6 +78,7 @@ export function itemTitle(kind: string, id: string, data: unknown, lt: (x: LText
     case 'catalog.zone_type': subtitle = s('level'); break
     case 'prompt': subtitle = [s('role'), s('system') ? t('admin.prompt.charsShort', { n: s('system').length }) : ''].filter(Boolean).join(' · '); break
     case 'template': subtitle = lt(pick(data, 'description')); break
+    case 'iac': subtitle = [s('target'), s('granularity'), data.enabled === false ? t('admin.iac.disabled') : ''].filter(Boolean).join(' · '); break
     default: break
   }
   return { title, subtitle }
@@ -134,11 +136,12 @@ export function unknownPlaceholders(text: string, allowed: string[]): string[] {
 // in the order of the engine types (the order the defaults are written in).
 const KEY_ORDER: Record<string, string[]> = {
   rule: ['id', 'category', 'check', 'enabled', 'severity', 'weight', 'params', 'title', 'message', 'noDataMessage', 'requirementMessage', 'ok', 'rationale', 'remediation', 'fixLabels', 'references'],
-  'catalog.kind': ['id', 'category', 'name', 'description', 'abbr', 'color', 'behavior', 'traits', 'roles', 'props', 'subtitle', 'capacity', 'cost', 'iac', 'runbook', 'hidden'],
+  'catalog.kind': ['id', 'category', 'name', 'description', 'abbr', 'color', 'behavior', 'traits', 'roles', 'props', 'subtitle', 'capacity', 'cost', 'runbook', 'hidden'],
   'catalog.edge_type': ['id', 'name', 'semantics', 'style', 'directed', 'defaultProps', 'props', 'layer'],
   'catalog.zone_type': ['id', 'name', 'level', 'color', 'props'],
   'catalog.category': ['id', 'name', 'order'],
   template: ['id', 'name', 'description', 'badge', 'enabled', 'order', 'architecture'],
+  iac: ['id', 'title', 'enabled', 'target', 'reason', 'granularity', 'requires', 'unsupported', 'needs', 'vars', 'objects', 'releases', 'secrets', 'notes'],
   prompt: ['id', 'title', 'role', 'system'],
   engine: ['assumptions', 'scoring', 'scenarios', 'cost', 'export'],
 }
@@ -189,6 +192,7 @@ export function skeleton(kind: string, id: string, ctx: { categories?: string[] 
     case 'rule': return { id, category: ctx.categories?.[0] ?? 'ha', check: 'spof', enabled: true, severity: 'risk', params: {}, title: empty(), message: empty(), ok: empty(), fixLabels: {}, references: [] }
     case 'template': return { id, name: empty(), description: empty(), badge: '', enabled: true, order: 100, architecture: { schemaVersion: 1, meta: {}, requirements: {}, zones: [], nodes: [], edges: [] } }
     case 'prompt': return { id, title: empty(), system: '', role: 'planner' }
+    case 'iac': return { id, title: empty(), enabled: true, target: 'kubernetes', granularity: 'unit', requires: [], objects: [] }
     default: return { id }
   }
 }

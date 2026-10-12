@@ -1,0 +1,13 @@
+{
+ "id": "waf",
+ "title": {
+  "ru": "WAF",
+  "en": "WAF"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "WAF — функция конкретного продукта или облака (ModSecurity, Cloudflare, AWS WAF, …). Добавьте шаблон под ваш продукт.",
+  "en": "A WAF is a feature of a specific product or cloud (ModSecurity, Cloudflare, AWS WAF, …). Add a template for your product."
+ }
+}

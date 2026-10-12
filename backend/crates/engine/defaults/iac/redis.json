@@ -1,0 +1,289 @@
+{
+ "id": "redis",
+ "title": {
+  "ru": "Redis на Kubernetes (оператор OpsTree)",
+  "en": "Redis on Kubernetes (OpsTree operator)"
+ },
+ "enabled": true,
+ "target": "kubernetes",
+ "granularity": "unit",
+ "requires": [
+  "redis-operator"
+ ],
+ "vars": [
+  {
+   "name": "image",
+   "expr": "'quay.io/opstree/redis:v7.2.16'"
+  },
+  {
+   "name": "sentinelImage",
+   "expr": "'quay.io/opstree/redis-sentinel:v7.2.16'"
+  },
+  {
+   "name": "storageClass",
+   "expr": "(k8s.storageClasses[p.storageClass]|default(none)) or none if p.storageClass else none"
+  },
+  {
+   "name": "mode",
+   "expr": "p.mode or 'standalone'"
+  },
+  {
+   "name": "topologyKey",
+   "expr": "k8s.zoneLabel if site.zones|length > 1 else k8s.hostLabel"
+  },
+  {
+   "name": "masters",
+   "expr": "(site.instances / 2)|int"
+  }
+ ],
+ "unsupported": [
+  {
+   "when": "unit.multiSite",
+   "text": {
+    "ru": "Оператор Redis не реплицирует данные между кластерами Kubernetes. Разместите Redis в одном кластере или смоделируйте независимые кэши по площадкам.",
+    "en": "The Redis operator does not replicate data between Kubernetes clusters. Place Redis in one cluster or model independent caches per site."
+   }
+  },
+  {
+   "when": "mode == 'cluster' and site.instances < 6",
+   "text": {
+    "ru": "Redis Cluster требует минимум 6 экземпляров (3 мастера и 3 реплики), в модели {{ site.instances }}.",
+    "en": "Redis Cluster needs at least 6 instances (3 masters and 3 replicas), the model has {{ site.instances }}."
+   }
+  },
+  {
+   "when": "mode == 'sentinel' and site.instances < 2",
+   "text": {
+    "ru": "Режиму sentinel нужны минимум 2 экземпляра (master и реплика).",
+    "en": "Sentinel mode needs at least 2 instances (a master and a replica)."
+   }
+  }
+ ],
+ "objects": [
+  {
+   "id": "redis",
+   "when": "mode == 'standalone'",
+   "body": {
+    "apiVersion": "redis.redis.opstreelabs.in/v1beta2",
+    "kind": "Redis",
+    "metadata": {
+     "name": "{{ name }}",
+     "namespace": "{{ ns }}"
+    },
+    "spec": {
+     "kubernetesConfig": {
+      "image": "{{ image }}",
+      "imagePullPolicy": "IfNotPresent",
+      "resources": {
+       "requests": {
+        "cpu": "{{ p.vcpu }}",
+        "memory": "{{ p.ramGb }}Gi"
+       },
+       "limits": {
+        "cpu": "{{ p.vcpu }}",
+        "memory": "{{ p.ramGb }}Gi"
+       }
+      }
+     },
+     "storage": {
+      "volumeClaimTemplate": {
+       "spec": {
+        "accessModes": [
+         "ReadWriteOnce"
+        ],
+        "storageClassName": "{{ storageClass }}",
+        "resources": {
+         "requests": {
+          "storage": "{{ p.diskGb }}Gi"
+         }
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "replication",
+   "when": "mode == 'sentinel'",
+   "body": {
+    "apiVersion": "redis.redis.opstreelabs.in/v1beta2",
+    "kind": "RedisReplication",
+    "metadata": {
+     "name": "{{ name }}",
+     "namespace": "{{ ns }}"
+    },
+    "spec": {
+     "clusterSize": "{{ site.instances }}",
+     "kubernetesConfig": {
+      "image": "{{ image }}",
+      "imagePullPolicy": "IfNotPresent",
+      "resources": {
+       "requests": {
+        "cpu": "{{ p.vcpu }}",
+        "memory": "{{ p.ramGb }}Gi"
+       },
+       "limits": {
+        "cpu": "{{ p.vcpu }}",
+        "memory": "{{ p.ramGb }}Gi"
+       }
+      }
+     },
+     "storage": {
+      "volumeClaimTemplate": {
+       "spec": {
+        "accessModes": [
+         "ReadWriteOnce"
+        ],
+        "storageClassName": "{{ storageClass }}",
+        "resources": {
+         "requests": {
+          "storage": "{{ p.diskGb }}Gi"
+         }
+        }
+       }
+      }
+     },
+     "pdb": {
+      "enabled": true,
+      "maxUnavailable": 1
+     },
+     "topologySpreadConstraints": [
+      {
+       "maxSkew": 1,
+       "topologyKey": "{{ topologyKey }}",
+       "whenUnsatisfiable": "DoNotSchedule",
+       "labelSelector": {
+        "matchLabels": {
+         "app": "{{ name }}"
+        }
+       }
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "sentinel",
+   "when": "mode == 'sentinel'",
+   "body": {
+    "apiVersion": "redis.redis.opstreelabs.in/v1beta2",
+    "kind": "RedisSentinel",
+    "metadata": {
+     "name": "{{ name }}-sentinel",
+     "namespace": "{{ ns }}"
+    },
+    "spec": {
+     "clusterSize": 3,
+     "kubernetesConfig": {
+      "image": "{{ sentinelImage }}",
+      "imagePullPolicy": "IfNotPresent"
+     },
+     "redisSentinelConfig": {
+      "redisReplicationName": "{{ name }}",
+      "quorum": "2",
+      "downAfterMilliseconds": "{{ ((p.failoverSeconds or 15) * 1000)|int|string }}"
+     },
+     "pdb": {
+      "enabled": true,
+      "maxUnavailable": 1
+     }
+    }
+   }
+  },
+  {
+   "id": "cluster",
+   "when": "mode == 'cluster'",
+   "body": {
+    "apiVersion": "redis.redis.opstreelabs.in/v1beta2",
+    "kind": "RedisCluster",
+    "metadata": {
+     "name": "{{ name }}",
+     "namespace": "{{ ns }}"
+    },
+    "spec": {
+     "clusterSize": "{{ masters }}",
+     "clusterVersion": "v7",
+     "persistenceEnabled": true,
+     "kubernetesConfig": {
+      "image": "{{ image }}",
+      "imagePullPolicy": "IfNotPresent",
+      "resources": {
+       "requests": {
+        "cpu": "{{ p.vcpu }}",
+        "memory": "{{ p.ramGb }}Gi"
+       },
+       "limits": {
+        "cpu": "{{ p.vcpu }}",
+        "memory": "{{ p.ramGb }}Gi"
+       }
+      }
+     },
+     "storage": {
+      "volumeClaimTemplate": {
+       "spec": {
+        "accessModes": [
+         "ReadWriteOnce"
+        ],
+        "storageClassName": "{{ storageClass }}",
+        "resources": {
+         "requests": {
+          "storage": "{{ p.diskGb }}Gi"
+         }
+        }
+       }
+      }
+     },
+     "redisLeader": {
+      "replicas": "{{ masters }}",
+      "pdb": {
+       "enabled": true,
+       "maxUnavailable": 1
+      }
+     },
+     "redisFollower": {
+      "replicas": "{{ masters }}",
+      "pdb": {
+       "enabled": true,
+       "maxUnavailable": 1
+      }
+     }
+    }
+   }
+  }
+ ],
+ "notes": [
+  {
+   "when": "mode == 'standalone' and site.instances > 1",
+   "level": "warn",
+   "text": {
+    "ru": "Режим standalone: лишние экземпляры ({{ site.instances }}) не используются — создан один Redis. Выберите sentinel или cluster, чтобы получить отказоустойчивость.",
+    "en": "Standalone mode: the extra instances ({{ site.instances }}) are not used – a single Redis is created. Choose sentinel or cluster for resilience."
+   }
+  },
+  {
+   "when": "mode == 'standalone'",
+   "level": "info",
+   "text": {
+    "ru": "Standalone Redis — единая точка отказа; для кэша это допустимо, для данных — нет.",
+    "en": "A standalone Redis is a single point of failure; acceptable for a cache, not for data."
+   }
+  },
+  {
+   "when": "mode == 'sentinel'",
+   "level": "info",
+   "text": {
+    "ru": "Sentinel: 3 экземпляра Sentinel развёрнуты отдельно от {{ site.instances }} экземпляров Redis; клиенты должны использовать Sentinel-discovery.",
+    "en": "Sentinel: 3 Sentinel instances run separately from the {{ site.instances }} Redis instances; clients must use Sentinel discovery."
+   }
+  },
+  {
+   "when": "p.encryptionAtRest",
+   "level": "info",
+   "text": {
+    "ru": "Шифрование на диске обеспечивается StorageClass: выберите зашифрованный класс (export.k8s.storageClasses).",
+    "en": "Encryption at rest is provided by the StorageClass: pick an encrypted class (export.k8s.storageClasses)."
+   }
+  }
+ ]
+}

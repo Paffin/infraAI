@@ -81,7 +81,42 @@ def settings_block():
     return "\n".join(out).rstrip()
 
 
-BLOCKS = {"rules": ("docs/RULES.md", rules_block), "settings": ("docs/CONFIGURATION.md", settings_block)}
+def iac_kinds_block():
+    d = ENGINE / "iac"
+    catalog = {k["id"]: k for k in json.loads((ENGINE / "catalog.json").read_text())["kinds"]}
+    items = [json.loads(p.read_text()) for p in sorted(d.glob("*.json"))]
+    order = {k: i for i, k in enumerate(catalog)}
+    items.sort(key=lambda t: order.get(t["id"], 999))
+    done = [t for t in items if t.get("target") == "kubernetes"]
+    out = [f"Генерируются **{len(done)}** из {len(items)} видов компонентов; для остальных в отчёте экспорта указана причина.", "",
+           "### Что генерируется", "", "| Вид | Результат | Требует | Нужны данные |", "|---|---|---|---|"]
+    for t in done:
+        objs = [f"`{o['body']['kind']}`" for o in t.get("objects", [])]
+        rels = [f"Helm `{r['chart']}` {r.get('version', '')}".strip() for r in t.get("releases", [])]
+        req = [r if isinstance(r, str) else r["id"] + " (по условию)" for r in t.get("requires", [])]
+        needs = [f"`{n['prop']}`" for n in t.get("needs", [])]
+        out.append(f"| `{t['id']}` — {cell(ru(t.get('title')))} | {cell(', '.join(objs + rels))} | {cell(', '.join(req)) or '—'} | {', '.join(needs) or '—'} |")
+    out += ["", "### Что не генерируется — и почему", "", "| Вид | Причина |", "|---|---|"]
+    for t in items:
+        if t.get("target") != "kubernetes":
+            out.append(f"| `{t['id']}` | {cell(ru(t.get('reason')))} |")
+    return "\n".join(out)
+
+
+def iac_operators_block():
+    ops = json.loads((ENGINE / "engine.json").read_text())["export"]["k8s"]["operators"]
+    out = ["| Идентификатор | Что | Чарт | Версия | Сначала |", "|---|---|---|---|---|"]
+    for oid, o in ops.items():
+        out.append(f"| `{oid}` | {cell(ru(o.get('title')))} | `{o['repo']}/{o['chart']}` | `{o['version']}` | {', '.join(f'`{a}`' for a in o.get('after', [])) or '—'} |")
+    return "\n".join(out)
+
+
+BLOCKS = {
+    "rules": ("docs/RULES.md", rules_block),
+    "settings": ("docs/CONFIGURATION.md", settings_block),
+    "iac-kinds": ("docs/IAC.md", iac_kinds_block),
+    "iac-operators": ("docs/IAC.md", iac_operators_block),
+}
 
 
 def render(path, name, body):

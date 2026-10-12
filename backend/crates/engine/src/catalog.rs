@@ -84,41 +84,6 @@ fn one_f() -> f64 {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
-pub struct IacDef {
-    /// Terraform/OpenTofu module mapping.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub terraform: Option<TerraformDef>,
-    /// Helm chart mapping (only for kinds deployed onto Kubernetes).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub helm: Option<HelmDef>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
-pub struct TerraformDef {
-    pub source: String,
-    #[serde(default)]
-    pub version: Option<String>,
-    /// module input name -> node prop key
-    #[serde(default)]
-    pub inputs: BTreeMap<String, String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
-pub struct HelmDef {
-    pub chart: String,
-    #[serde(default)]
-    pub repo: Option<String>,
-    #[serde(default)]
-    pub version: Option<String>,
-    /// values key -> node prop key
-    #[serde(default)]
-    pub values: BTreeMap<String, String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
 pub struct RunbookDef {
     /// Step lists (supports `{node}`, `{group}` placeholders) shown in the generated runbook.
     #[serde(default)]
@@ -155,8 +120,6 @@ pub struct KindDef {
     pub capacity: Option<CapacityDef>,
     #[serde(default)]
     pub cost: Option<CostDef>,
-    #[serde(default)]
-    pub iac: Option<IacDef>,
     #[serde(default)]
     pub runbook: Option<RunbookDef>,
     /// Default size of the card on the canvas is fixed; this lets a kind be hidden from the

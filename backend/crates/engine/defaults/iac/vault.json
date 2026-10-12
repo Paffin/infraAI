@@ -1,0 +1,77 @@
+{
+ "id": "vault",
+ "title": {
+  "ru": "HashiCorp Vault (HA, Raft)",
+  "en": "HashiCorp Vault (HA, Raft)"
+ },
+ "enabled": true,
+ "target": "kubernetes",
+ "granularity": "unit",
+ "vars": [
+  {
+   "name": "storageClass",
+   "expr": "(k8s.storageClasses[p.storageClass]|default(none)) or none if p.storageClass else none"
+  }
+ ],
+ "unsupported": [
+  {
+   "when": "unit.multiSite",
+   "text": {
+    "ru": "Репликация Vault между кластерами — функция Vault Enterprise; в OSS-чарте её нет. Разместите Vault в одном кластере.",
+    "en": "Vault replication between clusters is a Vault Enterprise feature that the OSS chart does not provide. Place Vault in one cluster."
+   }
+  }
+ ],
+ "releases": [
+  {
+   "id": "vault",
+   "name": "{{ name }}",
+   "namespace": "{{ ns }}",
+   "chart": "vault",
+   "repo": "https://helm.releases.hashicorp.com",
+   "version": "0.34.1",
+   "values": {
+    "server": {
+     "ha": {
+      "enabled": true,
+      "replicas": "{{ site.instances }}",
+      "raft": {
+       "enabled": true,
+       "setNodeId": true
+      }
+     },
+     "dataStorage": {
+      "size": "{{ p.diskGb }}Gi",
+      "storageClass": "{{ storageClass }}"
+     },
+     "resources": {
+      "requests": {
+       "cpu": "{{ p.vcpu }}",
+       "memory": "{{ p.ramGb }}Gi"
+      },
+      "limits": {
+       "memory": "{{ p.ramGb }}Gi"
+      }
+     }
+    }
+   }
+  }
+ ],
+ "notes": [
+  {
+   "level": "info",
+   "text": {
+    "ru": "Vault нужно один раз инициализировать и распечатать (unseal); для автоматической распечатки используйте KMS/Transit auto-unseal. Ключи восстановления храните вне кластера.",
+    "en": "Vault must be initialised and unsealed once; use KMS/Transit auto-unseal for automatic unsealing. Keep recovery keys outside the cluster."
+   }
+  },
+  {
+   "when": "site.instances < 3",
+   "level": "warn",
+   "text": {
+    "ru": "Raft-кластер Vault допускает отказ узла только при 3+ экземплярах (в модели {{ site.instances }}).",
+    "en": "A Vault Raft cluster tolerates a node failure only with 3+ instances ({{ site.instances }} in the model)."
+   }
+  }
+ ]
+}

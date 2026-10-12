@@ -1,0 +1,13 @@
+{
+ "id": "vm_pool",
+ "title": {
+  "ru": "Пул виртуальных машин",
+  "en": "VM pool"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Виртуальные машины создаются гипервизором или облаком (vSphere, Proxmox, libvirt, AWS, …): нейтрального ресурса нет. Добавьте шаблон Terraform под вашу платформу.",
+  "en": "Virtual machines are created by a hypervisor or cloud (vSphere, Proxmox, libvirt, AWS, …): there is no neutral resource. Add a Terraform template for your platform."
+ }
+}

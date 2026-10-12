@@ -1,0 +1,13 @@
+{
+ "id": "gslb",
+ "title": {
+  "ru": "Глобальная балансировка DNS",
+  "en": "Global DNS balancing"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Глобальная DNS-балансировка настраивается у DNS-провайдера (Route 53, Cloudflare, PowerDNS и т. д.): нейтрального к поставщику ресурса нет. Добавьте шаблон под вашего провайдера.",
+  "en": "Global DNS balancing is configured at your DNS provider (Route 53, Cloudflare, PowerDNS, …): there is no vendor-neutral resource. Add a template for your provider."
+ }
+}

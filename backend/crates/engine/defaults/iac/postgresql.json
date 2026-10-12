@@ -1,0 +1,343 @@
+{
+ "id": "postgresql",
+ "title": {
+  "ru": "PostgreSQL на Kubernetes (CloudNativePG)",
+  "en": "PostgreSQL on Kubernetes (CloudNativePG)"
+ },
+ "enabled": true,
+ "target": "kubernetes",
+ "granularity": "unit",
+ "requires": [
+  "cnpg",
+  {
+   "id": "cert-manager",
+   "when": "backupReady"
+  },
+  {
+   "id": "barman-cloud",
+   "when": "backupReady"
+  }
+ ],
+ "vars": [
+  {
+   "name": "image",
+   "expr": "'ghcr.io/cloudnative-pg/postgresql:' ~ p.version"
+  },
+  {
+   "name": "storageClass",
+   "expr": "(k8s.storageClasses[p.storageClass]|default(none)) or none if p.storageClass else none"
+  },
+  {
+   "name": "replicaSite",
+   "expr": "site.role == 'replica'"
+  },
+  {
+   "name": "backupReady",
+   "expr": "true if backup.enabled and backup.target.props.bucket else false"
+  },
+  {
+   "name": "topologyKey",
+   "expr": "k8s.zoneLabel if site.zones|length > 1 else k8s.hostLabel"
+  },
+  {
+   "name": "interval",
+   "expr": "(backup.target.edge.intervalSeconds or 86400) if backup.enabled else 86400"
+  },
+  {
+   "name": "schedule",
+   "expr": "'0 0 3 * * *' if interval <= 86400 else '0 0 3 * * 0'"
+  }
+ ],
+ "unsupported": [
+  {
+   "when": "replicaSite and not replication.asyncCross and not replication.syncCross",
+   "text": {
+    "ru": "Площадка «{{ site.cluster }}» входит в тот же сервис, но между кластерами нет связи репликации: независимый второй primary означал бы split-brain. Соедините площадки связью репликации.",
+    "en": "Site “{{ site.cluster }}” belongs to the same service but there is no replication link between the clusters: a second independent primary would be a split-brain. Connect the sites with a replication link."
+   }
+  }
+ ],
+ "objects": [
+  {
+   "id": "cluster",
+   "body": {
+    "apiVersion": "postgresql.cnpg.io/v1",
+    "kind": "Cluster",
+    "metadata": {
+     "name": "{{ name }}",
+     "namespace": "{{ ns }}",
+     "annotations": {
+      "infra-architect/description": "{{ unit.name }}"
+     }
+    },
+    "spec": {
+     "instances": "{{ site.instances }}",
+     "imageName": "{{ image }}",
+     "enableSuperuserAccess": false,
+     "storage": {
+      "size": "{{ p.diskGb }}Gi",
+      "storageClass": "{{ storageClass }}"
+     },
+     "resources": {
+      "requests": {
+       "cpu": "{{ p.vcpu }}",
+       "memory": "{{ p.ramGb }}Gi"
+      },
+      "limits": {
+       "cpu": "{{ p.vcpu }}",
+       "memory": "{{ p.ramGb }}Gi"
+      }
+     },
+     "affinity": {
+      "enablePodAntiAffinity": true,
+      "topologyKey": "{{ topologyKey }}",
+      "podAntiAffinityType": "required"
+     },
+     "postgresql": {
+      "synchronous": {
+       "$if": "replication.syncLocal and site.instances > 1",
+       "then": {
+        "method": "any",
+        "number": 1,
+        "dataDurability": "{{ 'required' if replication.syncBlock else 'preferred' }}"
+       }
+      }
+     },
+     "bootstrap": {
+      "$if": "replicaSite",
+      "then": {
+       "pg_basebackup": {
+        "source": "{{ primary.name }}"
+       }
+      }
+     },
+     "replica": {
+      "$if": "replicaSite",
+      "then": {
+       "enabled": true,
+       "source": "{{ primary.name }}"
+      }
+     },
+     "externalClusters": {
+      "$if": "replicaSite",
+      "then": [
+       {
+        "name": "{{ primary.name }}",
+        "connectionParameters": {
+         "host": "{{ primary.name }}-rw.{{ primary.namespace }}.svc.{{ k8s.clusterSetDomain }}",
+         "user": "streaming_replica",
+         "dbname": "postgres",
+         "sslmode": "verify-full"
+        },
+        "sslKey": {
+         "name": "{{ primary.name }}-replication",
+         "key": "tls.key"
+        },
+        "sslCert": {
+         "name": "{{ primary.name }}-replication",
+         "key": "tls.crt"
+        },
+        "sslRootCert": {
+         "name": "{{ primary.name }}-ca",
+         "key": "ca.crt"
+        }
+       }
+      ]
+     },
+     "plugins": {
+      "$if": "backupReady and not replicaSite",
+      "then": [
+       {
+        "name": "barman-cloud.cloudnative-pg.io",
+        "isWALArchiver": true,
+        "parameters": {
+         "barmanObjectName": "{{ name }}-backup"
+        }
+       }
+      ]
+     }
+    }
+   }
+  },
+  {
+   "id": "objectstore",
+   "when": "backupReady and not replicaSite",
+   "body": {
+    "apiVersion": "barmancloud.cnpg.io/v1",
+    "kind": "ObjectStore",
+    "metadata": {
+     "name": "{{ name }}-backup",
+     "namespace": "{{ ns }}"
+    },
+    "spec": {
+     "retentionPolicy": "{{ (backup.target.props.retentionDays ~ 'd') if backup.target.props.retentionDays else none }}",
+     "configuration": {
+      "destinationPath": "s3://{{ backup.target.props.bucket }}/{{ name }}/",
+      "endpointURL": "{{ backup.target.props.endpoint }}",
+      "s3Credentials": {
+       "accessKeyId": {
+        "name": "{{ name }}-backup-credentials",
+        "key": "ACCESS_KEY_ID"
+       },
+       "secretAccessKey": {
+        "name": "{{ name }}-backup-credentials",
+        "key": "ACCESS_SECRET_KEY"
+       }
+      },
+      "wal": {
+       "compression": "gzip"
+      },
+      "data": {
+       "compression": "gzip"
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "scheduledbackup",
+   "when": "backupReady and not replicaSite",
+   "body": {
+    "apiVersion": "postgresql.cnpg.io/v1",
+    "kind": "ScheduledBackup",
+    "metadata": {
+     "name": "{{ name }}-backup",
+     "namespace": "{{ ns }}"
+    },
+    "spec": {
+     "schedule": "{{ schedule }}",
+     "immediate": true,
+     "backupOwnerReference": "self",
+     "cluster": {
+      "name": "{{ name }}"
+     },
+     "method": "plugin",
+     "pluginConfiguration": {
+      "name": "barman-cloud.cloudnative-pg.io"
+     }
+    }
+   }
+  },
+  {
+   "id": "pooler",
+   "when": "p.connectionPooler and not replicaSite",
+   "body": {
+    "apiVersion": "postgresql.cnpg.io/v1",
+    "kind": "Pooler",
+    "metadata": {
+     "name": "{{ name }}-pooler-rw",
+     "namespace": "{{ ns }}"
+    },
+    "spec": {
+     "cluster": {
+      "name": "{{ name }}"
+     },
+     "instances": "{{ [site.instances, 3]|min }}",
+     "type": "rw",
+     "pgbouncer": {
+      "poolMode": "transaction",
+      "parameters": {
+       "max_client_conn": "1000",
+       "default_pool_size": "20"
+      }
+     }
+    }
+   }
+  }
+ ],
+ "secrets": [
+  {
+   "when": "backupReady and not replicaSite",
+   "name": "{{ name }}-backup-credentials",
+   "keys": [
+    "ACCESS_KEY_ID",
+    "ACCESS_SECRET_KEY"
+   ],
+   "hint": {
+    "ru": "Ключи доступа к бакету «{{ backup.target.props.bucket }}» ({{ backup.target.name }}).",
+    "en": "Access keys for bucket “{{ backup.target.props.bucket }}” ({{ backup.target.name }})."
+   }
+  },
+  {
+   "when": "replicaSite",
+   "name": "{{ primary.name }}-replication",
+   "keys": [
+    "tls.crt",
+    "tls.key"
+   ],
+   "hint": {
+    "ru": "Скопируйте из кластера «{{ primary.cluster }}» (пространство имён {{ primary.namespace }}): клиентский сертификат репликации.",
+    "en": "Copy from cluster “{{ primary.cluster }}” (namespace {{ primary.namespace }}): the replication client certificate."
+   }
+  },
+  {
+   "when": "replicaSite",
+   "name": "{{ primary.name }}-ca",
+   "keys": [
+    "ca.crt"
+   ],
+   "hint": {
+    "ru": "Скопируйте из кластера «{{ primary.cluster }}»: CA, подписавший сертификаты первичного кластера.",
+    "en": "Copy from cluster “{{ primary.cluster }}”: the CA that signed the primary cluster’s certificates."
+   }
+  }
+ ],
+ "notes": [
+  {
+   "when": "replication.syncCross",
+   "level": "warn",
+   "text": {
+    "ru": "CloudNativePG не поддерживает синхронную репликацию между кластерами: реплика-кластер асинхронен, возможна потеря последних транзакций (RPO > 0). Растяните один кластер на площадки или примите асинхронность.",
+    "en": "CloudNativePG does not support synchronous replication between clusters: a replica cluster is asynchronous, so the last transactions can be lost (RPO > 0). Stretch one cluster over the sites or accept asynchronous replication."
+   }
+  },
+  {
+   "when": "replicaSite",
+   "level": "info",
+   "text": {
+    "ru": "«{{ site.cluster }}» — реплика-кластер: он принимает потоковую репликацию от «{{ primary.cluster }}» по адресу {{ primary.name }}-rw.{{ primary.namespace }}.svc.{{ k8s.clusterSetDomain }}. Этот адрес должен разрешаться между кластерами (Multi-Cluster Services, Cilium ClusterMesh, Submariner).",
+    "en": "“{{ site.cluster }}” is a replica cluster: it streams from “{{ primary.cluster }}” at {{ primary.name }}-rw.{{ primary.namespace }}.svc.{{ k8s.clusterSetDomain }}. That name must resolve across clusters (Multi-Cluster Services, Cilium ClusterMesh, Submariner)."
+   }
+  },
+  {
+   "when": "backup.enabled and not backupReady and not replicaSite",
+   "level": "warn",
+   "text": {
+    "ru": "К БД подключено хранилище копий, но у него не задан bucket: архивирование WAL и расписание бэкапов не созданы. Укажите bucket и endpoint в свойствах хранилища.",
+    "en": "A backup storage is connected, but it has no bucket: WAL archiving and the backup schedule were not generated. Set bucket and endpoint in the storage properties."
+   }
+  },
+  {
+   "when": "not backup.enabled and not replicaSite",
+   "level": "warn",
+   "text": {
+    "ru": "Резервное копирование не подключено: без архива WAL кластер не восстановить после разрушительного сбоя. Подключите хранилище копий связью «бэкап».",
+    "en": "No backup is connected: without WAL archiving the cluster cannot be restored after a destructive failure. Connect a backup storage with a “backup” link."
+   }
+  },
+  {
+   "when": "p.failover == 'manual'",
+   "level": "warn",
+   "text": {
+    "ru": "В CloudNativePG переключение primary автоматическое; режим «только вручную» выразить нельзя.",
+    "en": "Failover is automatic in CloudNativePG; a “manual only” mode cannot be expressed."
+   }
+  },
+  {
+   "when": "p.dcs",
+   "level": "info",
+   "text": {
+    "ru": "CloudNativePG выбирает лидера через API Kubernetes; DCS «{{ p.dcs }}» этим развёртыванием не используется.",
+    "en": "CloudNativePG elects the leader through the Kubernetes API; the DCS “{{ p.dcs }}” is not used by this deployment."
+   }
+  },
+  {
+   "when": "p.encryptionAtRest",
+   "level": "info",
+   "text": {
+    "ru": "Шифрование на диске обеспечивается StorageClass: выберите зашифрованный класс (export.k8s.storageClasses).",
+    "en": "Encryption at rest is provided by the StorageClass: pick an encrypted class (export.k8s.storageClasses)."
+   }
+  }
+ ]
+}

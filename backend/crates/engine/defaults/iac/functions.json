@@ -1,0 +1,13 @@
+{
+ "id": "functions",
+ "title": {
+  "ru": "Функции (serverless)",
+  "en": "Functions (serverless)"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Serverless-платформы несовместимы между собой (Knative, OpenFaaS, Lambda, …). Добавьте шаблон под вашу платформу.",
+  "en": "Serverless platforms are not interchangeable (Knative, OpenFaaS, Lambda, …). Add a template for your platform."
+ }
+}

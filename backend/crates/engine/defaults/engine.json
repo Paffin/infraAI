@@ -59,7 +59,6 @@
  "export": {
   "terraformRequiredVersion": ">= 1.6.0",
   "terraformBackend": "backend \"local\" {\n    path = \"terraform.tfstate\"\n  }",
-  "helmNamespace": "apps",
   "adrStatus": "Proposed",
   "texts": {
    "ru": {
@@ -150,7 +149,46 @@
     "event.reroute": "Трафик переключается на живые площадки за {seconds|dur}.",
     "event.scale_out": "«{node}» масштабируется до {to} экземпляров за {seconds|dur}.",
     "event.capacity_overload": "Нагрузка превышает ёмкость: доступно {ratio} от пика.",
-    "event.soft_dependency_lost": "Недоступна необязательная зависимость (например, кэш): сервис деградирует."
+    "event.soft_dependency_lost": "Недоступна необязательная зависимость (например, кэш): сервис деградирует.",
+    "iac.skip.no_template": "Для вида «{kind}» нет шаблона IaC (Админка → Шаблоны IaC).",
+    "iac.skip.disabled": "Шаблон IaC для «{kind}» выключен в админке.",
+    "iac.skip.no_generator": "Для «{kind}» нет генератора: компонент разворачивается вне Kubernetes. Добавьте шаблон под вашу платформу в Админке → Шаблоны IaC.",
+    "iac.skip.hosting": "«{nodes}» размещён не в Kubernetes (размещение: {hosting}), поэтому манифесты не создаются. Чтобы развернуть в кластере, выберите размещение «kubernetes».",
+    "iac.skip.no_cluster": "Для «{nodes}» не найден кластер Kubernetes (нужен узел с признаком {trait} в той же или родительской зоне). Добавьте кластер или выберите другое размещение.",
+    "iac.skip.needs_input": "Не хватает данных: {props}. {hint}",
+    "iac.skip.template_error": "Ошибка шаблона IaC для «{kind}»: {error}",
+    "iac.skip.no_workload": "У «{kind}» нет экземпляров для развёртывания (только арбитры).",
+    "iac.note.no_clusters": "В архитектуре нет кластера Kubernetes (вид с признаком {trait}): манифесты и чарты некуда разворачивать.",
+    "iac.note.ambiguous_cluster": "В зоне «{zone}» несколько кластеров Kubernetes; «{node}» размещён в «{cluster}».",
+    "iac.note.unknown_operator": "Предварительное требование «{id}» не описано в настройках экспорта (export.k8s.operators): установите его самостоятельно.",
+    "iac.readme.title.kubernetes": "Манифесты Kubernetes: «{name}»",
+    "iac.readme.title.helm": "Helm (helmfile): «{name}»",
+    "iac.readme.title.terraform": "Terraform / OpenTofu: «{name}»",
+    "iac.readme.intro.kubernetes": "Манифесты для kustomize, по одному каталогу на кластер Kubernetes архитектуры. Операторы и контроллеры из раздела «Предварительные требования» ставятся Helm-командами из раздела «Применение».",
+    "iac.readme.intro.helm": "helmfile для каждого кластера: операторы и чарты компонентов, а объекты операторов (CR) упакованы в локальный чарт `workloads`.",
+    "iac.readme.intro.terraform": "Terraform/OpenTofu на провайдерах kubernetes и helm. Два шага на кластер: `00-platform` ставит пространства имён, операторы и чарты (и их CRD), `10-workloads` применяет объекты, которым нужны эти CRD.",
+    "iac.readme.honest": "Здесь нет заглушек: всё, что сгенерировано, выведено из модели архитектуры; всё, что сгенерировать нельзя, перечислено ниже вместе с причиной. Секреты никогда не генерируются.",
+    "iac.readme.no_clusters": "В архитектуре нет кластера Kubernetes (вид с признаком {trait}) — генерировать нечего.",
+    "iac.readme.clusters": "Кластеры",
+    "iac.readme.col.cluster": "Кластер",
+    "iac.readme.col.dir": "Каталог",
+    "iac.readme.col.content": "Содержимое",
+    "iac.readme.content": "объектов: {objects}, чартов: {releases}, операторов: {operators}",
+    "iac.readme.apply": "Применение",
+    "iac.readme.prereq": "Предварительные требования",
+    "iac.readme.prereq.text": "Версии зафиксированы намеренно; обновление — осознанное действие (Админка → Настройки движка → export.k8s.operators).",
+    "iac.readme.col.component": "Компонент",
+    "iac.readme.col.chart": "Чарт",
+    "iac.readme.col.version": "Версия",
+    "iac.readme.secrets": "Секреты, которые нужно создать",
+    "iac.readme.secrets.text": "Секреты не генерируются и не попадают в репозиторий: создайте их в менеджере секретов (External Secrets, Vault, SOPS) до применения.",
+    "iac.readme.col.namespace": "Пространство имён",
+    "iac.readme.col.secret": "Секрет",
+    "iac.readme.col.keys": "Ключи",
+    "iac.readme.skipped": "Что не сгенерировано",
+    "iac.readme.skipped.none": "Всё, что есть в архитектуре, сгенерировано.",
+    "iac.readme.col.reason": "Причина",
+    "iac.readme.notes": "Замечания"
    },
    "en": {
     "adr.title": "ADR-{n}: architecture “{name}”",
@@ -240,7 +278,149 @@
     "event.reroute": "Traffic is rerouted to the surviving sites in {seconds|dur}.",
     "event.scale_out": "“{node}” scales out to {to} instances in {seconds|dur}.",
     "event.capacity_overload": "Load exceeds capacity: {ratio} of the peak is available.",
-    "event.soft_dependency_lost": "An optional dependency (e.g. a cache) is unavailable: the service degrades."
+    "event.soft_dependency_lost": "An optional dependency (e.g. a cache) is unavailable: the service degrades.",
+    "iac.skip.no_template": "There is no IaC template for “{kind}” (Admin → IaC templates).",
+    "iac.skip.disabled": "The IaC template for “{kind}” is disabled in the admin panel.",
+    "iac.skip.no_generator": "There is no generator for “{kind}”: it is provisioned outside Kubernetes. Add a template for your platform in Admin → IaC templates.",
+    "iac.skip.hosting": "“{nodes}” is not hosted on Kubernetes (hosting: {hosting}), so no manifests are generated. Choose hosting “kubernetes” to deploy it onto a cluster.",
+    "iac.skip.no_cluster": "No Kubernetes cluster found for “{nodes}” (a node with trait {trait} in the same or a parent zone is required). Add a cluster or choose another hosting.",
+    "iac.skip.needs_input": "Missing input: {props}. {hint}",
+    "iac.skip.template_error": "IaC template error for “{kind}”: {error}",
+    "iac.skip.no_workload": "“{kind}” has no instances to deploy (arbiters only).",
+    "iac.note.no_clusters": "The architecture has no Kubernetes cluster (a kind with trait {trait}): there is nowhere to deploy manifests and charts.",
+    "iac.note.ambiguous_cluster": "There are several Kubernetes clusters in zone “{zone}”; “{node}” is placed on “{cluster}”.",
+    "iac.note.unknown_operator": "Prerequisite “{id}” is not defined in the export settings (export.k8s.operators): install it yourself.",
+    "iac.readme.title.kubernetes": "Kubernetes manifests: “{name}”",
+    "iac.readme.title.helm": "Helm (helmfile): “{name}”",
+    "iac.readme.title.terraform": "Terraform / OpenTofu: “{name}”",
+    "iac.readme.intro.kubernetes": "Manifests for kustomize, one directory per Kubernetes cluster of the architecture. Operators and controllers listed under “Prerequisites” are installed with the Helm commands shown under “Apply”.",
+    "iac.readme.intro.helm": "A helmfile per cluster: operators and component charts, with the operators’ custom resources packaged as the local chart `workloads`.",
+    "iac.readme.intro.terraform": "Terraform/OpenTofu on the kubernetes and helm providers. Two steps per cluster: `00-platform` installs namespaces, operators and charts (and their CRDs), `10-workloads` applies the objects that need those CRDs.",
+    "iac.readme.honest": "There are no stubs here: everything generated is derived from the architecture model, and everything that could not be generated is listed below with the reason. Secrets are never generated.",
+    "iac.readme.no_clusters": "The architecture has no Kubernetes cluster (a kind with trait {trait}) – nothing to generate.",
+    "iac.readme.clusters": "Clusters",
+    "iac.readme.col.cluster": "Cluster",
+    "iac.readme.col.dir": "Directory",
+    "iac.readme.col.content": "Contents",
+    "iac.readme.content": "objects: {objects}, charts: {releases}, operators: {operators}",
+    "iac.readme.apply": "Apply",
+    "iac.readme.prereq": "Prerequisites",
+    "iac.readme.prereq.text": "Versions are pinned on purpose; upgrading is a conscious act (Admin → Engine settings → export.k8s.operators).",
+    "iac.readme.col.component": "Component",
+    "iac.readme.col.chart": "Chart",
+    "iac.readme.col.version": "Version",
+    "iac.readme.secrets": "Secrets to create",
+    "iac.readme.secrets.text": "Secrets are never generated or committed: create them in your secret manager (External Secrets, Vault, SOPS) before applying.",
+    "iac.readme.col.namespace": "Namespace",
+    "iac.readme.col.secret": "Secret",
+    "iac.readme.col.keys": "Keys",
+    "iac.readme.skipped": "Not generated",
+    "iac.readme.skipped.none": "Everything in the architecture was generated.",
+    "iac.readme.col.reason": "Reason",
+    "iac.readme.notes": "Notes"
+   }
+  },
+  "terraformProviders": {
+   "kubernetes": {
+    "source": "hashicorp/kubernetes",
+    "version": "~> 3.0"
+   },
+   "helm": {
+    "source": "hashicorp/helm",
+    "version": "~> 3.0"
+   }
+  },
+  "k8s": {
+   "clusterTrait": "k8s-cluster",
+   "defaultNamespace": "apps",
+   "releaseNamespace": "default",
+   "namespaces": {
+    "compute": "apps",
+    "data": "data",
+    "platform": "platform",
+    "edge": "edge"
+   },
+   "createNamespaces": true,
+   "zoneLabel": "topology.kubernetes.io/zone",
+   "hostLabel": "kubernetes.io/hostname",
+   "clusterSetDomain": "clusterset.local",
+   "labels": {
+    "app.kubernetes.io/managed-by": "infra-architect",
+    "app.kubernetes.io/part-of": "{{ arch.slug }}"
+   },
+   "storageClasses": {
+    "nvme": "",
+    "ssd": "",
+    "hdd": ""
+   },
+   "operators": {
+    "cert-manager": {
+     "title": {
+      "ru": "cert-manager (сертификаты для вебхуков операторов)",
+      "en": "cert-manager (certificates for operator webhooks)"
+     },
+     "release": "cert-manager",
+     "namespace": "cert-manager",
+     "chart": "cert-manager",
+     "repo": "https://charts.jetstack.io",
+     "version": "v1.21.2",
+     "values": {
+      "crds": {
+       "enabled": true
+      }
+     }
+    },
+    "cnpg": {
+     "title": {
+      "ru": "Оператор CloudNativePG (PostgreSQL)",
+      "en": "CloudNativePG operator (PostgreSQL)"
+     },
+     "release": "cnpg",
+     "namespace": "cnpg-system",
+     "chart": "cloudnative-pg",
+     "repo": "https://cloudnative-pg.github.io/charts",
+     "version": "0.29.1"
+    },
+    "barman-cloud": {
+     "title": {
+      "ru": "Плагин Barman Cloud для CloudNativePG (бэкапы и WAL в S3)",
+      "en": "Barman Cloud plugin for CloudNativePG (backups and WAL to S3)"
+     },
+     "release": "plugin-barman-cloud",
+     "namespace": "cnpg-system",
+     "chart": "plugin-barman-cloud",
+     "repo": "https://cloudnative-pg.github.io/charts",
+     "version": "0.8.1",
+     "after": [
+      "cert-manager",
+      "cnpg"
+     ]
+    },
+    "strimzi": {
+     "title": {
+      "ru": "Оператор Strimzi (Kafka)",
+      "en": "Strimzi operator (Kafka)"
+     },
+     "release": "strimzi",
+     "namespace": "strimzi-system",
+     "chart": "strimzi-kafka-operator",
+     "repo": "https://strimzi.io/charts",
+     "version": "1.3.0",
+     "values": {
+      "watchAnyNamespace": true
+     }
+    },
+    "redis-operator": {
+     "title": {
+      "ru": "Оператор Redis (OpsTree)",
+      "en": "Redis operator (OpsTree)"
+     },
+     "release": "redis-operator",
+     "namespace": "redis-operator",
+     "chart": "redis-operator",
+     "repo": "https://ot-container-kit.github.io/helm-charts",
+     "version": "0.27.0"
+    }
    }
   }
  }
