@@ -67,11 +67,7 @@ impl TestApp {
         for (k, v) in extra {
             b = b.header(*k, *v);
         }
-        let req = if let Some(v) = body {
-            b.header(header::CONTENT_TYPE, "application/json").body(Body::from(v.to_string())).unwrap()
-        } else {
-            b.body(Body::empty()).unwrap()
-        };
+        let req = if let Some(v) = body { b.header(header::CONTENT_TYPE, "application/json").body(Body::from(v.to_string())).unwrap() } else { b.body(Body::empty()).unwrap() };
         let mut req = req;
         req.extensions_mut().insert(ConnectInfo("127.0.0.1:50000".parse::<SocketAddr>().unwrap()));
         let res = self.router.clone().oneshot(req).await.unwrap();

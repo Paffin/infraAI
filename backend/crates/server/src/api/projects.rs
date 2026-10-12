@@ -75,13 +75,7 @@ pub struct CreateProject {
     pub lang: Option<String>,
 }
 
-pub async fn create(
-    State(state): State<AppState>,
-    user: AuthUser,
-    ConnectInfo(addr): ConnectInfo<SocketAddr>,
-    headers: HeaderMap,
-    Json(b): Json<CreateProject>,
-) -> ApiResult<Json<Value>> {
+pub async fn create(State(state): State<AppState>, user: AuthUser, ConnectInfo(addr): ConnectInfo<SocketAddr>, headers: HeaderMap, Json(b): Json<CreateProject>) -> ApiResult<Json<Value>> {
     user.require_editor()?;
     let cfg = state.cfg().await?;
     let name = b.name.trim();
@@ -121,7 +115,8 @@ pub async fn create(
         .execute(&mut *tx)
         .await?;
     tx.commit().await?;
-    audit::log(&state.pool, Some(&user), "project.create", "project", &id.to_string(), json!({"name": name, "template": b.template_id}), &client_ip(&headers, Some(addr), state.boot.trust_proxy)).await;
+    audit::log(&state.pool, Some(&user), "project.create", "project", &id.to_string(), json!({"name": name, "template": b.template_id}), &client_ip(&headers, Some(addr), state.boot.trust_proxy))
+        .await;
     Ok(Json(json!({"id": id})))
 }
 
@@ -235,12 +230,13 @@ pub async fn save_draft(State(state): State<AppState>, user: AuthUser, Path(id):
     user.require_editor()?;
     let cfg = state.cfg().await?;
     let arch = parse_valid_arch(&cfg, b.architecture)?;
-    let row: Option<(i64,)> = sqlx::query_as("update projects set draft = $2, draft_rev = draft_rev + 1, updated_at = now() where id = $1 and draft_rev = $3 and deleted_at is null returning draft_rev")
-        .bind(id)
-        .bind(serde_json::to_value(&arch)?)
-        .bind(b.expected_rev)
-        .fetch_optional(&state.pool)
-        .await?;
+    let row: Option<(i64,)> =
+        sqlx::query_as("update projects set draft = $2, draft_rev = draft_rev + 1, updated_at = now() where id = $1 and draft_rev = $3 and deleted_at is null returning draft_rev")
+            .bind(id)
+            .bind(serde_json::to_value(&arch)?)
+            .bind(b.expected_rev)
+            .fetch_optional(&state.pool)
+            .await?;
     match row {
         Some((rev,)) => Ok(Json(json!({"rev": rev}))),
         None => {
@@ -323,13 +319,19 @@ pub struct Restore {
 
 pub async fn restore_version(State(state): State<AppState>, user: AuthUser, Path((id, n)): Path<(Uuid, i32)>, Json(b): Json<Restore>) -> ApiResult<Json<Value>> {
     user.require_editor()?;
-    let (arch,): (Value,) = sqlx::query_as("select architecture from versions where project_id = $1 and n = $2").bind(id).bind(n).fetch_optional(&state.pool).await?.ok_or_else(|| ApiError::not_found("version not found"))?;
-    let row: Option<(i64,)> = sqlx::query_as("update projects set draft = $2, draft_rev = draft_rev + 1, updated_at = now() where id = $1 and draft_rev = $3 and deleted_at is null returning draft_rev")
+    let (arch,): (Value,) = sqlx::query_as("select architecture from versions where project_id = $1 and n = $2")
         .bind(id)
-        .bind(arch)
-        .bind(b.expected_rev)
+        .bind(n)
         .fetch_optional(&state.pool)
-        .await?;
+        .await?
+        .ok_or_else(|| ApiError::not_found("version not found"))?;
+    let row: Option<(i64,)> =
+        sqlx::query_as("update projects set draft = $2, draft_rev = draft_rev + 1, updated_at = now() where id = $1 and draft_rev = $3 and deleted_at is null returning draft_rev")
+            .bind(id)
+            .bind(arch)
+            .bind(b.expected_rev)
+            .fetch_optional(&state.pool)
+            .await?;
     match row {
         Some((rev,)) => Ok(Json(json!({"rev": rev}))),
         None => Err(ApiError::conflict("conflict", "the project was changed by someone else")),
@@ -346,10 +348,21 @@ pub struct DiffQuery {
 
 async fn arch_of(state: &AppState, id: Uuid, which: &str) -> ApiResult<Architecture> {
     let v: Value = if which == "draft" {
-        sqlx::query_as::<_, (Value,)>("select draft from projects where id = $1 and deleted_at is null").bind(id).fetch_optional(&state.pool).await?.ok_or_else(|| ApiError::not_found("project not found"))?.0
+        sqlx::query_as::<_, (Value,)>("select draft from projects where id = $1 and deleted_at is null")
+            .bind(id)
+            .fetch_optional(&state.pool)
+            .await?
+            .ok_or_else(|| ApiError::not_found("project not found"))?
+            .0
     } else {
         let n: i32 = which.parse().map_err(|_| ApiError::bad_request("invalid_ref", "use 'draft' or a version number"))?;
-        sqlx::query_as::<_, (Value,)>("select architecture from versions where project_id = $1 and n = $2").bind(id).bind(n).fetch_optional(&state.pool).await?.ok_or_else(|| ApiError::not_found("version not found"))?.0
+        sqlx::query_as::<_, (Value,)>("select architecture from versions where project_id = $1 and n = $2")
+            .bind(id)
+            .bind(n)
+            .fetch_optional(&state.pool)
+            .await?
+            .ok_or_else(|| ApiError::not_found("version not found"))?
+            .0
     };
     crate::api_support::parse_arch(v)
 }
@@ -389,11 +402,7 @@ pub async fn create_waiver(
     let arch = arch_of(&state, id, "draft").await?;
     let waivers = engine_waivers(&state, id).await?;
     let report = run_evaluate(cfg.clone(), arch, waivers, lang_of(&cfg, b.lang.as_deref())).await?;
-    let f = report
-        .findings
-        .iter()
-        .find(|f| f.id == b.fingerprint)
-        .ok_or_else(|| ApiError::bad_request("unknown_finding", "no such finding in the current architecture"))?;
+    let f = report.findings.iter().find(|f| f.id == b.fingerprint).ok_or_else(|| ApiError::bad_request("unknown_finding", "no such finding in the current architecture"))?;
     if !matches!(f.status, engine::evaluate::Status::Critical | engine::evaluate::Status::Risk) {
         return Err(ApiError::bad_request("not_acceptable", "only critical or risk findings can be accepted"));
     }
@@ -413,13 +422,27 @@ pub async fn create_waiver(
     .bind(days.to_string())
     .fetch_one(&state.pool)
     .await?;
-    audit::log(&state.pool, Some(&user), "waiver.create", "project", &id.to_string(), json!({"fingerprint": b.fingerprint, "rule": rule_id, "days": days}), &client_ip(&headers, Some(addr), state.boot.trust_proxy)).await;
+    audit::log(
+        &state.pool,
+        Some(&user),
+        "waiver.create",
+        "project",
+        &id.to_string(),
+        json!({"fingerprint": b.fingerprint, "rule": rule_id, "days": days}),
+        &client_ip(&headers, Some(addr), state.boot.trust_proxy),
+    )
+    .await;
     Ok(Json(json!({"id": wid})))
 }
 
 pub async fn revoke_waiver(State(state): State<AppState>, user: AuthUser, Path((id, wid)): Path<(Uuid, Uuid)>) -> ApiResult<Json<Value>> {
     user.require_editor()?;
-    let r = sqlx::query("update waivers set revoked_at = now(), revoked_by = $3 where id = $2 and project_id = $1 and revoked_at is null").bind(id).bind(wid).bind(&user.email).execute(&state.pool).await?;
+    let r = sqlx::query("update waivers set revoked_at = now(), revoked_by = $3 where id = $2 and project_id = $1 and revoked_at is null")
+        .bind(id)
+        .bind(wid)
+        .bind(&user.email)
+        .execute(&state.pool)
+        .await?;
     if r.rows_affected() == 0 {
         return Err(ApiError::not_found("waiver not found"));
     }

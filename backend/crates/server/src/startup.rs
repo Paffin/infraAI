@@ -90,10 +90,7 @@ pub async fn init_state(boot: BootConfig) -> anyhow::Result<AppState> {
     db::migrate(&pool).await?;
     let keys = Arc::new(Keys::derive(&boot.app_secret));
     let metrics = Arc::new(Metrics::new(&boot.instance_id));
-    let http = reqwest::Client::builder()
-        .user_agent(concat!("infra-architect/", env!("CARGO_PKG_VERSION")))
-        .connect_timeout(Duration::from_secs(10))
-        .build()?;
+    let http = reqwest::Client::builder().user_agent(concat!("infra-architect/", env!("CARGO_PKG_VERSION"))).connect_timeout(Duration::from_secs(10)).build()?;
     let ttl = std::env::var("CONFIG_CACHE_TTL_MS").ok().and_then(|v| v.parse::<u64>().ok()).map(Duration::from_millis).unwrap_or(CONFIG_CACHE_TTL);
     let config = Arc::new(ConfigCache::new(ttl));
 

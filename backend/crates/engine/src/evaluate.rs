@@ -236,12 +236,7 @@ pub fn evaluate(arch: &Architecture, cfg: &EngineConfig, waivers: &[Waiver]) -> 
     }
 
     // stable order: severity desc, then rule id, then fingerprint
-    findings.sort_by(|a, b| {
-        b.accepted.is_none().cmp(&a.accepted.is_none())
-            .then(b.status.cmp(&a.status))
-            .then(a.rule_id.cmp(&b.rule_id))
-            .then(a.id.cmp(&b.id))
-    });
+    findings.sort_by(|a, b| b.accepted.is_none().cmp(&a.accepted.is_none()).then(b.status.cmp(&a.status)).then(a.rule_id.cmp(&b.rule_id)).then(a.id.cmp(&b.id)));
 
     let mut counts = Counts::default();
     for r in &rules {
@@ -262,19 +257,7 @@ pub fn evaluate(arch: &Architecture, cfg: &EngineConfig, waivers: &[Waiver]) -> 
     let units = ctx.ix.units.iter().map(|u| (u.key.clone(), u.name.clone())).collect();
     let cost = cost::estimate(&ctx.ix);
 
-    Report {
-        engine_version: ENGINE_VERSION,
-        issues,
-        counts,
-        rules,
-        findings,
-        objectives,
-        scenarios,
-        baseline_loads: baseline.unit_loads.clone(),
-        score,
-        cost,
-        units,
-    }
+    Report { engine_version: ENGINE_VERSION, issues, counts, rules, findings, objectives, scenarios, baseline_loads: baseline.unit_loads.clone(), score, cost, units }
 }
 
 fn compute_score(cfg: &EngineConfig, rules: &[RuleResult]) -> Score {
@@ -308,12 +291,7 @@ fn compute_score(cfg: &EngineConfig, rules: &[RuleResult]) -> Score {
     let applicable = rules.iter().filter(|r| r.status != Status::Na).count();
     let verified = rules.iter().filter(|r| !matches!(r.status, Status::Na | Status::NoData)).count();
     let coverage = if applicable == 0 { 1.0 } else { verified as f64 / applicable as f64 };
-    Score {
-        value: (100.0 - penalty).clamp(0.0, 100.0).round(),
-        penalty,
-        coverage: (coverage * 1000.0).round() / 1000.0,
-        breakdown,
-    }
+    Score { value: (100.0 - penalty).clamp(0.0, 100.0).round(), penalty, coverage: (coverage * 1000.0).round() / 1000.0, breakdown }
 }
 
 fn scenario_summaries(ctx: &Ctx<'_>) -> Vec<ScenarioSummary> {
@@ -364,10 +342,28 @@ fn objectives(ctx: &Ctx<'_>, findings: &[Finding]) -> Vec<Objective> {
     let rto_status = match (req.rto_seconds, worst_rto, never) {
         (None, _, _) => Status::NoData,
         (Some(_), _, true) => Status::Critical,
-        (Some(req), Some(w), _) => if w > req { Status::Critical } else { Status::Ok },
-        (Some(_), None, _) => if site_sc.is_empty() { Status::NoData } else { Status::Ok },
+        (Some(req), Some(w), _) => {
+            if w > req {
+                Status::Critical
+            } else {
+                Status::Ok
+            }
+        }
+        (Some(_), None, _) => {
+            if site_sc.is_empty() {
+                Status::NoData
+            } else {
+                Status::Ok
+            }
+        }
     };
-    out.push(Objective { id: "rto".into(), status: rto_status, required: req.rto_seconds.map(|v| json!(v)), actual: if never { Some(json!("never")) } else { worst_rto.map(|v| json!(v)) }, assumed: false });
+    out.push(Objective {
+        id: "rto".into(),
+        status: rto_status,
+        required: req.rto_seconds.map(|v| json!(v)),
+        actual: if never { Some(json!("never")) } else { worst_rto.map(|v| json!(v)) },
+        assumed: false,
+    });
 
     // RPO (units excluded by the RPO rule, e.g. queues covered by their own rule, are ignored)
     let excl: Vec<String> = ctx
@@ -381,8 +377,10 @@ fn objectives(ctx: &Ctx<'_>, findings: &[Finding]) -> Vec<Objective> {
         .unwrap_or_default();
     let mut worst_rpo: Option<f64> = Some(0.0);
     let mut rpo_assumed = false;
+    let mut data_lost = false;
     for sc in &site_sc {
         let r = ctx.sim(sc);
+        data_lost |= !checks::lost_units(ctx, &r.data_lost, &excl).is_empty();
         let (v, a) = crate::sim::rpo_filtered(&r.rpo_items, &excl);
         match (v, worst_rpo) {
             (None, _) => worst_rpo = None,
@@ -392,11 +390,26 @@ fn objectives(ctx: &Ctx<'_>, findings: &[Finding]) -> Vec<Objective> {
         rpo_assumed |= a;
     }
     let rpo_status = match (req.rpo_seconds, worst_rpo) {
+        _ if data_lost => Status::Critical,
         (None, _) => Status::NoData,
         (Some(_), None) => Status::NoData,
-        (Some(r), Some(w)) => if w > r { Status::Critical } else if rpo_assumed && w > 0.0 { Status::NoData } else { Status::Ok },
+        (Some(r), Some(w)) => {
+            if w > r {
+                Status::Critical
+            } else if rpo_assumed && w > 0.0 {
+                Status::NoData
+            } else {
+                Status::Ok
+            }
+        }
     };
-    out.push(Objective { id: "rpo".into(), status: rpo_status, required: req.rpo_seconds.map(|v| json!(v)), actual: worst_rpo.map(|v| json!(v)), assumed: rpo_assumed });
+    out.push(Objective {
+        id: "rpo".into(),
+        status: rpo_status,
+        required: req.rpo_seconds.map(|v| json!(v)),
+        actual: if data_lost { Some(json!("lost")) } else { worst_rpo.map(|v| json!(v)) },
+        assumed: rpo_assumed,
+    });
 
     // Site loss
     let mut survived = true;
@@ -408,7 +421,13 @@ fn objectives(ctx: &Ctx<'_>, findings: &[Finding]) -> Vec<Objective> {
     }
     out.push(Objective {
         id: "site_loss".into(),
-        status: if site_sc.is_empty() { Status::NoData } else if survived { Status::Ok } else { Status::Critical },
+        status: if site_sc.is_empty() {
+            Status::NoData
+        } else if survived {
+            Status::Ok
+        } else {
+            Status::Critical
+        },
         required: Some(json!(checks::tolerance(ctx))),
         actual: Some(json!(survived)),
         assumed: false,
@@ -419,16 +438,19 @@ fn objectives(ctx: &Ctx<'_>, findings: &[Finding]) -> Vec<Objective> {
     out.push(Objective { id: "spof".into(), status: if spof == 0 { Status::Ok } else { Status::Critical }, required: Some(json!(0)), actual: Some(json!(spof)), assumed: false });
 
     // Capacity under failure
-    let worst_cap = site_sc
-        .iter()
-        .filter_map(|sc| ctx.sim(sc).capacity_ratio)
-        .fold(None, |a: Option<f64>, v| Some(a.map_or(v, |x| x.min(v))));
+    let worst_cap = site_sc.iter().filter_map(|sc| ctx.sim(sc).capacity_ratio).fold(None, |a: Option<f64>, v| Some(a.map_or(v, |x| x.min(v))));
     let min_cap = ctx.cfg.settings.assumptions.min_capacity_during_failure;
     out.push(Objective {
         id: "capacity".into(),
         status: match (req.rps_peak, worst_cap) {
             (None, _) | (_, None) => Status::NoData,
-            (_, Some(w)) => if w >= min_cap { Status::Ok } else { Status::Risk },
+            (_, Some(w)) => {
+                if w >= min_cap {
+                    Status::Ok
+                } else {
+                    Status::Risk
+                }
+            }
         },
         required: Some(json!(min_cap)),
         actual: worst_cap.map(|v| json!((v * 1000.0).round() / 1000.0)),
@@ -455,7 +477,9 @@ pub fn status_of(sev: Severity) -> Status {
 pub fn render_message(rule: &crate::config::Rule, f: &Finding, lang: &str) -> String {
     use crate::text::LText;
     let vars: BTreeMap<String, Value> = f.vars.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
-    let tpl: &LText = if f.status == Status::NoData {
+    let tpl: &LText = if f.id.ends_with(":lost") && f.status != Status::NoData {
+        rule.data_lost_message.as_ref().unwrap_or(&rule.message)
+    } else if f.status == Status::NoData {
         if f.id.ends_with(":req") {
             rule.requirement_message.as_ref().or(rule.no_data_message.as_ref()).unwrap_or(&rule.message)
         } else {

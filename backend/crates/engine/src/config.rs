@@ -78,6 +78,9 @@ pub struct Rule {
     /// Message for `no_data` findings caused by a missing *requirement* (finding key `req`).
     #[serde(default)]
     pub requirement_message: Option<LText>,
+    /// Message for findings whose data is lost for good (finding key ends with `:lost`).
+    #[serde(default)]
+    pub data_lost_message: Option<LText>,
     /// Shown when the rule passes.
     #[serde(default)]
     pub ok: LText,
@@ -216,13 +219,7 @@ pub struct CostSettings {
 
 impl Default for CostSettings {
     fn default() -> Self {
-        Self {
-            currency: "RUB".into(),
-            symbol: "₽".into(),
-            default_model: "onprem".into(),
-            models: BTreeMap::new(),
-            warn_percent: 90.0,
-        }
+        Self { currency: "RUB".into(), symbol: "₽".into(), default_model: "onprem".into(), models: BTreeMap::new(), warn_percent: 90.0 }
     }
 }
 
@@ -253,12 +250,7 @@ impl Default for ExportSettings {
 impl ExportSettings {
     /// Text for `key` in `lang` (falls back to `en`, then to the key itself).
     pub fn text(&self, lang: &str, key: &str) -> String {
-        self.texts
-            .get(lang)
-            .and_then(|m| m.get(key))
-            .or_else(|| self.texts.get("en").and_then(|m| m.get(key)))
-            .cloned()
-            .unwrap_or_else(|| key.to_string())
+        self.texts.get(lang).and_then(|m| m.get(key)).or_else(|| self.texts.get("en").and_then(|m| m.get(key))).cloned().unwrap_or_else(|| key.to_string())
     }
 }
 

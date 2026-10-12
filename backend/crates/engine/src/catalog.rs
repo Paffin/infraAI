@@ -244,6 +244,9 @@ pub struct EdgeStyle {
 pub struct EdgeTypeDef {
     pub id: String,
     pub name: LText,
+    /// Short caption for the canvas legend (`sync`, `кворум`); falls back to `name`.
+    #[serde(default)]
+    pub short: Option<LText>,
     pub semantics: Semantics,
     pub style: EdgeStyle,
     #[serde(default = "yes")]
@@ -316,9 +319,7 @@ impl Catalog {
     }
 
     pub fn prop_def(&self, kind: &str, key: &str) -> Option<&PropDef> {
-        self.kind(kind)
-            .and_then(|k| k.props.iter().find(|p| p.key == key))
-            .or_else(|| self.common_props.iter().find(|p| p.key == key))
+        self.kind(kind).and_then(|k| k.props.iter().find(|p| p.key == key)).or_else(|| self.common_props.iter().find(|p| p.key == key))
     }
 
     pub fn kind_has_trait(&self, kind: &str, tr: &str) -> bool {
@@ -396,10 +397,5 @@ impl Eff {
 /// shows `3 pods` instead of `3 pods · HPA {hpaMin}–{hpaMax}`.
 pub fn render_subtitle(tpl: &LText, lang: &str, eff: &Props) -> String {
     let vars: BTreeMap<String, Value> = eff.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
-    tpl.get(lang)
-        .split(" · ")
-        .map(|seg| interpolate(seg, &vars))
-        .filter(|seg| !seg.contains('{'))
-        .collect::<Vec<_>>()
-        .join(" · ")
+    tpl.get(lang).split(" · ").map(|seg| interpolate(seg, &vars)).filter(|seg| !seg.contains('{')).collect::<Vec<_>>().join(" · ")
 }

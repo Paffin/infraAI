@@ -77,8 +77,8 @@
    "en": "Recovery fits the RTO"
   },
   "message": {
-   "ru": "При потере «{zone}» восстановление займёт {seconds} с ({kind}) при допустимом RTO {rto} с.",
-   "en": "Losing “{zone}” takes {seconds}s to recover ({kind}) with an RTO of {rto}s."
+   "ru": "При потере «{zone}» восстановление займёт {seconds|dur} ({kind}) при допустимом RTO {rto|dur}.",
+   "en": "Losing “{zone}” takes {seconds|dur} to recover ({kind}) with an RTO of {rto|dur}."
   },
   "ok": {
    "ru": "Восстановление укладывается в RTO",
@@ -111,8 +111,8 @@
    "en": "Data loss fits the RPO"
   },
   "message": {
-   "ru": "При потере «{zone}» окно потери данных {seconds} с при допустимом RPO {rpo} с.",
-   "en": "Losing “{zone}” loses up to {seconds}s of data with an RPO of {rpo}s."
+   "ru": "При потере «{zone}» окно потери данных {seconds|dur} при допустимом RPO {rpo|dur}.",
+   "en": "Losing “{zone}” loses up to {seconds|dur} of data with an RPO of {rpo|dur}."
   },
   "ok": {
    "ru": "Потеря данных укладывается в RPO",
@@ -125,6 +125,10 @@
   "requirementMessage": {
    "ru": "В требованиях не задан RPO — потерю данных проверить нельзя.",
    "en": "No RPO in the requirements — data loss cannot be verified."
+  },
+  "dataLostMessage": {
+   "ru": "При потере «{zone}» данные безвозвратно теряются: {units} — нет ни реплики на другой площадке, ни резервной копии.",
+   "en": "Losing “{zone}” loses data for good: {units} — there is neither a replica on another site nor a backup."
   },
   "rationale": {
    "ru": "RPO относится к бизнес-данным. Очереди оцениваются отдельным правилом (DR-KFK-01): их можно защитить паттерном outbox; кэш восстановим из источника; хранилище секретов реплицируется асинхронно по своей природе. Список исключений настраивается.",
@@ -171,8 +175,8 @@
    "en": "Service survives a disaster-domain loss"
   },
   "message": {
-   "ru": "При потере домена «{geo}» не выполняются требования: {problems}. RTO {seconds} с, RPO {rpo} с, потеряны данные: {lost}.",
-   "en": "Losing the “{geo}” domain violates the requirements: {problems}. RTO {seconds}s, RPO {rpo}s, lost data: {lost}."
+   "ru": "При потере домена «{geo}» не выполняются требования: {problems}. RTO {seconds|dur}, RPO {rpo|dur}, потеряны данные: {lost}.",
+   "en": "Losing the “{geo}” domain violates the requirements: {problems}. RTO {seconds|dur}, RPO {rpo|dur}, lost data: {lost}."
   },
   "ok": {
    "ru": "Сервис переживает потерю домена катастрофы",
@@ -524,16 +528,16 @@
    "en": "Database replication matches the RPO"
   },
   "message": {
-   "ru": "Асинхронная репликация «{source}» → «{target}» (лаг {lag} с) не гарантирует RPO {rpo} с.",
-   "en": "Asynchronous replication “{source}” → “{target}” (lag {lag}s) does not guarantee an RPO of {rpo}s."
+   "ru": "Асинхронная репликация «{source}» → «{target}» (лаг {lag|dur}) не гарантирует RPO {rpo|dur}.",
+   "en": "Asynchronous replication “{source}” → “{target}” (lag {lag|dur}) does not guarantee an RPO of {rpo|dur}."
   },
   "ok": {
    "ru": "Репликация БД соответствует RPO",
    "en": "Database replication matches the RPO"
   },
   "noDataMessage": {
-   "ru": "Лаг репликации «{source}» → «{target}» не указан: принято {lag} с.",
-   "en": "Replication lag of “{source}” → “{target}” is not declared: {lag}s assumed."
+   "ru": "Лаг репликации «{source}» → «{target}» не указан: принято {lag|dur}.",
+   "en": "Replication lag of “{source}” → “{target}” is not declared: {lag|dur} assumed."
   },
   "requirementMessage": {
    "ru": "В требованиях не задан RPO — репликацию проверить нельзя.",
@@ -560,16 +564,16 @@
    "en": "Queue replication matches the RPO"
   },
   "message": {
-   "ru": "Асинхронная репликация очередей «{source}» → «{target}» (лаг {lag} с): события в полёте могут потеряться при отказе площадки (RPO {rpo} с).",
-   "en": "Asynchronous queue replication “{source}” → “{target}” (lag {lag}s): in-flight events may be lost on a site failure (RPO {rpo}s)."
+   "ru": "Асинхронная репликация очередей «{source}» → «{target}» (лаг {lag|dur}): события в полёте могут потеряться при отказе площадки (RPO {rpo|dur}).",
+   "en": "Asynchronous queue replication “{source}” → “{target}” (lag {lag|dur}): in-flight events may be lost on a site failure (RPO {rpo|dur})."
   },
   "ok": {
    "ru": "Репликация очередей соответствует RPO либо митигация задана",
    "en": "Queue replication matches the RPO or a mitigation is declared"
   },
   "noDataMessage": {
-   "ru": "Лаг репликации очередей «{source}» → «{target}» не указан: принято {lag} с.",
-   "en": "Queue replication lag “{source}” → “{target}” is not declared: {lag}s assumed."
+   "ru": "Лаг репликации очередей «{source}» → «{target}» не указан: принято {lag|dur}.",
+   "en": "Queue replication lag “{source}” → “{target}” is not declared: {lag|dur} assumed."
   },
   "requirementMessage": {
    "ru": "В требованиях не задан RPO.",
@@ -578,6 +582,12 @@
   "rationale": {
    "ru": "Защитите критичные события паттерном transactional outbox и укажите митигацию в свойствах связи — тогда правило не считает асинхронность риском.",
    "en": "Protect critical events with a transactional outbox and record the mitigation on the link — the rule then no longer flags the asynchrony."
+  },
+  "fixLabels": {
+   "make_sync": {
+    "ru": "Перевести «{source}» → «{target}» в синхронную репликацию",
+    "en": "Switch “{source}” → “{target}” to synchronous replication"
+   }
   }
  },
  {
@@ -761,8 +771,8 @@
    "en": "Fast failure detection in GSLB"
   },
   "message": {
-   "ru": "Health-check «{node}» раз в {actual} с (нужно ≤ {expected} с): отказ обнаруживается медленно.",
-   "en": "Health-check of “{node}” every {actual}s (≤ {expected}s required): failures are detected slowly."
+   "ru": "Health-check «{node}» раз в {actual|dur} (нужно ≤ {expected|dur}): отказ обнаруживается медленно.",
+   "en": "Health-check of “{node}” every {actual|dur} (≤ {expected|dur} required): failures are detected slowly."
   },
   "ok": {
    "ru": "Быстрое обнаружение отказа в GSLB",

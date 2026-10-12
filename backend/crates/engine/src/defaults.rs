@@ -42,10 +42,7 @@ pub fn rules() -> Vec<Rule> {
 }
 
 pub fn templates() -> Vec<Template> {
-    TEMPLATES_JSON
-        .iter()
-        .map(|(id, s)| serde_json::from_str(s).unwrap_or_else(|e| panic!("embedded template {id} is valid: {e}")))
-        .collect()
+    TEMPLATES_JSON.iter().map(|(id, s)| serde_json::from_str(s).unwrap_or_else(|e| panic!("embedded template {id} is valid: {e}"))).collect()
 }
 
 pub fn demo_project() -> DemoProject {

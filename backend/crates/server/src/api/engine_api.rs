@@ -49,6 +49,23 @@ pub async fn evaluate(State(state): State<AppState>, _user: AuthUser, Json(b): J
 }
 
 #[derive(Deserialize)]
+pub struct DiffBody {
+    pub from: Value,
+    pub to: Value,
+    /// Count canvas positions as changes (default: no).
+    #[serde(default)]
+    pub ui: bool,
+}
+
+/// Structural difference between two architectures given in the request: the design against an imported
+/// snapshot of the real environment (drift), or any two files. Nothing is stored.
+pub async fn diff_architectures(_user: AuthUser, Json(b): Json<DiffBody>) -> ApiResult<Json<Value>> {
+    let from = parse_arch(b.from)?;
+    let to = parse_arch(b.to)?;
+    Ok(Json(serde_json::to_value(diff(&from, &to, b.ui))?))
+}
+
+#[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SimulateBody {
     pub architecture: Value,
@@ -94,13 +111,7 @@ pub struct Preview {
 }
 
 /// Apply operations to a copy and evaluate the result (shared by the API and AI proposals).
-pub async fn preview_ops(
-    cfg: std::sync::Arc<crate::config_store::Loaded>,
-    base: engine::model::Architecture,
-    ops: Vec<Op>,
-    waivers: Vec<engine::config::Waiver>,
-    lang: String,
-) -> ApiResult<Preview> {
+pub async fn preview_ops(cfg: std::sync::Arc<crate::config_store::Loaded>, base: engine::model::Architecture, ops: Vec<Op>, waivers: Vec<engine::config::Waiver>, lang: String) -> ApiResult<Preview> {
     let lim = limits(&cfg);
     let ec = cfg.engine_config(&lang);
     let (base2, ec2, ops2) = (base.clone(), ec.clone(), ops.clone());
@@ -168,8 +179,14 @@ pub async fn export(State(state): State<AppState>, _user: AuthUser, Path((id, fo
         sqlx::query_as("select name, draft from projects where id = $1 and deleted_at is null").bind(id).fetch_optional(&state.pool).await?.ok_or_else(|| ApiError::not_found("project not found"))?
     } else {
         let n: i32 = which.parse().map_err(|_| ApiError::bad_request("invalid_version", "version must be 'draft' or a number"))?;
-        let (pn,): (String,) = sqlx::query_as("select name from projects where id = $1 and deleted_at is null").bind(id).fetch_optional(&state.pool).await?.ok_or_else(|| ApiError::not_found("project not found"))?;
-        let (a,): (Value,) = sqlx::query_as("select architecture from versions where project_id = $1 and n = $2").bind(id).bind(n).fetch_optional(&state.pool).await?.ok_or_else(|| ApiError::not_found("version not found"))?;
+        let (pn,): (String,) =
+            sqlx::query_as("select name from projects where id = $1 and deleted_at is null").bind(id).fetch_optional(&state.pool).await?.ok_or_else(|| ApiError::not_found("project not found"))?;
+        let (a,): (Value,) = sqlx::query_as("select architecture from versions where project_id = $1 and n = $2")
+            .bind(id)
+            .bind(n)
+            .fetch_optional(&state.pool)
+            .await?
+            .ok_or_else(|| ApiError::not_found("version not found"))?;
         (pn, a)
     };
     let mut arch = parse_arch(arch_v)?;
@@ -222,9 +239,5 @@ pub async fn export(State(state): State<AppState>, _user: AuthUser, Path((id, fo
 }
 
 fn json_response(v: Value) -> ApiResult<Response> {
-    Response::builder()
-        .status(StatusCode::OK)
-        .header(header::CONTENT_TYPE, "application/json")
-        .body(Body::from(serde_json::to_vec(&v)?))
-        .map_err(ApiError::internal)
+    Response::builder().status(StatusCode::OK).header(header::CONTENT_TYPE, "application/json").body(Body::from(serde_json::to_vec(&v)?)).map_err(ApiError::internal)
 }

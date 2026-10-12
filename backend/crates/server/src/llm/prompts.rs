@@ -62,30 +62,17 @@ pub fn catalog_digest(cat: &Catalog, lang: &str) -> String {
 }
 
 pub fn edge_types_digest(cat: &Catalog) -> String {
-    let v: Vec<Value> = cat
-        .edge_types
-        .iter()
-        .map(|t| json!({"id": t.id, "semantics": t.semantics, "props": t.props.iter().map(|p| p.key.clone()).collect::<Vec<_>>()}))
-        .collect();
+    let v: Vec<Value> = cat.edge_types.iter().map(|t| json!({"id": t.id, "semantics": t.semantics, "props": t.props.iter().map(|p| p.key.clone()).collect::<Vec<_>>()})).collect();
     serde_json::to_string(&v).unwrap_or_default()
 }
 
 pub fn zone_types_digest(cat: &Catalog) -> String {
-    let v: Vec<Value> = cat
-        .zone_types
-        .iter()
-        .map(|t| json!({"id": t.id, "level": t.level, "props": t.props.iter().map(|p| p.key.clone()).collect::<Vec<_>>()}))
-        .collect();
+    let v: Vec<Value> = cat.zone_types.iter().map(|t| json!({"id": t.id, "level": t.level, "props": t.props.iter().map(|p| p.key.clone()).collect::<Vec<_>>()})).collect();
     serde_json::to_string(&v).unwrap_or_default()
 }
 
 pub fn templates_digest(cfg: &Loaded, lang: &str) -> String {
-    cfg.templates
-        .iter()
-        .filter(|t| t.enabled)
-        .map(|t| format!("{}: {}", t.id, t.description.as_ref().map(|d| d.get(lang)).unwrap_or_default()))
-        .collect::<Vec<_>>()
-        .join(" | ")
+    cfg.templates.iter().filter(|t| t.enabled).map(|t| format!("{}: {}", t.id, t.description.as_ref().map(|d| d.get(lang)).unwrap_or_default())).collect::<Vec<_>>().join(" | ")
 }
 
 pub fn rules_digest(cfg: &Loaded, lang: &str) -> String {

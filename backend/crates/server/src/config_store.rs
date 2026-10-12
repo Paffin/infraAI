@@ -71,12 +71,7 @@ pub fn default_items() -> Vec<DefaultItem> {
     }
     let prompts: Value = serde_json::from_str(PROMPTS_JSON).expect("prompts.json");
     push_list(&mut out, K_PROMPT, Some(&prompts));
-    out.push(DefaultItem {
-        kind: K_ENGINE,
-        id: "engine".into(),
-        data: serde_json::from_str(engine::defaults::ENGINE_JSON).expect("engine.json"),
-        sort: 0,
-    });
+    out.push(DefaultItem { kind: K_ENGINE, id: "engine".into(), data: serde_json::from_str(engine::defaults::ENGINE_JSON).expect("engine.json"), sort: 0 });
     out
 }
 

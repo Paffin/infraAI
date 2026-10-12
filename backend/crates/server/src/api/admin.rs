@@ -133,15 +133,21 @@ pub async fn llm_test(State(state): State<AppState>, user: AuthUser, body: Optio
     let mut ping_result = Value::Null;
     if ping && key_ok {
         let started = std::time::Instant::now();
-        let r = call(&state, &cfg, &CallCtx { job_id: None, project_id: None, user_id: Some(user.id) }, LlmRequest {
-            purpose: "test", role: ModelRole::Fast, messages: vec![Msg::user("Reply with the single word: ok")], schema: None,
-        }).await;
+        let r = call(
+            &state,
+            &cfg,
+            &CallCtx { job_id: None, project_id: None, user_id: Some(user.id) },
+            LlmRequest { purpose: "test", role: ModelRole::Fast, messages: vec![Msg::user("Reply with the single word: ok")], schema: None },
+        )
+        .await;
         ping_result = match r {
             Ok(r) => json!({"ok": true, "model": r.model, "latencyMs": started.elapsed().as_millis() as u64, "costUsd": r.cost_usd, "answer": r.content.chars().take(40).collect::<String>()}),
             Err(e) => json!({"ok": false, "code": e.code(), "message": e.to_string()}),
         };
     }
-    Ok(Json(json!({"ok": key_ok, "message": key_msg, "key": key_info, "keySource": if cfg.settings.is_from_db("llm.apiKey") { "database" } else { "environment" }, "warnings": warnings, "models": models, "ping": ping_result})))
+    Ok(Json(
+        json!({"ok": key_ok, "message": key_msg, "key": key_info, "keySource": if cfg.settings.is_from_db("llm.apiKey") { "database" } else { "environment" }, "warnings": warnings, "models": models, "ping": ping_result}),
+    ))
 }
 
 #[derive(Deserialize)]
@@ -202,7 +208,8 @@ pub async fn config_list(State(state): State<AppState>, user: AuthUser, Path(kin
     if !ALL_KINDS.contains(&kind.as_str()) {
         return Err(ApiError::not_found("unknown config kind"));
     }
-    let rows = sqlx::query("select id, data, origin, modified, update_available, updated_at, updated_by from config_items where kind = $1 order by sort, id").bind(&kind).fetch_all(&state.pool).await?;
+    let rows =
+        sqlx::query("select id, data, origin, modified, update_available, updated_at, updated_by from config_items where kind = $1 order by sort, id").bind(&kind).fetch_all(&state.pool).await?;
     let defaults: std::collections::HashSet<String> = default_items().into_iter().filter(|d| d.kind == kind).map(|d| d.id).collect();
     Ok(Json(json!({"items": rows.iter().map(|r| {
         let id: String = r.get("id");
@@ -216,13 +223,26 @@ pub struct PutItem {
     pub data: Value,
 }
 
-pub async fn config_put(State(state): State<AppState>, user: AuthUser, ConnectInfo(addr): ConnectInfo<SocketAddr>, headers: HeaderMap, Path((kind, id)): Path<(String, String)>, Json(b): Json<PutItem>) -> ApiResult<Json<Value>> {
+pub async fn config_put(
+    State(state): State<AppState>,
+    user: AuthUser,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+    Path((kind, id)): Path<(String, String)>,
+    Json(b): Json<PutItem>,
+) -> ApiResult<Json<Value>> {
     user.require_admin()?;
     if !ALL_KINDS.contains(&kind.as_str()) {
         return Err(ApiError::not_found("unknown config kind"));
     }
     validate_item(&kind, &id, &b.data).map_err(|e| ApiError::bad_request("invalid_config", e))?;
-    let r = sqlx::query("update config_items set data = $3, modified = (origin = 'default'), updated_at = now(), updated_by = $4 where kind = $1 and id = $2").bind(&kind).bind(&id).bind(&b.data).bind(&user.email).execute(&state.pool).await?;
+    let r = sqlx::query("update config_items set data = $3, modified = (origin = 'default'), updated_at = now(), updated_by = $4 where kind = $1 and id = $2")
+        .bind(&kind)
+        .bind(&id)
+        .bind(&b.data)
+        .bind(&user.email)
+        .execute(&state.pool)
+        .await?;
     if r.rows_affected() == 0 {
         return Err(ApiError::not_found("config item not found"));
     }
@@ -237,7 +257,14 @@ pub struct CreateItem {
     pub data: Value,
 }
 
-pub async fn config_create(State(state): State<AppState>, user: AuthUser, ConnectInfo(addr): ConnectInfo<SocketAddr>, headers: HeaderMap, Path(kind): Path<String>, Json(b): Json<CreateItem>) -> ApiResult<Json<Value>> {
+pub async fn config_create(
+    State(state): State<AppState>,
+    user: AuthUser,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+    Path(kind): Path<String>,
+    Json(b): Json<CreateItem>,
+) -> ApiResult<Json<Value>> {
     user.require_admin()?;
     if !ALL_KINDS.contains(&kind.as_str()) || matches!(kind.as_str(), config_store::K_COMMON | config_store::K_ENGINE) {
         return Err(ApiError::bad_request("invalid_kind", "this kind has a single document and cannot be extended"));
@@ -248,13 +275,26 @@ pub async fn config_create(State(state): State<AppState>, user: AuthUser, Connec
     }
     validate_item(&kind, &b.id, &b.data).map_err(|e| ApiError::bad_request("invalid_config", e))?;
     let sort: i32 = sqlx::query_scalar("select coalesce(max(sort), 0) + 1 from config_items where kind = $1").bind(&kind).fetch_one(&state.pool).await?;
-    sqlx::query("insert into config_items (kind, id, data, origin, modified, sort, updated_by) values ($1, $2, $3, 'custom', true, $4, $5)").bind(&kind).bind(&b.id).bind(&b.data).bind(sort).bind(&user.email).execute(&state.pool).await?;
+    sqlx::query("insert into config_items (kind, id, data, origin, modified, sort, updated_by) values ($1, $2, $3, 'custom', true, $4, $5)")
+        .bind(&kind)
+        .bind(&b.id)
+        .bind(&b.data)
+        .bind(sort)
+        .bind(&user.email)
+        .execute(&state.pool)
+        .await?;
     changed(&state).await?;
     audit::log(&state.pool, Some(&user), "config.create", &kind, &b.id, json!({}), &ip(&state, &headers, addr)).await;
     Ok(Json(json!({"ok": true})))
 }
 
-pub async fn config_delete(State(state): State<AppState>, user: AuthUser, ConnectInfo(addr): ConnectInfo<SocketAddr>, headers: HeaderMap, Path((kind, id)): Path<(String, String)>) -> ApiResult<Json<Value>> {
+pub async fn config_delete(
+    State(state): State<AppState>,
+    user: AuthUser,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+    Path((kind, id)): Path<(String, String)>,
+) -> ApiResult<Json<Value>> {
     user.require_admin()?;
     let r = sqlx::query("delete from config_items where kind = $1 and id = $2 and origin = 'custom'").bind(&kind).bind(&id).execute(&state.pool).await?;
     if r.rows_affected() == 0 {
@@ -265,11 +305,24 @@ pub async fn config_delete(State(state): State<AppState>, user: AuthUser, Connec
     Ok(Json(json!({"ok": true})))
 }
 
-pub async fn config_reset(State(state): State<AppState>, user: AuthUser, ConnectInfo(addr): ConnectInfo<SocketAddr>, headers: HeaderMap, Path((kind, id)): Path<(String, String)>) -> ApiResult<Json<Value>> {
+pub async fn config_reset(
+    State(state): State<AppState>,
+    user: AuthUser,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+    Path((kind, id)): Path<(String, String)>,
+) -> ApiResult<Json<Value>> {
     user.require_admin()?;
     let d = default_items().into_iter().find(|d| d.kind == kind && d.id == id).ok_or_else(|| ApiError::not_found("no built-in default for this item"))?;
     let h = crate::crypto::sha256_hex(serde_json::to_string(&d.data).unwrap_or_default().as_bytes());
-    sqlx::query("update config_items set data = $3, modified = false, update_available = false, default_hash = $4, updated_at = now(), updated_by = $5 where kind = $1 and id = $2").bind(&kind).bind(&id).bind(&d.data).bind(h).bind(&user.email).execute(&state.pool).await?;
+    sqlx::query("update config_items set data = $3, modified = false, update_available = false, default_hash = $4, updated_at = now(), updated_by = $5 where kind = $1 and id = $2")
+        .bind(&kind)
+        .bind(&id)
+        .bind(&d.data)
+        .bind(h)
+        .bind(&user.email)
+        .execute(&state.pool)
+        .await?;
     changed(&state).await?;
     audit::log(&state.pool, Some(&user), "config.reset", &kind, &id, json!({}), &ip(&state, &headers, addr)).await;
     Ok(Json(json!({"ok": true})))
@@ -345,8 +398,12 @@ pub async fn config_import(State(state): State<AppState>, user: AuthUser, Connec
             "insert into config_items (kind, id, data, origin, modified, updated_by) values ($1, $2, $3, 'custom', true, $4)
              on conflict (kind, id) do update set data = $3, modified = (config_items.origin = 'default'), updated_at = now(), updated_by = $4",
         )
-        .bind(kind).bind(id).bind(data).bind(&user.email)
-        .execute(&mut *tx).await?;
+        .bind(kind)
+        .bind(id)
+        .bind(data)
+        .bind(&user.email)
+        .execute(&mut *tx)
+        .await?;
     }
     tx.commit().await?;
     if !b.settings.is_empty() {
@@ -395,8 +452,13 @@ pub async fn users_create(State(state): State<AppState>, user: AuthUser, Connect
         None => (random_password(), true),
     };
     let id: Uuid = sqlx::query_scalar("insert into users (email, name, role, password_hash, must_change_password) values ($1, $2, $3, $4, $5) returning id")
-        .bind(&email).bind(b.name.trim()).bind(role.as_str()).bind(hash_password(&pw)?).bind(generated)
-        .fetch_one(&state.pool).await?;
+        .bind(&email)
+        .bind(b.name.trim())
+        .bind(role.as_str())
+        .bind(hash_password(&pw)?)
+        .bind(generated)
+        .fetch_one(&state.pool)
+        .await?;
     audit::log(&state.pool, Some(&user), "user.create", "user", &id.to_string(), json!({"email": email, "role": role.as_str()}), &ip(&state, &headers, addr)).await;
     Ok(Json(json!({"id": id, "temporaryPassword": if generated { Some(pw) } else { None }})))
 }
@@ -412,13 +474,21 @@ async fn other_admins(state: &AppState, except: Uuid) -> ApiResult<i64> {
     Ok(sqlx::query_scalar("select count(*) from users where role = 'admin' and not disabled and id <> $1").bind(except).fetch_one(&state.pool).await?)
 }
 
-pub async fn users_patch(State(state): State<AppState>, user: AuthUser, ConnectInfo(addr): ConnectInfo<SocketAddr>, headers: HeaderMap, Path(id): Path<Uuid>, Json(b): Json<PatchUser>) -> ApiResult<Json<Value>> {
+pub async fn users_patch(
+    State(state): State<AppState>,
+    user: AuthUser,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+    Path(id): Path<Uuid>,
+    Json(b): Json<PatchUser>,
+) -> ApiResult<Json<Value>> {
     user.require_admin()?;
     let new_role = match &b.role {
         Some(r) => Some(Role::parse(r).ok_or_else(|| ApiError::bad_request("invalid_role", "role must be admin, editor or viewer"))?),
         None => None,
     };
-    let (cur_role, cur_disabled): (String, bool) = sqlx::query_as("select role, disabled from users where id = $1").bind(id).fetch_optional(&state.pool).await?.ok_or_else(|| ApiError::not_found("user not found"))?;
+    let (cur_role, cur_disabled): (String, bool) =
+        sqlx::query_as("select role, disabled from users where id = $1").bind(id).fetch_optional(&state.pool).await?.ok_or_else(|| ApiError::not_found("user not found"))?;
     let losing_admin = (cur_role == "admin" && !cur_disabled) && (new_role.map(|r| r != Role::Admin).unwrap_or(false) || b.disabled == Some(true));
     if losing_admin && other_admins(&state, id).await? == 0 {
         return Err(ApiError::conflict("last_admin", "there must be at least one active administrator"));
@@ -437,7 +507,14 @@ pub struct ResetPw {
     pub password: Option<String>,
 }
 
-pub async fn users_reset_password(State(state): State<AppState>, user: AuthUser, ConnectInfo(addr): ConnectInfo<SocketAddr>, headers: HeaderMap, Path(id): Path<Uuid>, body: Option<Json<ResetPw>>) -> ApiResult<Json<Value>> {
+pub async fn users_reset_password(
+    State(state): State<AppState>,
+    user: AuthUser,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+    Path(id): Path<Uuid>,
+    body: Option<Json<ResetPw>>,
+) -> ApiResult<Json<Value>> {
     user.require_admin()?;
     let cfg = state.cfg().await?;
     let given = body.and_then(|b| b.0.password).filter(|p| !p.is_empty());
@@ -448,7 +525,11 @@ pub async fn users_reset_password(State(state): State<AppState>, user: AuthUser,
         }
         None => (random_password(), true),
     };
-    let r = sqlx::query("update users set password_hash = $2, must_change_password = true, failed_attempts = 0, locked_until = null, session_version = session_version + 1 where id = $1").bind(id).bind(hash_password(&pw)?).execute(&state.pool).await?;
+    let r = sqlx::query("update users set password_hash = $2, must_change_password = true, failed_attempts = 0, locked_until = null, session_version = session_version + 1 where id = $1")
+        .bind(id)
+        .bind(hash_password(&pw)?)
+        .execute(&state.pool)
+        .await?;
     if r.rows_affected() == 0 {
         return Err(ApiError::not_found("user not found"));
     }

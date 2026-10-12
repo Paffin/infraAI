@@ -211,12 +211,7 @@ struct Sim<'a, 'b> {
 }
 
 fn ev(code: &str, unit: Option<&str>, node: Option<&str>, vars: Value) -> Event {
-    Event {
-        code: code.into(),
-        unit: unit.map(|s| s.into()),
-        node: node.map(|s| s.into()),
-        vars: vars.as_object().cloned().unwrap_or_default(),
-    }
+    Event { code: code.into(), unit: unit.map(|s| s.into()), node: node.map(|s| s.into()), vars: vars.as_object().cloned().unwrap_or_default() }
 }
 
 impl<'a, 'b> Sim<'a, 'b> {
@@ -476,19 +471,12 @@ impl<'a, 'b> Sim<'a, 'b> {
         let members = ix.units[u].members.clone();
         let total: f64 = members.iter().map(|&m| self.vote_w(m) * ix.replicas(m) as f64).sum();
         let alive_w = |k: usize| if self.eff_ok[k] { self.vote_w(k) * self.alive[k] as f64 } else { 0.0 };
-        let serving: Vec<usize> = members
-            .iter()
-            .copied()
-            .filter(|&m| self.eff_ok[m] && self.seen_weight(m, &members, alive_w) * 2.0 > total)
-            .collect();
+        let serving: Vec<usize> = members.iter().copied().filter(|&m| self.eff_ok[m] && self.seen_weight(m, &members, alive_w) * 2.0 > total).collect();
         let alive_total: f64 = members.iter().map(|&k| alive_w(k)).sum();
         if serving.is_empty() {
             self.events.push(ev("quorum_lost", Some(&ix.units[u].key), None, json!({"unit": ix.units[u].name, "total": total})));
         } else if alive_total < total || serving.len() < members.len() {
-            let best = serving
-                .iter()
-                .map(|&m| self.seen_weight(m, &members, alive_w))
-                .fold(0.0_f64, f64::max);
+            let best = serving.iter().map(|&m| self.seen_weight(m, &members, alive_w)).fold(0.0_f64, f64::max);
             self.events.push(ev("quorum_ok", Some(&ix.units[u].key), None, json!({"unit": ix.units[u].name, "votes": best, "total": total})));
         }
         self.serving[u] = serving;
@@ -501,29 +489,15 @@ impl<'a, 'b> Sim<'a, 'b> {
         let min_insync = members.iter().filter_map(|&m| ix.eff[m].num("minInsync")).fold(1.0_f64, f64::max);
         let need = min_insync.max((total_inst / 2 + 1) as f64);
         let alive_w = |k: usize| if self.eff_ok[k] { self.alive[k] as f64 } else { 0.0 };
-        let serving: Vec<usize> = members
-            .iter()
-            .copied()
-            .filter(|&m| self.eff_ok[m] && self.seen_weight(m, &members, alive_w) >= need)
-            .collect();
+        let serving: Vec<usize> = members.iter().copied().filter(|&m| self.eff_ok[m] && self.seen_weight(m, &members, alive_w) >= need).collect();
         if serving.is_empty() {
             if members.iter().any(|&m| self.alive[m] > 0) || self.unit_lost_members[u] {
-                self.events.push(ev(
-                    "quorum_lost",
-                    Some(&ix.units[u].key),
-                    None,
-                    json!({"unit": ix.units[u].name, "total": total_inst, "need": need}),
-                ));
+                self.events.push(ev("quorum_lost", Some(&ix.units[u].key), None, json!({"unit": ix.units[u].name, "total": total_inst, "need": need})));
             }
         } else {
             let a: f64 = members.iter().map(|&k| alive_w(k)).sum();
             if a < total_inst as f64 {
-                self.events.push(ev(
-                    "quorum_ok",
-                    Some(&ix.units[u].key),
-                    None,
-                    json!({"unit": ix.units[u].name, "votes": a, "total": total_inst}),
-                ));
+                self.events.push(ev("quorum_ok", Some(&ix.units[u].key), None, json!({"unit": ix.units[u].name, "votes": a, "total": total_inst})));
             }
         }
         self.serving[u] = serving;
@@ -558,11 +532,7 @@ impl<'a, 'b> Sim<'a, 'b> {
         let ix = self.ix;
         let unit = &ix.units[u];
         let members = unit.members.clone();
-        let primary = members
-            .iter()
-            .copied()
-            .find(|&m| ix.arch.nodes[m].role.as_deref() == Some("primary"))
-            .or_else(|| members.iter().copied().find(|&m| !ix.is_witness(m)));
+        let primary = members.iter().copied().find(|&m| ix.arch.nodes[m].role.as_deref() == Some("primary")).or_else(|| members.iter().copied().find(|&m| !ix.is_witness(m)));
         let Some(p) = primary else {
             self.serving[u] = vec![];
             return;
@@ -582,12 +552,8 @@ impl<'a, 'b> Sim<'a, 'b> {
         let has_q: Vec<bool> = (0..ix.arch.nodes.len())
             .map(|m| match authority {
                 Authority::None => true,
-                Authority::External(du) => {
-                    !self.done[du] || self.serving[du].iter().any(|&s| self.reach(m, s))
-                }
-                Authority::SelfVotes => {
-                    self.seen_weight(m, &members, |k| if self.alive[k] > 0 { self.vote_w(k) } else { 0.0 }) * 2.0 > total_votes
-                }
+                Authority::External(du) => !self.done[du] || self.serving[du].iter().any(|&s| self.reach(m, s)),
+                Authority::SelfVotes => self.seen_weight(m, &members, |k| if self.alive[k] > 0 { self.vote_w(k) } else { 0.0 }) * 2.0 > total_votes,
             })
             .collect();
 
@@ -603,11 +569,7 @@ impl<'a, 'b> Sim<'a, 'b> {
 
         let reps = self.replication_edges(p, u);
         // candidates: alive replicas that are allowed to be promoted at all
-        let cands: Vec<usize> = members
-            .iter()
-            .copied()
-            .filter(|&m| m != p && !ix.is_witness(m) && self.alive[m] > 0 && self.eff_ok[m] && fmode(m) != "none")
-            .collect();
+        let cands: Vec<usize> = members.iter().copied().filter(|&m| m != p && !ix.is_witness(m) && self.alive[m] > 0 && self.eff_ok[m] && fmode(m) != "none").collect();
 
         // rank: automatic promotion first (needs quorum), then by replication quality
         // (class, auto?, lag, assumed-lag?, linked?)
@@ -625,11 +587,7 @@ impl<'a, 'b> Sim<'a, 'b> {
                 }
             })
             .collect();
-        ranked.sort_by(|a, b| {
-            b.1.cmp(&a.1)
-                .then(a.2.cmp(&b.2))
-                .then(a.3.partial_cmp(&b.3).unwrap_or(std::cmp::Ordering::Equal))
-        });
+        ranked.sort_by(|a, b| b.1.cmp(&a.1).then(a.2.cmp(&b.2)).then(a.3.partial_cmp(&b.3).unwrap_or(std::cmp::Ordering::Equal)));
 
         let mut writers: Vec<usize> = vec![];
         let promote_secs = |this: &Self, r: usize| -> f64 {
@@ -648,9 +606,7 @@ impl<'a, 'b> Sim<'a, 'b> {
             // without any quorum authority an auto-failover replica that cannot see the primary
             // promotes itself: two writers
             if authority == Authority::None {
-                if let Some(&(r, _, _, lag, assumed, linked)) =
-                    ranked.iter().find(|c| fmode(c.0) == "auto" && !self.reach(p, c.0))
-                {
+                if let Some(&(r, _, _, lag, assumed, linked)) = ranked.iter().find(|c| fmode(c.0) == "auto" && !self.reach(p, c.0)) {
                     writers.push(r);
                     self.promoted[r] = true;
                     self.split_brain.push(unit.key.clone());
@@ -659,12 +615,7 @@ impl<'a, 'b> Sim<'a, 'b> {
                         self.auto_tracks.push(secs);
                     }
                     self.note_rpo(u, linked, lag, assumed);
-                    self.events.push(ev(
-                        "split_brain",
-                        Some(&unit.key),
-                        Some(&ix.arch.nodes[r].id),
-                        json!({"node": self.name(p), "other": self.name(r), "unit": unit.name}),
-                    ));
+                    self.events.push(ev("split_brain", Some(&unit.key), Some(&ix.arch.nodes[r].id), json!({"node": self.name(p), "other": self.name(r), "unit": unit.name})));
                 }
             }
             let sync_all: Vec<&(usize, usize, String)> = reps.iter().filter(|r| r.2 == "sync").collect();
@@ -751,10 +702,7 @@ impl<'a, 'b> Sim<'a, 'b> {
             if load[u] <= 0.0 || self.serving[u].is_empty() {
                 continue;
             }
-            let weights: Vec<(usize, f64)> = self.serving[u]
-                .iter()
-                .map(|&m| (m, self.alive[m] as f64 * self.per_replica_rps(m).unwrap_or(1.0)))
-                .collect();
+            let weights: Vec<(usize, f64)> = self.serving[u].iter().map(|&m| (m, self.alive[m] as f64 * self.per_replica_rps(m).unwrap_or(1.0))).collect();
             let total_w: f64 = weights.iter().map(|w| w.1).sum();
             if total_w <= 0.0 {
                 continue;
@@ -890,12 +838,7 @@ impl<'a, 'b> Sim<'a, 'b> {
                     if ix.on_path[u] {
                         self.restore_tracks.push(restore);
                     }
-                    self.events.push(ev(
-                        "restore_from_backup",
-                        Some(&ix.units[u].key),
-                        None,
-                        json!({"unit": ix.units[u].name, "rpo": interval, "seconds": restore}),
-                    ));
+                    self.events.push(ev("restore_from_backup", Some(&ix.units[u].key), None, json!({"unit": ix.units[u].name, "rpo": interval, "seconds": restore})));
                 } else {
                     self.data_lost.push(ix.units[u].key.clone());
                     self.events.push(ev("data_lost", Some(&ix.units[u].key), None, json!({"unit": ix.units[u].name})));
@@ -907,10 +850,7 @@ impl<'a, 'b> Sim<'a, 'b> {
         let mut entries: Vec<usize> = (0..ix.arch.nodes.len()).filter(|&m| ix.has_trait(m, "entry")).collect();
         if entries.is_empty() {
             entries = (0..ix.arch.nodes.len())
-                .filter(|&m| {
-                    ix.in_edges[m].iter().all(|&ei| ix.sem(ei) != Some(Semantics::Dependency))
-                        && ix.out_edges[m].iter().any(|&ei| ix.sem(ei) == Some(Semantics::Dependency))
-                })
+                .filter(|&m| ix.in_edges[m].iter().all(|&ei| ix.sem(ei) != Some(Semantics::Dependency)) && ix.out_edges[m].iter().any(|&ei| ix.sem(ei) == Some(Semantics::Dependency)))
                 .collect();
         }
         let served = entries.iter().filter(|&&m| self.serving[ix.unit_of[m]].contains(&m)).count();
@@ -941,16 +881,7 @@ impl<'a, 'b> Sim<'a, 'b> {
                     continue;
                 }
                 let has_model = ix.units[u].members.iter().any(|&m| self.per_replica_rps(m).is_some());
-                let cap = if has_model {
-                    Some(
-                        self.serving[u]
-                            .iter()
-                            .filter_map(|&m| self.per_replica_rps(m).map(|per| per * self.alive[m] as f64))
-                            .sum::<f64>(),
-                    )
-                } else {
-                    None
-                };
+                let cap = if has_model { Some(self.serving[u].iter().filter_map(|&m| self.per_replica_rps(m).map(|per| per * self.alive[m] as f64)).sum::<f64>()) } else { None };
                 let ratio = cap.map(|c| c / load);
                 if let Some(r) = ratio {
                     if capacity_ratio.map(|cr| r < cr).unwrap_or(true) {
@@ -1031,12 +962,7 @@ impl<'a, 'b> Sim<'a, 'b> {
         }
         let _ = &self.cut;
         let rpo_total = rpo_filtered(&self.rpo_items, &[]);
-        let down_units: Vec<String> = ix
-            .unit_order
-            .iter()
-            .filter(|&&u| self.serving[u].is_empty() && !ix.unit_has_trait(u, "entry"))
-            .map(|&u| ix.units[u].name.clone())
-            .collect();
+        let down_units: Vec<String> = ix.unit_order.iter().filter(|&&u| self.serving[u].is_empty() && !ix.unit_has_trait(u, "entry")).map(|&u| ix.units[u].name.clone()).collect();
 
         SimResult {
             scenario: sc.clone(),
@@ -1115,10 +1041,7 @@ pub fn standard_scenarios(ix: &Index<'_>) -> Vec<Scenario> {
     geos.sort();
     geos.dedup();
     let sites_of_geo = |g: &str| -> Vec<usize> {
-        let mut v: Vec<usize> = (0..ix.arch.nodes.len())
-            .filter(|&n| ix.geo_of[n].as_deref() == Some(g))
-            .filter_map(|n| ix.site_of[n])
-            .collect();
+        let mut v: Vec<usize> = (0..ix.arch.nodes.len()).filter(|&n| ix.geo_of[n].as_deref() == Some(g)).filter_map(|n| ix.site_of[n]).collect();
         v.sort_unstable();
         v.dedup();
         v

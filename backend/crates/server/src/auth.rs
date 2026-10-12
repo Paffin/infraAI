@@ -102,11 +102,7 @@ pub async fn load_user(state: &AppState, id: Uuid) -> ApiResult<Option<CachedUse
     let row: Option<(Uuid, String, String, String, bool, bool, i32)> =
         sqlx::query_as("select id, email, name, role, disabled, must_change_password, session_version from users where id = $1").bind(id).fetch_optional(&state.pool).await?;
     let Some((id, email, name, role, disabled, must_change, ver)) = row else { return Ok(None) };
-    let cu = CachedUser {
-        user: AuthUser { id, email, name, role: Role::parse(&role).unwrap_or(Role::Viewer), must_change_password: must_change },
-        disabled,
-        session_version: ver,
-    };
+    let cu = CachedUser { user: AuthUser { id, email, name, role: Role::parse(&role).unwrap_or(Role::Viewer), must_change_password: must_change }, disabled, session_version: ver };
     state.user_cache.lock().unwrap().insert(id, (cu.clone(), Instant::now()));
     Ok(Some(cu))
 }
@@ -129,6 +125,13 @@ impl FromRequestParts<AppState> for AuthUser {
         let cu = load_user(state, p.u).await?.ok_or_else(|| ApiError::unauthorized("unknown user"))?;
         if cu.disabled || cu.session_version != p.v {
             return Err(ApiError::unauthorized("session revoked"));
+        }
+        // A temporary password only unlocks the endpoints needed to replace it.
+        if cu.user.must_change_password {
+            let path = parts.uri.path();
+            if !["/auth/me", "/auth/password", "/auth/logout"].iter().any(|allowed| path.ends_with(allowed)) {
+                return Err(ApiError::forbidden_code("password_change_required", "the password must be changed first"));
+            }
         }
         Ok(cu.user)
     }
@@ -174,13 +177,7 @@ pub struct LoginBody {
 }
 
 fn session_cookie(state: &AppState, token: String, ttl_hours: f64) -> Cookie<'static> {
-    Cookie::build((COOKIE, token))
-        .http_only(true)
-        .secure(state.boot.cookie_secure)
-        .same_site(SameSite::Lax)
-        .path("/")
-        .max_age(time::Duration::seconds((ttl_hours * 3600.0) as i64))
-        .build()
+    Cookie::build((COOKIE, token)).http_only(true).secure(state.boot.cookie_secure).same_site(SameSite::Lax).path("/").max_age(time::Duration::seconds((ttl_hours * 3600.0) as i64)).build()
 }
 
 fn throttle_ip(state: &AppState, ip: &str) -> ApiResult<()> {
@@ -195,23 +192,16 @@ fn throttle_ip(state: &AppState, ip: &str) -> ApiResult<()> {
     Ok(())
 }
 
-pub async fn login(
-    State(state): State<AppState>,
-    ConnectInfo(addr): ConnectInfo<SocketAddr>,
-    headers: HeaderMap,
-    jar: CookieJar,
-    Json(body): Json<LoginBody>,
-) -> ApiResult<(CookieJar, Json<Value>)> {
+pub async fn login(State(state): State<AppState>, ConnectInfo(addr): ConnectInfo<SocketAddr>, headers: HeaderMap, jar: CookieJar, Json(body): Json<LoginBody>) -> ApiResult<(CookieJar, Json<Value>)> {
     let ip = client_ip(&headers, Some(addr), state.boot.trust_proxy);
     throttle_ip(&state, &ip)?;
     let cfg = state.cfg().await?;
     let email = body.email.trim().to_lowercase();
-    let row: Option<(Uuid, String, String, String, bool, bool, i32, i32, Option<chrono::DateTime<chrono::Utc>>)> = sqlx::query_as(
-        "select id, password_hash, name, role, disabled, must_change_password, session_version, failed_attempts, locked_until from users where lower(email) = $1",
-    )
-    .bind(&email)
-    .fetch_optional(&state.pool)
-    .await?;
+    let row: Option<(Uuid, String, String, String, bool, bool, i32, i32, Option<chrono::DateTime<chrono::Utc>>)> =
+        sqlx::query_as("select id, password_hash, name, role, disabled, must_change_password, session_version, failed_attempts, locked_until from users where lower(email) = $1")
+            .bind(&email)
+            .fetch_optional(&state.pool)
+            .await?;
 
     let Some((id, hash, name, role, disabled, must_change, ver, failed, locked)) = row else {
         // equalise timing for unknown accounts

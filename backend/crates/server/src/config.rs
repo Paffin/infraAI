@@ -40,9 +40,8 @@ fn env_num<T: std::str::FromStr>(key: &str, default: T) -> T {
 impl BootConfig {
     pub fn from_env() -> anyhow::Result<Self> {
         let production = !matches!(env("APP_ENV").as_deref(), Some("development") | Some("dev") | Some("test"));
-        let bind: SocketAddr = format!("{}:{}", env("HOST").unwrap_or_else(|| "0.0.0.0".into()), env("PORT").unwrap_or_else(|| "8080".into()))
-            .parse()
-            .map_err(|e| anyhow::anyhow!("invalid HOST/PORT: {e}"))?;
+        let bind: SocketAddr =
+            format!("{}:{}", env("HOST").unwrap_or_else(|| "0.0.0.0".into()), env("PORT").unwrap_or_else(|| "8080".into())).parse().map_err(|e| anyhow::anyhow!("invalid HOST/PORT: {e}"))?;
         let database_url = env("DATABASE_URL").ok_or_else(|| anyhow::anyhow!("DATABASE_URL is required (PostgreSQL connection string)"))?;
         let app_secret = match env("APP_SECRET") {
             Some(s) if s.len() >= 32 => s,

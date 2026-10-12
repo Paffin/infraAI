@@ -229,20 +229,10 @@ pub struct Issue {
 
 impl Issue {
     fn err(code: &str, subject: Option<&str>, message: String) -> Self {
-        Issue {
-            level: IssueLevel::Error,
-            code: code.into(),
-            message,
-            subject: subject.map(|s| s.to_string()),
-        }
+        Issue { level: IssueLevel::Error, code: code.into(), message, subject: subject.map(|s| s.to_string()) }
     }
     fn warn(code: &str, subject: Option<&str>, message: String) -> Self {
-        Issue {
-            level: IssueLevel::Warning,
-            code: code.into(),
-            message,
-            subject: subject.map(|s| s.to_string()),
-        }
+        Issue { level: IssueLevel::Warning, code: code.into(), message, subject: subject.map(|s| s.to_string()) }
     }
 }
 
@@ -254,21 +244,13 @@ pub struct ValidationLimits {
 
 impl Default for ValidationLimits {
     fn default() -> Self {
-        Self {
-            max_nodes: 500,
-            max_edges: 2000,
-            max_zones: 100,
-        }
+        Self { max_nodes: 500, max_edges: 2000, max_zones: 100 }
     }
 }
 
 /// Validate referential integrity and catalog conformity. Used for imports, manual saves and –
 /// crucially – for everything an LLM produces (errors are fed back to the model for repair).
-pub fn validate(
-    arch: &Architecture,
-    cat: &crate::catalog::Catalog,
-    limits: &ValidationLimits,
-) -> Vec<Issue> {
+pub fn validate(arch: &Architecture, cat: &crate::catalog::Catalog, limits: &ValidationLimits) -> Vec<Issue> {
     let mut out = Vec::new();
 
     if arch.nodes.len() > limits.max_nodes {
@@ -292,11 +274,7 @@ pub fn validate(
         }
         zone_ids.insert(&z.id, z);
         if cat.zone_type(&z.zone_type).is_none() {
-            out.push(Issue::err(
-                "unknown_zone_type",
-                Some(&z.id),
-                format!("zone '{}' has unknown type '{}'", z.id, z.zone_type),
-            ));
+            out.push(Issue::err("unknown_zone_type", Some(&z.id), format!("zone '{}' has unknown type '{}'", z.id, z.zone_type)));
         }
     }
     for z in &arch.zones {
@@ -339,11 +317,7 @@ pub fn validate(
             Some(k) => {
                 if let Some(role) = &n.role {
                     if !k.roles.is_empty() && !k.roles.iter().any(|r| &r.id == role) {
-                        out.push(Issue::warn(
-                            "unknown_role",
-                            Some(&n.id),
-                            format!("node '{}' role '{}' is not defined for kind '{}'", n.id, role, n.kind),
-                        ));
+                        out.push(Issue::warn("unknown_role", Some(&n.id), format!("node '{}' role '{}' is not defined for kind '{}'", n.id, role, n.kind)));
                     }
                 }
             }
@@ -407,17 +381,12 @@ pub fn has_errors(issues: &[Issue]) -> bool {
 }
 
 fn valid_id(s: &str) -> bool {
-    !s.is_empty()
-        && s.len() <= 80
-        && s.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | '.' | ':'))
+    !s.is_empty() && s.len() <= 80 && s.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | '.' | ':'))
 }
 
 /// Make an id unique within `taken` by appending `-2`, `-3`, …
 pub fn unique_id(base: &str, taken: &HashSet<String>) -> String {
-    let clean: String = base
-        .chars()
-        .map(|c| if c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | '.' | ':') { c } else { '-' })
-        .collect();
+    let clean: String = base.chars().map(|c| if c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | '.' | ':') { c } else { '-' }).collect();
     let clean = if clean.is_empty() { "x".to_string() } else { clean };
     if !taken.contains(&clean) {
         return clean;
@@ -434,12 +403,7 @@ pub fn unique_id(base: &str, taken: &HashSet<String>) -> String {
 
 impl Architecture {
     pub fn all_ids(&self) -> HashSet<String> {
-        self.zones
-            .iter()
-            .map(|z| z.id.clone())
-            .chain(self.nodes.iter().map(|n| n.id.clone()))
-            .chain(self.edges.iter().map(|e| e.id.clone()))
-            .collect()
+        self.zones.iter().map(|z| z.id.clone()).chain(self.nodes.iter().map(|n| n.id.clone())).chain(self.edges.iter().map(|e| e.id.clone())).collect()
     }
     pub fn node(&self, id: &str) -> Option<&Node> {
         self.nodes.iter().find(|n| n.id == id)

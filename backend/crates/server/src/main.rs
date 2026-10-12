@@ -5,8 +5,29 @@ use std::sync::atomic::Ordering;
 use std::time::Duration;
 use tracing_subscriber::EnvFilter;
 
+/// `infra-architect healthcheck`: GET /readyz on the local port, exit code 0 when ready. The runtime
+/// image has no curl, so container and Kubernetes probes can use this instead.
+fn healthcheck() -> ! {
+    use std::io::{Read, Write};
+    let port = std::env::var("PORT").unwrap_or_else(|_| "8080".into());
+    let ok = (|| -> std::io::Result<bool> {
+        let addr: SocketAddr = format!("127.0.0.1:{port}").parse().map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidInput, e))?;
+        let mut s = std::net::TcpStream::connect_timeout(&addr, Duration::from_secs(2))?;
+        s.set_read_timeout(Some(Duration::from_secs(3)))?;
+        s.write_all(b"GET /readyz HTTP/1.0\r\nHost: localhost\r\n\r\n")?;
+        let mut head = [0u8; 16];
+        let n = s.read(&mut head)?;
+        Ok(head[..n].starts_with(b"HTTP/1.1 200") || head[..n].starts_with(b"HTTP/1.0 200"))
+    })()
+    .unwrap_or(false);
+    std::process::exit(if ok { 0 } else { 1 })
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    if std::env::args().nth(1).as_deref() == Some("healthcheck") {
+        healthcheck();
+    }
     let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info,sqlx=warn,tower_http=info,hyper=warn"));
     let json = std::env::var("LOG_JSON").map(|v| matches!(v.as_str(), "1" | "true")).unwrap_or(std::env::var("APP_ENV").map(|v| v != "development").unwrap_or(true));
     if json {

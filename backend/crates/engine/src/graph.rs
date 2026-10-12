@@ -1,7 +1,7 @@
 //! Derived, read-only view of an [`Architecture`]: units (logical services), failure domains,
 //! adjacency, dependency order and cycles. Built once per evaluation.
 
-use crate::catalog::{Behavior, Catalog, Eff, EdgeTypeDef, KindDef, Semantics, ZoneLevel};
+use crate::catalog::{Behavior, Catalog, EdgeTypeDef, Eff, KindDef, Semantics, ZoneLevel};
 use crate::config::EngineSettings;
 use crate::model::{Architecture, PropsExt};
 use std::collections::{BTreeSet, HashMap};
@@ -64,15 +64,8 @@ impl<'a> Index<'a> {
         let zone_ix: HashMap<&str, usize> = arch.zones.iter().enumerate().map(|(i, z)| (z.id.as_str(), i)).collect();
 
         let kind: Vec<Option<&KindDef>> = arch.nodes.iter().map(|n| cat.kind(&n.kind)).collect();
-        let eff: Vec<Eff> = arch
-            .nodes
-            .iter()
-            .map(|n| Eff::build(cat.default_props(&n.kind), &n.props))
-            .collect();
-        let traits: Vec<BTreeSet<String>> = kind
-            .iter()
-            .map(|k| k.map(|k| k.traits.iter().cloned().collect()).unwrap_or_default())
-            .collect();
+        let eff: Vec<Eff> = arch.nodes.iter().map(|n| Eff::build(cat.default_props(&n.kind), &n.props)).collect();
+        let traits: Vec<BTreeSet<String>> = kind.iter().map(|k| k.map(|k| k.traits.iter().cloned().collect()).unwrap_or_default()).collect();
 
         // Units
         let mut units: Vec<Unit> = Vec::new();
@@ -81,14 +74,7 @@ impl<'a> Index<'a> {
         for (i, n) in arch.nodes.iter().enumerate() {
             let key = n.group.clone().filter(|g| !g.is_empty()).unwrap_or_else(|| n.id.clone());
             let ui = *unit_ix.entry(key.clone()).or_insert_with(|| {
-                units.push(Unit {
-                    key: key.clone(),
-                    members: vec![],
-                    behavior: kind[i].map(|k| k.behavior).unwrap_or_default(),
-                    traits: BTreeSet::new(),
-                    kind: n.kind.clone(),
-                    name: n.name.clone(),
-                });
+                units.push(Unit { key: key.clone(), members: vec![], behavior: kind[i].map(|k| k.behavior).unwrap_or_default(), traits: BTreeSet::new(), kind: n.kind.clone(), name: n.name.clone() });
                 units.len() - 1
             });
             units[ui].members.push(i);
@@ -99,9 +85,7 @@ impl<'a> Index<'a> {
         }
 
         // Zone chains / sites / geo
-        let parent_of = |zi: usize| -> Option<usize> {
-            arch.zones[zi].parent_id.as_deref().and_then(|p| zone_ix.get(p).copied())
-        };
+        let parent_of = |zi: usize| -> Option<usize> { arch.zones[zi].parent_id.as_deref().and_then(|p| zone_ix.get(p).copied()) };
         let chain_of = |start: usize| -> Vec<usize> {
             let mut out = vec![start];
             let mut cur = start;
@@ -116,9 +100,7 @@ impl<'a> Index<'a> {
             }
             out
         };
-        let level_of = |zi: usize| -> ZoneLevel {
-            cat.zone_type(&arch.zones[zi].zone_type).map(|t| t.level).unwrap_or(ZoneLevel::Group)
-        };
+        let level_of = |zi: usize| -> ZoneLevel { cat.zone_type(&arch.zones[zi].zone_type).map(|t| t.level).unwrap_or(ZoneLevel::Group) };
 
         let mut zone_chain: Vec<Vec<usize>> = Vec::with_capacity(arch.nodes.len());
         let mut site_of: Vec<Option<usize>> = Vec::with_capacity(arch.nodes.len());
@@ -134,18 +116,9 @@ impl<'a> Index<'a> {
                 Some(zi) => {
                     let chain = chain_of(zi);
                     // site = nearest Site-level zone; else nearest Geo-level; else the zone itself
-                    let site = chain
-                        .iter()
-                        .copied()
-                        .find(|&c| level_of(c) == ZoneLevel::Site)
-                        .or_else(|| chain.iter().copied().find(|&c| level_of(c) == ZoneLevel::Geo))
-                        .unwrap_or(zi);
+                    let site = chain.iter().copied().find(|&c| level_of(c) == ZoneLevel::Site).or_else(|| chain.iter().copied().find(|&c| level_of(c) == ZoneLevel::Geo)).unwrap_or(zi);
                     // innermost explicit `geo` prop wins; otherwise the nearest geo-level zone
-                    let geo = chain.iter().copied().find_map(|c| {
-                        arch.zones[c].props.text("geo").or_else(|| {
-                            if level_of(c) == ZoneLevel::Geo { Some(arch.zones[c].id.clone()) } else { None }
-                        })
-                    });
+                    let geo = chain.iter().copied().find_map(|c| arch.zones[c].props.text("geo").or_else(|| if level_of(c) == ZoneLevel::Geo { Some(arch.zones[c].id.clone()) } else { None }));
                     zone_chain.push(chain);
                     site_of.push(Some(site));
                     geo_of.push(geo);
@@ -360,10 +333,7 @@ impl<'a> Index<'a> {
     }
 
     pub fn zone_level(&self, zi: usize) -> ZoneLevel {
-        self.cat
-            .zone_type(&self.arch.zones[zi].zone_type)
-            .map(|t| t.level)
-            .unwrap_or(ZoneLevel::Group)
+        self.cat.zone_type(&self.arch.zones[zi].zone_type).map(|t| t.level).unwrap_or(ZoneLevel::Group)
     }
 
     /// All site zone indices that host at least one node.

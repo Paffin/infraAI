@@ -23,7 +23,15 @@ fn main() {
     let rep = evaluate(&arch, &cfg, &[]);
     println!(
         "score {} (coverage {:.0}%)  critical {}  risk {}  no_data {}  ok {}  n/a {}  cost {} {}",
-        rep.score.value, rep.score.coverage * 100.0, rep.counts.critical, rep.counts.risk, rep.counts.no_data, rep.counts.ok, rep.counts.na, rep.cost.total, rep.cost.symbol
+        rep.score.value,
+        rep.score.coverage * 100.0,
+        rep.counts.critical,
+        rep.counts.risk,
+        rep.counts.no_data,
+        rep.counts.ok,
+        rep.counts.na,
+        rep.cost.total,
+        rep.cost.symbol
     );
     for o in &rep.objectives {
         println!("  objective {:<10} {:?}  required={:?} actual={:?}", o.id, o.status, o.required, o.actual);
@@ -37,6 +45,17 @@ fn main() {
     }
     println!("scenarios:");
     for s in &rep.scenarios {
-        println!("  {:<40} {:?} recovery={:?}/{:?} rpo={:?}{} cap={:?}{}{}", s.failed.join(", "), s.state, s.recovery_kind, s.recovery_seconds, s.rpo_seconds, if s.rpo_assumed { "*" } else { "" }, s.capacity_ratio.map(|c| (c * 100.0).round() / 100.0), if s.split_brain { " SPLIT-BRAIN" } else { "" }, if s.data_lost { " DATA-LOST" } else { "" });
+        println!(
+            "  {:<40} {:?} recovery={:?}/{:?} rpo={:?}{} cap={:?}{}{}",
+            s.failed.join(", "),
+            s.state,
+            s.recovery_kind,
+            s.recovery_seconds,
+            s.rpo_seconds,
+            if s.rpo_assumed { "*" } else { "" },
+            s.capacity_ratio.map(|c| (c * 100.0).round() / 100.0),
+            if s.split_brain { " SPLIT-BRAIN" } else { "" },
+            if s.data_lost { " DATA-LOST" } else { "" }
+        );
     }
 }

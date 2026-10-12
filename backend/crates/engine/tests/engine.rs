@@ -182,7 +182,8 @@ fn single_vm_app() -> Architecture {
             {"id":"e2","source":"app","target":"db","type":"traffic"},
             {"id":"e3","source":"users","target":"db","type":"traffic"}
         ]
-    })).unwrap()
+    }))
+    .unwrap()
 }
 
 #[test]
@@ -233,7 +234,8 @@ fn two_node_db_no_arbiter() -> Architecture {
             {"id":"e4","source":"app2","target":"r","type":"traffic"},
             {"id":"e5","source":"p","target":"r","type":"sync","props":{"latencyMs":1.0,"latencyMeasured":true}}
         ]
-    })).unwrap()
+    }))
+    .unwrap()
 }
 
 #[test]
@@ -391,7 +393,8 @@ fn ops_roundtrip_through_json() {
     let ops: Vec<Op> = serde_json::from_value(json!([
         {"op":"update_node","id":"app-dc1","set":{"props.replicas":40}},
         {"op":"set_requirements","set":{"rpsPeak":9000}}
-    ])).unwrap();
+    ]))
+    .unwrap();
     let c = cfg();
     let a = template("two-dc-witness");
     let out = apply_ops(&a, &ops, &c.catalog, &Default::default()).unwrap();
@@ -438,4 +441,28 @@ fn hcl_strings_are_escaped() {
     assert!(main.contains("$${jndi"), "template interpolation must be escaped: {main}");
     assert!(!main.contains("\"${") && !main.contains(" ${jndi"));
     assert!(main.contains("%%{ if }"));
+}
+
+#[test]
+fn data_lost_for_good_breaks_the_rpo_objective_and_a_backup_removes_the_loss() {
+    // two sites, the database lives in one of them with neither a replica nor a backup
+    let mut a = template("two-dc-witness");
+    a.nodes.retain(|n| n.id != "pg-replica");
+    a.edges.retain(|e| e.source != "pg-replica" && e.target != "pg-replica");
+    let before = evaluate(&a, &cfg(), &[]);
+    let rpo = before.objectives.iter().find(|o| o.id == "rpo").unwrap();
+    assert_eq!(rpo.status, Status::Critical, "RPO tile must not be green while the data is gone");
+    let f = findings_of(&before, "DR-RPO-01");
+    assert!(f.iter().any(|f| f.id.ends_with(":lost")), "{f:?}");
+    let rule = cfg().rules.iter().find(|r| r.id == "DR-RPO-01").unwrap().clone();
+    assert!(engine::evaluate::render_message(&rule, f[0], "ru").contains("безвозвратно"));
+
+    // attaching the existing backup storage turns "lost for good" into "restore from backup": the
+    // data-loss finding goes away and the number of critical findings does not grow (the restore
+    // time may now violate the RTO, which the engine reports honestly)
+    let fix = before.findings.iter().flat_map(|f| f.fixes.iter()).find(|x| x.kind == "add_backup").expect("backup fix");
+    let fixed = engine::ops::apply_ops(&a, &fix.ops, &cfg().catalog, &Default::default()).unwrap().architecture;
+    let after = evaluate(&fixed, &cfg(), &[]);
+    assert!(!findings_of(&after, "DR-RPO-01").iter().any(|f| f.id.ends_with(":lost")));
+    assert!(after.counts.critical <= before.counts.critical, "critical {} -> {}", before.counts.critical, after.counts.critical);
 }

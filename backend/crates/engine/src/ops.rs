@@ -79,12 +79,7 @@ impl std::fmt::Display for ApplyError {
 impl std::error::Error for ApplyError {}
 
 fn op_err(idx: usize, msg: String) -> Issue {
-    Issue {
-        level: IssueLevel::Error,
-        code: "op_failed".into(),
-        message: format!("op #{}: {}", idx, msg),
-        subject: None,
-    }
+    Issue { level: IssueLevel::Error, code: "op_failed".into(), message: format!("op #{}: {}", idx, msg), subject: None }
 }
 
 fn set_props(props: &mut Props, key: &str, value: &Value) {
@@ -111,12 +106,7 @@ fn req_str(v: &Value) -> Result<String, String> {
 }
 
 /// Apply operations atomically. Either all succeed and the result validates, or nothing changes.
-pub fn apply_ops(
-    base: &Architecture,
-    ops: &[Op],
-    cat: &Catalog,
-    limits: &ValidationLimits,
-) -> Result<ApplyOutcome, ApplyError> {
+pub fn apply_ops(base: &Architecture, ops: &[Op], cat: &Catalog, limits: &ValidationLimits) -> Result<ApplyOutcome, ApplyError> {
     let mut a = base.clone();
     let mut issues: Vec<Issue> = Vec::new();
     let mut cascaded: Vec<String> = Vec::new();
@@ -169,23 +159,14 @@ pub fn apply_ops(
                             break;
                         }
                     }
-                    let has_children = a.zones.iter().any(|z| doomed.contains(&z.id) && z.id != id)
-                        || a.nodes.iter().any(|n| n.zone_id.as_ref().map(|z| doomed.contains(z)).unwrap_or(false));
+                    let has_children = a.zones.iter().any(|z| doomed.contains(&z.id) && z.id != id) || a.nodes.iter().any(|n| n.zone_id.as_ref().map(|z| doomed.contains(z)).unwrap_or(false));
                     if has_children && !cascade {
                         return Err(format!("zone '{}' is not empty (use cascade or remove its contents first)", id));
                     }
-                    let doomed_nodes: HashSet<String> = a
-                        .nodes
-                        .iter()
-                        .filter(|n| n.zone_id.as_ref().map(|z| doomed.contains(z)).unwrap_or(false))
-                        .map(|n| n.id.clone())
-                        .collect();
+                    let doomed_nodes: HashSet<String> = a.nodes.iter().filter(|n| n.zone_id.as_ref().map(|z| doomed.contains(z)).unwrap_or(false)).map(|n| n.id.clone()).collect();
                     a.zones.retain(|z| !doomed.contains(&z.id));
                     a.nodes.retain(|n| !doomed_nodes.contains(&n.id));
-                    let (keep, drop): (Vec<_>, Vec<_>) = a
-                        .edges
-                        .drain(..)
-                        .partition(|e| !doomed_nodes.contains(&e.source) && !doomed_nodes.contains(&e.target));
+                    let (keep, drop): (Vec<_>, Vec<_>) = a.edges.drain(..).partition(|e| !doomed_nodes.contains(&e.source) && !doomed_nodes.contains(&e.target));
                     cascaded.extend(drop.into_iter().map(|e| e.id));
                     a.edges = keep;
                 }
@@ -226,8 +207,7 @@ pub fn apply_ops(
                         return Err(format!("node '{}' not found", id));
                     }
                     a.nodes.retain(|n| n.id != id);
-                    let (keep, drop): (Vec<_>, Vec<_>) =
-                        a.edges.drain(..).partition(|e| e.source != id && e.target != id);
+                    let (keep, drop): (Vec<_>, Vec<_>) = a.edges.drain(..).partition(|e| e.source != id && e.target != id);
                     cascaded.extend(drop.into_iter().map(|e| e.id));
                     a.edges = keep;
                 }
@@ -345,10 +325,7 @@ pub struct ArchDiff {
 
 impl ArchDiff {
     pub fn is_empty(&self) -> bool {
-        self.requirements.is_empty()
-            && self.zones.is_empty()
-            && self.nodes.is_empty()
-            && self.edges.is_empty()
+        self.requirements.is_empty() && self.zones.is_empty() && self.nodes.is_empty() && self.edges.is_empty()
     }
     pub fn counts(&self) -> Value {
         json!({
@@ -401,13 +378,7 @@ fn changes_between(a: &Value, b: &Value, ignore_ui: bool) -> Vec<Change> {
     out
 }
 
-fn diff_entities<T: Serialize>(
-    old: &[T],
-    new: &[T],
-    id_of: impl Fn(&T) -> &str,
-    name_of: impl Fn(&T) -> String,
-    ignore_ui: bool,
-) -> EntityDiff {
+fn diff_entities<T: Serialize>(old: &[T], new: &[T], id_of: impl Fn(&T) -> &str, name_of: impl Fn(&T) -> String, ignore_ui: bool) -> EntityDiff {
     let mut d = EntityDiff::default();
     let omap: BTreeMap<&str, &T> = old.iter().map(|x| (id_of(x), x)).collect();
     let nmap: BTreeMap<&str, &T> = new.iter().map(|x| (id_of(x), x)).collect();
@@ -420,11 +391,7 @@ fn diff_entities<T: Serialize>(
         match nmap.get(id_of(x)) {
             None => d.removed.push(EntityRef { id: id_of(x).into(), name: name_of(x) }),
             Some(y) => {
-                let ch = changes_between(
-                    &serde_json::to_value(x).unwrap_or(Value::Null),
-                    &serde_json::to_value(y).unwrap_or(Value::Null),
-                    ignore_ui,
-                );
+                let ch = changes_between(&serde_json::to_value(x).unwrap_or(Value::Null), &serde_json::to_value(y).unwrap_or(Value::Null), ignore_ui);
                 if !ch.is_empty() {
                     d.changed.push(EntityChange { id: id_of(x).into(), name: name_of(y), changes: ch });
                 }
@@ -438,20 +405,10 @@ fn diff_entities<T: Serialize>(
 /// `include_ui` is set – moving a card is not an architectural change.
 pub fn diff(old: &Architecture, new: &Architecture, include_ui: bool) -> ArchDiff {
     ArchDiff {
-        requirements: changes_between(
-            &serde_json::to_value(&old.requirements).unwrap_or(Value::Null),
-            &serde_json::to_value(&new.requirements).unwrap_or(Value::Null),
-            false,
-        ),
+        requirements: changes_between(&serde_json::to_value(&old.requirements).unwrap_or(Value::Null), &serde_json::to_value(&new.requirements).unwrap_or(Value::Null), false),
         zones: diff_entities(&old.zones, &new.zones, |z| z.id.as_str(), |z| z.name.clone(), !include_ui),
         nodes: diff_entities(&old.nodes, &new.nodes, |n| n.id.as_str(), |n| n.name.clone(), !include_ui),
-        edges: diff_entities(
-            &old.edges,
-            &new.edges,
-            |e| e.id.as_str(),
-            |e| e.label.clone().unwrap_or_else(|| format!("{} → {}", e.source, e.target)),
-            !include_ui,
-        ),
+        edges: diff_entities(&old.edges, &new.edges, |e| e.id.as_str(), |e| e.label.clone().unwrap_or_else(|| format!("{} → {}", e.source, e.target)), !include_ui),
     }
 }
 
@@ -461,11 +418,7 @@ mod tests {
     use crate::defaults;
 
     fn base() -> Architecture {
-        defaults::templates()
-            .into_iter()
-            .next()
-            .expect("at least one template")
-            .architecture
+        defaults::templates().into_iter().next().expect("at least one template").architecture
     }
 
     #[test]
@@ -473,10 +426,7 @@ mod tests {
         let cat = defaults::catalog();
         let a = base();
         let n_before = a.nodes.len();
-        let bad = vec![
-            Op::RemoveNode { id: a.nodes[0].id.clone() },
-            Op::RemoveNode { id: "does-not-exist".into() },
-        ];
+        let bad = vec![Op::RemoveNode { id: a.nodes[0].id.clone() }, Op::RemoveNode { id: "does-not-exist".into() }];
         assert!(apply_ops(&a, &bad, &cat, &ValidationLimits::default()).is_err());
         assert_eq!(a.nodes.len(), n_before);
     }

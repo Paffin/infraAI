@@ -214,6 +214,10 @@
     "ru": "Трафик",
     "en": "Traffic"
    },
+   "short": {
+    "ru": "трафик",
+    "en": "traffic"
+   },
    "style": {
     "color": "#14171f",
     "width": 1.6
@@ -290,6 +294,10 @@
    "name": {
     "ru": "Синхронная репликация",
     "en": "Synchronous replication"
+   },
+   "short": {
+    "ru": "sync-репл.",
+    "en": "sync repl."
    },
    "style": {
     "color": "#1f9d55",
@@ -381,6 +389,10 @@
     "ru": "Асинхронная репликация",
     "en": "Asynchronous replication"
    },
+   "short": {
+    "ru": "async",
+    "en": "async"
+   },
    "style": {
     "color": "#e08a00",
     "dash": "6 4",
@@ -469,6 +481,10 @@
     "ru": "Кворум",
     "en": "Quorum"
    },
+   "short": {
+    "ru": "кворум",
+    "en": "quorum"
+   },
    "style": {
     "color": "#7a42d7",
     "dash": "2 5",
@@ -514,6 +530,10 @@
     "ru": "Резервное копирование",
     "en": "Backup"
    },
+   "short": {
+    "ru": "бэкап",
+    "en": "backup"
+   },
    "style": {
     "color": "#7c8594",
     "dash": "8 5",
@@ -548,6 +568,10 @@
    "name": {
     "ru": "Управление / наблюдаемость",
     "en": "Control / observability"
+   },
+   "short": {
+    "ru": "управление",
+    "en": "control"
    },
    "style": {
     "color": "#3b82f6",

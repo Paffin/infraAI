@@ -92,10 +92,7 @@ fn p_bool(rule: &Rule, key: &str) -> Option<bool> {
     p(rule, key).and_then(as_bool)
 }
 fn p_vec(rule: &Rule, key: &str) -> Vec<String> {
-    p(rule, key)
-        .and_then(|v| v.as_array())
-        .map(|a| a.iter().filter_map(as_string).collect())
-        .unwrap_or_default()
+    p(rule, key).and_then(|v| v.as_array()).map(|a| a.iter().filter_map(as_string).collect()).unwrap_or_default()
 }
 fn sev(rule: &Rule) -> Status {
     match rule.severity {
@@ -105,13 +102,7 @@ fn sev(rule: &Rule) -> Status {
 }
 
 pub fn tolerance(ctx: &Ctx<'_>) -> String {
-    ctx.ix
-        .arch
-        .requirements
-        .failure_tolerance
-        .clone()
-        .filter(|s| !s.is_empty())
-        .unwrap_or_else(|| ctx.cfg.settings.assumptions.default_failure_tolerance.clone())
+    ctx.ix.arch.requirements.failure_tolerance.clone().filter(|s| !s.is_empty()).unwrap_or_else(|| ctx.cfg.settings.assumptions.default_failure_tolerance.clone())
 }
 
 fn tol_rank(s: &str) -> u8 {
@@ -128,11 +119,7 @@ pub fn site_scenarios(ctx: &Ctx<'_>) -> Vec<Scenario> {
     if tol_rank(&tolerance(ctx)) == 0 {
         return vec![];
     }
-    ctx.ix
-        .sites()
-        .into_iter()
-        .map(|s| Scenario::Zone { zone_id: ctx.ix.arch.zones[s].id.clone() })
-        .collect()
+    ctx.ix.sites().into_iter().map(|s| Scenario::Zone { zone_id: ctx.ix.arch.zones[s].id.clone() }).collect()
 }
 
 fn link_scenarios(ctx: &Ctx<'_>) -> Vec<Scenario> {
@@ -148,10 +135,7 @@ fn geo_scenarios(ctx: &Ctx<'_>) -> Vec<(String, Scenario)> {
     geos.dedup();
     geos.into_iter()
         .map(|g| {
-            let mut ss: Vec<usize> = (0..ix.arch.nodes.len())
-                .filter(|&n| ix.geo_of[n].as_deref() == Some(g.as_str()))
-                .filter_map(|n| ix.site_of[n])
-                .collect();
+            let mut ss: Vec<usize> = (0..ix.arch.nodes.len()).filter(|&n| ix.geo_of[n].as_deref() == Some(g.as_str())).filter_map(|n| ix.site_of[n]).collect();
             ss.sort_unstable();
             ss.dedup();
             if ss.len() == 1 {
@@ -199,11 +183,7 @@ fn data_members(ctx: &Ctx<'_>, u: usize) -> Vec<usize> {
 
 fn primary_of(ctx: &Ctx<'_>, u: usize) -> usize {
     let ms = &ctx.ix.units[u].members;
-    ms.iter()
-        .copied()
-        .find(|&m| ctx.ix.arch.nodes[m].role.as_deref() == Some("primary"))
-        .or_else(|| ms.iter().copied().find(|&m| !ctx.ix.is_witness(m)))
-        .unwrap_or(ms[0])
+    ms.iter().copied().find(|&m| ctx.ix.arch.nodes[m].role.as_deref() == Some("primary")).or_else(|| ms.iter().copied().find(|&m| !ctx.ix.is_witness(m))).unwrap_or(ms[0])
 }
 
 fn nid(ctx: &Ctx<'_>, ni: usize) -> String {
@@ -232,12 +212,7 @@ fn set_prop_fix(ctx: &Ctx<'_>, ni: usize, key: &str, value: Value, kind: &str, v
     v.insert("node".into(), json!(n.name));
     v.insert("key".into(), json!(key));
     v.insert("value".into(), value.clone());
-    Fix {
-        id: format!("{}:{}:{}", kind, n.id, key),
-        kind: kind.to_string(),
-        vars: v,
-        ops: vec![update_node(&n.id, vec![(&format!("props.{}", key), value)])],
-    }
+    Fix { id: format!("{}:{}:{}", kind, n.id, key), kind: kind.to_string(), vars: v, ops: vec![update_node(&n.id, vec![(&format!("props.{}", key), value)])] }
 }
 
 fn used_ids(ctx: &Ctx<'_>, extra: &[String]) -> HashSet<String> {
@@ -252,18 +227,10 @@ fn used_ids(ctx: &Ctx<'_>, extra: &[String]) -> HashSet<String> {
 fn candidate_sites(ctx: &Ctx<'_>, u: usize) -> Vec<usize> {
     let ix = &ctx.ix;
     let used: Vec<usize> = ix.unit_sites(u);
-    let used_geo: BTreeSet<String> = ix.units[u]
-        .members
-        .iter()
-        .filter_map(|&m| ix.geo_of[m].clone())
-        .collect();
-    let mut c: Vec<usize> = (0..ix.arch.zones.len())
-        .filter(|&zi| ix.zone_level(zi) == ZoneLevel::Site && !used.contains(&zi))
-        .collect();
+    let used_geo: BTreeSet<String> = ix.units[u].members.iter().filter_map(|&m| ix.geo_of[m].clone()).collect();
+    let mut c: Vec<usize> = (0..ix.arch.zones.len()).filter(|&zi| ix.zone_level(zi) == ZoneLevel::Site && !used.contains(&zi)).collect();
     let geo_of_zone = |zi: usize| -> Option<String> {
-        ix.arch.zones[zi].props.get("geo").and_then(as_string).or_else(|| {
-            ix.arch.nodes.iter().enumerate().find(|(ni, _)| ix.site_of[*ni] == Some(zi)).and_then(|(ni, _)| ix.geo_of[ni].clone())
-        })
+        ix.arch.zones[zi].props.get("geo").and_then(as_string).or_else(|| ix.arch.nodes.iter().enumerate().find(|(ni, _)| ix.site_of[*ni] == Some(zi)).and_then(|(ni, _)| ix.geo_of[ni].clone()))
     };
     c.sort_by_key(|&zi| {
         let g = geo_of_zone(zi);
@@ -309,9 +276,7 @@ fn add_member_fix(ctx: &Ctx<'_>, u: usize) -> Option<Fix> {
         let sync_ok = false; // never assume a measured RTT: default to async unless the architect upgrades it
         let etype = if rpo0 && sync_ok { "sync" } else { "async" };
         let eid = unique_id(&format!("e-{}--{}", tn.id, new_id), &ids);
-        ops.push(Op::AddEdge {
-            edge: Edge { id: eid, source: tn.id.clone(), target: new_id.clone(), edge_type: etype.into(), label: None, props: Props::new() },
-        });
+        ops.push(Op::AddEdge { edge: Edge { id: eid, source: tn.id.clone(), target: new_id.clone(), edge_type: etype.into(), label: None, props: Props::new() } });
     } else {
         // stateless clone: mirror dependency/control edges of the template member
         for &ei in ix.in_edges[t].iter().chain(ix.out_edges[t].iter()) {
@@ -375,9 +340,7 @@ fn add_backup_fix(ctx: &Ctx<'_>, u: usize) -> Option<Fix> {
     let mut ops = Vec::new();
     let mut ids = used_ids(ctx, &[]);
     // reuse an existing backup target that is outside the unit's sites
-    let existing = (0..ix.arch.nodes.len()).find(|&ni| {
-        ix.has_trait(ni, "backup-target") && ix.site_of[ni].map(|s| !ix.unit_sites(u).contains(&s)).unwrap_or(true)
-    });
+    let existing = (0..ix.arch.nodes.len()).find(|&ni| ix.has_trait(ni, "backup-target") && ix.site_of[ni].map(|s| !ix.unit_sites(u).contains(&s)).unwrap_or(true));
     let (target_id, zone_label) = if let Some(ni) = existing {
         (ix.arch.nodes[ni].id.clone(), ix.site_of[ni].map(|s| zone_name(ctx, s).to_string()).unwrap_or_default())
     } else {
@@ -490,14 +453,7 @@ fn spof(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
             } else {
                 add_member_fix(ctx, u)
             };
-            out.push(
-                Raw::new(&n.id, status_for(rule))
-                    .var("node", n.name.clone())
-                    .var("reason", r.down_units.join(", "))
-                    .node(&n.id)
-                    .scenario(sc)
-                    .fix(fixf),
-            );
+            out.push(Raw::new(&n.id, status_for(rule)).var("node", n.name.clone()).var("reason", r.down_units.join(", ")).node(&n.id).scenario(sc).fix(fixf));
         }
     }
     CheckOut::found(out)
@@ -518,11 +474,7 @@ fn survive_site(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
         if r.state == ServiceState::Down && r.recovery.kind == RecoveryKind::Never {
             let Scenario::Zone { zone_id } = &sc else { continue };
             let zi = ctx.ix.zone_ix[zone_id.as_str()];
-            let mut raw = Raw::new(zone_id, sev(rule))
-                .var("zone", zone_name(ctx, zi))
-                .var("reason", r.down_units.join(", "))
-                .zone(zone_id)
-                .scenario(sc.clone());
+            let mut raw = Raw::new(zone_id, sev(rule)).var("zone", zone_name(ctx, zi)).var("reason", r.down_units.join(", ")).zone(zone_id).scenario(sc.clone());
             for u in &r.down_units {
                 if let Some(ui) = ctx.ix.units.iter().position(|x| &x.name == u) {
                     for &m in &ctx.ix.units[ui].members {
@@ -531,11 +483,7 @@ fn survive_site(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
                 }
             }
             // remedy: give the first single-site unit that is down a member elsewhere
-            let fixf = r
-                .down_units
-                .iter()
-                .filter_map(|name| ctx.ix.units.iter().position(|x| &x.name == name))
-                .find_map(|ui| add_member_fix(ctx, ui));
+            let fixf = r.down_units.iter().filter_map(|name| ctx.ix.units.iter().position(|x| &x.name == name)).find_map(|ui| add_member_fix(ctx, ui));
             out.push(raw.fix(fixf));
         }
     }
@@ -575,6 +523,11 @@ fn rto(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
     CheckOut::found(out)
 }
 
+/// Display names of data-lost units that are not excluded from the RPO rule (by trait).
+pub(crate) fn lost_units(ctx: &Ctx<'_>, data_lost: &[String], excl: &[String]) -> Vec<String> {
+    data_lost.iter().filter_map(|key| ctx.ix.units.iter().find(|u| &u.key == key)).filter(|u| !excl.iter().any(|t| u.traits.contains(t))).map(|u| u.name.clone()).collect()
+}
+
 fn rpo(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
     let scs = site_scenarios(ctx);
     if scs.is_empty() {
@@ -589,29 +542,16 @@ fn rpo(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
         let r = ctx.sim(&sc);
         let Scenario::Zone { zone_id } = &sc else { continue };
         let zi = ctx.ix.zone_ix[zone_id.as_str()];
+        let lost = lost_units(ctx, &r.data_lost, &excl);
+        if !lost.is_empty() {
+            out.push(Raw::new(format!("{}:lost", zone_id), sev(rule)).var("zone", zone_name(ctx, zi)).var("units", lost.join(", ")).zone(zone_id).scenario(sc.clone()));
+            continue;
+        }
         let (rpo, assumed) = crate::sim::rpo_filtered(&r.rpo_items, &excl);
         match rpo {
-            None => out.push(
-                Raw::new(format!("{}:unknown", zone_id), Status::NoData)
-                    .var("zone", zone_name(ctx, zi))
-                    .zone(zone_id)
-                    .scenario(sc.clone()),
-            ),
-            Some(v) if v > req => out.push(
-                Raw::new(zone_id, sev(rule))
-                    .var("zone", zone_name(ctx, zi))
-                    .var("seconds", v)
-                    .var("rpo", req)
-                    .zone(zone_id)
-                    .scenario(sc.clone()),
-            ),
-            Some(v) if assumed && v > 0.0 => out.push(
-                Raw::new(format!("{}:assumed", zone_id), Status::NoData)
-                    .var("zone", zone_name(ctx, zi))
-                    .var("seconds", v)
-                    .zone(zone_id)
-                    .scenario(sc.clone()),
-            ),
+            None => out.push(Raw::new(format!("{}:unknown", zone_id), Status::NoData).var("zone", zone_name(ctx, zi)).zone(zone_id).scenario(sc.clone())),
+            Some(v) if v > req => out.push(Raw::new(zone_id, sev(rule)).var("zone", zone_name(ctx, zi)).var("seconds", v).var("rpo", req).zone(zone_id).scenario(sc.clone())),
+            Some(v) if assumed && v > 0.0 => out.push(Raw::new(format!("{}:assumed", zone_id), Status::NoData).var("zone", zone_name(ctx, zi)).var("seconds", v).zone(zone_id).scenario(sc.clone())),
             _ => {}
         }
     }
@@ -730,14 +670,7 @@ fn partition_safety(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
             }
             out.push(raw);
         } else if r.state == ServiceState::Down && mode != "split_brain" {
-            out.push(
-                Raw::new(format!("{}|{}:down", a, b), sev(rule))
-                    .var("link", link)
-                    .var("reason", r.down_units.join(", "))
-                    .zone(a)
-                    .zone(b)
-                    .scenario(sc.clone()),
-            );
+            out.push(Raw::new(format!("{}|{}:down", a, b), sev(rule)).var("link", link).var("reason", r.down_units.join(", ")).zone(a).zone(b).scenario(sc.clone()));
         }
     }
     CheckOut::found(out)
@@ -783,7 +716,11 @@ fn min_instances(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
             out.push(raw.fix(f));
         }
     }
-    if any { CheckOut::found(out) } else { CheckOut::na() }
+    if any {
+        CheckOut::found(out)
+    } else {
+        CheckOut::na()
+    }
 }
 
 fn spread_sites(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
@@ -832,7 +769,11 @@ fn spread_sites(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
         }
         out.push(raw.fix(add_member_fix(ctx, u)));
     }
-    if any { CheckOut::found(out) } else { CheckOut::na() }
+    if any {
+        CheckOut::found(out)
+    } else {
+        CheckOut::na()
+    }
 }
 
 fn voting_units(ctx: &Ctx<'_>) -> Vec<usize> {
@@ -848,7 +789,11 @@ fn voting_units(ctx: &Ctx<'_>) -> Vec<usize> {
 
 fn vote_weight(ctx: &Ctx<'_>, u: usize, m: usize) -> f64 {
     let v = ctx.ix.eff[m].num("votes").unwrap_or(1.0);
-    if ctx.ix.units[u].behavior == Behavior::Consensus { v * ctx.ix.replicas(m) as f64 } else { v }
+    if ctx.ix.units[u].behavior == Behavior::Consensus {
+        v * ctx.ix.replicas(m) as f64
+    } else {
+        v
+    }
 }
 
 fn quorum_voters(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
@@ -909,17 +854,15 @@ fn witness_independent(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
         for w in witnesses {
             let Some(ws) = ix.site_of[w] else { continue };
             if data.iter().any(|&d| ix.site_of[d] == Some(ws)) {
-                out.push(
-                    Raw::new(nid(ctx, w), sev(rule))
-                        .var("node", ix.node_name(w))
-                        .var("zone", zone_name(ctx, ws))
-                        .node(&nid(ctx, w))
-                        .zone(&ix.arch.zones[ws].id),
-                );
+                out.push(Raw::new(nid(ctx, w), sev(rule)).var("node", ix.node_name(w)).var("zone", zone_name(ctx, ws)).node(&nid(ctx, w)).zone(&ix.arch.zones[ws].id));
             }
         }
     }
-    if any { CheckOut::found(out) } else { CheckOut::na() }
+    if any {
+        CheckOut::found(out)
+    } else {
+        CheckOut::na()
+    }
 }
 
 fn replication_policy(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
@@ -970,14 +913,7 @@ fn replication_policy(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
         if has_sync_peer && req == 0.0 {
             continue;
         }
-        let base = Raw::new(&e.id, Status::Risk)
-            .var("source", ix.node_name(s))
-            .var("target", ix.node_name(t))
-            .var("lag", lag)
-            .var("rpo", req)
-            .edge(&e.id)
-            .node(&nid(ctx, s))
-            .node(&nid(ctx, t));
+        let base = Raw::new(&e.id, Status::Risk).var("source", ix.node_name(s)).var("target", ix.node_name(t)).var("lag", lag).var("rpo", req).edge(&e.id).node(&nid(ctx, s)).node(&nid(ctx, t));
         if lag > req {
             let mut r = base;
             r.status = sev(rule);
@@ -1027,7 +963,11 @@ fn failover_authority(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
             out.push(raw);
         }
     }
-    if any { CheckOut::found(out) } else { CheckOut::na() }
+    if any {
+        CheckOut::found(out)
+    } else {
+        CheckOut::na()
+    }
 }
 
 fn has_backup_edge(ctx: &Ctx<'_>, u: usize) -> bool {
@@ -1069,7 +1009,11 @@ fn backup_exists(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
         }
         out.push(raw.fix(add_backup_fix(ctx, u)));
     }
-    if any { CheckOut::found(out) } else { CheckOut::na() }
+    if any {
+        CheckOut::found(out)
+    } else {
+        CheckOut::na()
+    }
 }
 
 fn backup_offsite(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
@@ -1085,15 +1029,7 @@ fn backup_offsite(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
         let (Some(a), Some(b)) = (ix.site_of[*s], ix.site_of[*t]) else { continue };
         any = true;
         let e = &ix.arch.edges[ei];
-        let base = |st: Status| {
-            Raw::new(&e.id, st)
-                .var("source", ix.node_name(*s))
-                .var("target", ix.node_name(*t))
-                .var("zone", zone_name(ctx, a))
-                .edge(&e.id)
-                .node(&nid(ctx, *s))
-                .node(&nid(ctx, *t))
-        };
+        let base = |st: Status| Raw::new(&e.id, st).var("source", ix.node_name(*s)).var("target", ix.node_name(*t)).var("zone", zone_name(ctx, a)).edge(&e.id).node(&nid(ctx, *s)).node(&nid(ctx, *t));
         if a == b {
             out.push(base(sev(rule)));
         } else if geo_tol {
@@ -1104,7 +1040,11 @@ fn backup_offsite(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
             }
         }
     }
-    if any { CheckOut::found(out) } else { CheckOut::na() }
+    if any {
+        CheckOut::found(out)
+    } else {
+        CheckOut::na()
+    }
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1213,17 +1153,13 @@ fn prop_check(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
                     continue;
                 }
                 let skip_roles = w_vec("excludeZoneRoles");
-                if !skip_roles.is_empty()
-                    && ix.zone_chain[ni].iter().any(|&zi| ix.arch.zones[zi].role.as_deref().map(|r| skip_roles.iter().any(|x| x == r)).unwrap_or(false))
-                {
+                if !skip_roles.is_empty() && ix.zone_chain[ni].iter().any(|&zi| ix.arch.zones[zi].role.as_deref().map(|r| skip_roles.iter().any(|x| x == r)).unwrap_or(false)) {
                     continue;
                 }
                 matched += 1;
                 let actual = ix.eff[ni].map.get(&key).cloned();
                 let declared = ix.eff[ni].is_declared(&key);
-                let mk = |st: Status| {
-                    Raw::new(format!("{}:{}", n.id, key), st).var("node", n.name.clone()).var("key", key.clone()).var("expected", expected.clone()).node(&n.id)
-                };
+                let mk = |st: Status| Raw::new(format!("{}:{}", n.id, key), st).var("node", n.name.clone()).var("key", key.clone()).var("expected", expected.clone()).node(&n.id);
                 if let Some(mut raw) = judge(actual, declared, n.id.clone(), &mk) {
                     // mechanical remedy when the expected literal is unambiguous
                     if raw.status != Status::NoData && matches!(op.as_str(), "eq" | "gte" | "lte") && !expected.is_null() {
@@ -1304,7 +1240,11 @@ fn prop_check(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
         }
         _ => return CheckOut::na(),
     }
-    if matched == 0 { CheckOut::na() } else { CheckOut::found(out) }
+    if matched == 0 {
+        CheckOut::na()
+    } else {
+        CheckOut::found(out)
+    }
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1321,7 +1261,11 @@ fn capacity(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
     let base = ctx.sim(&Scenario::None);
     let model_traits = {
         let v = p_vec(rule, "requireModelTraits");
-        if v.is_empty() { vec!["workload".to_string(), "datastore".to_string(), "balancer".to_string()] } else { v }
+        if v.is_empty() {
+            vec!["workload".to_string(), "datastore".to_string(), "balancer".to_string()]
+        } else {
+            v
+        }
     };
     let _ = rps;
     let mut out = vec![];
@@ -1519,15 +1463,12 @@ fn forbidden_edge(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
     for (ei, e) in ix.arch.edges.iter().enumerate() {
         let Some((s, t)) = ix.edge_ends[ei] else { continue };
         if ix.has_trait(s, &from) && ix.has_trait(t, &to) {
-            out.push(
-                Raw::new(&e.id, sev(rule))
-                    .var("source", ix.node_name(s))
-                    .var("target", ix.node_name(t))
-                    .edge(&e.id)
-                    .node(&nid(ctx, s))
-                    .node(&nid(ctx, t))
-                    .fix(Some(fix("remove_edge", &e.id, json!({"source": ix.node_name(s), "target": ix.node_name(t)}), vec![Op::RemoveEdge { id: e.id.clone() }]))),
-            );
+            out.push(Raw::new(&e.id, sev(rule)).var("source", ix.node_name(s)).var("target", ix.node_name(t)).edge(&e.id).node(&nid(ctx, s)).node(&nid(ctx, t)).fix(Some(fix(
+                "remove_edge",
+                &e.id,
+                json!({"source": ix.node_name(s), "target": ix.node_name(t)}),
+                vec![Op::RemoveEdge { id: e.id.clone() }],
+            ))));
         }
     }
     CheckOut::found(out)
@@ -1622,11 +1563,8 @@ fn group_hygiene(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
         if ix.has_trait(ni, "entry") || ix.has_trait(ni, "stateful") || ix.units[ix.unit_of[ni]].behavior != Behavior::Stateless {
             continue;
         }
-        let mut src: Vec<String> = ix.in_edges[ni]
-            .iter()
-            .filter(|&&ei| ix.sem(ei) == Some(Semantics::Dependency))
-            .filter_map(|&ei| ix.edge_ends[ei].map(|(s, _)| ix.units[ix.unit_of[s]].key.clone()))
-            .collect();
+        let mut src: Vec<String> =
+            ix.in_edges[ni].iter().filter(|&&ei| ix.sem(ei) == Some(Semantics::Dependency)).filter_map(|&ei| ix.edge_ends[ei].map(|(s, _)| ix.units[ix.unit_of[s]].key.clone())).collect();
         if src.is_empty() {
             continue;
         }
@@ -1681,5 +1619,9 @@ fn role_required(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
             out.push(raw);
         }
     }
-    if any { CheckOut::found(out) } else { CheckOut::na() }
+    if any {
+        CheckOut::found(out)
+    } else {
+        CheckOut::na()
+    }
 }

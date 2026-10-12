@@ -72,6 +72,7 @@ pub async fn bootstrap(State(state): State<AppState>, user: AuthUser, headers: H
             "defaultLanguage": cfg.settings.str("app.defaultLanguage"),
             "languages": cfg.settings.list("app.languages"),
             "theme": cfg.settings.get("ui.theme"),
+            "quickPrompts": cfg.settings.get("ui.quickPrompts"),
         },
         "catalog": cfg.catalog,
         "rules": cfg.rules,

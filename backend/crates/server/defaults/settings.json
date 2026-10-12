@@ -75,6 +75,51 @@
   }
  },
  {
+  "key": "ui.quickPrompts",
+  "group": "general",
+  "type": "json",
+  "default": [
+   {
+    "label": {
+     "ru": "+ Добавить кэш",
+     "en": "+ Add a cache"
+    },
+    "prompt": {
+     "ru": "Добавь кэш перед базой данных, сохранив отказоустойчивость на уровне площадки",
+     "en": "Add a cache in front of the database while keeping site-level fault tolerance"
+    }
+   },
+   {
+    "label": {
+     "ru": "Сделать multi-region",
+     "en": "Make it multi-region"
+    },
+    "prompt": {
+     "ru": "Сделай схему multi-region: вынеси данные и трафик в два региона и добавь аварийное переключение",
+     "en": "Make the architecture multi-region: spread data and traffic over two regions and add disaster failover"
+    }
+   },
+   {
+    "label": {
+     "ru": "Удешевить",
+     "en": "Cut cost"
+    },
+    "prompt": {
+     "ru": "Удешеви схему, не нарушая требований по RTO/RPO и отказоустойчивости",
+     "en": "Reduce the cost without violating the RTO/RPO and fault-tolerance requirements"
+    }
+   }
+  ],
+  "label": {
+   "ru": "Быстрые подсказки в строке запроса",
+   "en": "Quick prompts in the prompt bar"
+  },
+  "help": {
+   "ru": "Массив {\"label\": …, \"prompt\": …} (тексты — строка или {ru, en}). Показываются кнопками справа от строки запроса.",
+   "en": "Array of {\"label\": …, \"prompt\": …} (texts are a string or {ru, en}). Shown as buttons next to the prompt bar."
+  }
+ },
+ {
   "key": "auth.sessionTtlHours",
   "group": "auth",
   "type": "number",

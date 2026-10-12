@@ -157,7 +157,13 @@ impl Settings {
                     let set_db = self.is_from_db(&d.key) && !self.str(&d.key).is_empty();
                     o["value"] = Value::Null;
                     o["secretSet"] = json!(set_db);
-                    o["secretSource"] = json!(if set_db { "database" } else if env_secret_present(&d.key) { "environment" } else { "none" });
+                    o["secretSource"] = json!(if set_db {
+                        "database"
+                    } else if env_secret_present(&d.key) {
+                        "environment"
+                    } else {
+                        "none"
+                    });
                 } else {
                     o["value"] = self.get(&d.key);
                     o["modified"] = json!(self.is_from_db(&d.key));

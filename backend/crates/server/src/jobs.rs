@@ -61,13 +61,14 @@ impl Progress {
 }
 
 async fn run_job(state: AppState, job_id: Uuid) {
-    let row: Option<(Uuid, Option<Uuid>, Option<Uuid>, String, Value, String)> =
-        sqlx::query_as("update ai_jobs set status = 'running', started_at = now(), heartbeat_at = now(), instance = $2 where id = $1 and status = 'queued' returning id, project_id, user_id, kind, input, status")
-            .bind(job_id)
-            .bind(&state.boot.instance_id)
-            .fetch_optional(&state.pool)
-            .await
-            .unwrap_or(None);
+    let row: Option<(Uuid, Option<Uuid>, Option<Uuid>, String, Value, String)> = sqlx::query_as(
+        "update ai_jobs set status = 'running', started_at = now(), heartbeat_at = now(), instance = $2 where id = $1 and status = 'queued' returning id, project_id, user_id, kind, input, status",
+    )
+    .bind(job_id)
+    .bind(&state.boot.instance_id)
+    .fetch_optional(&state.pool)
+    .await
+    .unwrap_or(None);
     let Some((id, project_id, user_id, kind, input, _)) = row else { return };
     let Some(project_id) = project_id else { return };
     state.metrics.jobs_running.inc();
@@ -120,8 +121,14 @@ async fn run_job(state: AppState, job_id: Uuid) {
         Some(Err(e)) => {
             status = "failed";
             tracing::warn!(job = %id, code = %e.code, error = %e.message, "AI job failed");
-            let _ = sqlx::query("update ai_jobs set status = 'failed', error = $2, error_code = $3, finished_at = now() where id = $1").bind(id).bind(&e.message).bind(&e.code).execute(&state.pool).await;
-            let _ = sqlx::query("insert into chat_messages (project_id, role, content, job_id) values ($1, 'system', $2, $3)").bind(project_id).bind(format!("{}|{}", e.code, e.message)).bind(id).execute(&state.pool).await;
+            let _ =
+                sqlx::query("update ai_jobs set status = 'failed', error = $2, error_code = $3, finished_at = now() where id = $1").bind(id).bind(&e.message).bind(&e.code).execute(&state.pool).await;
+            let _ = sqlx::query("insert into chat_messages (project_id, role, content, job_id) values ($1, 'system', $2, $3)")
+                .bind(project_id)
+                .bind(format!("{}|{}", e.code, e.message))
+                .bind(id)
+                .execute(&state.pool)
+                .await;
         }
     }
     state.metrics.jobs_running.dec();
@@ -164,7 +171,9 @@ pub async fn retention(state: AppState) {
         let s = &cfg.settings;
         let q = |sql: &'static str, days: f64| {
             let pool = state.pool.clone();
-            async move { let _ = sqlx::query(sql).bind((days as i64).to_string()).execute(&pool).await; }
+            async move {
+                let _ = sqlx::query(sql).bind((days as i64).to_string()).execute(&pool).await;
+            }
         };
         q("delete from audit_log where at < now() - ($1 || ' days')::interval", s.num("retention.auditDays")).await;
         q("delete from llm_calls where created_at < now() - ($1 || ' days')::interval", s.num("retention.llmCallsDays")).await;

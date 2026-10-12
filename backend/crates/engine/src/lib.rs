@@ -4,6 +4,9 @@
 //! the failure simulator, capacity/cost estimation, patch operations, diff and exports.
 //! The LLM never decides whether an architecture is correct – this crate does.
 
+// style lints that would make the numeric/graph code harder to read
+#![allow(clippy::too_many_arguments, clippy::needless_range_loop, clippy::type_complexity, clippy::manual_is_multiple_of)]
+
 pub mod catalog;
 pub mod checks;
 pub mod config;

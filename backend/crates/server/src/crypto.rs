@@ -73,10 +73,7 @@ impl Keys {
 
 pub fn hash_password(password: &str) -> anyhow::Result<String> {
     let salt = SaltString::generate(&mut OsRng);
-    Argon2::default()
-        .hash_password(password.as_bytes(), &salt)
-        .map(|h| h.to_string())
-        .map_err(|e| anyhow::anyhow!("hash error: {e}"))
+    Argon2::default().hash_password(password.as_bytes(), &salt).map(|h| h.to_string()).map_err(|e| anyhow::anyhow!("hash error: {e}"))
 }
 
 pub fn verify_password(password: &str, hash: &str) -> bool {

@@ -1,6 +1,6 @@
 mod common;
 
-use axum::http::{Method, StatusCode};
+use axum::http::{header, Method, StatusCode};
 use common::*;
 use serde_json::{json, Value};
 
@@ -43,6 +43,34 @@ async fn login_session_and_lockout() {
     let (s, _, v) = app.login_as("admin@test.local", "correct horse battery staple").await;
     assert_eq!(s, StatusCode::TOO_MANY_REQUESTS, "{v}");
     assert_eq!(v["error"]["code"], "locked");
+    app.cleanup().await;
+}
+
+#[tokio::test]
+async fn temporary_password_only_unlocks_the_password_change() {
+    let app = TestApp::new().await;
+    let admin = app.login_admin().await;
+    let (s, v) = app.post(&admin, "/api/admin/users", json!({"email": "temp@test.local", "role": "editor"})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    let temp = v["temporaryPassword"].as_str().expect("generated password").to_string();
+    let (s, cookie, v) = app.login_as("temp@test.local", &temp).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    assert_eq!(v["user"]["mustChangePassword"], true);
+    let cookie = cookie.unwrap();
+
+    let (s, v) = app.get(&cookie, "/api/projects").await;
+    assert_eq!(s, StatusCode::FORBIDDEN, "{v}");
+    assert_eq!(v["error"]["code"], "password_change_required");
+    let (s, _) = app.get(&cookie, "/api/bootstrap").await;
+    assert_eq!(s, StatusCode::FORBIDDEN);
+    let (s, _) = app.get(&cookie, "/api/auth/me").await;
+    assert_eq!(s, StatusCode::OK);
+
+    let (s, h, v) = app.request(Method::POST, "/api/auth/password", Some(json!({"current": temp, "new": "a brand new long password"})), Some(cookie), &[]).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    let fresh = h.get(header::SET_COOKIE).and_then(|c| c.to_str().ok()).map(|c| c.split(';').next().unwrap().to_string()).unwrap();
+    let (s, _) = app.get(&fresh, "/api/projects").await;
+    assert_eq!(s, StatusCode::OK);
     app.cleanup().await;
 }
 
@@ -274,6 +302,31 @@ async fn simulate_and_ops_preview() {
 }
 
 #[tokio::test]
+async fn diff_endpoint_compares_two_architectures_without_storing_anything() {
+    let app = TestApp::new().await;
+    let c = app.login_admin().await;
+    let pid = app.first_project(&c).await;
+    let (_, p) = app.get(&c, &format!("/api/projects/{pid}")).await;
+    let design = p["architecture"].clone();
+    let mut actual = design.clone();
+    let removed = actual["nodes"].as_array_mut().unwrap().remove(0);
+    actual["nodes"][0]["props"]["replicas"] = json!(99);
+    actual["nodes"][0]["ui"] = json!({"x": 1, "y": 2});
+
+    let (s, d) = app.post(&c, "/api/diff", json!({"from": design, "to": actual})).await;
+    assert_eq!(s, StatusCode::OK, "{d}");
+    assert_eq!(d["nodes"]["removed"][0]["id"], removed["id"], "{d}");
+    let changed = d["nodes"]["changed"].as_array().unwrap();
+    assert!(changed.iter().any(|c| c["changes"].as_array().unwrap().iter().any(|x| x["path"] == "props.replicas")), "{d}");
+    assert!(!changed.iter().any(|c| c["changes"].as_array().unwrap().iter().any(|x| x["path"].as_str().unwrap().starts_with("ui"))), "positions are not drift");
+
+    let (s, v) = app.post(&c, "/api/diff", json!({"from": {"nodes": "nope"}, "to": design})).await;
+    assert_eq!(s, StatusCode::BAD_REQUEST, "{v}");
+    assert_eq!(v["error"]["code"], "invalid_architecture");
+    app.cleanup().await;
+}
+
+#[tokio::test]
 async fn exports_zip_and_json() {
     let app = TestApp::new().await;
     let c = app.login_admin().await;
@@ -330,10 +383,13 @@ async fn ai_patch_flow_preview_apply_and_privacy_settings() {
 
     // the model answers with an operation list; first it sends garbage to exercise the repair loop
     mock.push("I think you should add a cache!");
-    mock.push(&json!({"rationale": "Add a second Redis replica for resilience", "ops": [
+    mock.push(
+        &json!({"rationale": "Add a second Redis replica for resilience", "ops": [
         {"op": "update_node", "id": "app-dc1", "set": {"props.replicas": 40}},
         {"op": "add_node", "node": {"id": "mon-extra", "kind": "monitoring", "name": "Extra monitoring", "zoneId": "site3", "props": {"replicas": "2", "bogus": {"x": 1}}}}
-    ], "assumptions": ["none"]}).to_string());
+    ], "assumptions": ["none"]})
+        .to_string(),
+    );
     let (s, j) = app.post(&c, &format!("/api/projects/{pid}/ai/jobs"), json!({"kind": "patch", "prompt": "add monitoring in the third site", "lang": "en"})).await;
     assert_eq!(s, StatusCode::OK, "{j}");
     let job = wait_job(&app, &c, j["jobId"].as_str().unwrap()).await;
@@ -443,7 +499,7 @@ async fn ai_errors_are_reported_and_limits_enforced() {
     let (s, v) = app.post(&c, &format!("/api/projects/{pid}/ai/jobs"), json!({"kind": "chat", "prompt": "x".repeat(200)})).await;
     assert_eq!(s, StatusCode::BAD_REQUEST, "{v}");
     assert_eq!(v["error"]["code"], "prompt_too_long");
-    app.put(&c, &format!("/api/admin/settings"), json!({"changes": {"llm.maxPromptChars": 8000}})).await;
+    app.put(&c, "/api/admin/settings", json!({"changes": {"llm.maxPromptChars": 8000}})).await;
 
     // upstream failure surfaces as a failed job with a stable code (mock has no answers queued → 500)
     let (s, j) = app.post(&c, &format!("/api/projects/{pid}/ai/jobs"), json!({"kind": "chat", "prompt": "how resilient is this?"})).await;
@@ -481,11 +537,12 @@ async fn stale_jobs_are_failed_and_config_rev_propagates_between_instances() {
     let c = app.login_admin().await;
     let pid = app.first_project(&c).await;
     // a job whose heartbeat is old (its instance died) must not stay running
-    let id: uuid::Uuid = sqlx::query_scalar("insert into ai_jobs (project_id, kind, status, instance, heartbeat_at) values ($1, 'chat', 'running', 'dead', now() - interval '10 minutes') returning id")
-        .bind(uuid::Uuid::parse_str(&pid).unwrap())
-        .fetch_one(&app.state.pool)
-        .await
-        .unwrap();
+    let id: uuid::Uuid =
+        sqlx::query_scalar("insert into ai_jobs (project_id, kind, status, instance, heartbeat_at) values ($1, 'chat', 'running', 'dead', now() - interval '10 minutes') returning id")
+            .bind(uuid::Uuid::parse_str(&pid).unwrap())
+            .fetch_one(&app.state.pool)
+            .await
+            .unwrap();
     let st = app.state.clone();
     let h = tokio::spawn(server::jobs::sweeper(st));
     tokio::time::sleep(std::time::Duration::from_millis(1500)).await;

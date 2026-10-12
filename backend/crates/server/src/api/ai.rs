@@ -75,7 +75,10 @@ pub async fn create_job(
         }
     }
     // one running job per project at a time keeps proposals coherent
-    let busy: Option<(Uuid,)> = sqlx::query_as("select id from ai_jobs where project_id = $1 and status in ('queued','running') and heartbeat_at > now() - interval '120 seconds' limit 1").bind(project_id).fetch_optional(&state.pool).await?;
+    let busy: Option<(Uuid,)> = sqlx::query_as("select id from ai_jobs where project_id = $1 and status in ('queued','running') and heartbeat_at > now() - interval '120 seconds' limit 1")
+        .bind(project_id)
+        .fetch_optional(&state.pool)
+        .await?;
     if let Some((id,)) = busy {
         return Err(ApiError::conflict("job_running", "another AI request is already running for this project").with_details(json!({"jobId": id})));
     }
@@ -90,7 +93,13 @@ pub async fn create_job(
         .fetch_one(&state.pool)
         .await?;
     let shown = if b.kind == "fix" { format!("fix:{}", b.finding_id.clone().unwrap_or_default()) } else { prompt.clone() };
-    sqlx::query("insert into chat_messages (project_id, role, content, user_id, job_id) values ($1, 'user', $2, $3, $4)").bind(project_id).bind(&shown).bind(user.id).bind(id).execute(&state.pool).await?;
+    sqlx::query("insert into chat_messages (project_id, role, content, user_id, job_id) values ($1, 'user', $2, $3, $4)")
+        .bind(project_id)
+        .bind(&shown)
+        .bind(user.id)
+        .bind(id)
+        .execute(&state.pool)
+        .await?;
     audit::log(&state.pool, Some(&user), "ai.job", "project", &project_id.to_string(), json!({"kind": b.kind, "jobId": id}), &client_ip(&headers, Some(addr), state.boot.trust_proxy)).await;
     state.jobs.spawn(state.clone(), id);
     Ok(Json(json!({"jobId": id})))
@@ -105,7 +114,11 @@ fn job_json(r: &sqlx::postgres::PgRow) -> Value {
 }
 
 pub async fn get_job(State(state): State<AppState>, _user: AuthUser, Path(id): Path<Uuid>) -> ApiResult<Json<Value>> {
-    let r = sqlx::query("select id, project_id, kind, status, steps, result, error, error_code, created_at, finished_at from ai_jobs where id = $1").bind(id).fetch_optional(&state.pool).await?.ok_or_else(|| ApiError::not_found("job not found"))?;
+    let r = sqlx::query("select id, project_id, kind, status, steps, result, error, error_code, created_at, finished_at from ai_jobs where id = $1")
+        .bind(id)
+        .fetch_optional(&state.pool)
+        .await?
+        .ok_or_else(|| ApiError::not_found("job not found"))?;
     Ok(Json(job_json(&r)))
 }
 
@@ -138,7 +151,11 @@ pub async fn chat_history(State(state): State<AppState>, _user: AuthUser, Path(p
         .into_iter()
         .map(|r| json!({"id": r.get::<i64, _>("id"), "role": r.get::<String, _>("role"), "content": r.get::<String, _>("content"), "proposalId": r.get::<Option<Uuid>, _>("proposal_id"), "proposalStatus": r.get::<Option<String>, _>("proposal_status"), "createdAt": r.get::<DateTime<Utc>, _>("created_at")}))
         .collect();
-    let running: Option<(Uuid,)> = sqlx::query_as("select id from ai_jobs where project_id = $1 and status in ('queued','running') and heartbeat_at > now() - interval '120 seconds' order by created_at desc limit 1").bind(project_id).fetch_optional(&state.pool).await?;
+    let running: Option<(Uuid,)> =
+        sqlx::query_as("select id from ai_jobs where project_id = $1 and status in ('queued','running') and heartbeat_at > now() - interval '120 seconds' order by created_at desc limit 1")
+            .bind(project_id)
+            .fetch_optional(&state.pool)
+            .await?;
     Ok(Json(json!({"messages": items, "runningJobId": running.map(|r| r.0)})))
 }
 
@@ -149,7 +166,11 @@ pub async fn clear_chat(State(state): State<AppState>, user: AuthUser, Path(proj
 }
 
 pub async fn get_proposal(State(state): State<AppState>, _user: AuthUser, Path(id): Path<Uuid>) -> ApiResult<Json<Value>> {
-    let r = sqlx::query("select id, project_id, base_rev, change, rationale, preview, status, created_at from proposals where id = $1").bind(id).fetch_optional(&state.pool).await?.ok_or_else(|| ApiError::not_found("proposal not found"))?;
+    let r = sqlx::query("select id, project_id, base_rev, change, rationale, preview, status, created_at from proposals where id = $1")
+        .bind(id)
+        .fetch_optional(&state.pool)
+        .await?
+        .ok_or_else(|| ApiError::not_found("proposal not found"))?;
     let change: Value = r.get("change");
     // the full architecture of a "replace" proposal is large; the client gets it on demand
     Ok(Json(json!({
@@ -180,7 +201,11 @@ pub async fn apply_proposal(
     let cfg = state.cfg().await?;
     let expected = body.and_then(|b| b.0.expected_rev);
     let mut tx = state.pool.begin().await?;
-    let p = sqlx::query("select project_id, change, rationale, status from proposals where id = $1 for update").bind(id).fetch_optional(&mut *tx).await?.ok_or_else(|| ApiError::not_found("proposal not found"))?;
+    let p = sqlx::query("select project_id, change, rationale, status from proposals where id = $1 for update")
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| ApiError::not_found("proposal not found"))?;
     let project_id: Uuid = p.get("project_id");
     let status: String = p.get("status");
     if status != "pending" {
@@ -188,7 +213,11 @@ pub async fn apply_proposal(
     }
     let change: Value = p.get("change");
     let rationale: String = p.get("rationale");
-    let pr = sqlx::query("select draft, draft_rev, head_version from projects where id = $1 and deleted_at is null for update").bind(project_id).fetch_optional(&mut *tx).await?.ok_or_else(|| ApiError::not_found("project not found"))?;
+    let pr = sqlx::query("select draft, draft_rev, head_version from projects where id = $1 and deleted_at is null for update")
+        .bind(project_id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| ApiError::not_found("project not found"))?;
     let draft: Value = pr.get("draft");
     let rev: i64 = pr.get("draft_rev");
     let head: i32 = pr.get("head_version");
@@ -214,6 +243,11 @@ pub async fn apply_proposal(
         _ => return Err(ApiError::internal("proposal has an unknown mode")),
     };
 
+    let mut new_arch = new_arch;
+    for n in new_arch.nodes.iter_mut() {
+        n.proposed = false;
+    }
+
     // snapshot the state before the change (only if it differs from the latest version)
     let last: Option<(Value,)> = sqlx::query_as("select architecture from versions where project_id = $1 and n = $2").bind(project_id).bind(head).fetch_optional(&mut *tx).await?;
     let mut n = head;
@@ -222,19 +256,37 @@ pub async fn apply_proposal(
         n += 1;
         let rep = run_evaluate(cfg.clone(), base.clone(), waivers.clone(), cfg.settings.str("app.defaultLanguage")).await?;
         sqlx::query("insert into versions (project_id, n, message, author_id, author, architecture, summary, engine_version) values ($1, $2, $3, $4, $5, $6, $7, $8)")
-            .bind(project_id).bind(n).bind("Before AI change").bind(user.id).bind(&user.email).bind(&draft)
-            .bind(serde_json::to_value(summarize(&rep))?).bind(engine::evaluate::ENGINE_VERSION as i32)
-            .execute(&mut *tx).await?;
+            .bind(project_id)
+            .bind(n)
+            .bind("Before AI change")
+            .bind(user.id)
+            .bind(&user.email)
+            .bind(&draft)
+            .bind(serde_json::to_value(summarize(&rep))?)
+            .bind(engine::evaluate::ENGINE_VERSION as i32)
+            .execute(&mut *tx)
+            .await?;
     }
     n += 1;
     let rep = run_evaluate(cfg.clone(), new_arch.clone(), waivers, cfg.settings.str("app.defaultLanguage")).await?;
     let msg = format!("AI: {}", rationale.chars().take(80).collect::<String>());
     sqlx::query("insert into versions (project_id, n, message, author_id, author, architecture, summary, engine_version) values ($1, $2, $3, $4, $5, $6, $7, $8)")
-        .bind(project_id).bind(n).bind(msg).bind(user.id).bind(&user.email).bind(serde_json::to_value(&new_arch)?)
-        .bind(serde_json::to_value(summarize(&rep))?).bind(engine::evaluate::ENGINE_VERSION as i32)
-        .execute(&mut *tx).await?;
+        .bind(project_id)
+        .bind(n)
+        .bind(msg)
+        .bind(user.id)
+        .bind(&user.email)
+        .bind(serde_json::to_value(&new_arch)?)
+        .bind(serde_json::to_value(summarize(&rep))?)
+        .bind(engine::evaluate::ENGINE_VERSION as i32)
+        .execute(&mut *tx)
+        .await?;
     let (new_rev,): (i64,) = sqlx::query_as("update projects set draft = $2, draft_rev = draft_rev + 1, head_version = $3, updated_at = now() where id = $1 returning draft_rev")
-        .bind(project_id).bind(serde_json::to_value(&new_arch)?).bind(n).fetch_one(&mut *tx).await?;
+        .bind(project_id)
+        .bind(serde_json::to_value(&new_arch)?)
+        .bind(n)
+        .fetch_one(&mut *tx)
+        .await?;
     sqlx::query("update proposals set status = 'applied', decided_at = now() where id = $1").bind(id).execute(&mut *tx).await?;
     tx.commit().await?;
     audit::log(&state.pool, Some(&user), "ai.apply", "project", &project_id.to_string(), json!({"proposal": id}), &client_ip(&headers, Some(addr), state.boot.trust_proxy)).await;

@@ -10,11 +10,7 @@ use serde_json::{json, Value};
 use std::sync::Arc;
 
 pub fn limits(cfg: &Loaded) -> ValidationLimits {
-    ValidationLimits {
-        max_nodes: cfg.settings.num("limits.maxNodes") as usize,
-        max_edges: cfg.settings.num("limits.maxEdges") as usize,
-        max_zones: cfg.settings.num("limits.maxZones") as usize,
-    }
+    ValidationLimits { max_nodes: cfg.settings.num("limits.maxNodes") as usize, max_edges: cfg.settings.num("limits.maxEdges") as usize, max_zones: cfg.settings.num("limits.maxZones") as usize }
 }
 
 pub fn parse_arch(v: Value) -> ApiResult<Architecture> {
@@ -23,7 +19,11 @@ pub fn parse_arch(v: Value) -> ApiResult<Architecture> {
 
 /// Parse + structurally validate (referential integrity, catalog conformity, limits).
 pub fn parse_valid_arch(cfg: &Loaded, v: Value) -> ApiResult<Architecture> {
-    let a = parse_arch(v)?;
+    let mut a = parse_arch(v)?;
+    // `proposed` only marks nodes of a pending preview; it is never part of a stored architecture
+    for n in a.nodes.iter_mut() {
+        n.proposed = false;
+    }
     let issues = validate(&a, &cfg.catalog, &limits(cfg));
     let errors: Vec<_> = issues.into_iter().filter(|i| i.level == IssueLevel::Error).collect();
     if !errors.is_empty() {
@@ -61,12 +61,7 @@ pub fn summarize(r: &Report) -> ReportSummary {
         counts: r.counts.clone(),
         objectives: r.objectives.iter().map(|o| (o.id.clone(), o.status)).collect(),
         cost_total: r.cost.total,
-        open: r
-            .findings
-            .iter()
-            .filter(|f| f.accepted.is_none() && matches!(f.status, Status::Critical | Status::Risk))
-            .map(|f| f.id.clone())
-            .collect(),
+        open: r.findings.iter().filter(|f| f.accepted.is_none() && matches!(f.status, Status::Critical | Status::Risk)).map(|f| f.id.clone()).collect(),
     }
 }
 

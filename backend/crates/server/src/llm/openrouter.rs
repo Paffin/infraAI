@@ -124,19 +124,18 @@ fn extract_message(v: &Value) -> Option<String> {
         Value::String(s) if !s.trim().is_empty() => Some(s.clone()),
         Value::Array(parts) => {
             let t: String = parts.iter().filter_map(|p| p["text"].as_str()).collect::<Vec<_>>().join("");
-            if t.trim().is_empty() { None } else { Some(t) }
+            if t.trim().is_empty() {
+                None
+            } else {
+                Some(t)
+            }
         }
         _ => None,
     }
 }
 
 async fn month_spend(state: &AppState) -> f64 {
-    sqlx::query_scalar::<_, Option<f64>>("select sum(cost_usd) from llm_calls where created_at >= date_trunc('month', now())")
-        .fetch_one(&state.pool)
-        .await
-        .ok()
-        .flatten()
-        .unwrap_or(0.0)
+    sqlx::query_scalar::<_, Option<f64>>("select sum(cost_usd) from llm_calls where created_at >= date_trunc('month', now())").fetch_one(&state.pool).await.ok().flatten().unwrap_or(0.0)
 }
 
 pub async fn call(state: &AppState, cfg: &Loaded, ctx: &CallCtx, req: LlmRequest) -> Result<LlmResponse, LlmError> {
@@ -333,7 +332,8 @@ pub async fn fetch_models(state: &AppState, cfg: &Loaded, refresh: bool) -> Resu
         }
     }
     let url = format!("{}/models", cfg.settings.str("llm.baseUrl").trim_end_matches('/'));
-    let res = state.http.get(&url).timeout(Duration::from_secs(30)).send().await.map_err(|e| ApiError::unavailable("llm_unreachable", format!("cannot reach the model catalog: {}", e.without_url())))?;
+    let res =
+        state.http.get(&url).timeout(Duration::from_secs(30)).send().await.map_err(|e| ApiError::unavailable("llm_unreachable", format!("cannot reach the model catalog: {}", e.without_url())))?;
     if !res.status().is_success() {
         // serve a stale list rather than nothing
         if let Some((_, v)) = guard.as_ref() {
@@ -372,12 +372,7 @@ pub fn extract_json(text: &str) -> Option<Value> {
     if let Ok(v) = serde_json::from_str::<Value>(t) {
         return Some(v);
     }
-    let unfenced = t
-        .strip_prefix("```json")
-        .or_else(|| t.strip_prefix("```JSON"))
-        .or_else(|| t.strip_prefix("```"))
-        .map(|s| s.trim_end().trim_end_matches("```").trim())
-        .unwrap_or(t);
+    let unfenced = t.strip_prefix("```json").or_else(|| t.strip_prefix("```JSON")).or_else(|| t.strip_prefix("```")).map(|s| s.trim_end().trim_end_matches("```").trim()).unwrap_or(t);
     if let Ok(v) = serde_json::from_str::<Value>(unfenced) {
         return Some(v);
     }

@@ -60,7 +60,11 @@ pub async fn run(state: &AppState, job: &Job, p: &Progress) -> PResult<PipelineO
     let cfg = state.cfg().await?;
     let lang = job.input["lang"].as_str().unwrap_or("en").to_string();
     let lang = if cfg.settings.list("app.languages").contains(&lang) { lang } else { cfg.settings.str("app.defaultLanguage") };
-    let (draft, rev): (Value, i64) = sqlx::query_as("select draft, draft_rev from projects where id = $1 and deleted_at is null").bind(job.project_id).fetch_optional(&state.pool).await?.ok_or_else(|| err("not_found", "project not found"))?;
+    let (draft, rev): (Value, i64) = sqlx::query_as("select draft, draft_rev from projects where id = $1 and deleted_at is null")
+        .bind(job.project_id)
+        .fetch_optional(&state.pool)
+        .await?
+        .ok_or_else(|| err("not_found", "project not found"))?;
     let base = parse_arch(draft)?;
     let ctx = CallCtx { job_id: Some(job.id), project_id: Some(job.project_id), user_id: job.user_id };
     let prompt = job.input["prompt"].as_str().unwrap_or("").to_string();
@@ -417,7 +421,8 @@ fn autofix_note(applied: &[String], lang: &str) -> String {
     if applied.is_empty() {
         return String::new();
     }
-    let head = if lang == "ru" { "Движок автоматически применил механические исправления:" } else { "The engine applied mechanical fixes automatically:" };
+    let head =
+        if lang == "ru" { "Движок автоматически применил механические исправления:" } else { "The engine applied mechanical fixes automatically:" };
     format!("{head}\n{}", bullet_list(applied))
 }
 
@@ -446,7 +451,8 @@ async fn patch(state: &AppState, cfg: &Arc<Loaded>, ctx: &CallCtx, p: &Progress,
         if round == 0 {
             p.step("calling_model", json!({"round": 0})).await;
         }
-        let resp = call(state, cfg, ctx, LlmRequest { purpose: if job.kind == "fix" { "fix" } else { "patch" }, role, messages: messages.clone(), schema: Some(("operations", schema.clone())) }).await?;
+        let resp =
+            call(state, cfg, ctx, LlmRequest { purpose: if job.kind == "fix" { "fix" } else { "patch" }, role, messages: messages.clone(), schema: Some(("operations", schema.clone())) }).await?;
         log_answer(cfg, p, "patch", &resp.content).await;
         match parse_patch(cfg, &resp.content, &base) {
             Ok(c) => {
@@ -466,11 +472,7 @@ async fn patch(state: &AppState, cfg: &Arc<Loaded>, ctx: &CallCtx, p: &Progress,
     }
     let mut cand = cand.ok_or_else(|| err("invalid_output", format!("the model could not produce valid operations: {}", last_errors.iter().take(5).cloned().collect::<Vec<_>>().join("; "))))?;
     if cand.ops.is_empty() {
-        return Ok(PipelineOutput {
-            result: json!({"rationale": cand.rationale, "noChanges": true}),
-            message: assistant_message(&cand.rationale, &cand.assumptions, ""),
-            proposal_id: None,
-        });
+        return Ok(PipelineOutput { result: json!({"rationale": cand.rationale, "noChanges": true}), message: assistant_message(&cand.rationale, &cand.assumptions, ""), proposal_id: None });
     }
 
     p.step("evaluating", json!({"phase": "after"})).await;
@@ -539,11 +541,12 @@ async fn chat(state: &AppState, cfg: &Arc<Loaded>, ctx: &CallCtx, p: &Progress, 
     let sys = system_prompt(cfg, "chat", &vars)?;
     let mut messages = vec![Msg::system(sys)];
     // short conversation memory
-    let hist: Vec<(String, String)> = sqlx::query_as("select role, content from chat_messages where project_id = $1 and role in ('user','assistant') and (job_id is null or job_id <> $2) order by id desc limit 6")
-        .bind(job.project_id)
-        .bind(job.id)
-        .fetch_all(&state.pool)
-        .await?;
+    let hist: Vec<(String, String)> =
+        sqlx::query_as("select role, content from chat_messages where project_id = $1 and role in ('user','assistant') and (job_id is null or job_id <> $2) order by id desc limit 6")
+            .bind(job.project_id)
+            .bind(job.id)
+            .fetch_all(&state.pool)
+            .await?;
     for (role, content) in hist.into_iter().rev() {
         let c = content.chars().take(2000).collect::<String>();
         messages.push(if role == "user" { Msg::user(format!("<user_data>\n{c}\n</user_data>")) } else { Msg::assistant(c) });
