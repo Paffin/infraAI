@@ -1,0 +1,16 @@
+# Two stateless replicas behind an nginx load balancer; the replicas share the database, take over each
+# other's AI jobs and refresh their configuration through the revision counter in PostgreSQL.
+services:
+  app:
+    ports: !reset []
+    deploy:
+      replicas: 2
+  lb:
+    image: ${REGISTRY:-docker.io/library}/nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      - app
+    volumes:
+      - ./deploy/nginx/lb.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "${APP_PORT:-8080}:8080"

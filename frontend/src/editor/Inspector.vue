@@ -12,6 +12,10 @@ import PropControl from './PropControl.vue'
 const app = useApp()
 const editor = useEditor()
 const advanced = ref(false)
+/** Property groups beyond the first two start collapsed so that the card stays compact. */
+const groupState = ref<Record<string, boolean>>({})
+const isOpen = (id: string, index: number) => groupState.value[id] ?? index < 2
+const toggleGroup = (id: string, index: number) => { groupState.value = { ...groupState.value, [id]: !isOpen(id, index) } }
 
 const sel = computed(() => editor.selection)
 const ix = computed(() => app.index!)
@@ -115,9 +119,11 @@ function remove() {
           </select>
         </label>
 
-        <template v-for="g in nodeSplit.groups" :key="g.id">
-          <h5 v-if="hasGroupTitle(g.id)">{{ groupTitle(g.id) }}</h5>
-          <PropControl v-for="d in g.defs" :key="d.key" :def="d" :value="node.props[d.key]" :fallback="nodeEff[d.key]" :disabled="dis" :refs="d.type === 'unit_ref' ? refsFor(d) : undefined" @change="setNodeProp(d.key, $event)" />
+        <template v-for="(g, gi) in nodeSplit.groups" :key="g.id">
+          <button v-if="hasGroupTitle(g.id)" class="gh" :aria-expanded="isOpen(g.id, gi)" @click="toggleGroup(g.id, gi)"><component :is="isOpen(g.id, gi) ? ChevronDown : ChevronRight" :size="13" />{{ groupTitle(g.id) }}<span class="cnt">{{ g.defs.length }}</span></button>
+          <template v-if="!hasGroupTitle(g.id) || isOpen(g.id, gi)">
+            <PropControl v-for="d in g.defs" :key="d.key" :def="d" :value="node.props[d.key]" :fallback="nodeEff[d.key]" :disabled="dis" :refs="d.type === 'unit_ref' ? refsFor(d) : undefined" @change="setNodeProp(d.key, $event)" />
+          </template>
         </template>
         <template v-if="nodeSplit.adv.length">
           <button class="more" @click="advanced = !advanced"><component :is="advanced ? ChevronDown : ChevronRight" :size="14" />{{ t('inspector.advanced') }}</button>
@@ -211,6 +217,9 @@ header { display: flex; align-items: center; gap: 8px; padding: 10px 8px 6px 16p
 .dot.edge { background: var(--edge-sync); }
 .dot.zone { background: var(--edge-quorum); }
 .body { overflow: auto; padding: 0 14px 10px 16px; display: flex; flex-direction: column; gap: 2px; }
+.gh { flex: none; display: flex; align-items: center; gap: 5px; width: 100%; margin-top: 8px; padding: 4px 0; border: 0; background: transparent; text-align: left; font-size: 10.5px; letter-spacing: .09em; text-transform: uppercase; color: #6e7fa8; font-weight: 600; }
+.gh:hover { color: var(--accent); }
+.gh .cnt { margin-left: auto; font-weight: 500; letter-spacing: 0; color: var(--faint); }
 h5 { flex: none; margin: 10px 0 2px; font-size: 10.5px; letter-spacing: .09em; text-transform: uppercase; color: #6e7fa8; font-weight: 600; }
 .prop { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 10px; align-items: center; min-height: 30px; font-size: 12.5px; flex: none; }
 .lbl { color: var(--muted); }

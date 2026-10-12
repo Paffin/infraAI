@@ -1,0 +1,41 @@
+# Example: a highly available PostgreSQL for the application with the CloudNativePG operator
+# (https://cloudnative-pg.io). Three instances in different zones, synchronous replication to one standby,
+# continuous WAL archiving and scheduled base backups to object storage (point-in-time recovery).
+# Any managed PostgreSQL 14+ with automatic failover and PITR is an equivalent choice.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: infra-pg
+spec:
+  instances: 3
+  minSyncReplicas: 1
+  maxSyncReplicas: 1
+  storage:
+    size: 20Gi
+  affinity:
+    enablePodAntiAffinity: true
+    topologyKey: topology.kubernetes.io/zone
+    podAntiAffinityType: required
+  bootstrap:
+    initdb:
+      database: infra
+      owner: infra
+  backup:
+    retentionPolicy: 30d
+    barmanObjectStore:
+      destinationPath: s3://CHANGE-ME-bucket/infra-pg
+      s3Credentials:
+        accessKeyId: { name: infra-pg-s3, key: ACCESS_KEY_ID }
+        secretAccessKey: { name: infra-pg-s3, key: SECRET_ACCESS_KEY }
+      wal:
+        compression: gzip
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: infra-pg-daily
+spec:
+  schedule: "0 0 2 * * *"
+  cluster:
+    name: infra-pg
+  backupOwnerReference: self

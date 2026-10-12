@@ -1,0 +1,55 @@
+# Local / single-host deployment: the application and PostgreSQL.
+#
+#   cp .env.example .env && docker compose up -d --build
+#
+# High availability on one host (for trials; production belongs on Kubernetes, see deploy/k8s):
+#   docker compose -f docker-compose.yml -f docker-compose.ha.yml up -d --build
+services:
+  db:
+    image: ${REGISTRY:-docker.io/library}/postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: infra
+      POSTGRES_USER: infra
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U infra -d infra"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  app:
+    build:
+      context: .
+      args:
+        REGISTRY: ${REGISTRY:-docker.io/library}
+    image: infra-architect:local
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://infra:${POSTGRES_PASSWORD}@db:5432/infra
+      APP_SECRET: ${APP_SECRET:?set APP_SECRET in .env}
+      APP_ENV: ${APP_ENV:-production}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      TRUST_PROXY: ${TRUST_PROXY:-false}
+      METRICS_TOKEN: ${METRICS_TOKEN:-}
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    stop_grace_period: 40s
+
+volumes:
+  pgdata:

@@ -1,0 +1,44 @@
+# The whole verification suite in containers – nothing to install on the host:
+#
+#   docker compose -f docker-compose.test.yml run --rm backend
+#   docker compose -f docker-compose.test.yml run --rm frontend
+#   docker compose -f docker-compose.test.yml down -v
+services:
+  db:
+    image: ${REGISTRY:-docker.io/library}/postgres:16-alpine
+    environment:
+      POSTGRES_PASSWORD: postgres
+    command: ["postgres", "-c", "fsync=off", "-c", "max_connections=300"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  backend:
+    image: ${REGISTRY:-docker.io/library}/rust:${RUST_VERSION:-1.97}-slim-bookworm
+    depends_on:
+      db:
+        condition: service_healthy
+    working_dir: /src
+    environment:
+      TEST_DATABASE_ADMIN_URL: postgres://postgres:postgres@db:5432/postgres
+      CARGO_TARGET_DIR: /cache/target
+      CARGO_HOME: /cache/cargo
+    volumes:
+      - ./backend:/src
+      - cargo-cache:/cache
+    command: ["cargo", "test", "--workspace", "--locked"]
+
+  frontend:
+    image: ${REGISTRY:-docker.io/library}/node:${NODE_VERSION:-22}-bookworm-slim
+    working_dir: /web
+    volumes:
+      - ./frontend:/web
+      - ./backend/crates/engine/defaults:/backend/crates/engine/defaults:ro
+      - node-modules:/web/node_modules
+    command: ["sh", "-c", "npm ci --no-audit --no-fund && npm run typecheck && npm test && npm run build"]
+
+volumes:
+  cargo-cache:
+  node-modules:

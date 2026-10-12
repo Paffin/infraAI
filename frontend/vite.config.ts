@@ -14,5 +14,5 @@ export default defineConfig({
     },
   },
   build: { sourcemap: false, chunkSizeWarningLimit: 900 },
-  test: { environment: 'jsdom', globals: true },
+  test: { environment: 'jsdom', globals: true, include: ['tests/**/*.test.ts'] },
 })

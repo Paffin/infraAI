@@ -1,0 +1,15 @@
+.git
+.github
+docs
+deploy
+**/node_modules
+**/target
+frontend/dist
+frontend/e2e/node_modules
+frontend/test-results
+frontend/playwright-report
+*.md
+!frontend/README.md
+.env
+.env.*
+!.env.example

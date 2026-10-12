@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: infra-architect
+  annotations:
+    # AI requests are polled, not streamed, but the model call itself can take a while
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "130"
+    nginx.ingress.kubernetes.io/proxy-body-size: 8m
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: [architect.example.com]
+      secretName: infra-architect-tls
+  rules:
+    - host: architect.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: infra-architect
+                port:
+                  name: http

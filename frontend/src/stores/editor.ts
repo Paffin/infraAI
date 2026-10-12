@@ -173,8 +173,7 @@ export const useEditor = defineStore('editor', () => {
 
   // -------------------------------------------------------------------------------------- saving
   let saveTimer: ReturnType<typeof setTimeout> | undefined
-  let saving = false
-  let resave = false
+  let inflight: Promise<boolean> | null = null
   let retryDelay = 3000
 
   function touchSave() {
@@ -184,13 +183,24 @@ export const useEditor = defineStore('editor', () => {
     saveTimer = setTimeout(() => void flushSave(), SAVE_DELAY)
   }
 
+  /** Store the working copy now; resolves when everything that was edited so far is on the server. */
   async function flushSave(): Promise<boolean> {
     clearTimeout(saveTimer)
     if (!projectId.value || !app.canEdit) return true
-    if (saveState.value === 'conflict') return false
-    if (saving) { resave = true; return false }
-    if (saveState.value === 'saved') return true
-    saving = true
+    for (let round = 0; round < 3; round++) {
+      if (saveState.value === 'conflict') return false
+      if (inflight) {
+        if (!(await inflight)) return false
+        continue
+      }
+      if (saveState.value === 'saved') return true
+      inflight = persist().finally(() => { inflight = null })
+      if (!(await inflight)) return false
+    }
+    return saveState.value === 'saved'
+  }
+
+  async function persist(): Promise<boolean> {
     saveState.value = 'saving'
     const snapshot = arch.value
     try {
@@ -199,7 +209,6 @@ export const useEditor = defineStore('editor', () => {
       retryDelay = 3000
       saveError.value = ''
       saveState.value = arch.value === snapshot ? 'saved' : 'dirty'
-      if (saveState.value === 'dirty') saveTimer = setTimeout(() => void flushSave(), 200)
       return true
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) {
@@ -215,9 +224,6 @@ export const useEditor = defineStore('editor', () => {
         }
       }
       return false
-    } finally {
-      saving = false
-      if (resave) { resave = false; if (saveState.value === 'dirty') void flushSave() }
     }
   }
 
@@ -645,6 +651,8 @@ export const useEditor = defineStore('editor', () => {
 
   // ------------------------------------------------------------------------------------- waivers
   async function acceptRisk(f: Finding, reason: string, days?: number) {
+    // the server validates the fingerprint against the saved draft, so unsaved edits must be stored first
+    await flushSave()
     await api.projects.createWaiver(projectId.value, { fingerprint: f.id, reason, expiresInDays: days, lang: lang.value })
     const d = await api.projects.get(projectId.value)
     waivers.value = d.waivers
