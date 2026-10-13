@@ -1,0 +1,13 @@
+{
+ "id": "apache_doris",
+ "title": {
+  "ru": "Apache Doris",
+  "en": "Apache Doris"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Для Apache Doris нужен оператор или сценарий развёртывания, зависящий от выбранного варианта; схемы ресурсов оператора не подтверждены, поэтому код не генерируется. Добавьте проверенный шаблон под ваш оператор.",
+  "en": "Apache Doris needs an operator or a deployment playbook that depends on the chosen variant; the operator’s resource schemas have not been confirmed, so no code is generated. Add a verified template for your operator."
+ }
+}

@@ -1,0 +1,13 @@
+{
+ "id": "n8n",
+ "title": {
+  "ru": "n8n",
+  "en": "n8n"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Задания и ресурсы n8n зависят от вашей обработки данных: нейтрального шаблона нет. Добавьте свой.",
+  "en": "The jobs and resources of n8n depend on your data processing: there is no neutral template. Add your own."
+ }
+}

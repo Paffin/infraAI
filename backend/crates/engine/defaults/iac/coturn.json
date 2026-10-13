@@ -1,0 +1,13 @@
+{
+ "id": "coturn",
+ "title": {
+  "ru": "coturn",
+  "en": "coturn"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Установка coturn зависит от вашей среды (база данных, файловое хранилище, почта, домен): проверенного шаблона нет. Добавьте свой.",
+  "en": "Installing coturn depends on your environment (database, file storage, mail, domain): there is no verified template. Add your own."
+ }
+}

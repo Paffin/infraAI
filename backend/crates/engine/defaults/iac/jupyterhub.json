@@ -1,0 +1,13 @@
+{
+ "id": "jupyterhub",
+ "title": {
+  "ru": "JupyterHub",
+  "en": "JupyterHub"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Развёртывание JupyterHub зависит от кластера, ускорителей и хранилища: проверенного шаблона нет. Добавьте свой.",
+  "en": "Deploying JupyterHub depends on the cluster, the accelerators and the storage: there is no verified template. Add your own."
+ }
+}

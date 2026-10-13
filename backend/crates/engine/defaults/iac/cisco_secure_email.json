@@ -1,0 +1,13 @@
+{
+ "id": "cisco_secure_email",
+ "title": {
+  "ru": "Cisco Secure Email Gateway",
+  "en": "Cisco Secure Email Gateway"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Настройка Cisco Secure Email Gateway зависит от вашей политики безопасности и инфраструктуры: нейтрального проверенного шаблона нет. Добавьте свой.",
+  "en": "Setting up Cisco Secure Email Gateway depends on your security policy and infrastructure: there is no neutral verified template. Add your own."
+ }
+}

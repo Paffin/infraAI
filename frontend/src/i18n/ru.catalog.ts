@@ -36,6 +36,7 @@ export default {
   'library.more': 'Ещё {n}',
   'library.collapseAll': 'Свернуть всё',
   'library.found': 'Найдено: {n}',
+  'library.showMore': 'Показать ещё {n}',
   'library.matchVariant': 'вариант: {name}',
   'library.managedBadge': 'облако',
   'library.addProduct': 'Добавить «{name}»',

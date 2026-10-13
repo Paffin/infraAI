@@ -97,6 +97,60 @@ fn link_cut_between_dcs_causes_no_split_brain() {
 }
 
 #[test]
+fn several_failures_at_once_take_away_what_each_takes() {
+    let a = template("two-dc-witness");
+    let dc1 = Scenario::Zone { zone_id: "dc1".into() };
+    let replica = Scenario::Node { node_id: "pg-replica".into() };
+    // each of them alone is survived …
+    assert_ne!(sim(&a, dc1.clone()).state, ServiceState::Down);
+    assert_ne!(sim(&a, replica.clone()).state, ServiceState::Down);
+    // … together they leave no database at all
+    let both = sim(&a, Scenario::Combo { items: vec![dc1, replica] });
+    assert_eq!(both.state, ServiceState::Down, "{:?}", both.events);
+    assert_eq!(both.node_states["pg-primary"], NodeState::Down);
+    assert_eq!(both.node_states["pg-replica"], NodeState::Down);
+    assert_eq!(both.failed.len(), 2, "both are named: {:?}", both.failed);
+}
+
+#[test]
+fn a_cut_channel_and_a_lost_node_happen_together() {
+    let a = template("two-dc-witness");
+    let r = sim(&a, Scenario::Combo { items: vec![Scenario::Link { a: "dc1".into(), b: "dc2".into() }, Scenario::Node { node_id: "app-dc1".into() }] });
+    // the node is gone, the other side of the cut cannot reach the primary
+    assert_eq!(r.node_states["app-dc1"], NodeState::Down);
+    assert_eq!(r.node_states["app-dc2"], NodeState::Stalled);
+    assert_eq!(r.state, ServiceState::Down, "{:?}", r.events);
+}
+
+#[test]
+fn a_combination_of_one_failure_is_that_failure_and_nesting_adds_up() {
+    let a = template("two-dc-witness");
+    let one = [Scenario::Zone { zone_id: "dc1".into() }, Scenario::Link { a: "dc1".into(), b: "dc2".into() }, Scenario::Node { node_id: "app-dc2".into() }];
+    for sc in one {
+        let plain = sim(&a, sc.clone());
+        let mut combo = sim(&a, Scenario::Combo { items: vec![sc.clone()] });
+        assert!(combo.scenario != plain.scenario);
+        combo.scenario = plain.scenario.clone();
+        assert_eq!(serde_json::to_value(&plain).unwrap(), serde_json::to_value(&combo).unwrap(), "{sc:?}");
+    }
+    let flat = Scenario::Combo { items: vec![one_zone("dc1"), one_zone("dc2")] };
+    let nested = Scenario::Combo { items: vec![Scenario::Combo { items: vec![one_zone("dc1")] }, one_zone("dc2")] };
+    assert_eq!(sim(&a, flat).node_states, sim(&a, nested).node_states);
+}
+
+fn one_zone(id: &str) -> Scenario {
+    Scenario::Zone { zone_id: id.into() }
+}
+
+#[test]
+fn a_combination_is_written_as_a_list_of_the_failures() {
+    let sc: Scenario = serde_json::from_value(json!({"type": "combo", "items": [{"type": "zone", "zoneId": "dc1"}, {"type": "instance", "nodeId": "pg-replica"}]})).unwrap();
+    assert_eq!(sc, Scenario::Combo { items: vec![one_zone("dc1"), Scenario::Instance { node_id: "pg-replica".into(), count: 1 }] });
+    assert!(sc.is_destructive(), "a site in it is destroyed, not just cut");
+    assert!(!Scenario::Combo { items: vec![Scenario::Node { node_id: "x".into() }] }.is_destructive());
+}
+
+#[test]
 fn losing_both_dcs_restores_from_offsite_backup() {
     let a = template("two-dc-witness");
     let r = sim(&a, Scenario::Sites { zone_ids: vec!["dc1".into(), "dc2".into()] });

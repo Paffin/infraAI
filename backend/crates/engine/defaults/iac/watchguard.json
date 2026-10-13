@@ -1,0 +1,13 @@
+{
+ "id": "watchguard",
+ "title": {
+  "ru": "WatchGuard Firebox",
+  "en": "WatchGuard Firebox"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Правила WatchGuard Firebox зависят от вендора и сегментации сети: нейтрального шаблона нет. Добавьте шаблон под ваше оборудование.",
+  "en": "The rules of WatchGuard Firebox depend on the vendor and the network segmentation: there is no neutral template. Add one for your equipment."
+ }
+}

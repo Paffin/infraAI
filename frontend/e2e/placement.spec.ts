@@ -77,7 +77,7 @@ test.describe('placement: from one data center to ten sites', () => {
     })
     expect(rows).toBeGreaterThanOrEqual(3)
 
-    await page.locator('.whatif .w.ghost').last().click()
+    await page.getByTestId('whatif-matrix').click()
     const modal = page.locator('.modal')
     await expect(modal.locator('.chips .chip', { hasText: 'Изоляция' })).toBeVisible()
     await modal.locator('.chips .chip', { hasText: 'Изоляция' }).click()

@@ -1,0 +1,13 @@
+{
+ "id": "zimbra",
+ "title": {
+  "ru": "Zimbra Collaboration",
+  "en": "Zimbra Collaboration"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Установка Zimbra Collaboration зависит от вашей среды (база данных, файловое хранилище, почта, домен): проверенного шаблона нет. Добавьте свой.",
+  "en": "Installing Zimbra Collaboration depends on your environment (database, file storage, mail, domain): there is no verified template. Add your own."
+ }
+}

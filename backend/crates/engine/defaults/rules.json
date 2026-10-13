@@ -6,7 +6,9 @@
   "enabled": true,
   "severity": "critical",
   "params": {
-   "ignoreTraits": []
+   "ignoreTraits": [
+    "provider-ha"
+   ]
   },
   "title": {
    "ru": "Единых точек отказа нет",
@@ -410,7 +412,8 @@
    "min": 2,
    "count": "instances",
    "excludeTraits": [
-    "dns-routing"
+    "dns-routing",
+    "provider-ha"
    ]
   },
   "title": {
@@ -445,7 +448,10 @@
   "params": {
    "trait": "workload",
    "min": 2,
-   "count": "instances"
+   "count": "instances",
+   "excludeTraits": [
+    "provider-ha"
+   ]
   },
   "title": {
    "ru": "Приложения запущены минимум в двух экземплярах",
@@ -1576,7 +1582,13 @@
     "trait": "entry"
    },
    "to": {
-    "trait": "workload"
+    "trait": "workload",
+    "excludeTraits": [
+     "telephony",
+     "mail",
+     "media-server",
+     "iot"
+    ]
    },
    "via": {
     "trait": "waf"

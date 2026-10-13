@@ -1,0 +1,13 @@
+{
+ "id": "dell_powerscale",
+ "title": {
+  "ru": "Dell PowerScale",
+  "en": "Dell PowerScale"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Dell PowerScale — оборудование или программно-аппаратный комплекс: его настраивают средствами вендора, нейтрального шаблона нет. Добавьте свой.",
+  "en": "Dell PowerScale is hardware or an appliance: it is configured with the vendor’s tools, there is no neutral template. Add your own."
+ }
+}

@@ -1,0 +1,13 @@
+{
+ "id": "google_cloud_sql",
+ "title": {
+  "ru": "Google Cloud SQL",
+  "en": "Google Cloud SQL"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Google Cloud SQL — сервис провайдера: он создаётся через консоль, API и провайдер Terraform самого провайдера, нейтрального шаблона нет. Добавьте свой под вашего провайдера.",
+  "en": "Google Cloud SQL is a provider’s service: it is created through the provider’s console, API and Terraform provider, there is no neutral template. Add your own for your provider."
+ }
+}

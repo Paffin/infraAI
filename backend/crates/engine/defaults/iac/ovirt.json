@@ -1,0 +1,13 @@
+{
+ "id": "ovirt",
+ "title": {
+  "ru": "oVirt",
+  "en": "oVirt"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Платформа oVirt ставится на оборудование и настраивается средствами вендора: проверенного шаблона нет. Добавьте свой.",
+  "en": "The oVirt platform is installed on hardware and configured with the vendor’s tools: there is no verified template. Add your own."
+ }
+}

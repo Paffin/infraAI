@@ -1,0 +1,13 @@
+{
+ "id": "infoblox_nios",
+ "title": {
+  "ru": "Infoblox NIOS",
+  "en": "Infoblox NIOS"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Зоны и записи Infoblox NIOS зависят от вашей схемы имён: нейтрального шаблона нет. Добавьте свой.",
+  "en": "The zones and records of Infoblox NIOS depend on your naming scheme: there is no neutral template. Add your own."
+ }
+}

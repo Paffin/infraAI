@@ -1,0 +1,13 @@
+{
+ "id": "symantec_proxysg",
+ "title": {
+  "ru": "Symantec ProxySG (Edge SWG)",
+  "en": "Symantec ProxySG (Edge SWG)"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Настройка Symantec ProxySG (Edge SWG) зависит от сети и политики доступа. Проверенного шаблона нет — добавьте свой.",
+  "en": "Setting up Symantec ProxySG (Edge SWG) depends on the network and the access policy. There is no verified template — add your own."
+ }
+}

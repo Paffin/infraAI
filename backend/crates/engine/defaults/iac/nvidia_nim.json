@@ -1,0 +1,13 @@
+{
+ "id": "nvidia_nim",
+ "title": {
+  "ru": "NVIDIA NIM",
+  "en": "NVIDIA NIM"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Развёртывание NVIDIA NIM зависит от кластера, ускорителей и хранилища: проверенного шаблона нет. Добавьте свой.",
+  "en": "Deploying NVIDIA NIM depends on the cluster, the accelerators and the storage: there is no verified template. Add your own."
+ }
+}

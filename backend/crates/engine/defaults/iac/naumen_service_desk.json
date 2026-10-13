@@ -1,0 +1,13 @@
+{
+ "id": "naumen_service_desk",
+ "title": {
+  "ru": "NAUMEN Service Desk",
+  "en": "NAUMEN Service Desk"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Установка NAUMEN Service Desk зависит от вашей среды (база данных, файловое хранилище, почта, домен): проверенного шаблона нет. Добавьте свой.",
+  "en": "Installing NAUMEN Service Desk depends on your environment (database, file storage, mail, domain): there is no verified template. Add your own."
+ }
+}

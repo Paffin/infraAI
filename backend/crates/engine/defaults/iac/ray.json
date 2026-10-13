@@ -1,0 +1,13 @@
+{
+ "id": "ray",
+ "title": {
+  "ru": "Ray",
+  "en": "Ray"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Задания и ресурсы Ray зависят от вашей обработки данных: нейтрального шаблона нет. Добавьте свой.",
+  "en": "The jobs and resources of Ray depend on your data processing: there is no neutral template. Add your own."
+ }
+}

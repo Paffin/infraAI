@@ -1,0 +1,13 @@
+{
+ "id": "tensorflow_serving",
+ "title": {
+  "ru": "TensorFlow Serving",
+  "en": "TensorFlow Serving"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Развёртывание TensorFlow Serving зависит от кластера, ускорителей и хранилища: проверенного шаблона нет. Добавьте свой.",
+  "en": "Deploying TensorFlow Serving depends on the cluster, the accelerators and the storage: there is no verified template. Add your own."
+ }
+}

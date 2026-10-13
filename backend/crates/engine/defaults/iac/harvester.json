@@ -1,0 +1,13 @@
+{
+ "id": "harvester",
+ "title": {
+  "ru": "Harvester",
+  "en": "Harvester"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Платформа Harvester ставится на оборудование и настраивается средствами вендора: проверенного шаблона нет. Добавьте свой.",
+  "en": "The Harvester platform is installed on hardware and configured with the vendor’s tools: there is no verified template. Add your own."
+ }
+}

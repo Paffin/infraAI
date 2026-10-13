@@ -1,0 +1,13 @@
+{
+ "id": "saleor",
+ "title": {
+  "ru": "Saleor",
+  "en": "Saleor"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Установка Saleor зависит от вашей среды (база данных, файловое хранилище, почта, домен): проверенного шаблона нет. Добавьте свой.",
+  "en": "Installing Saleor depends on your environment (database, file storage, mail, domain): there is no verified template. Add your own."
+ }
+}

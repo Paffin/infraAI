@@ -1,0 +1,13 @@
+{
+ "id": "microsoft_active_directory",
+ "title": {
+  "ru": "Microsoft Active Directory",
+  "en": "Microsoft Active Directory"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Значения установки Microsoft Active Directory зависят от вашей среды (хранилище, домен, внешняя база): проверенного шаблона нет. Добавьте свой.",
+  "en": "The install values of Microsoft Active Directory depend on your environment (storage, domain, an external database): there is no verified template. Add your own."
+ }
+}

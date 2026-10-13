@@ -1,0 +1,13 @@
+{
+ "id": "tenable_security_center",
+ "title": {
+  "ru": "Tenable Security Center",
+  "en": "Tenable Security Center"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Настройка Tenable Security Center зависит от вашей политики безопасности и инфраструктуры: нейтрального проверенного шаблона нет. Добавьте свой.",
+  "en": "Setting up Tenable Security Center depends on your security policy and infrastructure: there is no neutral verified template. Add your own."
+ }
+}

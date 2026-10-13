@@ -1,0 +1,13 @@
+{
+ "id": "apache_dolphinscheduler",
+ "title": {
+  "ru": "Apache DolphinScheduler",
+  "en": "Apache DolphinScheduler"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Задания и ресурсы Apache DolphinScheduler зависят от вашей обработки данных: нейтрального шаблона нет. Добавьте свой.",
+  "en": "The jobs and resources of Apache DolphinScheduler depend on your data processing: there is no neutral template. Add your own."
+ }
+}

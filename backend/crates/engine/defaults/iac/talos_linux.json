@@ -1,0 +1,13 @@
+{
+ "id": "talos_linux",
+ "title": {
+  "ru": "Talos Linux",
+  "en": "Talos Linux"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Talos Linux ставится пакетами или своим сценарием; проверенного шаблона нет — добавьте свой.",
+  "en": "Talos Linux is installed from packages or by your own playbook; there is no verified template — add your own."
+ }
+}

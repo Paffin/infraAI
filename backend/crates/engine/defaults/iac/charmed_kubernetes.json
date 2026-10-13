@@ -1,0 +1,13 @@
+{
+ "id": "charmed_kubernetes",
+ "title": {
+  "ru": "Charmed Kubernetes",
+  "en": "Charmed Kubernetes"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Charmed Kubernetes ставится пакетами или своим сценарием; проверенного шаблона нет — добавьте свой.",
+  "en": "Charmed Kubernetes is installed from packages or by your own playbook; there is no verified template — add your own."
+ }
+}

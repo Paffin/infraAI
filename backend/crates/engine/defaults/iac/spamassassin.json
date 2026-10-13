@@ -1,0 +1,13 @@
+{
+ "id": "spamassassin",
+ "title": {
+  "ru": "Apache SpamAssassin",
+  "en": "Apache SpamAssassin"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Настройка Apache SpamAssassin зависит от вашей политики безопасности и инфраструктуры: нейтрального проверенного шаблона нет. Добавьте свой.",
+  "en": "Setting up Apache SpamAssassin depends on your security policy and infrastructure: there is no neutral verified template. Add your own."
+ }
+}

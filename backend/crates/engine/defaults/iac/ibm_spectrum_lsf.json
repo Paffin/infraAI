@@ -1,0 +1,13 @@
+{
+ "id": "ibm_spectrum_lsf",
+ "title": {
+  "ru": "IBM Spectrum LSF",
+  "en": "IBM Spectrum LSF"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Развёртывание IBM Spectrum LSF зависит от кластера, ускорителей и хранилища: проверенного шаблона нет. Добавьте свой.",
+  "en": "Deploying IBM Spectrum LSF depends on the cluster, the accelerators and the storage: there is no verified template. Add your own."
+ }
+}

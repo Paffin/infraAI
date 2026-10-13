@@ -1,0 +1,13 @@
+{
+ "id": "semgrep",
+ "title": {
+  "ru": "Semgrep",
+  "en": "Semgrep"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Настройка Semgrep зависит от вашей политики безопасности и инфраструктуры: нейтрального проверенного шаблона нет. Добавьте свой.",
+  "en": "Setting up Semgrep depends on your security policy and infrastructure: there is no neutral verified template. Add your own."
+ }
+}

@@ -1,0 +1,13 @@
+{
+ "id": "one_c_enterprise",
+ "title": {
+  "ru": "1С:Предприятие",
+  "en": "1C:Enterprise"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Установка 1С:Предприятие зависит от вашей среды (база данных, файловое хранилище, почта, домен): проверенного шаблона нет. Добавьте свой.",
+  "en": "Installing 1C:Enterprise depends on your environment (database, file storage, mail, domain): there is no verified template. Add your own."
+ }
+}

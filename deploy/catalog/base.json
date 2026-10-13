@@ -31,6 +31,30 @@
     "ru": "Платформа",
     "en": "Platform"
    }
+  },
+  {
+   "id": "security",
+   "order": 5,
+   "name": {
+    "ru": "Безопасность",
+    "en": "Security"
+   }
+  },
+  {
+   "id": "apps",
+   "order": 6,
+   "name": {
+    "ru": "Приложения и сервисы",
+    "en": "Applications & services"
+   }
+  },
+  {
+   "id": "ai",
+   "order": 7,
+   "name": {
+    "ru": "ИИ и машинное обучение",
+    "en": "AI & machine learning"
+   }
   }
  ],
  "zoneTypes": [

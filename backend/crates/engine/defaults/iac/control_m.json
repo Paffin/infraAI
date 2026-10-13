@@ -1,0 +1,13 @@
+{
+ "id": "control_m",
+ "title": {
+  "ru": "Control-M",
+  "en": "Control-M"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Задания и ресурсы Control-M зависят от вашей обработки данных: нейтрального шаблона нет. Добавьте свой.",
+  "en": "The jobs and resources of Control-M depend on your data processing: there is no neutral template. Add your own."
+ }
+}

@@ -1,0 +1,13 @@
+{
+ "id": "apache_zeppelin",
+ "title": {
+  "ru": "Apache Zeppelin",
+  "en": "Apache Zeppelin"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Развёртывание Apache Zeppelin зависит от кластера, ускорителей и хранилища: проверенного шаблона нет. Добавьте свой.",
+  "en": "Deploying Apache Zeppelin depends on the cluster, the accelerators and the storage: there is no verified template. Add your own."
+ }
+}

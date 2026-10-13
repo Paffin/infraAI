@@ -1,0 +1,13 @@
+{
+ "id": "yandex_message_queue",
+ "title": {
+  "ru": "Yandex Message Queue",
+  "en": "Yandex Message Queue"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Yandex Message Queue — сервис провайдера: он создаётся через консоль, API и провайдер Terraform самого провайдера, нейтрального шаблона нет. Добавьте свой под вашего провайдера.",
+  "en": "Yandex Message Queue is a provider’s service: it is created through the provider’s console, API and Terraform provider, there is no neutral template. Add your own for your provider."
+ }
+}

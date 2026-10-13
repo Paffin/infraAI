@@ -1,16 +1,29 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { ChevronLeft, ChevronRight, Pause, Play, RotateCcw, X } from 'lucide-vue-next'
+import { ChevronLeft, ChevronRight, ClipboardCopy, Link2, Pause, PictureInPicture2, Play, RotateCcw, X } from 'lucide-vue-next'
 import AnimatedNumber from '@/components/AnimatedNumber.vue'
 import { t } from '@/i18n'
+import { copyText } from '@/lib/clipboard'
 import { fmtDuration, fmtNumber } from '@/lib/format'
-import { stepAtPercent, trackPosition } from '@/lib/playback'
+import { stepAtPercent, trackPosition, type Step } from '@/lib/playback'
 import { eventText, scenarioLabel } from '@/lib/sim'
+import { linkTo } from '@/lib/simLink'
+import { impactOf } from '@/lib/simImpact'
+import { storyMarkdown } from '@/lib/simStory'
+import { tilesOf } from '@/lib/simTiles'
 import { amountText, detoursOf, lossesOf, missesOf } from '@/lib/traffic'
 import { useEditor } from '@/stores/editor'
 import { PLAYBACK_SPEEDS, usePlayback } from '@/stores/playback'
+import { useToasts } from '@/stores/toasts'
+import { useUi } from '@/stores/ui'
+import SimImpact from './SimImpact.vue'
+import SimTiles from './SimTiles.vue'
 
+/** `bare`: shown in a window of its own (SimWindow), which has the title and the buttons. */
+defineProps<{ bare?: boolean }>()
 const editor = useEditor()
+const ui = useUi()
+const toasts = useToasts()
 const playback = usePlayback()
 const sim = computed(() => editor.sim)
 const res = computed(() => sim.value?.result)
@@ -51,6 +64,41 @@ const detourLines = computed(() => detours.value.slice(0, SHOWN).map((d) => t('t
 const lostShare = computed(() => (servedPct.value === null ? 0 : 100 - servedPct.value))
 const barTone = computed(() => (servedPct.value === null ? '' : servedPct.value >= 100 ? 'ok' : servedPct.value > 0 ? 'risk' : 'crit'))
 
+// ---- who is hit, and the figures of the failure
+const impact = computed(() => impactOf(playback.nodeStates, editor.shown.nodes, editor.shown.zones))
+const units = computed(() => editor.report?.units ?? {})
+const tilesFor = (r: NonNullable<typeof res.value>, capacityRatio: number | null, imp: typeof impact.value, normal = false) =>
+  tilesOf(r, { requirements: editor.arch.requirements, units: units.value, capacityRatio, impact: imp, normal })
+const tiles = computed(() => (res.value ? tilesFor(res.value, playback.current ? playback.current.capacityRatio : res.value.capacityRatio, impact.value, playback.beforeFailure) : []))
+
+// ---- the served share of every step, over the track: the dip of the failure and the climb of the recovery
+const gap = computed(() => 100 / Math.max(1, count.value - 1))
+const colTone = (s: Step) => (s.served === null ? 'none' : s.served >= 0.999 ? 'ok' : s.served > 0.001 ? 'risk' : 'crit')
+const colHeight = (s: Step) => (s.served === null ? '3px' : `max(3px, ${Math.round(s.served * 100)}%)`)
+const colTitle = (s: Step) => (s.served === null ? atText(s) : t('sim.chart.step', { at: atText(s), pct: pct(s.served) + '%' }))
+
+// ---- sharing: a link that opens this failure, and the account of it in Markdown
+async function copy(text: string, done: string) {
+  if (await copyText(text)) toasts.ok(done)
+  else toasts.error(t('sim.share.failed'))
+}
+function copyLink() {
+  const link = sim.value ? linkTo(sim.value.scenario, window.location.href) : null
+  if (link) void copy(link, t('sim.share.copied.link'))
+  else toasts.error(t('sim.share.toolong'))
+}
+function copyStory() {
+  const r = res.value
+  if (!r) return
+  const settled = impactOf(r.nodeStates, editor.shown.nodes, editor.shown.zones)
+  const text = storyMarkdown({
+    title: t('sim.banner', { failed: r.failed.length ? r.failed.join(', ') : title.value }),
+    res: r, state: r.state, steps: steps.value, tiles: tilesFor(r, r.capacityRatio, settled), impact: settled,
+    served: r.traffic?.served ?? null, servedBefore: r.trafficBefore?.served ?? null, rps: rps.value, date: new Date().toISOString().slice(0, 10),
+  })
+  void copy(text, t('sim.share.copied.md'))
+}
+
 function onTrack(e: MouseEvent) {
   const el = e.currentTarget as HTMLElement
   const r = el.getBoundingClientRect()
@@ -65,17 +113,24 @@ function onKey(e: KeyboardEvent) {
 </script>
 
 <template>
-  <div v-if="sim && !res" class="simcard waiting" role="region" :aria-label="t('tab.sim')" data-testid="simcard">
+  <div v-if="sim && !res" class="simcard waiting" :class="{ bare }" role="region" :aria-label="t('tab.sim')" data-testid="simcard">
     <p v-if="sim.error" class="banner banner-err">{{ sim.error }}</p>
     <p v-else class="wait"><span class="spinner" aria-hidden="true" />{{ t('sim.running') }}</p>
     <button class="btn btn-sm" @click="editor.exitSim()">{{ t('sim.exit') }}</button>
   </div>
-  <div v-else-if="sim && res" class="simcard" role="region" :aria-label="t('tab.sim')" data-testid="simcard">
-    <header>
+  <div v-else-if="sim && res" class="simcard" :class="{ bare }" role="region" :aria-label="t('tab.sim')" data-testid="simcard">
+    <header v-if="!bare">
       <span class="dot" /><h2 class="grow truncate">{{ t('sim.banner', { failed: res.failed.length ? res.failed.join(', ') : title }) }}</h2>
+      <button class="btn btn-ghost btn-icon" :aria-label="t('sim.detach')" :title="t('sim.detach') + ' — ' + t('sim.detach.hint')" data-testid="sim-detach" @click="ui.simMode = 'float'"><PictureInPicture2 :size="16" /></button>
       <button class="btn btn-ghost btn-icon" :aria-label="t('sim.exit')" :title="t('sim.exit')" @click="editor.exitSim()"><X :size="16" /></button>
     </header>
-    <p class="state" :class="playback.beforeFailure ? 'up' : shownState" data-testid="sim-state">{{ stateText }}<span v-if="!playback.available && res.downUnits.length"> · {{ res.downUnits.join(', ') }}</span></p>
+    <div class="statebar">
+      <p class="state" :class="playback.beforeFailure ? 'up' : shownState" data-testid="sim-state">{{ stateText }}<span v-if="!playback.available && res.downUnits.length"> · {{ res.downUnits.join(', ') }}</span></p>
+      <span class="share">
+        <button class="gbtn" :title="t('sim.share.link')" :aria-label="t('sim.share.link')" data-testid="sim-copy-link" @click="copyLink"><Link2 :size="14" /></button>
+        <button class="gbtn" :title="t('sim.share.md')" :aria-label="t('sim.share.md')" data-testid="sim-copy-md" @click="copyStory"><ClipboardCopy :size="14" /></button>
+      </span>
+    </div>
 
     <section v-if="playback.available" class="player" :aria-label="t('play.title')">
       <div class="ctl">
@@ -91,11 +146,19 @@ function onKey(e: KeyboardEvent) {
           <button v-for="s in PLAYBACK_SPEEDS" :key="s" class="sp" :class="{ on: playback.speed === s }" @click="playback.setSpeed(s)">×{{ s }}</button>
         </span>
       </div>
-      <div class="track" role="slider" tabindex="0" :aria-label="t('play.title')" :aria-valuemin="1" :aria-valuemax="count" :aria-valuenow="playback.index + 1" :aria-valuetext="t('play.step', { i: playback.index + 1, n: count })" @click="onTrack" @keydown="onKey">
-        <i class="rail" /><i class="fill" :style="{ width: progress + '%' }" />
-        <span v-for="s in steps" :key="s.index" class="tick" :class="[s.state, { on: s.index <= playback.index, cur: s.index === playback.index }]" :style="{ left: trackPosition(s.index, count) + '%' }" :title="atText(s)" aria-hidden="true" />
+      <div class="timeline" :style="{ '--gap': gap + '%' }" @click="onTrack">
+        <div class="bars" role="img" :aria-label="t('sim.chart')" data-testid="sim-chart">
+          <i v-for="s in steps" :key="s.index" class="col" :class="[colTone(s), { on: s.index <= playback.index, cur: s.index === playback.index }]" :style="{ left: trackPosition(s.index, count) + '%', height: colHeight(s) }" :title="colTitle(s)" />
+        </div>
+        <div class="track" role="slider" tabindex="0" :aria-label="t('play.title')" :aria-valuemin="1" :aria-valuemax="count" :aria-valuenow="playback.index + 1" :aria-valuetext="t('play.step', { i: playback.index + 1, n: count })" @keydown="onKey">
+          <i class="rail" /><i class="fill" :style="{ width: progress + '%' }" />
+          <span v-for="s in steps" :key="s.index" class="tick" :class="[s.state, { on: s.index <= playback.index, cur: s.index === playback.index }]" :style="{ left: trackPosition(s.index, count) + '%' }" :title="atText(s)" aria-hidden="true" />
+        </div>
       </div>
     </section>
+
+    <div class="scroll">
+    <SimTiles :tiles="tiles" />
 
     <section v-if="traffic" class="traffic" data-testid="traffic" :aria-label="t('traffic.title')">
       <h3>{{ t('traffic.title') }}</h3>
@@ -123,7 +186,8 @@ function onKey(e: KeyboardEvent) {
       <p v-else-if="!playback.beforeFailure" class="muted small">{{ t('traffic.nolost') }}</p>
     </section>
 
-    <div class="scroll">
+    <SimImpact :impact="impact" />
+
     <h3>{{ t('sim.details') }}</h3>
     <ol v-if="playback.available" class="steps">
       <li v-for="s in steps" :key="s.index" :class="[{ cur: s.index === playback.index, past: s.index < playback.index, future: s.index > playback.index }, s.kind]" :data-step="s.index" @click="playback.seek(s.index)">
@@ -152,10 +216,15 @@ function onKey(e: KeyboardEvent) {
 
 <style scoped>
 .simcard { display: flex; flex-direction: column; min-height: 0; flex: 1; padding: 14px 20px 0; }
+.simcard.bare { padding-top: 10px; }
 header { display: flex; align-items: center; gap: 9px; margin: 0 -8px 2px 0; }
 header h2 { font-size: 16px; margin: 0; }
 .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--crit); flex: none; box-shadow: 0 0 0 3px var(--crit-bg); }
-.state { margin: 0 0 10px; font-weight: 600; font-size: 13px; transition: color var(--dur-base); }
+.statebar { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; }
+.state { margin: 0; flex: 1; min-width: 0; font-weight: 600; font-size: 13px; transition: color var(--dur-base); }
+.share { display: inline-flex; gap: 2px; flex: none; margin-right: -4px; }
+.gbtn { width: 28px; height: 28px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--muted); display: inline-flex; align-items: center; justify-content: center; transition: background-color var(--dur-fast), color var(--dur-fast); }
+.gbtn:hover { background: var(--surface-sunken); color: var(--text); }
 .state.up { color: var(--ok); } .state.degraded { color: var(--risk); } .state.down { color: var(--crit); }
 h3 { margin: 10px 0 6px; font-size: 10.5px; letter-spacing: .09em; text-transform: uppercase; color: var(--label); font-weight: 600; }
 ul { margin: 0; padding-left: 16px; display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; line-height: 1.45; color: var(--text-2); }
@@ -163,7 +232,7 @@ ul { margin: 0; padding-left: 16px; display: flex; flex-direction: column; gap: 
 .waiting { gap: 14px; align-items: flex-start; }
 .wait { display: flex; align-items: center; gap: 10px; margin: 6px 0 0; color: var(--muted); font-size: 13px; }
 .scroll { overflow: auto; min-height: 0; flex: 1 1 auto; margin: 0 -20px; padding: 0 20px 18px; overscroll-behavior: contain; }
-.simcard > header, .simcard > .state, .simcard > .player, .simcard > .traffic { flex: none; }
+.simcard > header, .simcard > .statebar, .simcard > .player { flex: none; }
 
 .player { background: var(--ink); color: var(--on-dark); border-radius: 10px; padding: 8px 10px 12px; margin: 2px 0 4px; }
 .ctl { display: flex; align-items: center; gap: 4px; }
@@ -177,7 +246,14 @@ ul { margin: 0; padding-left: 16px; display: flex; flex-direction: column; gap: 
 .sp { border: 0; background: transparent; color: var(--on-dark-muted); font-size: 11.5px; font-weight: 600; height: 26px; padding: 0 8px; }
 .sp:hover { color: #fff; }
 .sp.on { background: var(--ink-3); color: #fff; }
-.track { position: relative; height: 22px; margin: 10px 8px 0; cursor: pointer; border-radius: 4px; }
+.timeline { margin: 8px 8px 0; cursor: pointer; }
+/* what the service does at each step: a column per step over its tick, tall as the share of the requests that are served */
+.bars { position: relative; height: 34px; }
+.col { position: absolute; bottom: 0; width: clamp(4px, calc(var(--gap) * .6), 18px); transform: translateX(-50%); border-radius: 3px 3px 1px 1px; background: var(--on-dark-muted); opacity: .35; transition: height var(--dur-slow) var(--ease-out), opacity var(--dur-base), background-color var(--dur-base), box-shadow var(--dur-base); }
+.col.ok { background: var(--ok-dot); } .col.risk { background: var(--risk-dot); } .col.crit { background: var(--crit); }
+.col.on { opacity: .8; }
+.col.cur { opacity: 1; box-shadow: 0 0 0 2px rgba(255, 255, 255, .22); }
+.track { position: relative; height: 22px; margin: 2px 0 0; border-radius: 4px; }
 .track:focus-visible { outline: 2px solid var(--accent-line); outline-offset: 4px; }
 .rail, .fill { position: absolute; left: 0; top: 10px; height: 3px; border-radius: 2px; }
 .rail { right: 0; background: var(--line-on-dark-faint); }

@@ -1,0 +1,13 @@
+{
+ "id": "mlflow",
+ "title": {
+  "ru": "MLflow",
+  "en": "MLflow"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Развёртывание MLflow зависит от кластера, ускорителей и хранилища: проверенного шаблона нет. Добавьте свой.",
+  "en": "Deploying MLflow depends on the cluster, the accelerators and the storage: there is no verified template. Add your own."
+ }
+}

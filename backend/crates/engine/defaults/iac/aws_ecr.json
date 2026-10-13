@@ -1,0 +1,13 @@
+{
+ "id": "aws_ecr",
+ "title": {
+  "ru": "Amazon ECR",
+  "en": "Amazon ECR"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Amazon ECR — сервис провайдера: он создаётся через консоль, API и провайдер Terraform самого провайдера, нейтрального шаблона нет. Добавьте свой под вашего провайдера.",
+  "en": "Amazon ECR is a provider’s service: it is created through the provider’s console, API and Terraform provider, there is no neutral template. Add your own for your provider."
+ }
+}

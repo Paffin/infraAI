@@ -1,0 +1,13 @@
+{
+ "id": "security_onion",
+ "title": {
+  "ru": "Security Onion",
+  "en": "Security Onion"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Настройка Security Onion зависит от вашей политики безопасности и инфраструктуры: нейтрального проверенного шаблона нет. Добавьте свой.",
+  "en": "Setting up Security Onion depends on your security policy and infrastructure: there is no neutral verified template. Add your own."
+ }
+}

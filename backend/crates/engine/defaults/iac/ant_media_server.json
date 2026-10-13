@@ -1,0 +1,13 @@
+{
+ "id": "ant_media_server",
+ "title": {
+  "ru": "Ant Media Server",
+  "en": "Ant Media Server"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Установка Ant Media Server зависит от вашей среды (база данных, файловое хранилище, почта, домен): проверенного шаблона нет. Добавьте свой.",
+  "en": "Installing Ant Media Server depends on your environment (database, file storage, mail, domain): there is no verified template. Add your own."
+ }
+}

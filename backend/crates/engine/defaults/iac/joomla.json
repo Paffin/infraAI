@@ -1,0 +1,13 @@
+{
+ "id": "joomla",
+ "title": {
+  "ru": "Joomla!",
+  "en": "Joomla!"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Установка Joomla! зависит от вашей среды (база данных, файловое хранилище, почта, домен): проверенного шаблона нет. Добавьте свой.",
+  "en": "Installing Joomla! depends on your environment (database, file storage, mail, domain): there is no verified template. Add your own."
+ }
+}

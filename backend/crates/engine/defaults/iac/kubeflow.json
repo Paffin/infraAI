@@ -1,0 +1,13 @@
+{
+ "id": "kubeflow",
+ "title": {
+  "ru": "Kubeflow",
+  "en": "Kubeflow"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Развёртывание Kubeflow зависит от кластера, ускорителей и хранилища: проверенного шаблона нет. Добавьте свой.",
+  "en": "Deploying Kubeflow depends on the cluster, the accelerators and the storage: there is no verified template. Add your own."
+ }
+}

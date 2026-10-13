@@ -1,0 +1,13 @@
+{
+ "id": "aruba_clearpass",
+ "title": {
+  "ru": "Aruba ClearPass",
+  "en": "Aruba ClearPass"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Настройка Aruba ClearPass зависит от вашей политики безопасности и инфраструктуры: нейтрального проверенного шаблона нет. Добавьте свой.",
+  "en": "Setting up Aruba ClearPass depends on your security policy and infrastructure: there is no neutral verified template. Add your own."
+ }
+}

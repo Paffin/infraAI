@@ -1,0 +1,13 @@
+{
+ "id": "llama_cpp_server",
+ "title": {
+  "ru": "llama.cpp server",
+  "en": "llama.cpp server"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Развёртывание llama.cpp server зависит от кластера, ускорителей и хранилища: проверенного шаблона нет. Добавьте свой.",
+  "en": "Deploying llama.cpp server depends on the cluster, the accelerators and the storage: there is no verified template. Add your own."
+ }
+}

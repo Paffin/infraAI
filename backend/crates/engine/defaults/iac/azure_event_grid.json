@@ -1,0 +1,13 @@
+{
+ "id": "azure_event_grid",
+ "title": {
+  "ru": "Azure Event Grid",
+  "en": "Azure Event Grid"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Azure Event Grid — сервис провайдера: он создаётся через консоль, API и провайдер Terraform самого провайдера, нейтрального шаблона нет. Добавьте свой под вашего провайдера.",
+  "en": "Azure Event Grid is a provider’s service: it is created through the provider’s console, API and Terraform provider, there is no neutral template. Add your own for your provider."
+ }
+}

@@ -1,0 +1,1085 @@
+{
+ "architecture": {
+  "schemaVersion": 1,
+  "meta": {
+   "name": "2 ЦОД + witness",
+   "description": "Active/active в двух ЦОД, арбитр кворума в третьей площадке"
+  },
+  "requirements": {
+   "rpsPeak": 5000,
+   "growthPercent": 30,
+   "rtoSeconds": 900,
+   "rpoSeconds": 0,
+   "budgetMonthly": 1200000,
+   "failureTolerance": "site",
+   "availabilitySlo": 99.95
+  },
+  "zones": [
+   {
+    "id": "dc1",
+    "name": "ЦОД-1 · Москва",
+    "type": "dc",
+    "parentId": null,
+    "role": "active",
+    "props": {
+     "tier": "III",
+     "geo": "moscow",
+     "costModel": "onprem"
+    }
+   },
+   {
+    "id": "dc2",
+    "name": "ЦОД-2 · Москва",
+    "type": "dc",
+    "parentId": null,
+    "role": "active",
+    "props": {
+     "tier": "III",
+     "geo": "moscow",
+     "costModel": "onprem"
+    }
+   },
+   {
+    "id": "site3",
+    "name": "Площадка 3 · облако",
+    "type": "cloud",
+    "parentId": null,
+    "role": "witness",
+    "props": {
+     "geo": "cloud-north",
+     "costModel": "cloud"
+    }
+   }
+  ],
+  "nodes": [
+   {
+    "id": "users",
+    "kind": "users",
+    "name": "Пользователи",
+    "zoneId": null,
+    "group": null,
+    "role": null,
+    "props": {
+     "rpsLabel": "5k RPS пик"
+    }
+   },
+   {
+    "id": "gslb",
+    "kind": "gslb",
+    "name": "GSLB + CDN",
+    "zoneId": null,
+    "group": "gslb",
+    "role": null,
+    "props": {
+     "replicas": 3,
+     "healthCheckSeconds": 5,
+     "failThreshold": 1,
+     "dnsTtlSeconds": 30
+    }
+   },
+   {
+    "id": "waf",
+    "kind": "waf",
+    "name": "WAF",
+    "zoneId": null,
+    "group": "waf",
+    "role": null,
+    "props": {
+     "replicas": 3
+    }
+   },
+   {
+    "id": "ingress-dc1",
+    "kind": "l7",
+    "name": "WAF + Ingress",
+    "zoneId": "dc1",
+    "group": "ingress",
+    "role": null,
+    "props": {
+     "replicas": 2,
+     "healthCheckSeconds": 3,
+     "failThreshold": 2
+    }
+   },
+   {
+    "id": "app-dc1",
+    "kind": "kubernetes",
+    "name": "Kubernetes · app",
+    "zoneId": "dc1",
+    "group": "app",
+    "role": null,
+    "props": {
+     "replicas": 32,
+     "vcpu": 1,
+     "ramGb": 2,
+     "hpaMin": 24,
+     "hpaMax": 64
+    }
+   },
+   {
+    "id": "kafka-dc1",
+    "kind": "kafka",
+    "name": "Kafka",
+    "zoneId": "dc1",
+    "group": "kafka-dc1",
+    "role": null,
+    "props": {
+     "replicas": 3,
+     "replicationFactor": 3,
+     "minInsync": 2,
+     "vcpu": 4,
+     "ramGb": 16,
+     "diskGb": 500,
+     "storageClass": "nvme",
+     "encryptionAtRest": true
+    }
+   },
+   {
+    "id": "mon-dc1",
+    "kind": "monitoring",
+    "name": "Мониторинг",
+    "zoneId": "dc1",
+    "group": "monitoring",
+    "role": null,
+    "props": {
+     "replicas": 2,
+     "vcpu": 2,
+     "ramGb": 8,
+     "diskGb": 200
+    }
+   },
+   {
+    "id": "ingress-dc2",
+    "kind": "l7",
+    "name": "WAF + Ingress",
+    "zoneId": "dc2",
+    "group": "ingress",
+    "role": null,
+    "props": {
+     "replicas": 2,
+     "healthCheckSeconds": 3,
+     "failThreshold": 2
+    }
+   },
+   {
+    "id": "app-dc2",
+    "kind": "kubernetes",
+    "name": "Kubernetes · app",
+    "zoneId": "dc2",
+    "group": "app",
+    "role": null,
+    "props": {
+     "replicas": 32,
+     "vcpu": 1,
+     "ramGb": 2,
+     "hpaMin": 24,
+     "hpaMax": 64
+    }
+   },
+   {
+    "id": "kafka-dc2",
+    "kind": "kafka",
+    "name": "Kafka",
+    "zoneId": "dc2",
+    "group": "kafka-dc2",
+    "role": null,
+    "props": {
+     "replicas": 3,
+     "replicationFactor": 3,
+     "minInsync": 2,
+     "vcpu": 4,
+     "ramGb": 16,
+     "diskGb": 500,
+     "storageClass": "nvme",
+     "encryptionAtRest": true
+    }
+   },
+   {
+    "id": "mon-dc2",
+    "kind": "monitoring",
+    "name": "Мониторинг",
+    "zoneId": "dc2",
+    "group": "monitoring",
+    "role": null,
+    "props": {
+     "replicas": 2,
+     "vcpu": 2,
+     "ramGb": 8,
+     "diskGb": 200
+    }
+   },
+   {
+    "id": "pg-primary",
+    "kind": "postgresql",
+    "name": "PostgreSQL primary",
+    "zoneId": "dc1",
+    "group": "pg",
+    "role": "primary",
+    "props": {
+     "version": "16",
+     "vcpu": 16,
+     "ramGb": 64,
+     "diskGb": 1000,
+     "storageClass": "nvme",
+     "failover": "auto",
+     "failoverSeconds": 30,
+     "dcs": "etcd",
+     "connectionPooler": true,
+     "encryptionAtRest": true
+    }
+   },
+   {
+    "id": "pg-replica",
+    "kind": "postgresql",
+    "name": "PostgreSQL replica",
+    "zoneId": "dc2",
+    "group": "pg",
+    "role": "replica",
+    "props": {
+     "version": "16",
+     "vcpu": 16,
+     "ramGb": 64,
+     "diskGb": 1000,
+     "storageClass": "nvme",
+     "failover": "auto",
+     "failoverSeconds": 30,
+     "dcs": "etcd",
+     "connectionPooler": true,
+     "encryptionAtRest": true
+    }
+   },
+   {
+    "id": "redis-primary",
+    "kind": "redis",
+    "name": "Redis (master)",
+    "zoneId": "dc1",
+    "group": "redis",
+    "role": "primary",
+    "props": {
+     "mode": "sentinel",
+     "vcpu": 4,
+     "ramGb": 32
+    }
+   },
+   {
+    "id": "redis-replica",
+    "kind": "redis",
+    "name": "Redis (replica)",
+    "zoneId": "dc2",
+    "group": "redis",
+    "role": "replica",
+    "props": {
+     "mode": "sentinel",
+     "vcpu": 4,
+     "ramGb": 32
+    }
+   },
+   {
+    "id": "redis-sentinel",
+    "kind": "redis",
+    "name": "Redis Sentinel",
+    "zoneId": "site3",
+    "group": "redis",
+    "role": "witness",
+    "props": {
+     "mode": "sentinel",
+     "vcpu": 1,
+     "ramGb": 1
+    }
+   },
+   {
+    "id": "etcd-dc1",
+    "kind": "etcd",
+    "name": "etcd",
+    "zoneId": "dc1",
+    "group": "etcd",
+    "role": "voter",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 4,
+     "diskGb": 50
+    }
+   },
+   {
+    "id": "etcd-dc2",
+    "kind": "etcd",
+    "name": "etcd",
+    "zoneId": "dc2",
+    "group": "etcd",
+    "role": "voter",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 4,
+     "diskGb": 50
+    }
+   },
+   {
+    "id": "etcd-site3",
+    "kind": "etcd",
+    "name": "etcd witness",
+    "zoneId": "site3",
+    "group": "etcd",
+    "role": "witness",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 4,
+     "diskGb": 50
+    }
+   },
+   {
+    "id": "vault-dc1",
+    "kind": "vault",
+    "name": "Vault",
+    "zoneId": "dc1",
+    "group": "vault",
+    "role": "primary",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 4,
+     "diskGb": 50
+    }
+   },
+   {
+    "id": "vault-site3",
+    "kind": "vault",
+    "name": "Vault DR",
+    "zoneId": "site3",
+    "group": "vault",
+    "role": "replica",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 4,
+     "diskGb": 50
+    }
+   },
+   {
+    "id": "gitops",
+    "kind": "gitops",
+    "name": "GitOps · Argo CD",
+    "zoneId": "site3",
+    "group": "gitops",
+    "role": null,
+    "props": {
+     "replicas": 2,
+     "vcpu": 2,
+     "ramGb": 4
+    }
+   },
+   {
+    "id": "backup",
+    "kind": "backup_storage",
+    "name": "Бэкапы offsite",
+    "zoneId": "site3",
+    "group": null,
+    "role": null,
+    "props": {
+     "immutable": true,
+     "retentionDays": 30,
+     "backupIntervalSeconds": 300,
+     "restoreSeconds": 7200,
+     "restoreTestedDays": 30,
+     "encryptionAtRest": true,
+     "diskGb": 20000
+    }
+   }
+  ],
+  "edges": [
+   {
+    "id": "e-users--gslb",
+    "source": "users",
+    "target": "gslb",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-gslb--waf",
+    "source": "gslb",
+    "target": "waf",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-waf--ingress-dc1",
+    "source": "waf",
+    "target": "ingress-dc1",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-ingress-dc1--app-dc1",
+    "source": "ingress-dc1",
+    "target": "app-dc1",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-app-dc1--kafka-dc1",
+    "source": "app-dc1",
+    "target": "kafka-dc1",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "fanout": 0.2,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-mon-dc1--app-dc1",
+    "source": "mon-dc1",
+    "target": "app-dc1",
+    "type": "control",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-gitops--app-dc1",
+    "source": "gitops",
+    "target": "app-dc1",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-app-dc1--vault-dc1",
+    "source": "app-dc1",
+    "target": "vault-dc1",
+    "type": "control",
+    "label": "secrets",
+    "props": {}
+   },
+   {
+    "id": "e-waf--ingress-dc2",
+    "source": "waf",
+    "target": "ingress-dc2",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-ingress-dc2--app-dc2",
+    "source": "ingress-dc2",
+    "target": "app-dc2",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-app-dc2--kafka-dc2",
+    "source": "app-dc2",
+    "target": "kafka-dc2",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "fanout": 0.2,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-mon-dc2--app-dc2",
+    "source": "mon-dc2",
+    "target": "app-dc2",
+    "type": "control",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-gitops--app-dc2",
+    "source": "gitops",
+    "target": "app-dc2",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-app-dc2--vault-dc1",
+    "source": "app-dc2",
+    "target": "vault-dc1",
+    "type": "control",
+    "label": "secrets",
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-app-dc1--pg-primary",
+    "source": "app-dc1",
+    "target": "pg-primary",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "fanout": 0.3,
+     "fanoutColdCache": 0.8,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-app-dc2--pg-replica",
+    "source": "app-dc2",
+    "target": "pg-replica",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "fanout": 0.3,
+     "fanoutColdCache": 0.8,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-app-dc1--redis-primary",
+    "source": "app-dc1",
+    "target": "redis-primary",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "fanout": 1
+    }
+   },
+   {
+    "id": "e-app-dc2--redis-replica",
+    "source": "app-dc2",
+    "target": "redis-replica",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "fanout": 1
+    }
+   },
+   {
+    "id": "e-redis-primary--redis-replica",
+    "source": "redis-primary",
+    "target": "redis-replica",
+    "type": "async",
+    "label": "async",
+    "props": {
+     "lagSeconds": 1,
+     "latencyMs": 1.2,
+     "latencyMeasured": true,
+     "tls": true,
+     "paths": 2,
+     "bandwidthMbps": 10000
+    }
+   },
+   {
+    "id": "e-redis-sentinel--redis-primary",
+    "source": "redis-sentinel",
+    "target": "redis-primary",
+    "type": "quorum",
+    "label": "кворум Sentinel",
+    "props": {
+     "tls": true,
+     "paths": 2
+    }
+   },
+   {
+    "id": "e-redis-sentinel--redis-replica",
+    "source": "redis-sentinel",
+    "target": "redis-replica",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "tls": true,
+     "paths": 2
+    }
+   },
+   {
+    "id": "e-pg-primary--pg-replica",
+    "source": "pg-primary",
+    "target": "pg-replica",
+    "type": "sync",
+    "label": "sync · RTT 1.2 мс",
+    "props": {
+     "latencyMs": 1.2,
+     "latencyMeasured": true,
+     "tls": true,
+     "bandwidthMbps": 10000,
+     "paths": 2
+    }
+   },
+   {
+    "id": "e-kafka-dc1--kafka-dc2",
+    "source": "kafka-dc1",
+    "target": "kafka-dc2",
+    "type": "async",
+    "label": "MirrorMaker · async",
+    "props": {
+     "lagSeconds": 2,
+     "latencyMs": 1.2,
+     "latencyMeasured": true,
+     "tls": true,
+     "paths": 2,
+     "bandwidthMbps": 10000,
+     "mitigation": "Заказы защищены transactional outbox в PostgreSQL: события в полёте (≈2 с) публикуются повторно после переключения."
+    }
+   },
+   {
+    "id": "e-etcd-dc1--etcd-dc2",
+    "source": "etcd-dc1",
+    "target": "etcd-dc2",
+    "type": "quorum",
+    "label": "кворум etcd 1+1+1",
+    "props": {
+     "latencyMs": 1.2,
+     "tls": true,
+     "paths": 2
+    }
+   },
+   {
+    "id": "e-etcd-dc2--etcd-site3",
+    "source": "etcd-dc2",
+    "target": "etcd-site3",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 12,
+     "tls": true,
+     "paths": 2
+    }
+   },
+   {
+    "id": "e-etcd-dc1--etcd-site3",
+    "source": "etcd-dc1",
+    "target": "etcd-site3",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 12,
+     "tls": true,
+     "paths": 2
+    }
+   },
+   {
+    "id": "e-pg-replica--backup",
+    "source": "pg-replica",
+    "target": "backup",
+    "type": "backup",
+    "label": "WAL + full / сутки",
+    "props": {
+     "intervalSeconds": 300,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-vault-dc1--backup",
+    "source": "vault-dc1",
+    "target": "backup",
+    "type": "backup",
+    "label": null,
+    "props": {
+     "intervalSeconds": 3600,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-vault-dc1--vault-site3",
+    "source": "vault-dc1",
+    "target": "vault-site3",
+    "type": "async",
+    "label": "DR replication",
+    "props": {
+     "lagSeconds": 5,
+     "latencyMs": 12,
+     "latencyMeasured": true,
+     "tls": true,
+     "paths": 2,
+     "bandwidthMbps": 1000
+    }
+   }
+  ]
+ },
+ "scenario": {
+  "type": "sites",
+  "zoneIds": [
+   "dc1",
+   "dc2"
+  ]
+ },
+ "result": {
+  "scenario": {
+   "type": "sites",
+   "zoneIds": [
+    "dc1",
+    "dc2"
+   ]
+  },
+  "state": "down",
+  "recovery": {
+   "kind": "manual",
+   "seconds": 7200.0
+  },
+  "rpoSeconds": 300.0,
+  "rpoAssumed": false,
+  "rpoItems": [
+   {
+    "unit": "Vault",
+    "seconds": 5.0,
+    "assumed": false,
+    "traits": [
+     "backup-required",
+     "platform",
+     "secrets",
+     "stateful"
+    ]
+   },
+   {
+    "unit": "PostgreSQL",
+    "seconds": 300.0,
+    "assumed": false,
+    "traits": [
+     "backup-required",
+     "connection-pooling",
+     "datastore",
+     "sql",
+     "stateful"
+    ]
+   }
+  ],
+  "dataLost": [
+   "kafka-dc1",
+   "kafka-dc2"
+  ],
+  "splitBrain": [],
+  "capacityRatio": 0.0,
+  "bottleneck": null,
+  "unitLoads": [
+   {
+    "unit": "users",
+    "loadRps": 5000.0,
+    "capacityRps": null,
+    "ratio": null
+   }
+  ],
+  "downUnits": [
+   "Kafka",
+   "etcd",
+   "PostgreSQL",
+   "Redis",
+   "Kafka",
+   "Kubernetes · app",
+   "WAF + Ingress",
+   "WAF",
+   "GSLB + CDN",
+   "Мониторинг"
+  ],
+  "events": [
+   {
+    "code": "quorum_lost",
+    "unit": "kafka-dc1",
+    "vars": {
+     "unit": "Kafka",
+     "total": 3,
+     "need": 2.0
+    }
+   },
+   {
+    "code": "quorum_lost",
+    "unit": "etcd",
+    "vars": {
+     "unit": "etcd",
+     "total": 3.0
+    }
+   },
+   {
+    "code": "primary_lost",
+    "unit": "pg",
+    "node": "pg-primary",
+    "vars": {
+     "node": "PostgreSQL primary",
+     "unit": "PostgreSQL"
+    }
+   },
+   {
+    "code": "no_candidate",
+    "unit": "pg",
+    "vars": {
+     "unit": "PostgreSQL"
+    }
+   },
+   {
+    "code": "primary_lost",
+    "unit": "redis",
+    "node": "redis-primary",
+    "vars": {
+     "node": "Redis (master)",
+     "unit": "Redis"
+    }
+   },
+   {
+    "code": "no_candidate",
+    "unit": "redis",
+    "vars": {
+     "unit": "Redis"
+    }
+   },
+   {
+    "code": "quorum_lost",
+    "unit": "kafka-dc2",
+    "vars": {
+     "unit": "Kafka",
+     "total": 3,
+     "need": 2.0
+    }
+   },
+   {
+    "code": "primary_lost",
+    "unit": "vault",
+    "node": "vault-dc1",
+    "vars": {
+     "node": "Vault",
+     "unit": "Vault"
+    }
+   },
+   {
+    "code": "manual_failover",
+    "unit": "vault",
+    "node": "vault-site3",
+    "vars": {
+     "node": "Vault DR",
+     "unit": "Vault",
+     "seconds": 1800.0,
+     "noQuorum": false
+    },
+    "at": 1800.0
+   },
+   {
+    "code": "data_lost",
+    "unit": "kafka-dc1",
+    "vars": {
+     "unit": "Kafka"
+    }
+   },
+   {
+    "code": "data_lost",
+    "unit": "kafka-dc2",
+    "vars": {
+     "unit": "Kafka"
+    }
+   },
+   {
+    "code": "restore_from_backup",
+    "unit": "pg",
+    "vars": {
+     "unit": "PostgreSQL",
+     "rpo": 300.0,
+     "seconds": 7200.0
+    },
+    "at": 7200.0
+   }
+  ],
+  "nodeStates": {
+   "app-dc1": "down",
+   "app-dc2": "down",
+   "backup": "up",
+   "etcd-dc1": "down",
+   "etcd-dc2": "down",
+   "etcd-site3": "isolated",
+   "gitops": "up",
+   "gslb": "stalled",
+   "ingress-dc1": "down",
+   "ingress-dc2": "down",
+   "kafka-dc1": "down",
+   "kafka-dc2": "down",
+   "mon-dc1": "down",
+   "mon-dc2": "down",
+   "pg-primary": "down",
+   "pg-replica": "down",
+   "redis-primary": "down",
+   "redis-replica": "down",
+   "redis-sentinel": "up",
+   "users": "stalled",
+   "vault-dc1": "down",
+   "vault-site3": "promoted",
+   "waf": "stalled"
+  },
+  "edgeStates": {
+   "e-app-dc1--kafka-dc1": "dead",
+   "e-app-dc1--pg-primary": "dead",
+   "e-app-dc1--redis-primary": "dead",
+   "e-app-dc1--vault-dc1": "dead",
+   "e-app-dc2--kafka-dc2": "dead",
+   "e-app-dc2--pg-replica": "dead",
+   "e-app-dc2--redis-replica": "dead",
+   "e-app-dc2--vault-dc1": "dead",
+   "e-etcd-dc1--etcd-dc2": "dead",
+   "e-etcd-dc1--etcd-site3": "dead",
+   "e-etcd-dc2--etcd-site3": "dead",
+   "e-gitops--app-dc1": "dead",
+   "e-gitops--app-dc2": "dead",
+   "e-gslb--waf": "ok",
+   "e-ingress-dc1--app-dc1": "dead",
+   "e-ingress-dc2--app-dc2": "dead",
+   "e-kafka-dc1--kafka-dc2": "dead",
+   "e-mon-dc1--app-dc1": "dead",
+   "e-mon-dc2--app-dc2": "dead",
+   "e-pg-primary--pg-replica": "dead",
+   "e-pg-replica--backup": "dead",
+   "e-redis-primary--redis-replica": "dead",
+   "e-redis-sentinel--redis-primary": "dead",
+   "e-redis-sentinel--redis-replica": "dead",
+   "e-users--gslb": "ok",
+   "e-vault-dc1--backup": "dead",
+   "e-vault-dc1--vault-site3": "dead",
+   "e-waf--ingress-dc1": "dead",
+   "e-waf--ingress-dc2": "dead"
+  },
+  "failed": [
+   "ЦОД-1 · Москва",
+   "ЦОД-2 · Москва"
+  ],
+  "interruptions": [
+   {
+    "unit": "pg",
+    "kind": "restore",
+    "seconds": 7200.0,
+    "share": 1.0
+   }
+  ],
+  "timeline": [
+   {
+    "at": 0.0,
+    "state": "down",
+    "capacityRatio": 0.0,
+    "nodes": {
+     "app-dc1": "down",
+     "app-dc2": "down",
+     "backup": "up",
+     "etcd-dc1": "down",
+     "etcd-dc2": "down",
+     "etcd-site3": "isolated",
+     "gitops": "up",
+     "gslb": "stalled",
+     "ingress-dc1": "down",
+     "ingress-dc2": "down",
+     "kafka-dc1": "down",
+     "kafka-dc2": "down",
+     "mon-dc1": "down",
+     "mon-dc2": "down",
+     "pg-primary": "down",
+     "pg-replica": "down",
+     "redis-primary": "down",
+     "redis-replica": "down",
+     "redis-sentinel": "up",
+     "users": "stalled",
+     "vault-dc1": "down",
+     "vault-site3": "up",
+     "waf": "stalled"
+    },
+    "edges": {
+     "e-app-dc1--kafka-dc1": "dead",
+     "e-app-dc1--pg-primary": "dead",
+     "e-app-dc1--redis-primary": "dead",
+     "e-app-dc1--vault-dc1": "dead",
+     "e-app-dc2--kafka-dc2": "dead",
+     "e-app-dc2--pg-replica": "dead",
+     "e-app-dc2--redis-replica": "dead",
+     "e-app-dc2--vault-dc1": "dead",
+     "e-etcd-dc1--etcd-dc2": "dead",
+     "e-etcd-dc1--etcd-site3": "dead",
+     "e-etcd-dc2--etcd-site3": "dead",
+     "e-gitops--app-dc1": "dead",
+     "e-gitops--app-dc2": "dead",
+     "e-gslb--waf": "ok",
+     "e-ingress-dc1--app-dc1": "dead",
+     "e-ingress-dc2--app-dc2": "dead",
+     "e-kafka-dc1--kafka-dc2": "dead",
+     "e-mon-dc1--app-dc1": "dead",
+     "e-mon-dc2--app-dc2": "dead",
+     "e-pg-primary--pg-replica": "dead",
+     "e-pg-replica--backup": "dead",
+     "e-redis-primary--redis-replica": "dead",
+     "e-redis-sentinel--redis-primary": "dead",
+     "e-redis-sentinel--redis-replica": "dead",
+     "e-users--gslb": "ok",
+     "e-vault-dc1--backup": "dead",
+     "e-vault-dc1--vault-site3": "dead",
+     "e-waf--ingress-dc1": "dead",
+     "e-waf--ingress-dc2": "dead"
+    },
+    "traffic": {
+     "flows": {
+      "e-gslb--waf": 1.0,
+      "e-users--gslb": 1.0
+     },
+     "lost": {
+      "e-waf--ingress-dc1": 0.5,
+      "e-waf--ingress-dc2": 0.5
+     },
+     "served": 0.0
+    }
+   },
+   {
+    "at": 1800.0,
+    "state": "down",
+    "capacityRatio": 0.0,
+    "nodes": {
+     "vault-site3": "promoted"
+    },
+    "edges": {},
+    "traffic": {
+     "flows": {
+      "e-gslb--waf": 1.0,
+      "e-users--gslb": 1.0
+     },
+     "lost": {
+      "e-waf--ingress-dc1": 0.5,
+      "e-waf--ingress-dc2": 0.5
+     },
+     "served": 0.0
+    }
+   },
+   {
+    "at": 7200.0,
+    "state": "down",
+    "capacityRatio": 0.0,
+    "nodes": {},
+    "edges": {},
+    "traffic": {
+     "flows": {
+      "e-gslb--waf": 1.0,
+      "e-users--gslb": 1.0
+     },
+     "lost": {
+      "e-waf--ingress-dc1": 0.5,
+      "e-waf--ingress-dc2": 0.5
+     },
+     "served": 0.0
+    }
+   }
+  ],
+  "traffic": {
+   "flows": {
+    "e-gslb--waf": 1.0,
+    "e-users--gslb": 1.0
+   },
+   "lost": {
+    "e-waf--ingress-dc1": 0.5,
+    "e-waf--ingress-dc2": 0.5
+   },
+   "served": 0.0
+  },
+  "trafficBefore": {
+   "flows": {
+    "e-app-dc1--kafka-dc1": 0.1,
+    "e-app-dc1--pg-primary": 0.15,
+    "e-app-dc1--redis-primary": 0.5,
+    "e-app-dc2--kafka-dc2": 0.1,
+    "e-app-dc2--pg-replica": 0.15,
+    "e-app-dc2--redis-replica": 0.5,
+    "e-gslb--waf": 1.0,
+    "e-ingress-dc1--app-dc1": 0.5,
+    "e-ingress-dc2--app-dc2": 0.5,
+    "e-users--gslb": 1.0,
+    "e-waf--ingress-dc1": 0.5,
+    "e-waf--ingress-dc2": 0.5
+   },
+   "served": 1.0
+  }
+ }
+}

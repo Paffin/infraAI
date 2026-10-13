@@ -1,0 +1,13 @@
+{
+ "id": "shopware",
+ "title": {
+  "ru": "Shopware",
+  "en": "Shopware"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Установка Shopware зависит от вашей среды (база данных, файловое хранилище, почта, домен): проверенного шаблона нет. Добавьте свой.",
+  "en": "Installing Shopware depends on your environment (database, file storage, mail, domain): there is no verified template. Add your own."
+ }
+}

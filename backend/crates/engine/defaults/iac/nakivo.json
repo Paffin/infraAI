@@ -1,0 +1,13 @@
+{
+ "id": "nakivo",
+ "title": {
+  "ru": "NAKIVO Backup & Replication",
+  "en": "NAKIVO Backup & Replication"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Для NAKIVO Backup & Replication нужен оператор или сценарий развёртывания, зависящий от выбранного варианта; схемы ресурсов оператора не подтверждены, поэтому код не генерируется. Добавьте проверенный шаблон под ваш оператор.",
+  "en": "NAKIVO Backup & Replication needs an operator or a deployment playbook that depends on the chosen variant; the operator’s resource schemas have not been confirmed, so no code is generated. Add a verified template for your operator."
+ }
+}

@@ -1,0 +1,13 @@
+{
+ "id": "ray_serve",
+ "title": {
+  "ru": "Ray Serve",
+  "en": "Ray Serve"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Развёртывание Ray Serve зависит от кластера, ускорителей и хранилища: проверенного шаблона нет. Добавьте свой.",
+  "en": "Deploying Ray Serve depends on the cluster, the accelerators and the storage: there is no verified template. Add your own."
+ }
+}

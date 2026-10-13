@@ -1,0 +1,13 @@
+{
+ "id": "livekit",
+ "title": {
+  "ru": "LiveKit",
+  "en": "LiveKit"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Установка LiveKit зависит от вашей среды (база данных, файловое хранилище, почта, домен): проверенного шаблона нет. Добавьте свой.",
+  "en": "Installing LiveKit depends on your environment (database, file storage, mail, domain): there is no verified template. Add your own."
+ }
+}

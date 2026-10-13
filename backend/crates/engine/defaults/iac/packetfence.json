@@ -1,0 +1,13 @@
+{
+ "id": "packetfence",
+ "title": {
+  "ru": "PacketFence",
+  "en": "PacketFence"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Настройка PacketFence зависит от вашей политики безопасности и инфраструктуры: нейтрального проверенного шаблона нет. Добавьте свой.",
+  "en": "Setting up PacketFence depends on your security policy and infrastructure: there is no neutral verified template. Add your own."
+ }
+}

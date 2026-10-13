@@ -1,0 +1,13 @@
+{
+ "id": "edb_postgres",
+ "title": {
+  "ru": "EDB Postgres Advanced Server",
+  "en": "EDB Postgres Advanced Server"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Для EDB Postgres Advanced Server нужен оператор или сценарий развёртывания, зависящий от выбранного варианта; схемы ресурсов оператора не подтверждены, поэтому код не генерируется. Добавьте проверенный шаблон под ваш оператор.",
+  "en": "EDB Postgres Advanced Server needs an operator or a deployment playbook that depends on the chosen variant; the operator’s resource schemas have not been confirmed, so no code is generated. Add a verified template for your operator."
+ }
+}

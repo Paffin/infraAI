@@ -313,10 +313,35 @@ fn bullet_list(items: &[String]) -> String {
     items.iter().map(|s| format!("- {s}")).collect::<Vec<_>>().join("\n")
 }
 
-fn common_vars(cfg: &Loaded, lang: &str) -> BTreeMap<&'static str, String> {
+/// How many products beyond the basic library the prompt describes in full (`llm.catalogExtraKinds`).
+fn extra_kinds(cfg: &Loaded) -> usize {
+    cfg.settings.num("llm.catalogExtraKinds").max(0.0) as usize
+}
+
+/// What the request is about: the words of it and the products the design already has.
+fn focus_of<'a>(text: &'a str, base: &'a Architecture) -> Focus<'a> {
+    Focus { text, in_design: base.nodes.iter().map(|n| n.kind.as_str()).collect() }
+}
+
+/// The products an answer of the model uses and the prompt did not describe in full: a repair tells the model about them (their properties are
+/// what an answer most often gets wrong about a product that was only in the index).
+fn unseen_kinds(cfg: &Loaded, focus: &Focus, answer: &str) -> Vec<String> {
+    let seen: Vec<&str> = detailed(&cfg.catalog, focus, extra_kinds(cfg)).iter().map(|k| k.id.as_str()).collect();
+    kinds_named(answer).into_iter().filter(|id| cfg.catalog.kind(id).is_some() && !seen.contains(&id.as_str())).take(40).collect()
+}
+
+/// The message that asks the model to repair its answer: the errors, and the description in full of the products it used without having it.
+fn repair_message(cfg: &Loaded, lang: &str, errors: String, unseen: &[String]) -> String {
+    if unseen.is_empty() {
+        return errors;
+    }
+    format!("{errors}\n\nThe products you used that the catalog above lists only by name, in full (use only these properties):\n{}", kinds_digest(&cfg.catalog, lang, unseen))
+}
+
+fn common_vars(cfg: &Loaded, lang: &str, focus: &Focus) -> BTreeMap<&'static str, String> {
     let mut v = BTreeMap::new();
     v.insert("language", language_name(lang).to_string());
-    v.insert("catalog", catalog_digest(&cfg.catalog, lang));
+    v.insert("catalog", catalog_digest(&cfg.catalog, lang, focus, extra_kinds(cfg)));
     v.insert("edge_types", edge_types_digest(&cfg.catalog));
     v.insert("zone_types", zone_types_digest(&cfg.catalog));
     v.insert("templates", templates_digest(cfg, lang));
@@ -385,7 +410,8 @@ fn assistant_message(rationale: &str, assumptions: &[String], notes: &str) -> St
 
 #[allow(clippy::too_many_arguments)]
 async fn generate(state: &AppState, cfg: &Arc<Loaded>, ctx: &CallCtx, p: &Progress, job: &Job, base: Architecture, rev: i64, prompt: &str, lang: &str) -> PResult<PipelineOutput> {
-    let vars = common_vars(cfg, lang);
+    let focus = focus_of(prompt, &base);
+    let vars = common_vars(cfg, lang, &focus);
     let sys = system_prompt(cfg, "generate", &vars)?;
     let send_notes = cfg.settings.boolean("llm.sendNotes");
     let mut user = format!("<user_data>\n{}\n</user_data>", prompt);
@@ -414,11 +440,12 @@ async fn generate(state: &AppState, cfg: &Arc<Loaded>, ctx: &CallCtx, p: &Progre
             Err(errs) => {
                 last_errors = errs.clone();
                 p.step("repairing", json!({"round": round + 1, "errors": errs.len()})).await;
+                let unseen = unseen_kinds(cfg, &focus, &resp.content);
                 messages.push(Msg::assistant(resp.content));
                 let repair = cfg.prompts.get("repair").map(|d| d.system.clone()).unwrap_or_default();
                 let mut v = BTreeMap::new();
                 v.insert("errors", bullet_list(&errs.iter().take(40).cloned().collect::<Vec<_>>()));
-                messages.push(Msg::user(render(&repair, &v)));
+                messages.push(Msg::user(repair_message(cfg, lang, render(&repair, &v), &unseen)));
             }
         }
     }
@@ -510,7 +537,8 @@ async fn patch(state: &AppState, cfg: &Arc<Loaded>, ctx: &CallCtx, p: &Progress,
     let waivers = engine_waivers(state, job.project_id).await?;
     p.step("evaluating", json!({"phase": "before"})).await;
     let before_report = run_evaluate(cfg.clone(), base.clone(), waivers.clone(), lang.to_string()).await?;
-    let mut vars = common_vars(cfg, lang);
+    let focus = focus_of(request, &base);
+    let mut vars = common_vars(cfg, lang, &focus);
     vars.insert("architecture", arch_digest(&base, cfg.settings.boolean("llm.sendNotes")));
     vars.insert("findings", findings_digest(&before_report, cfg, lang, true, digest_limit(cfg)));
     let sys = system_prompt(cfg, "patch", &vars)?;
@@ -537,11 +565,12 @@ async fn patch(state: &AppState, cfg: &Arc<Loaded>, ctx: &CallCtx, p: &Progress,
             Err(errs) => {
                 last_errors = errs.clone();
                 p.step("repairing", json!({"round": round + 1, "errors": errs.len()})).await;
+                let unseen = unseen_kinds(cfg, &focus, &resp.content);
                 messages.push(Msg::assistant(resp.content));
                 let repair = cfg.prompts.get("repair").map(|d| d.system.clone()).unwrap_or_default();
                 let mut v = BTreeMap::new();
                 v.insert("errors", bullet_list(&errs.iter().take(40).cloned().collect::<Vec<_>>()));
-                messages.push(Msg::user(render(&repair, &v)));
+                messages.push(Msg::user(repair_message(cfg, lang, render(&repair, &v), &unseen)));
             }
         }
     }
@@ -610,7 +639,8 @@ async fn chat(state: &AppState, cfg: &Arc<Loaded>, ctx: &CallCtx, p: &Progress, 
     let waivers = engine_waivers(state, job.project_id).await?;
     p.step("evaluating", json!({})).await;
     let report = run_evaluate(cfg.clone(), base.clone(), waivers, lang.to_string()).await?;
-    let mut vars = common_vars(cfg, lang);
+    let focus = focus_of(question, &base);
+    let mut vars = common_vars(cfg, lang, &focus);
     vars.insert("architecture", arch_digest(&base, cfg.settings.boolean("llm.sendNotes")));
     vars.insert("report", report_digest(&report, cfg, lang));
     let sys = system_prompt(cfg, "chat", &vars)?;

@@ -1,0 +1,13 @@
+{
+ "id": "yandex_managed_kubernetes",
+ "title": {
+  "ru": "Yandex Managed Service for Kubernetes",
+  "en": "Yandex Managed Service for Kubernetes"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Yandex Managed Service for Kubernetes — сервис провайдера: он создаётся через консоль, API и провайдер Terraform самого провайдера, нейтрального шаблона нет. Добавьте свой под вашего провайдера.",
+  "en": "Yandex Managed Service for Kubernetes is a provider’s service: it is created through the provider’s console, API and Terraform provider, there is no neutral template. Add your own for your provider."
+ }
+}

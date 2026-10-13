@@ -1,5 +1,7 @@
-"""Display names of the release tables, and the list of tables nobody uses."""
+"""Display names of the release tables, and the list of tables nobody uses. The names of the older tables are written here; the tables that
+came with the large catalog take theirs from version_labels.json (the labels endoflife.date gives its products)."""
 import json
+import os
 NAMES = {
  "activemq": "Apache ActiveMQ Classic", "airflow": "Apache Airflow", "almalinux": "AlmaLinux", "alpine": "Alpine Linux", "amazon-aurora-mysql": "Amazon Aurora MySQL",
  "amazon-aurora-postgresql": "Amazon Aurora PostgreSQL", "amazon-documentdb": "Amazon DocumentDB", "amazon-eks": "Amazon EKS", "amazon-elasticache-redis": "Amazon ElastiCache for Redis",
@@ -23,6 +25,7 @@ NAMES = {
  "teleport": "Teleport", "tomcat": "Apache Tomcat", "traefik": "Traefik", "truenas": "TrueNAS", "ubuntu": "Ubuntu", "valkey": "Valkey", "varnish": "Varnish Cache", "vault": "HashiCorp Vault",
  "veeam_backup": "Veeam Backup & Replication", "vitess": "Vitess", "windows-server": "Windows Server", "xcp_ng": "XCP-ng", "zabbix": "Zabbix", "zookeeper": "Apache ZooKeeper",
 }
+NAMES.update(json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "version_labels.json"), encoding="utf-8")))
 DROP = {"containerd", "docker-engine"}
 
 

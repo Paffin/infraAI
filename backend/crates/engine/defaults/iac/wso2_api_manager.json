@@ -1,0 +1,13 @@
+{
+ "id": "wso2_api_manager",
+ "title": {
+  "ru": "WSO2 API Manager",
+  "en": "WSO2 API Manager"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Маршруты и плагины WSO2 API Manager зависят от ваших API: нейтрального шаблона нет. Добавьте свой.",
+  "en": "The routes and plugins of WSO2 API Manager depend on your APIs: there is no neutral template. Add your own."
+ }
+}

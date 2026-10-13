@@ -176,6 +176,8 @@ pub struct Loaded {
     pub errors: Vec<(String, String, String)>,
     /// Ready-to-use engine configuration per UI language (generated names follow the language).
     engine_cfgs: HashMap<String, Arc<EngineConfig>>,
+    /// The catalog as JSON, written once when the configuration is loaded: it is megabytes, and every `/bootstrap` carries it.
+    pub catalog_json: Box<serde_json::value::RawValue>,
 }
 
 impl Loaded {
@@ -352,7 +354,8 @@ impl Loaded {
                 (l, Arc::new(c))
             })
             .collect();
-        Loaded { rev, settings, catalog, rules, engine: engine_settings, templates, iac, placement, versions, prompts, errors, engine_cfgs }
+        let catalog_json = serde_json::value::to_raw_value(&catalog).expect("the catalog is JSON");
+        Loaded { rev, settings, catalog, rules, engine: engine_settings, templates, iac, placement, versions, prompts, errors, engine_cfgs, catalog_json }
     }
 }
 

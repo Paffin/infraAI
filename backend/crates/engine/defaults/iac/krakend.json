@@ -1,0 +1,13 @@
+{
+ "id": "krakend",
+ "title": {
+  "ru": "KrakenD",
+  "en": "KrakenD"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Маршруты и плагины KrakenD зависят от ваших API: нейтрального шаблона нет. Добавьте свой.",
+  "en": "The routes and plugins of KrakenD depend on your APIs: there is no neutral template. Add your own."
+ }
+}

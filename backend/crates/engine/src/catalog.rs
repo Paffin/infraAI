@@ -153,6 +153,10 @@ pub struct KindDef {
     /// groups by it and placement stacks offer every product of the function for a layer.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub function: Option<String>,
+    /// The basic library: the products an architect reaches for first. The library lists them above the rest of their function, and the AI
+    /// always sees them in full; the rest are found by search and by the function they serve (the AI is told about them in an index).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub core: bool,
     /// Ways to deploy the product (HA topologies, managed offerings). A node picks one with its `variant` prop; the
     /// variant changes how the engine sees the node (behavior, traits, defaults, capacity, cost).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

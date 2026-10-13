@@ -1,0 +1,13 @@
+{
+ "id": "nvidia_gpu_operator",
+ "title": {
+  "ru": "NVIDIA GPU Operator",
+  "en": "NVIDIA GPU Operator"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Развёртывание NVIDIA GPU Operator зависит от кластера, ускорителей и хранилища: проверенного шаблона нет. Добавьте свой.",
+  "en": "Deploying NVIDIA GPU Operator depends on the cluster, the accelerators and the storage: there is no verified template. Add your own."
+ }
+}

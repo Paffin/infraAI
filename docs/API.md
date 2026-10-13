@@ -107,7 +107,8 @@ around applied AI proposals).
 `{"type":"none"}`, `{"type":"instance","nodeId":"…","count":1}`, `{"type":"node","nodeId":"…"}`,
 `{"type":"unit","unit":"<group>"}`, `{"type":"zone","zoneId":"…"}`,
 `{"type":"link","a":"<zoneId>","b":"<zoneId>"}`, `{"type":"isolate","zoneIds":["…","…"]}` (sites cut off from the rest but alive),
-`{"type":"sites","zoneIds":["…","…"]}`, `{"type":"geo","geo":"<label>"}`.
+`{"type":"sites","zoneIds":["…","…"]}`, `{"type":"geo","geo":"<label>"}`,
+`{"type":"combo","items":[<scenario>, …]}` (several failures at the same time: what each item takes away is taken away together; one item equals that item, items nest).
 
 ### Report
 

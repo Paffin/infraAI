@@ -278,6 +278,7 @@ const ru: Record<string, string> = {
   'admin.items.createTitle': 'Новый элемент',
   'admin.items.empty': 'Элементов нет.',
   'admin.items.noMatch': 'Ничего не найдено.',
+  'admin.items.showMore': 'Показать ещё {n}',
   'admin.items.colId': 'ID',
   'admin.items.colName': 'Название',
   'admin.items.colStatus': 'Статус',

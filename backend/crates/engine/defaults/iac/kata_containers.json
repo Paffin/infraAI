@@ -1,0 +1,13 @@
+{
+ "id": "kata_containers",
+ "title": {
+  "ru": "Kata Containers",
+  "en": "Kata Containers"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Значения установки Kata Containers зависят от вашей среды (хранилище, домен, внешняя база): проверенного шаблона нет. Добавьте свой.",
+  "en": "The install values of Kata Containers depend on your environment (storage, domain, an external database): there is no verified template. Add your own."
+ }
+}

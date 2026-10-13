@@ -1,0 +1,13 @@
+{
+ "id": "camunda_7",
+ "title": {
+  "ru": "Camunda 7",
+  "en": "Camunda 7"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Задания и ресурсы Camunda 7 зависят от вашей обработки данных: нейтрального шаблона нет. Добавьте свой.",
+  "en": "The jobs and resources of Camunda 7 depend on your data processing: there is no neutral template. Add your own."
+ }
+}

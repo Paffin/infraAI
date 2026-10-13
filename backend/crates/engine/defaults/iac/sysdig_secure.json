@@ -1,0 +1,13 @@
+{
+ "id": "sysdig_secure",
+ "title": {
+  "ru": "Sysdig Secure",
+  "en": "Sysdig Secure"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Sysdig Secure — сервис провайдера: он создаётся через консоль, API и провайдер Terraform самого провайдера, нейтрального шаблона нет. Добавьте свой под вашего провайдера.",
+  "en": "Sysdig Secure is a provider’s service: it is created through the provider’s console, API and Terraform provider, there is no neutral template. Add your own for your provider."
+ }
+}

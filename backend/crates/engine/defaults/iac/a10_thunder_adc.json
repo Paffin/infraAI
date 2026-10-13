@@ -1,0 +1,13 @@
+{
+ "id": "a10_thunder_adc",
+ "title": {
+  "ru": "A10 Thunder ADC",
+  "en": "A10 Thunder ADC"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Развёртывание A10 Thunder ADC зависит от того, где он живёт: пара узлов с VRRP, ingress-контроллер в кластере или облачный сервис. Проверенного шаблона нет — добавьте свой.",
+  "en": "How A10 Thunder ADC is deployed depends on where it lives: a VRRP pair, an ingress controller on the cluster or a cloud service. There is no verified template — add your own."
+ }
+}

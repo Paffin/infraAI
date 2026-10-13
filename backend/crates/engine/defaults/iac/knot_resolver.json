@@ -1,0 +1,13 @@
+{
+ "id": "knot_resolver",
+ "title": {
+  "ru": "Knot Resolver",
+  "en": "Knot Resolver"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Зоны и записи Knot Resolver зависят от вашей схемы имён: нейтрального шаблона нет. Добавьте свой.",
+  "en": "The zones and records of Knot Resolver depend on your naming scheme: there is no neutral template. Add your own."
+ }
+}

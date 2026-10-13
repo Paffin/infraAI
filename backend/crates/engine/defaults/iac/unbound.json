@@ -1,0 +1,13 @@
+{
+ "id": "unbound",
+ "title": {
+  "ru": "Unbound",
+  "en": "Unbound"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Зоны и записи Unbound зависят от вашей схемы имён: нейтрального шаблона нет. Добавьте свой.",
+  "en": "The zones and records of Unbound depend on your naming scheme: there is no neutral template. Add your own."
+ }
+}

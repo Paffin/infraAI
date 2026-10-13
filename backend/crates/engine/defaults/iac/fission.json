@@ -1,0 +1,13 @@
+{
+ "id": "fission",
+ "title": {
+  "ru": "Fission",
+  "en": "Fission"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Fission ставится пакетами или своим сценарием; проверенного шаблона нет — добавьте свой.",
+  "en": "Fission is installed from packages or by your own playbook; there is no verified template — add your own."
+ }
+}

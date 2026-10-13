@@ -1,0 +1,13 @@
+{
+ "id": "jboss_eap",
+ "title": {
+  "ru": "Red Hat JBoss EAP",
+  "en": "Red Hat JBoss EAP"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Установка Red Hat JBoss EAP зависит от вашей среды (база данных, файловое хранилище, почта, домен): проверенного шаблона нет. Добавьте свой.",
+  "en": "Installing Red Hat JBoss EAP depends on your environment (database, file storage, mail, domain): there is no verified template. Add your own."
+ }
+}

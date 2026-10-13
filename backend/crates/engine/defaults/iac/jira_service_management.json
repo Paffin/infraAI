@@ -1,0 +1,13 @@
+{
+ "id": "jira_service_management",
+ "title": {
+  "ru": "Jira Service Management",
+  "en": "Jira Service Management"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Установка Jira Service Management зависит от вашей среды (база данных, файловое хранилище, почта, домен): проверенного шаблона нет. Добавьте свой.",
+  "en": "Installing Jira Service Management depends on your environment (database, file storage, mail, domain): there is no verified template. Add your own."
+ }
+}

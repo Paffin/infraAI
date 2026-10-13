@@ -1,0 +1,13 @@
+{
+ "id": "discourse",
+ "title": {
+  "ru": "Discourse",
+  "en": "Discourse"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Установка Discourse зависит от вашей среды (база данных, файловое хранилище, почта, домен): проверенного шаблона нет. Добавьте свой.",
+  "en": "Installing Discourse depends on your environment (database, file storage, mail, domain): there is no verified template. Add your own."
+ }
+}

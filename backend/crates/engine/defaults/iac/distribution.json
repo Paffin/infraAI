@@ -1,0 +1,13 @@
+{
+ "id": "distribution",
+ "title": {
+  "ru": "Distribution (Docker Registry)",
+  "en": "Distribution (Docker Registry)"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Значения установки Distribution (Docker Registry) зависят от вашей среды (хранилище, домен, внешняя база): проверенного шаблона нет. Добавьте свой.",
+  "en": "The install values of Distribution (Docker Registry) depend on your environment (storage, domain, an external database): there is no verified template. Add your own."
+ }
+}

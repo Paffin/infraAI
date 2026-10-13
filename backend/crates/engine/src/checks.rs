@@ -1604,7 +1604,8 @@ fn capacity(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
         };
         match l.capacity_rps {
             None => {
-                if model_traits.iter().any(|t| unit.traits.contains(t)) {
+                // a service the provider sizes has no capacity to ask for
+                if model_traits.iter().any(|t| unit.traits.contains(t)) && !ix.unit_is_elastic(u) {
                     let mut raw = raw_base(Status::NoData).var("capacity", Value::Null);
                     for &m in unit.members.iter().filter(|&&m| !ix.is_witness(m)).take(3) {
                         raw = raw.need("node", Some(&ix.arch.nodes[m].id), "rpsPerReplica");
@@ -1791,13 +1792,19 @@ fn trait_of(rule: &Rule, key: &str) -> Option<String> {
     p(rule, key).and_then(|v| v.get("trait")).and_then(as_string)
 }
 
+/// The traits that take a node out of a selector (`{"trait": "workload", "excludeTraits": ["telephony"]}`).
+fn excluded_by(rule: &Rule, key: &str) -> Vec<String> {
+    p(rule, key).and_then(|v| v.get("excludeTraits")).and_then(Value::as_array).map(|a| a.iter().filter_map(as_string).collect()).unwrap_or_default()
+}
+
 fn path_contains(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
     let ix = &ctx.ix;
     let (Some(from), Some(to), Some(via)) = (trait_of(rule, "from"), trait_of(rule, "to"), trait_of(rule, "via")) else {
         return CheckOut::na();
     };
+    let skip = excluded_by(rule, "to");
     let starts: Vec<usize> = (0..ix.arch.nodes.len()).filter(|&n| ix.has_trait(n, &from)).collect();
-    let targets: Vec<usize> = (0..ix.arch.nodes.len()).filter(|&n| ix.has_trait(n, &to)).collect();
+    let targets: Vec<usize> = (0..ix.arch.nodes.len()).filter(|&n| ix.has_trait(n, &to) && !skip.iter().any(|t| ix.has_trait(n, t))).collect();
     if starts.is_empty() || targets.is_empty() {
         return CheckOut::na();
     }

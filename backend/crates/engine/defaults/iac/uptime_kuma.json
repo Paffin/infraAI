@@ -1,0 +1,13 @@
+{
+ "id": "uptime_kuma",
+ "title": {
+  "ru": "Uptime Kuma",
+  "en": "Uptime Kuma"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Значения установки Uptime Kuma зависят от вашей среды (хранилище, домен, внешняя база): проверенного шаблона нет. Добавьте свой.",
+  "en": "The install values of Uptime Kuma depend on your environment (storage, domain, an external database): there is no verified template. Add your own."
+ }
+}

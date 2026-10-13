@@ -7,6 +7,7 @@ import Modal from '@/components/Modal.vue'
 import { has, lang, lt, t } from '@/i18n'
 import { buildScene, sceneToSvg, themePalette, type LegendItem } from '@/lib/diagram'
 import { errorMessage } from '@/lib/format'
+import { copyText } from '@/lib/clipboard'
 import { focusNeed } from '@/lib/navigate'
 import { useApp } from '@/stores/app'
 import { useEditor } from '@/stores/editor'
@@ -90,12 +91,11 @@ async function load() {
 async function copy() {
   const f = files.value[current.value]
   if (!f) return
-  try {
-    await navigator.clipboard.writeText(f.content)
+  if (await copyText(f.content)) {
     copied.value = true
     setTimeout(() => (copied.value = false), 1500)
-  } catch {
-    toasts.error(t('error.generic', { message: 'clipboard' }))
+  } else {
+    toasts.error(t('sim.share.failed'))
   }
 }
 

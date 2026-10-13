@@ -1,0 +1,13 @@
+{
+ "id": "elastic_apm",
+ "title": {
+  "ru": "Elastic APM",
+  "en": "Elastic APM"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Значения установки Elastic APM зависят от вашей среды (хранилище, домен, внешняя база): проверенного шаблона нет. Добавьте свой.",
+  "en": "The install values of Elastic APM depend on your environment (storage, domain, an external database): there is no verified template. Add your own."
+ }
+}

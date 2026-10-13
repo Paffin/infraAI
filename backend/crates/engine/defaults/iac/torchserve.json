@@ -1,0 +1,13 @@
+{
+ "id": "torchserve",
+ "title": {
+  "ru": "TorchServe",
+  "en": "TorchServe"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Развёртывание TorchServe зависит от кластера, ускорителей и хранилища: проверенного шаблона нет. Добавьте свой.",
+  "en": "Deploying TorchServe depends on the cluster, the accelerators and the storage: there is no verified template. Add your own."
+ }
+}

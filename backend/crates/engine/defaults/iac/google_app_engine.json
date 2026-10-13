@@ -1,0 +1,13 @@
+{
+ "id": "google_app_engine",
+ "title": {
+  "ru": "Google App Engine",
+  "en": "Google App Engine"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Google App Engine — сервис провайдера: он создаётся через консоль, API и провайдер Terraform самого провайдера, нейтрального шаблона нет. Добавьте свой под вашего провайдера.",
+  "en": "Google App Engine is a provider’s service: it is created through the provider’s console, API and Terraform provider, there is no neutral template. Add your own for your provider."
+ }
+}

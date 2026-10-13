@@ -1,0 +1,13 @@
+{
+ "id": "text_generation_inference",
+ "title": {
+  "ru": "Hugging Face Text Generation Inference",
+  "en": "Hugging Face Text Generation Inference"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Развёртывание Hugging Face Text Generation Inference зависит от кластера, ускорителей и хранилища: проверенного шаблона нет. Добавьте свой.",
+  "en": "Deploying Hugging Face Text Generation Inference depends on the cluster, the accelerators and the storage: there is no verified template. Add your own."
+ }
+}

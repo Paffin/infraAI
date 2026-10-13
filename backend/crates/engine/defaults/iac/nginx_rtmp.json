@@ -1,0 +1,13 @@
+{
+ "id": "nginx_rtmp",
+ "title": {
+  "ru": "Модуль NGINX RTMP",
+  "en": "NGINX RTMP module"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Установка Модуль NGINX RTMP зависит от вашей среды (база данных, файловое хранилище, почта, домен): проверенного шаблона нет. Добавьте свой.",
+  "en": "Installing NGINX RTMP module depends on your environment (database, file storage, mail, domain): there is no verified template. Add your own."
+ }
+}

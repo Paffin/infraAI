@@ -1,0 +1,13 @@
+{
+ "id": "litellm",
+ "title": {
+  "ru": "LiteLLM",
+  "en": "LiteLLM"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Развёртывание LiteLLM зависит от кластера, ускорителей и хранилища: проверенного шаблона нет. Добавьте свой.",
+  "en": "Deploying LiteLLM depends on the cluster, the accelerators and the storage: there is no verified template. Add your own."
+ }
+}

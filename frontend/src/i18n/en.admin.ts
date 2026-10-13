@@ -278,6 +278,7 @@ const en: Record<string, string> = {
   'admin.items.createTitle': 'New item',
   'admin.items.empty': 'There are no items.',
   'admin.items.noMatch': 'Nothing found.',
+  'admin.items.showMore': 'Show {n} more',
   'admin.items.colId': 'ID',
   'admin.items.colName': 'Name',
   'admin.items.colStatus': 'Status',

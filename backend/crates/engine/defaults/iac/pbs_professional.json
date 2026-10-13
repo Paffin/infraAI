@@ -1,0 +1,13 @@
+{
+ "id": "pbs_professional",
+ "title": {
+  "ru": "Altair PBS Professional",
+  "en": "Altair PBS Professional"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Развёртывание Altair PBS Professional зависит от кластера, ускорителей и хранилища: проверенного шаблона нет. Добавьте свой.",
+  "en": "Deploying Altair PBS Professional depends on the cluster, the accelerators and the storage: there is no verified template. Add your own."
+ }
+}

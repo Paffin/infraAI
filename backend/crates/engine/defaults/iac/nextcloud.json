@@ -1,0 +1,13 @@
+{
+ "id": "nextcloud",
+ "title": {
+  "ru": "Nextcloud",
+  "en": "Nextcloud"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Установка Nextcloud зависит от вашей среды (база данных, файловое хранилище, почта, домен): проверенного шаблона нет. Добавьте свой.",
+  "en": "Installing Nextcloud depends on your environment (database, file storage, mail, domain): there is no verified template. Add your own."
+ }
+}

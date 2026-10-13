@@ -1,0 +1,13 @@
+{
+ "id": "wazuh_indexer",
+ "title": {
+  "ru": "Wazuh indexer",
+  "en": "Wazuh indexer"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Настройка Wazuh indexer зависит от вашей политики безопасности и инфраструктуры: нейтрального проверенного шаблона нет. Добавьте свой.",
+  "en": "Setting up Wazuh indexer depends on your security policy and infrastructure: there is no neutral verified template. Add your own."
+ }
+}

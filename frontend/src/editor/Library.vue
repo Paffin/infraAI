@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { ChevronDown, ChevronRight, PanelLeftClose, Search } from 'lucide-vue-next'
 import * as api from '@/api/endpoints'
 import type { KindDef, TemplateMeta, Architecture, VariantDef } from '@/api/types'
@@ -38,7 +38,7 @@ function tileOf(k: KindDef, fnName: string): Tile | null {
   return v ? { kind: k, variant: v } : null
 }
 
-const categories = computed(() => {
+const everything = computed(() => {
   const cat = app.boot?.catalog
   if (!cat) return []
   return [...cat.categories].sort((a, b) => a.order - b.order).map((c) => {
@@ -50,9 +50,36 @@ const categories = computed(() => {
     return { id: c.id, name: lt(c.name), fns, count: fns.reduce((n, g) => n + g.tiles.length, 0) }
   }).filter((c) => c.fns.length)
 })
-const found = computed(() => categories.value.reduce((n, c) => n + c.count, 0))
+const found = computed(() => everything.value.reduce((n, c) => n + c.count, 0))
+/** A search that hits hundreds of products shows the first of them (`editor.librarySearchShown`): the rest is behind "Show more". */
+const showAll = ref(false)
+watch(query, () => { showAll.value = false })
+const categories = computed(() => {
+  const all = everything.value
+  if (!query.value || showAll.value) return all
+  let room = app.editorCfg.librarySearchShown
+  return all.map((c) => {
+    const fns = c.fns.map((g) => { const tiles = g.tiles.slice(0, Math.max(0, room)); room -= tiles.length; return { ...g, tiles } }).filter((g) => g.tiles.length)
+    return { ...c, fns }
+  }).filter((c) => c.fns.length)
+})
+const shownCount = computed(() => categories.value.reduce((n, c) => n + c.fns.reduce((m, g) => m + g.tiles.length, 0), 0))
 /** Tiles of the functions that have one product only. */
 const singles = (c: { fns: { tiles: Tile[] }[] }) => c.fns.filter((g) => g.tiles.length === 1).flatMap((g) => g.tiles)
+
+// A category folds as a whole: the library holds hundreds of products, and a person looks for one corner of it at a time.
+const CAT_KEY = 'ia_lib_cat'
+/** The reference architectures fold the same way: a design under way does not need them every time the list is scrolled. */
+const TEMPLATES = 'templates'
+function loadClosed(): Record<string, boolean> {
+  try { return JSON.parse(localStorage.getItem(CAT_KEY) ?? '{}') } catch { return {} }
+}
+const closed = ref<Record<string, boolean>>(loadClosed())
+const catOpen = (id: string) => !!query.value || !closed.value[id]
+function toggleCat(id: string) {
+  closed.value = { ...closed.value, [id]: catOpen(id) }
+  try { localStorage.setItem(CAT_KEY, JSON.stringify(closed.value)) } catch { /* private mode */ }
+}
 
 // Groups with many products start folded: a hundred buttons in one list help nobody. A search opens everything it finds.
 const OPEN_KEY = 'ia_lib_open'
@@ -70,9 +97,11 @@ function toggle(key: string, size: number) {
 }
 function setAll(open: boolean) {
   const next: Record<string, boolean> = {}
-  for (const c of categories.value) for (const g of c.fns) next[g.key] = open
+  for (const c of everything.value) for (const g of c.fns) next[g.key] = open
   openState.value = next
   try { localStorage.setItem(OPEN_KEY, JSON.stringify(next)) } catch { /* private mode */ }
+  closed.value = {}
+  try { localStorage.setItem(CAT_KEY, '{}') } catch { /* private mode */ }
 }
 const tileTitle = (k: KindDef) => [lt(k.description) || t('library.hint'), k.variants?.length ? `${t('product.variants', { n: k.variants.length })}: ${k.variants.map((v) => lt(v.name)).join(' · ')}` : ''].filter(Boolean).join('\n')
 const zoneTypes = computed(() => (app.boot?.catalog.zoneTypes ?? []).filter((z) => matches(lt(z.name), z.id)))
@@ -121,24 +150,37 @@ defineExpose({ focus: () => { ui.libraryOpen = true; setTimeout(() => input.valu
 
     <div class="scroll">
       <section v-if="templates.length">
-        <h2>{{ t('library.templates') }}</h2>
-        <button v-for="tpl in templates" :key="tpl.id" class="tpl" :disabled="editor.readonly" :title="lt(tpl.description)" @click="pickTemplate(tpl)">
-          <span class="grow tname">{{ lt(tpl.name) }}</span>
-          <span v-if="tpl.badge" class="badge">{{ tpl.badge }} ✓</span>
-        </button>
+        <h2>
+          <button class="ch" :aria-expanded="catOpen(TEMPLATES)" data-testid="lib-cat-templates" @click="toggleCat(TEMPLATES)">
+            <component :is="catOpen(TEMPLATES) ? ChevronDown : ChevronRight" :size="13" />
+            <span>{{ t('library.templates') }}</span><span class="found">{{ templates.length }}</span>
+          </button>
+        </h2>
+        <template v-if="catOpen(TEMPLATES)">
+          <button v-for="tpl in templates" :key="tpl.id" class="tpl" :disabled="editor.readonly" :title="lt(tpl.description)" @click="pickTemplate(tpl)">
+            <span class="grow tname">{{ lt(tpl.name) }}</span>
+            <span v-if="tpl.badge" class="badge">{{ tpl.badge }} ✓</span>
+          </button>
+        </template>
       </section>
 
       <section v-for="c in categories" :key="c.id">
-        <h2>{{ c.name }}<span v-if="query" class="found">{{ c.count }}</span></h2>
+        <h2>
+          <button class="ch" :aria-expanded="catOpen(c.id)" :data-testid="'lib-cat-' + c.id" @click="toggleCat(c.id)">
+            <component :is="catOpen(c.id) ? ChevronDown : ChevronRight" :size="13" />
+            <span>{{ c.name }}</span><span class="found">{{ c.count }}</span>
+          </button>
+        </h2>
+        <template v-if="catOpen(c.id)">
         <!-- products that are alone in their job need no heading: they share one grid -->
         <div v-if="singles(c).length" class="grid">
           <button
-            v-for="x in singles(c)" :key="x.kind.id" class="kind" :disabled="editor.readonly" draggable="true" :title="tileTitle(x.kind)"
+            v-for="x in singles(c)" :key="x.kind.id" class="kind" :data-kind="x.kind.id" :data-variant="x.variant?.id" :disabled="editor.readonly" draggable="true" :title="tileTitle(x.kind)"
             @dragstart="dragKind($event, 'kind', x.kind.id, x.variant?.id)" @click="addKind(x)"
           >
             <KindChip :kind="x.kind" :size="28" />
             <span class="two">
-              <span class="truncate">{{ lt(x.kind.name) }}</span>
+              <span class="nm">{{ lt(x.kind.name) }}</span>
               <span v-if="x.variant" class="sub">{{ lt(x.variant.name) }}</span>
             </span>
           </button>
@@ -152,23 +194,25 @@ defineExpose({ focus: () => { ui.libraryOpen = true; setTimeout(() => input.valu
           <!-- folded: the first products (the usual choices) stay at hand, the rest is one click away -->
           <div class="grid">
             <button
-              v-for="x in (isOpen(g.key, g.tiles.length) ? g.tiles : g.tiles.slice(0, PEEK))" :key="x.kind.id" class="kind" :disabled="editor.readonly" draggable="true" :title="tileTitle(x.kind)"
+              v-for="x in (isOpen(g.key, g.tiles.length) ? g.tiles : g.tiles.slice(0, PEEK))" :key="x.kind.id" class="kind" :data-kind="x.kind.id" :data-variant="x.variant?.id" :disabled="editor.readonly" draggable="true" :title="tileTitle(x.kind)"
               @dragstart="dragKind($event, 'kind', x.kind.id, x.variant?.id)" @click="addKind(x)"
             >
               <KindChip :kind="x.kind" :size="28" />
               <span class="two">
-                <span class="truncate">{{ lt(x.kind.name) }}</span>
+                <span class="nm">{{ lt(x.kind.name) }}</span>
                 <span v-if="x.variant" class="sub">{{ lt(x.variant.name) }}</span>
               </span>
             </button>
             <button v-if="!isOpen(g.key, g.tiles.length)" class="kind more-tile" @click="toggle(g.key, g.tiles.length)">{{ t('library.more', { n: g.tiles.length - PEEK }) }}</button>
           </div>
         </div>
+        </template>
       </section>
+      <button v-if="query && shownCount < found" class="showmore" data-testid="lib-show-more" @click="showAll = true">{{ t('library.showMore', { n: found - shownCount }) }}</button>
 
       <section v-if="zoneTypes.length">
         <h2>{{ t('library.zones') }}</h2>
-        <div class="grid">
+        <div class="grid zones">
           <button v-for="z in zoneTypes" :key="z.id" class="kind" :disabled="editor.readonly" draggable="true" :title="t('library.hint')" @dragstart="dragKind($event, 'zone', z.id)" @click="editor.addZone(z.id)">
             <span class="zchip" :style="{ '--zc': z.color }" aria-hidden="true"><component :is="iconFor(z.icon)" :size="15" :stroke-width="1.9" /></span>
             <span class="truncate">{{ lt(z.name) }}</span>
@@ -200,6 +244,11 @@ defineExpose({ focus: () => { ui.libraryOpen = true; setTimeout(() => input.valu
 .scroll { flex: 1; overflow: auto; padding: 0 14px 18px; }
 section { margin-top: 14px; }
 h2 { font-size: 11.5px; letter-spacing: .09em; text-transform: uppercase; color: var(--label); font-weight: 600; margin: 0 0 8px 2px; }
+h2 .ch { width: 100%; display: flex; align-items: center; gap: 5px; padding: 3px 2px; margin: -3px 0 -3px -2px; border: 0; background: transparent; border-radius: var(--radius-sm); font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit; text-align: left; }
+h2 .ch:hover { color: var(--text); background: var(--surface-sunken); }
+h2 .ch .found { margin-left: auto; padding-right: 4px; }
+.showmore { width: 100%; margin-top: 12px; height: 34px; border: 1px dashed var(--line-strong); border-radius: var(--radius); background: transparent; color: var(--muted); font-size: 12.5px; }
+.showmore:hover { color: var(--accent); border-color: var(--accent-line); }
 .tname { min-width: 0; line-height: 1.25; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
 .tpl { width: 100%; display: flex; align-items: center; gap: 8px; min-height: 38px; padding: 6px 12px; margin-bottom: 8px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius); font-size: 13.5px; text-align: left; }
 .tpl:hover:not(:disabled) { background: var(--surface-2); border-color: #b8c2d4; }
@@ -215,9 +264,12 @@ h2 + .grid { margin-top: 0; }
 .fh { width: 100%; display: flex; align-items: center; gap: 5px; height: 28px; padding: 0 4px 0 2px; border: 0; background: transparent; border-radius: var(--radius-sm); font-size: 12.5px; color: var(--text-2); text-align: left; }
 .fh:hover { background: var(--surface-sunken); }
 .fh .cnt { flex: none; min-width: 18px; text-align: right; font-size: 11px; color: var(--faint); }
-.more-tile { justify-content: center; color: var(--muted); cursor: pointer; border-style: dashed; }
+.more-tile { grid-column: 1 / -1; justify-content: center; min-height: 30px; color: var(--muted); cursor: pointer; border-style: dashed; }
 .more-tile:hover { color: var(--accent); }
-.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 2px 0 8px; }
+/* a product's name is read in full: the tiles take the width they need (one column in a narrow panel, more in a wide one) and a long name wraps to two lines */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--tile-min, 168px), 1fr)); gap: 6px 8px; margin: 2px 0 8px; }
+.grid.zones { --tile-min: 104px; }
+.nm { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
 .two { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
 .two .sub { font-size: 10.5px; color: var(--accent); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .kind { display: flex; align-items: center; gap: 8px; min-height: 42px; padding: 0 8px 0 7px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius); font-size: 12.5px; text-align: left; min-width: 0; cursor: grab; }

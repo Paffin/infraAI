@@ -1,0 +1,13 @@
+{
+ "id": "kubevirt",
+ "title": {
+  "ru": "KubeVirt",
+  "en": "KubeVirt"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Платформа KubeVirt ставится на оборудование и настраивается средствами вендора: проверенного шаблона нет. Добавьте свой.",
+  "en": "The KubeVirt platform is installed on hardware and configured with the vendor’s tools: there is no verified template. Add your own."
+ }
+}

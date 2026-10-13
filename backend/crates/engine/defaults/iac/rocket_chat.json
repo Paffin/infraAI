@@ -1,0 +1,13 @@
+{
+ "id": "rocket_chat",
+ "title": {
+  "ru": "Rocket.Chat",
+  "en": "Rocket.Chat"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Установка Rocket.Chat зависит от вашей среды (база данных, файловое хранилище, почта, домен): проверенного шаблона нет. Добавьте свой.",
+  "en": "Installing Rocket.Chat depends on your environment (database, file storage, mail, domain): there is no verified template. Add your own."
+ }
+}

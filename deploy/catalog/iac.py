@@ -21,7 +21,22 @@ R = {
     "mq": ("Для {name} нужен оператор или сценарий развёртывания, зависящий от выбранного варианта; схемы ресурсов оператора не подтверждены, поэтому код не генерируется. Добавьте проверенный шаблон.", "{name} needs an operator or a deployment playbook that depends on the chosen variant; the operator’s resource schemas have not been confirmed, so no code is generated. Add a verified template."),
     "storage": ("Хранилище {name} разворачивается оператором или средствами вендора, зависящими от оборудования: проверенного шаблона нет. Добавьте свой.", "The {name} storage is deployed by an operator or the vendor’s tools that depend on the hardware: there is no verified template. Add your own."),
     "platform": ("Значения установки {name} зависят от вашей среды (хранилище, домен, внешняя база): проверенного шаблона нет. Добавьте свой.", "The install values of {name} depend on your environment (storage, domain, an external database): there is no verified template. Add your own."),
+    "saas": ("{name} — сервис провайдера: он создаётся через консоль, API и провайдер Terraform самого провайдера, нейтрального шаблона нет. Добавьте свой под вашего провайдера.", "{name} is a provider’s service: it is created through the provider’s console, API and Terraform provider, there is no neutral template. Add your own for your provider."),
+    "security": ("Настройка {name} зависит от вашей политики безопасности и инфраструктуры: нейтрального проверенного шаблона нет. Добавьте свой.", "Setting up {name} depends on your security policy and infrastructure: there is no neutral verified template. Add your own."),
+    "business": ("Установка {name} зависит от вашей среды (база данных, файловое хранилище, почта, домен): проверенного шаблона нет. Добавьте свой.", "Installing {name} depends on your environment (database, file storage, mail, domain): there is no verified template. Add your own."),
+    "ml": ("Развёртывание {name} зависит от кластера, ускорителей и хранилища: проверенного шаблона нет. Добавьте свой.", "Deploying {name} depends on the cluster, the accelerators and the storage: there is no verified template. Add your own."),
+    "virtualization": ("Платформа {name} ставится на оборудование и настраивается средствами вендора: проверенного шаблона нет. Добавьте свой.", "The {name} platform is installed on hardware and configured with the vendor’s tools: there is no verified template. Add your own."),
+    "appliance": ("{name} — оборудование или программно-аппаратный комплекс: его настраивают средствами вендора, нейтрального шаблона нет. Добавьте свой.", "{name} is hardware or an appliance: it is configured with the vendor’s tools, there is no neutral template. Add your own."),
 }
+DEFAULT_BY_CATEGORY = {"edge": "network", "compute": "orchestrator", "data": "database", "platform": "platform", "security": "security", "apps": "business", "ai": "ml"}
+
+
+def reason_class(kd):
+    """The class of the honest "no template" text of a kind: a provider's service, the class its module gave to its function, the function's own, the category's."""
+    if "managed" in kd["traits"]:
+        return "saas"
+    return R_BY_FN.get(kd.get("function")) or BY_FN.get(kd.get("function")) or DEFAULT_BY_CATEGORY.get(kd.get("category"), "platform")
+R_BY_FN = {}  # reason classes the kinds_*.py modules give to their functions: {function id: key of R}
 BY_FN = {
     "l7": "l7", "l4": "l4", "proxy": "proxy", "http-cache": "http-cache", "firewall": "firewall", "network": "network", "dns-server": "dns-server",
     "orchestrator": "orchestrator", "api-gateway": "api-gateway", "data-processing": "data-processing",
@@ -35,6 +50,9 @@ def ensure(cat, write):
     reason that fits the function – traefik reuses the verified ingress template. Existing files are never touched.
     Returns (ids without a template, whether the include list in defaults.rs is out of date); writes when `write`."""
     existing = {f[:-5] for f in os.listdir(f"{ENG}/defaults/iac")}
+    orphans = sorted(existing - {kd["id"] for kd in cat["kinds"]})
+    if orphans:
+        raise SystemExit("defaults/iac holds templates of kinds that are not in the catalog: " + ", ".join(orphans) + " (delete the files)")
     missing = []
     for kd in cat["kinds"]:
         kid = kd["id"]
@@ -50,7 +68,7 @@ def ensure(cat, write):
             for n in t.get("notes", []):
                 n["text"] = {"ru": "Traefik установлен в кластер, хотя у узла указано размещение «vm».", "en": "Traefik is installed on the cluster although the node says hosting “vm”."}
         else:
-            ru, en = R[BY_FN.get(kd.get("function"), "platform")]
+            ru, en = R[reason_class(kd)]
             t = {"id": kid, "title": kd["name"], "enabled": True, "target": "none", "reason": {"ru": ru.format(name=kd["name"]["ru"]), "en": en.format(name=kd["name"]["en"])}}
         with open(f"{ENG}/defaults/iac/{kid}.json", "w", encoding="utf-8") as f:
             f.write(json.dumps(t, indent=1, ensure_ascii=False) + "\n")

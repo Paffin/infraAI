@@ -1,0 +1,13 @@
+{
+ "id": "argo_workflows",
+ "title": {
+  "ru": "Argo Workflows",
+  "en": "Argo Workflows"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Задания и ресурсы Argo Workflows зависят от вашей обработки данных: нейтрального шаблона нет. Добавьте свой.",
+  "en": "The jobs and resources of Argo Workflows depend on your data processing: there is no neutral template. Add your own."
+ }
+}

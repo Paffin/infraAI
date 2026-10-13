@@ -1,0 +1,13 @@
+{
+ "id": "vllm",
+ "title": {
+  "ru": "vLLM",
+  "en": "vLLM"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Развёртывание vLLM зависит от кластера, ускорителей и хранилища: проверенного шаблона нет. Добавьте свой.",
+  "en": "Deploying vLLM depends on the cluster, the accelerators and the storage: there is no verified template. Add your own."
+ }
+}

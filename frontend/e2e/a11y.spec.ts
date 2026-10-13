@@ -83,6 +83,40 @@ test.describe('accessibility (axe-core)', () => {
     await clean(page, 'export')
   })
 
+  test('the arranged editor: the rail, the failure window, the several-at-once picker and the library with its folded categories', async ({ page }) => {
+    await login(page)
+    expect((await page.request.put('/api/admin/settings', { data: { changes: { 'editor.failureLeadMs': 0 } } })).ok()).toBeTruthy()
+    try {
+      await createProject(page, uniqueName('a11y-panels'), '2 ЦОД + witness')
+      await expect(page.locator('.arch-node').first()).toBeVisible()
+      // the library: a category folded, a search with a limit
+      await page.getByTestId('lib-cat-edge').click()
+      await clean(page, 'library with a folded category')
+      await page.locator('.library .search input').fill('a')
+      await clean(page, 'library search')
+      await page.locator('.library .search input').fill('')
+      // a failure: the tiles, the list of who is hit, the window
+      await page.locator('.whatif .w', { hasText: 'ЦОД-1' }).first().click()
+      await expect(page.getByTestId('simcard')).toBeVisible()
+      await expect(page.getByTestId('sim-impact')).toBeVisible()
+      await clean(page, 'failure panel with tiles and the list of who is hit')
+      await page.getByTestId('sim-detach').click()
+      await expect(page.getByTestId('float-panel')).toBeVisible()
+      await clean(page, 'failure window')
+      await page.getByTestId('float-fold').click()
+      await clean(page, 'folded failure window')
+      // the picker of several failures at once, and the rail
+      await page.getByTestId('whatif-compose').click()
+      await expect(page.locator('.whatif .menu.compose')).toBeVisible()
+      await clean(page, 'several at once')
+      await page.keyboard.press('Escape')
+      await page.getByTestId('right-fold').click()
+      await clean(page, 'right panel folded to the rail')
+    } finally {
+      await page.request.put('/api/admin/settings', { data: { changes: { 'editor.failureLeadMs': 2400 } } })
+    }
+  })
+
   test('the checks with "what to improve first": the figures keep their contrast and every button says what it applies', async ({ page }) => {
     await login(page)
     // the design the plan was recorded for: two data centers whose GSLB and WAF run as a single instance

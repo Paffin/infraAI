@@ -7,6 +7,7 @@ import { ApiError } from '@/api/client'
 import type { ConfigItem } from '@/api/types'
 import { has, lt, t } from '@/i18n'
 import { errorMessage, fmtRelative } from '@/lib/format'
+import { useApp } from '@/stores/app'
 import { useDialogs } from '@/stores/dialogs'
 import { useToasts } from '@/stores/toasts'
 import { itemMatches, itemTitle, kindMeta } from '../lib/configKinds'
@@ -29,6 +30,7 @@ const router = useRouter()
 const toasts = useToasts()
 const dialogs = useDialogs()
 const store = useAdminConfig()
+const app = useApp()
 
 const items = ref<ConfigItem[]>([])
 const loading = ref(false)
@@ -52,6 +54,10 @@ const filtered = computed(() => rows.value.filter((r) => {
   if (filter.value === 'errors' && !errorIds.value.has(i.id)) return false
   return itemMatches(i.id, r.title, i.data, query.value)
 }))
+/** Rows shown at a time (`editor.adminListShown`): a catalog of hundreds is read through a search, and the rest opens with a button. */
+const limit = ref(app.editorCfg.adminListShown)
+const visible = computed(() => filtered.value.slice(0, limit.value))
+watch([query, filter, () => props.kind], () => { limit.value = app.editorCfg.adminListShown })
 const counts = computed(() => ({
   modified: items.value.filter((i) => i.modified).length,
   custom: items.value.filter((i) => i.origin === 'custom').length,
@@ -193,7 +199,7 @@ defineExpose({ reload: (spinner = true) => load(spinner) })
             </tr>
           </thead>
           <tbody>
-            <tr v-for="r in filtered" :key="r.item.id" :class="{ busy: busy.has(r.item.id), bad: errorIds.has(r.item.id), disabled: r.item.data && r.item.data.enabled === false }">
+            <tr v-for="r in visible" :key="r.item.id" :class="{ busy: busy.has(r.item.id), bad: errorIds.has(r.item.id), disabled: r.item.data && r.item.data.enabled === false }">
               <td class="mono idcell"><button class="linklike" @click="editing = { item: r.item }">{{ r.item.id }}</button></td>
               <td>
                 <div class="truncate title-cell">{{ r.title }}</div>
@@ -221,6 +227,7 @@ defineExpose({ reload: (spinner = true) => load(spinner) })
           </tbody>
         </table>
       </div>
+      <button v-if="filtered.length > visible.length" class="btn adm-more" data-testid="admin-show-more" @click="limit += app.editorCfg.adminListShown">{{ t('admin.items.showMore', { n: filtered.length - visible.length }) }}</button>
     </StateBlock>
 
     <ConfigItemEditor v-if="editing" :key="editing.item?.id ?? '+'" :kind="kind" :item="editing.item" :items="items" @close="closeEditor" @saved="onSaved" @reset="reset" />

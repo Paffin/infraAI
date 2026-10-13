@@ -1,0 +1,13 @@
+{
+ "id": "azure_aro",
+ "title": {
+  "ru": "Azure Red Hat OpenShift (ARO)",
+  "en": "Azure Red Hat OpenShift (ARO)"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Azure Red Hat OpenShift (ARO) — сервис провайдера: он создаётся через консоль, API и провайдер Terraform самого провайдера, нейтрального шаблона нет. Добавьте свой под вашего провайдера.",
+  "en": "Azure Red Hat OpenShift (ARO) is a provider’s service: it is created through the provider’s console, API and Terraform provider, there is no neutral template. Add your own for your provider."
+ }
+}

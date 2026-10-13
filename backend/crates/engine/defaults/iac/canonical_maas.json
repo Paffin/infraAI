@@ -1,0 +1,13 @@
+{
+ "id": "canonical_maas",
+ "title": {
+  "ru": "MAAS",
+  "en": "MAAS"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Значения установки MAAS зависят от вашей среды (хранилище, домен, внешняя база): проверенного шаблона нет. Добавьте свой.",
+  "en": "The install values of MAAS depend on your environment (storage, domain, an external database): there is no verified template. Add your own."
+ }
+}

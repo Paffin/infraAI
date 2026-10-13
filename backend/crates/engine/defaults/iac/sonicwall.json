@@ -1,0 +1,13 @@
+{
+ "id": "sonicwall",
+ "title": {
+  "ru": "SonicWall",
+  "en": "SonicWall"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Правила SonicWall зависят от вендора и сегментации сети: нейтрального шаблона нет. Добавьте шаблон под ваше оборудование.",
+  "en": "The rules of SonicWall depend on the vendor and the network segmentation: there is no neutral template. Add one for your equipment."
+ }
+}

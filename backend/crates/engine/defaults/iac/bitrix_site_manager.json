@@ -1,0 +1,13 @@
+{
+ "id": "bitrix_site_manager",
+ "title": {
+  "ru": "1С-Битрикс: Управление сайтом",
+  "en": "1C-Bitrix Site Manager"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Установка 1С-Битрикс: Управление сайтом зависит от вашей среды (база данных, файловое хранилище, почта, домен): проверенного шаблона нет. Добавьте свой.",
+  "en": "Installing 1C-Bitrix Site Manager depends on your environment (database, file storage, mail, domain): there is no verified template. Add your own."
+ }
+}

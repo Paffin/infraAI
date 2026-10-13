@@ -2,11 +2,11 @@
 //! Prompts themselves are configuration (admin-editable); this module only fills them in.
 
 use crate::config_store::Loaded;
-use engine::catalog::{Catalog, PropDef, PropType};
+use engine::catalog::{Catalog, KindDef, PropDef, PropType};
 use engine::evaluate::{render_message, Report, Status};
 use engine::model::Architecture;
 use serde_json::{json, Value};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 pub fn render(template: &str, vars: &BTreeMap<&str, String>) -> String {
     let mut out = template.to_string();
@@ -27,72 +27,191 @@ pub fn language_name(code: &str) -> &'static str {
     }
 }
 
-/// The catalog for the model, compact: the properties every kind has once, then per kind only what is its own (sizing
-/// defaults, properties, roles, variants). A hundred products in the old per-kind form were 80 kB of prompt.
-pub fn catalog_digest(cat: &Catalog, lang: &str) -> String {
-    let skip = |k: &str| matches!(k, "notes" | "storageClass");
-    let prop = |p: &PropDef| {
-        let mut o = json!({"key": p.key, "type": match p.prop_type { PropType::Number => "number", PropType::String => "string", PropType::Boolean => "boolean", PropType::Enum => "enum", PropType::UnitRef => "unit_ref" }});
-        if !p.options.is_empty() {
-            o["options"] = json!(p.options.iter().map(|x| x.value.clone()).collect::<Vec<_>>());
+/// What a request is about: besides the basic library the model gets in full the products the design already holds and the ones the words
+/// of the request point at.
+#[derive(Default)]
+pub struct Focus<'a> {
+    /// the words of the request (a question, a wish, the repair of an answer)
+    pub text: &'a str,
+    /// the kinds of the nodes the design already has
+    pub in_design: Vec<&'a str>,
+}
+
+/// Words of three letters or digits and more, lower case (a request in any language: the match is made on whatever the words are).
+fn words(text: &str) -> BTreeSet<String> {
+    text.to_lowercase().split(|c: char| !c.is_alphanumeric()).filter(|w| w.chars().count() >= 3).map(String::from).collect()
+}
+
+/// What names a product: the parts of its id, the words of its names in both languages and of its function.
+fn names_of(k: &KindDef) -> BTreeSet<String> {
+    let mut out = words(&k.id.replace('_', " "));
+    out.extend(["ru", "en"].iter().flat_map(|l| words(&k.name.get(l))));
+    if let Some(f) = &k.function {
+        out.extend(words(&f.replace('-', " ")));
+    }
+    out
+}
+
+/// The products the model gets in full, in the order it reads them: those the design holds, the basic library, then up to `extra` that the words of
+/// the request name (best match first). A word that names a tenth of the library (cloud, server, managed) names nothing in particular and is not used.
+pub fn detailed<'c>(cat: &'c Catalog, focus: &Focus, extra: usize) -> Vec<&'c KindDef> {
+    let shown: Vec<&KindDef> = cat.kinds.iter().filter(|k| !k.hidden).collect();
+    let mut out: Vec<&KindDef> = vec![];
+    let take = |k: &'c KindDef, out: &mut Vec<&'c KindDef>| {
+        if !out.iter().any(|x| x.id == k.id) {
+            out.push(k);
         }
-        if let Some(d) = &p.default {
-            o["default"] = d.clone();
-        }
-        if !p.variants.is_empty() {
-            o["variants"] = json!(p.variants);
-        }
-        o
     };
-    let common: Vec<Value> = cat.common_props.iter().filter(|p| !skip(&p.key)).map(prop).collect();
-    let common_keys: Vec<&str> = cat.common_props.iter().map(|p| p.key.as_str()).collect();
-    let kinds: Vec<Value> = cat
-        .kinds
+    for id in &focus.in_design {
+        if let Some(k) = shown.iter().find(|k| k.id == *id) {
+            take(k, &mut out);
+        }
+    }
+    shown.iter().filter(|k| k.core).for_each(|k| take(k, &mut out));
+    if extra == 0 {
+        return out;
+    }
+    let asked = words(focus.text);
+    if asked.is_empty() {
+        return out;
+    }
+    let names: Vec<BTreeSet<String>> = shown.iter().map(|k| names_of(k)).collect();
+    let mut frequency: BTreeMap<&str, usize> = BTreeMap::new();
+    for n in &names {
+        for w in n {
+            *frequency.entry(w).or_default() += 1;
+        }
+    }
+    // a word names a product when few products carry it ("qdrant"); one a twentieth of the library carries ("cloud", "server", "aws") names none in
+    // particular, and counts for nothing alone. The rarer the words a product shares with the request, the better the match.
+    let specific = (shown.len() / 40).max(5);
+    let mut scored: Vec<(f64, usize)> = names
         .iter()
-        .filter(|k| !k.hidden)
-        .map(|k| {
-            // a kind's own defaults for the properties everybody has (3 instances, 8 vCPU…)
-            let sizing: serde_json::Map<String, Value> =
-                k.props.iter().filter(|p| common_keys.contains(&p.key.as_str()) && p.default.is_some()).map(|p| (p.key.clone(), p.default.clone().unwrap_or(Value::Null))).collect();
-            let own: Vec<Value> = k.props.iter().filter(|p| !skip(&p.key) && !common_keys.contains(&p.key.as_str())).map(prop).collect();
-            let mut o = json!({"id": k.id, "name": k.name.get(lang), "behavior": k.behavior, "traits": k.traits.join(",")});
-            if let Some(f) = &k.function {
-                o["function"] = json!(f);
-            }
-            if !k.roles.is_empty() {
-                o["roles"] = json!(k.roles.iter().map(|r| r.id.clone()).collect::<Vec<_>>());
-            }
-            if !sizing.is_empty() {
-                o["sizing"] = Value::Object(sizing);
-            }
-            if !own.is_empty() {
-                o["props"] = json!(own);
-            }
-            if !k.variants.is_empty() {
-                // "id: Name [default] [traits it adds]": a line per way to deploy the product
-                o["variants"] = json!(k
-                    .variants
-                    .iter()
-                    .map(|v| {
-                        let mut line = format!("{}: {}", v.id, v.name.get(lang));
-                        if v.default {
-                            line.push_str(" [default]");
-                        }
-                        if let Some(b) = v.behavior {
-                            line.push_str(&format!(" [behavior {}]", serde_json::to_value(b).ok().and_then(|x| x.as_str().map(String::from)).unwrap_or_default()));
-                        }
-                        if !v.add_traits.is_empty() {
-                            line.push_str(&format!(" [+{}]", v.add_traits.join(",+")));
-                        }
-                        line
-                    })
-                    .collect::<Vec<_>>());
-            }
-            o
+        .enumerate()
+        .filter(|(i, _)| !out.iter().any(|x| x.id == shown[*i].id))
+        .filter_map(|(i, n)| {
+            let hits: Vec<usize> = n.iter().filter(|w| asked.contains(*w)).map(|w| frequency.get(w.as_str()).copied().unwrap_or(1)).filter(|f| *f <= specific).collect();
+            // the whole id ("postgresql", "aws_alb" written as "awsalb") named at once is the surest sign
+            let whole = asked.contains(&shown[i].id.replace('_', ""));
+            (!hits.is_empty() || whole).then(|| (hits.iter().map(|f| 1.0 / *f as f64).sum::<f64>() + if whole { 2.0 } else { 0.0 }, i))
         })
         .collect();
-    let note = "Every kind has the commonProps; `sizing` is the kind's own default for some of them. A unit_ref property holds the `group` id of another cluster in the architecture (for example the consensus cluster used for leader election). `function` groups interchangeable products; `variants` are ways to deploy one (set props.variant).";
-    serde_json::to_string(&json!({"note": note, "commonProps": common, "kinds": kinds})).unwrap_or_default()
+    scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal).then(a.1.cmp(&b.1)));
+    for (_, i) in scored.into_iter().take(extra) {
+        take(shown[i], &mut out);
+    }
+    out
+}
+
+fn prop_json(p: &PropDef) -> Value {
+    let mut o = json!({"key": p.key, "type": match p.prop_type { PropType::Number => "number", PropType::String => "string", PropType::Boolean => "boolean", PropType::Enum => "enum", PropType::UnitRef => "unit_ref" }});
+    if !p.options.is_empty() {
+        o["options"] = json!(p.options.iter().map(|x| x.value.clone()).collect::<Vec<_>>());
+    }
+    if let Some(d) = &p.default {
+        o["default"] = d.clone();
+    }
+    if !p.variants.is_empty() {
+        o["variants"] = json!(p.variants);
+    }
+    o
+}
+
+/// Properties no product needs to be told about (a free text, the storage class).
+fn skipped(key: &str) -> bool {
+    matches!(key, "notes" | "storageClass")
+}
+
+/// A product in full: what is its own (sizing defaults, properties, roles, variants); the properties everybody has are said once.
+fn kind_json(k: &KindDef, lang: &str, common_keys: &[&str]) -> Value {
+    // a kind's own defaults for the properties everybody has (3 instances, 8 vCPU…)
+    let sizing: serde_json::Map<String, Value> =
+        k.props.iter().filter(|p| common_keys.contains(&p.key.as_str()) && p.default.is_some()).map(|p| (p.key.clone(), p.default.clone().unwrap_or(Value::Null))).collect();
+    let own: Vec<Value> = k.props.iter().filter(|p| !skipped(&p.key) && !common_keys.contains(&p.key.as_str())).map(prop_json).collect();
+    let mut o = json!({"id": k.id, "name": k.name.get(lang), "behavior": k.behavior, "traits": k.traits.join(",")});
+    if let Some(f) = &k.function {
+        o["function"] = json!(f);
+    }
+    if !k.roles.is_empty() {
+        o["roles"] = json!(k.roles.iter().map(|r| r.id.clone()).collect::<Vec<_>>());
+    }
+    if !sizing.is_empty() {
+        o["sizing"] = Value::Object(sizing);
+    }
+    if !own.is_empty() {
+        o["props"] = json!(own);
+    }
+    if !k.variants.is_empty() {
+        // "id: Name [default] [traits it adds]": a line per way to deploy the product
+        o["variants"] = json!(k
+            .variants
+            .iter()
+            .map(|v| {
+                let mut line = format!("{}: {}", v.id, v.name.get(lang));
+                if v.default {
+                    line.push_str(" [default]");
+                }
+                if let Some(b) = v.behavior {
+                    line.push_str(&format!(" [behavior {}]", serde_json::to_value(b).ok().and_then(|x| x.as_str().map(String::from)).unwrap_or_default()));
+                }
+                if !v.add_traits.is_empty() {
+                    line.push_str(&format!(" [+{}]", v.add_traits.join(",+")));
+                }
+                line
+            })
+            .collect::<Vec<_>>());
+    }
+    o
+}
+
+/// The catalog for the model, in two tiers. `index` names every product it may use, by function (the first of a function is the one to take when
+/// the user names only the job); `kinds` describes in full the basic library and what the request is about (`detailed`), so that the prompt stays
+/// a prompt however many products the library holds. The properties every kind has are said once.
+pub fn catalog_digest(cat: &Catalog, lang: &str, focus: &Focus, extra: usize) -> String {
+    let common: Vec<Value> = cat.common_props.iter().filter(|p| !skipped(&p.key)).map(prop_json).collect();
+    let common_keys: Vec<&str> = cat.common_props.iter().map(|p| p.key.as_str()).collect();
+    let kinds: Vec<Value> = detailed(cat, focus, extra).into_iter().map(|k| kind_json(k, lang, &common_keys)).collect();
+    // by function, in the order the library declares them; the basic products come first inside a function
+    let mut index = serde_json::Map::new();
+    let mut listed: BTreeSet<&str> = BTreeSet::new();
+    for f in cat.categories.iter().flat_map(|c| c.functions.iter()) {
+        let mut ids: Vec<&KindDef> = cat.kinds_of_function(&f.id).into_iter().filter(|k| !k.hidden).collect();
+        ids.sort_by_key(|k| !k.core);
+        if !ids.is_empty() {
+            listed.extend(ids.iter().map(|k| k.id.as_str()));
+            index.insert(f.id.clone(), json!(ids.iter().map(|k| k.id.clone()).collect::<Vec<_>>()));
+        }
+    }
+    let rest: Vec<&str> = cat.kinds.iter().filter(|k| !k.hidden && !listed.contains(k.id.as_str())).map(|k| k.id.as_str()).collect();
+    if !rest.is_empty() {
+        index.insert("other".into(), json!(rest));
+    }
+    let note = "Every kind has the commonProps; `sizing` is the kind's own default for some of them. A unit_ref property holds the `group` id of another cluster in the architecture (for example the consensus cluster used for leader election). `function` groups interchangeable products; `variants` are ways to deploy one (set props.variant). `index` lists EVERY product you may use, by function: the first of a function is the default when the user names only the job. `kinds` describes in full the basic products and those this request is about; a product that is only in `index` has the common properties and its own ones, which you leave unset (the engine fills in the defaults) unless the user gave a value.";
+    serde_json::to_string(&json!({"note": note, "commonProps": common, "index": index, "kinds": kinds})).unwrap_or_default()
+}
+
+/// The full description of some products only: what a repair adds for the products the model used and was not told about in full.
+pub fn kinds_digest(cat: &Catalog, lang: &str, ids: &[String]) -> String {
+    let common_keys: Vec<&str> = cat.common_props.iter().map(|p| p.key.as_str()).collect();
+    let kinds: Vec<Value> = ids.iter().filter_map(|id| cat.kind(id)).map(|k| kind_json(k, lang, &common_keys)).collect();
+    serde_json::to_string(&kinds).unwrap_or_default()
+}
+
+/// The kinds an answer of the model names (`"kind": "…"`), each once, in the order they come: it is read off the text, so that it works on an answer that does not parse.
+pub fn kinds_named(text: &str) -> Vec<String> {
+    let mut out: Vec<String> = vec![];
+    let mut rest = text;
+    while let Some(i) = rest.find("\"kind\"") {
+        rest = &rest[i + 6..];
+        let after = rest.trim_start().strip_prefix(':').map(str::trim_start);
+        if let Some(value) = after.and_then(|a| a.strip_prefix('"')) {
+            let id: String = value.chars().take_while(|c| c.is_ascii_alphanumeric() || *c == '_' || *c == '-').collect();
+            if !id.is_empty() && !out.contains(&id) {
+                out.push(id);
+            }
+        }
+    }
+    out
 }
 
 pub fn edge_types_digest(cat: &Catalog) -> String {
@@ -425,14 +544,37 @@ mod sanitize_tests {
 mod catalog_digest_tests {
     use super::*;
 
+    fn parsed(cat: &Catalog, focus: &Focus, extra: usize) -> (usize, Value) {
+        let d = catalog_digest(cat, "en", focus, extra);
+        (d.len(), serde_json::from_str(&d).unwrap())
+    }
+
+    fn ids_of(v: &Value) -> Vec<String> {
+        v["kinds"].as_array().unwrap().iter().map(|k| k["id"].as_str().unwrap().to_string()).collect()
+    }
+
     #[test]
-    fn the_digest_of_the_whole_catalog_stays_a_prompt_and_names_products_and_variants() {
+    fn the_digest_of_the_whole_catalog_stays_a_prompt_and_names_every_product_and_variant() {
         let cat = engine::defaults::catalog();
-        let d = catalog_digest(&cat, "en");
-        assert!(d.len() < 45_000, "the catalog digest is {} bytes: it is sent with every AI request", d.len());
-        let v: Value = serde_json::from_str(&d).unwrap();
+        let shown = cat.kinds.iter().filter(|k| !k.hidden).count();
+        assert!(shown >= 500, "the library is meant to be broad: {shown} products");
+        let (len, v) = parsed(&cat, &Focus::default(), 0);
+        // the index has every product, once, grouped by function
+        let index = v["index"].as_object().unwrap();
+        let listed: Vec<&str> = index.values().flat_map(|x| x.as_array().unwrap()).map(|x| x.as_str().unwrap()).collect();
+        assert_eq!(listed.len(), shown);
+        assert_eq!(listed.iter().collect::<BTreeSet<_>>().len(), shown, "a product is listed once");
+        // the first of a function is a basic product when the function has one: it is the one taken when the user names only the job
+        for (f, ids) in index {
+            let first = cat.kind(ids[0].as_str().unwrap()).unwrap();
+            if cat.kinds_of_function(f).iter().any(|k| k.core) {
+                assert!(first.core, "the first product of {f} is {}, which is not a basic one", first.id);
+            }
+        }
+        // the basic library is described in full, with its variants
+        let core = cat.kinds.iter().filter(|k| !k.hidden && k.core).count();
         let kinds = v["kinds"].as_array().unwrap();
-        assert_eq!(kinds.len(), cat.kinds.iter().filter(|k| !k.hidden).count());
+        assert_eq!(kinds.len(), core);
         let pg = kinds.iter().find(|k| k["id"] == "postgresql").unwrap();
         assert_eq!(pg["function"], "rdbms");
         assert!(pg["variants"].as_array().unwrap().iter().any(|x| x.as_str().map(|s| s.starts_with("rds: ") && s.contains("[+managed]")).unwrap_or(false)), "{:?}", pg["variants"]);
@@ -440,5 +582,49 @@ mod catalog_digest_tests {
         // sizing defaults of a kind are kept, the common properties are not repeated per kind
         assert!(pg["sizing"]["vcpu"].is_number());
         assert!(pg.get("props").and_then(|p| p.as_array()).map(|p| !p.iter().any(|x| x["key"] == "vcpu")).unwrap_or(true));
+        // and the whole of it stays a prompt: it is sent with every AI request, so it must not grow with the library
+        assert!(len < 80_000, "the catalog digest is {len} bytes");
+    }
+
+    #[test]
+    fn what_the_request_is_about_is_described_in_full_and_the_rest_is_not() {
+        let cat = engine::defaults::catalog();
+        let core = cat.kinds.iter().filter(|k| !k.hidden && k.core).count();
+        let none = ids_of(&parsed(&cat, &Focus::default(), 40).1);
+        assert_eq!(none.len(), core, "a request that names nothing gets the basic library");
+
+        // the words of the request name the products: by id, by name, in any case and with punctuation around
+        let focus = Focus { text: "Нужен Qdrant для поиска по эмбеддингам, перед ним Amazon-ALB; а кэш — Garnet.", in_design: vec![] };
+        let ids = ids_of(&parsed(&cat, &focus, 40).1);
+        for want in ["qdrant", "aws_alb", "garnet"] {
+            if cat.kind(want).is_some() {
+                assert!(ids.contains(&want.to_string()), "{want} is named by the request: {ids:?}");
+            }
+        }
+        assert!(ids.len() <= core + 40);
+        // the products the design already has are always there, whatever the budget is
+        let design = Focus { text: "", in_design: vec!["tomcat", "no_such_kind"] };
+        assert!(ids_of(&parsed(&cat, &design, 0).1).contains(&"tomcat".to_string()));
+        // a word that a twentieth of the library carries names nothing in particular
+        let generic = Focus { text: "cloud server data network", in_design: vec![] };
+        assert_eq!(ids_of(&parsed(&cat, &generic, 40).1).len(), core, "words that name a twentieth of the library name no product");
+        // the same request gives the same digest
+        assert_eq!(catalog_digest(&cat, "en", &focus, 40), catalog_digest(&cat, "en", &focus, 40));
+        // and a hidden product is never offered
+        let mut hidden = cat.clone();
+        if let Some(k) = hidden.kinds.iter_mut().find(|k| k.id == "qdrant") {
+            k.hidden = true;
+        }
+        assert!(!ids_of(&parsed(&hidden, &focus, 40).1).contains(&"qdrant".to_string()));
+    }
+
+    #[test]
+    fn the_kinds_an_answer_names_are_read_off_its_text_even_when_it_does_not_parse() {
+        let answer = r#"{"architecture": {"nodes": [{"id": "a", "kind": "postgresql", "name": "DB"}, {"id":"b","kind" : "aws_alb"}, {"id": "c", "kind":"postgresql"}, {"kind": 5}, {"id": "d", "kind": "kafka", "props": {"#;
+        assert_eq!(kinds_named(answer), vec!["postgresql", "aws_alb", "kafka"]);
+        assert!(kinds_named("no kinds here").is_empty());
+        let cat = engine::defaults::catalog();
+        let d: Value = serde_json::from_str(&kinds_digest(&cat, "en", &["aws_alb".into(), "no_such_kind".into(), "kafka".into()])).unwrap();
+        assert_eq!(d.as_array().unwrap().iter().map(|k| k["id"].as_str().unwrap()).collect::<Vec<_>>(), vec!["aws_alb", "kafka"]);
     }
 }

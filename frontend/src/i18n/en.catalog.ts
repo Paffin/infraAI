@@ -36,6 +36,7 @@ export default {
   'library.more': 'More: {n}',
   'library.collapseAll': 'Collapse all',
   'library.found': 'Found: {n}',
+  'library.showMore': 'Show {n} more',
   'library.matchVariant': 'variant: {name}',
   'library.managedBadge': 'cloud',
   'library.addProduct': 'Add “{name}”',

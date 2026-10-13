@@ -1,0 +1,13 @@
+{
+ "id": "cisco_unified_communications_manager",
+ "title": {
+  "ru": "Cisco Unified Communications Manager",
+  "en": "Cisco Unified Communications Manager"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Установка Cisco Unified Communications Manager зависит от вашей среды (база данных, файловое хранилище, почта, домен): проверенного шаблона нет. Добавьте свой.",
+  "en": "Installing Cisco Unified Communications Manager depends on your environment (database, file storage, mail, domain): there is no verified template. Add your own."
+ }
+}

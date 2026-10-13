@@ -1,0 +1,13 @@
+{
+ "id": "vyos",
+ "title": {
+  "ru": "VyOS",
+  "en": "VyOS"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Правила VyOS зависят от вендора и сегментации сети: нейтрального шаблона нет. Добавьте шаблон под ваше оборудование.",
+  "en": "The rules of VyOS depend on the vendor and the network segmentation: there is no neutral template. Add one for your equipment."
+ }
+}

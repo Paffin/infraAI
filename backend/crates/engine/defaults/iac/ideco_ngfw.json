@@ -1,0 +1,13 @@
+{
+ "id": "ideco_ngfw",
+ "title": {
+  "ru": "Ideco NGFW",
+  "en": "Ideco NGFW"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Правила Ideco NGFW зависят от вендора и сегментации сети: нейтрального шаблона нет. Добавьте шаблон под ваше оборудование.",
+  "en": "The rules of Ideco NGFW depend on the vendor and the network segmentation: there is no neutral template. Add one for your equipment."
+ }
+}

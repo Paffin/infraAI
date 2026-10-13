@@ -1,0 +1,13 @@
+{
+ "id": "dagster",
+ "title": {
+  "ru": "Dagster",
+  "en": "Dagster"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Задания и ресурсы Dagster зависят от вашей обработки данных: нейтрального шаблона нет. Добавьте свой.",
+  "en": "The jobs and resources of Dagster depend on your data processing: there is no neutral template. Add your own."
+ }
+}

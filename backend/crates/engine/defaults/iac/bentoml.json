@@ -1,0 +1,13 @@
+{
+ "id": "bentoml",
+ "title": {
+  "ru": "BentoML",
+  "en": "BentoML"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Развёртывание BentoML зависит от кластера, ускорителей и хранилища: проверенного шаблона нет. Добавьте свой.",
+  "en": "Deploying BentoML depends on the cluster, the accelerators and the storage: there is no verified template. Add your own."
+ }
+}

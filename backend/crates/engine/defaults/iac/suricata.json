@@ -1,0 +1,13 @@
+{
+ "id": "suricata",
+ "title": {
+  "ru": "Suricata",
+  "en": "Suricata"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Настройка Suricata зависит от вашей политики безопасности и инфраструктуры: нейтрального проверенного шаблона нет. Добавьте свой.",
+  "en": "Setting up Suricata depends on your security policy and infrastructure: there is no neutral verified template. Add your own."
+ }
+}

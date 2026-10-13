@@ -1,0 +1,13 @@
+{
+ "id": "openstack_octavia",
+ "title": {
+  "ru": "OpenStack Octavia",
+  "en": "OpenStack Octavia"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Развёртывание OpenStack Octavia зависит от сети площадки (VRRP, BGP, облачный балансировщик). Проверенного шаблона нет — добавьте свой.",
+  "en": "How OpenStack Octavia is deployed depends on the network of the site (VRRP, BGP, a cloud balancer). There is no verified template — add your own."
+ }
+}

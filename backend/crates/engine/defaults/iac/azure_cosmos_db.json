@@ -1,0 +1,13 @@
+{
+ "id": "azure_cosmos_db",
+ "title": {
+  "ru": "Azure Cosmos DB",
+  "en": "Azure Cosmos DB"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Azure Cosmos DB — сервис провайдера: он создаётся через консоль, API и провайдер Terraform самого провайдера, нейтрального шаблона нет. Добавьте свой под вашего провайдера.",
+  "en": "Azure Cosmos DB is a provider’s service: it is created through the provider’s console, API and Terraform provider, there is no neutral template. Add your own for your provider."
+ }
+}

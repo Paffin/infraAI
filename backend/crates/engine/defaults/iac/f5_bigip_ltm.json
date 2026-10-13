@@ -1,0 +1,13 @@
+{
+ "id": "f5_bigip_ltm",
+ "title": {
+  "ru": "F5 BIG-IP LTM",
+  "en": "F5 BIG-IP LTM"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Развёртывание F5 BIG-IP LTM зависит от того, где он живёт: пара узлов с VRRP, ingress-контроллер в кластере или облачный сервис. Проверенного шаблона нет — добавьте свой.",
+  "en": "How F5 BIG-IP LTM is deployed depends on where it lives: a VRRP pair, an ingress controller on the cluster or a cloud service. There is no verified template — add your own."
+ }
+}

@@ -1,0 +1,13 @@
+{
+ "id": "grafana_mimir",
+ "title": {
+  "ru": "Grafana Mimir",
+  "en": "Grafana Mimir"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Для Grafana Mimir нужен оператор или сценарий развёртывания, зависящий от выбранного варианта; схемы ресурсов оператора не подтверждены, поэтому код не генерируется. Добавьте проверенный шаблон под ваш оператор.",
+  "en": "Grafana Mimir needs an operator or a deployment playbook that depends on the chosen variant; the operator’s resource schemas have not been confirmed, so no code is generated. Add a verified template for your operator."
+ }
+}

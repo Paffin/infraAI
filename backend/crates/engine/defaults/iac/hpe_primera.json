@@ -1,0 +1,13 @@
+{
+ "id": "hpe_primera",
+ "title": {
+  "ru": "HPE Primera / Alletra 9000",
+  "en": "HPE Primera / Alletra 9000"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "HPE Primera / Alletra 9000 — оборудование или программно-аппаратный комплекс: его настраивают средствами вендора, нейтрального шаблона нет. Добавьте свой.",
+  "en": "HPE Primera / Alletra 9000 is hardware or an appliance: it is configured with the vendor’s tools, there is no neutral template. Add your own."
+ }
+}

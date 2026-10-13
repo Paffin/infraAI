@@ -1,0 +1,13 @@
+{
+ "id": "tableau_server",
+ "title": {
+  "ru": "Tableau Server",
+  "en": "Tableau Server"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Значения установки Tableau Server зависят от вашей среды (хранилище, домен, внешняя база): проверенного шаблона нет. Добавьте свой.",
+  "en": "The install values of Tableau Server depend on your environment (storage, domain, an external database): there is no verified template. Add your own."
+ }
+}

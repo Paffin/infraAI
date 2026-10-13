@@ -1,0 +1,13 @@
+{
+ "id": "launchdarkly",
+ "title": {
+  "ru": "LaunchDarkly",
+  "en": "LaunchDarkly"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "LaunchDarkly — сервис провайдера: он создаётся через консоль, API и провайдер Terraform самого провайдера, нейтрального шаблона нет. Добавьте свой под вашего провайдера.",
+  "en": "LaunchDarkly is a provider’s service: it is created through the provider’s console, API and Terraform provider, there is no neutral template. Add your own for your provider."
+ }
+}

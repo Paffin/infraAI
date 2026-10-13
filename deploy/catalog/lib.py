@@ -139,7 +139,7 @@ def kind(id, category, function, abbr, color, ru, en, behavior, traits, props, d
     if desc:
         k["description"] = L(*desc)
     if subtitle:
-        k["subtitle"] = subtitle if isinstance(subtitle, str) else L(*subtitle)
+        k["subtitle"] = subtitle if isinstance(subtitle, (str, dict)) else L(*subtitle)
     if capacity is not None:
         k["capacity"] = capacity
     if roles:

@@ -1,0 +1,13 @@
+{
+ "id": "vmware_vsan",
+ "title": {
+  "ru": "VMware vSAN",
+  "en": "VMware vSAN"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Хранилище VMware vSAN разворачивается оператором или средствами вендора, зависящими от оборудования: проверенного шаблона нет. Добавьте свой.",
+  "en": "The VMware vSAN storage is deployed by an operator or the vendor’s tools that depend on the hardware: there is no verified template. Add your own."
+ }
+}

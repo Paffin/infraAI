@@ -1,0 +1,13 @@
+{
+ "id": "juniper_srx",
+ "title": {
+  "ru": "Juniper SRX",
+  "en": "Juniper SRX"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Правила Juniper SRX зависят от вендора и сегментации сети: нейтрального шаблона нет. Добавьте шаблон под ваше оборудование.",
+  "en": "The rules of Juniper SRX depend on the vendor and the network segmentation: there is no neutral template. Add one for your equipment."
+ }
+}

@@ -1,0 +1,13 @@
+{
+ "id": "yadro_tatlin",
+ "title": {
+  "ru": "YADRO TATLIN.UNIFIED",
+  "en": "YADRO TATLIN.UNIFIED"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "YADRO TATLIN.UNIFIED — оборудование или программно-аппаратный комплекс: его настраивают средствами вендора, нейтрального шаблона нет. Добавьте свой.",
+  "en": "YADRO TATLIN.UNIFIED is hardware or an appliance: it is configured with the vendor’s tools, there is no neutral template. Add your own."
+ }
+}

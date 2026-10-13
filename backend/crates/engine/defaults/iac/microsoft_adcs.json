@@ -1,0 +1,13 @@
+{
+ "id": "microsoft_adcs",
+ "title": {
+  "ru": "Active Directory Certificate Services",
+  "en": "Active Directory Certificate Services"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Значения установки Active Directory Certificate Services зависят от вашей среды (хранилище, домен, внешняя база): проверенного шаблона нет. Добавьте свой.",
+  "en": "The install values of Active Directory Certificate Services depend on your environment (storage, domain, an external database): there is no verified template. Add your own."
+ }
+}

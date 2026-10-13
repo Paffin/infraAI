@@ -1,0 +1,13 @@
+{
+ "id": "thingsboard",
+ "title": {
+  "ru": "ThingsBoard",
+  "en": "ThingsBoard"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Установка ThingsBoard зависит от вашей среды (база данных, файловое хранилище, почта, домен): проверенного шаблона нет. Добавьте свой.",
+  "en": "Installing ThingsBoard depends on your environment (database, file storage, mail, domain): there is no verified template. Add your own."
+ }
+}

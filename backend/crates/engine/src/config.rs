@@ -149,6 +149,10 @@ pub struct Assumptions {
     pub transit_routing: bool,
     /// Scale-out time for nodes with `failoverReplicas` when `scaleUpSeconds` is not declared.
     pub default_scale_up_seconds: f64,
+    /// Traits of services the provider sizes and keeps highly available (a queue, an object store, a search service as somebody's cloud product):
+    /// there are no instances to count, so the rules that ask for two of them leave such a node alone, and its capacity is the provider's to scale
+    /// unless the node declares `rpsPerReplica` itself.
+    pub elastic_traits: Vec<String>,
 }
 
 impl Default for Assumptions {
@@ -169,6 +173,7 @@ impl Default for Assumptions {
             implicit_mesh: true,
             transit_routing: false,
             default_scale_up_seconds: 300.0,
+            elastic_traits: vec!["provider-ha".into()],
         }
     }
 }

@@ -17,6 +17,7 @@ import part_a as A
 import part_b as B
 import part_c as C
 import part_d as D
+import checks
 import iac as IAC
 import version_names
 
@@ -47,6 +48,21 @@ FUNCTIONS = {
         ("identity", "Идентификация", "Identity"), ("access", "Доступ к инфраструктуре", "Infrastructure access"), ("pki", "Сертификаты", "Certificates"), ("policy", "Политики", "Policies"),
         ("cni", "Сеть кластера", "Cluster network"), ("mesh", "Сервисная сетка", "Service mesh")],
 }
+FUNCTIONS.update({"security": [], "apps": [], "ai": []})
+# the large catalog: modules kinds_*.py (see forge.py) bring their products and the functions the products need
+MODULES = checks.modules()
+if any(err for _, _, err in MODULES):
+    sys.exit("\n".join(f"{name}: cannot be imported – {err}" for name, _, err in MODULES if err))
+MODULE_FN_ICON = {}
+for name, mod, _ in MODULES:
+    for cat_id, fns in getattr(mod, "FUNCTIONS", {}).items():
+        have = {f[0] for f in FUNCTIONS[cat_id]}
+        for fid, ru, en, icon in fns:
+            if fid in have or any(fid == f[0] for c in FUNCTIONS.values() for f in c):
+                sys.exit(f"{name}: function {fid!r} is declared twice")
+            FUNCTIONS[cat_id].append((fid, ru, en))
+            MODULE_FN_ICON[fid] = icon
+    IAC.R_BY_FN.update(getattr(mod, "IAC", {}))
 for cat in base["categories"]:
     cat["functions"] = [{"id": i, "name": L(ru, en)} for i, ru, en in FUNCTIONS[cat["id"]]]
 
@@ -64,7 +80,8 @@ FUNCTION_ICON = {
     "gitops": "git-pull-request", "ci": "git-branch", "quality": "badge-check", "registry": "package", "identity": "fingerprint-pattern", "access": "log-in", "pki": "id-card",
     "policy": "scale", "cni": "cable", "mesh": "waypoints",
 }
-CATEGORY_ICON = {"edge": "network", "compute": "cpu", "data": "database", "platform": "blocks"}
+FUNCTION_ICON.update(MODULE_FN_ICON)
+CATEGORY_ICON = {"edge": "network", "compute": "cpu", "data": "database", "platform": "blocks", "security": "shield", "apps": "app-window", "ai": "brain"}
 ZONE_ICON = {"dc": "building-2", "cloud": "cloud", "az": "layers", "region": "globe", "rack": "server", "group": "box"}
 
 
@@ -165,12 +182,17 @@ for kd in base["kinds"]:
     kinds.append(kd)
 
 new_kinds = B.KINDS_EDGE + B.KINDS_COMPUTE + C.KINDS_DATA + D.KINDS_PLATFORM
+module_kinds = [kd for _, mod, _ in MODULES for kd in mod.KINDS]
+new_kinds += module_kinds
 ids = [x["id"] for x in kinds] + [x["id"] for x in new_kinds]
 dup = {i for i in ids if ids.count(i) > 1}
 if dup:
     sys.exit(f"duplicate kind ids: {sorted(dup)}")
 kinds += new_kinds
 kinds = [put_after(kd, "color", "icon", kd.get("icon") or FUNCTION_ICON.get(kd.get("function"))) for kd in kinds]
+# the basic library is what was written by hand first (README.md of this folder): the AI sees it in full, the library lists it first
+module_ids = {kd["id"] for kd in module_kinds}
+kinds = [kd if kd["id"] in module_ids else kd | {"core": True} for kd in kinds]
 base["kinds"] = kinds
 
 # ---- checks ---------------------------------------------------------------------------------------------------------
@@ -189,6 +211,13 @@ for kd in kinds:
             errs.append(f"{kd['id']}: version table {t!r} does not exist")
         else:
             USED_TABLES.add(t)
+hand_written = {kd["id"] for kd in kinds} - {kd["id"] for kd in module_kinds}
+known_traits = {t for kd in kinds if kd["id"] in hand_written for t in kd["traits"] + [x for v in kd.get("variants", []) for x in v.get("addTraits", [])]} | {t for ts in __import__("forge").T.values() for t in ts} | checks.rule_traits()
+mod_errs, mod_warns = checks.check_all(kinds, {c: {f["id"] for f in cat_["functions"]} for c, cat_ in {x["id"]: x for x in base["categories"]}.items()},
+                                       tables=set(VERS), known_traits=known_traits, icons=checks.icon_names(), only={kd["id"] for kd in module_kinds})
+errs += mod_errs
+if mod_warns and not CHECK:
+    print("\n".join("warning: " + w for w in mod_warns[:40]) + (f"\n… and {len(mod_warns) - 40} more warnings (python3 deploy/catalog/lint.py)" if len(mod_warns) > 40 else ""))
 for kd in kinds:
     if not kd.get("icon"):
         errs.append(f"{kd['id']}: no icon (name one with icon=, or add the function {kd.get('function')!r} to FUNCTION_ICON)")

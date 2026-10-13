@@ -1,0 +1,13 @@
+{
+ "id": "dell_powerswitch",
+ "title": {
+  "ru": "Dell PowerSwitch (OS10)",
+  "en": "Dell PowerSwitch (OS10)"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Оборудование настраивается средствами вендора (Ansible, NAPALM, Terraform-провайдер производителя): нейтрального шаблона нет.",
+  "en": "Network devices are configured with the vendor’s tools (Ansible, NAPALM, a vendor Terraform provider): there is no neutral template."
+ }
+}

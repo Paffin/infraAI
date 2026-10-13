@@ -1,0 +1,13 @@
+{
+ "id": "gigachat_api",
+ "title": {
+  "ru": "GigaChat API (Сбер)",
+  "en": "GigaChat API (Sber)"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "GigaChat API (Сбер) — сервис провайдера: он создаётся через консоль, API и провайдер Terraform самого провайдера, нейтрального шаблона нет. Добавьте свой под вашего провайдера.",
+  "en": "GigaChat API (Sber) is a provider’s service: it is created through the provider’s console, API and Terraform provider, there is no neutral template. Add your own for your provider."
+ }
+}

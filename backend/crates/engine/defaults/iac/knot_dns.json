@@ -1,0 +1,13 @@
+{
+ "id": "knot_dns",
+ "title": {
+  "ru": "Knot DNS",
+  "en": "Knot DNS"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Зоны и записи Knot DNS зависят от вашей схемы имён: нейтрального шаблона нет. Добавьте свой.",
+  "en": "The zones and records of Knot DNS depend on your naming scheme: there is no neutral template. Add your own."
+ }
+}

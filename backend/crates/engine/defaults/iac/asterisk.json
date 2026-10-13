@@ -1,0 +1,13 @@
+{
+ "id": "asterisk",
+ "title": {
+  "ru": "Asterisk",
+  "en": "Asterisk"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Установка Asterisk зависит от вашей среды (база данных, файловое хранилище, почта, домен): проверенного шаблона нет. Добавьте свой.",
+  "en": "Installing Asterisk depends on your environment (database, file storage, mail, domain): there is no verified template. Add your own."
+ }
+}

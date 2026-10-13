@@ -281,3 +281,81 @@ fn a_release_table_that_is_too_old_is_reported_instead_of_trusted() {
     // a node that declares no version has nothing to doubt
     assert_eq!(status(&evaluate(&single_node("postgresql", json!({})), &c, &[]), "VER-01"), Status::Ok);
 }
+
+// ---- the whole library -----------------------------------------------------------------------------------------------------------------
+
+/// The users, and one product behind them in a data centre: what the engine says about that product on its own.
+fn behind_users(kind: &str, variant: Option<&str>) -> Architecture {
+    let props = match variant {
+        Some(v) => json!({ "variant": v }),
+        None => json!({}),
+    };
+    arch(json!({
+        "requirements": {"rpsPeak": 100},
+        "zones": [{"id": "dc1", "name": "DC1", "type": "dc", "props": {"geo": "a"}}],
+        "nodes": [
+            {"id": "users", "kind": "users", "name": "Users", "props": {}},
+            {"id": "n", "kind": kind, "name": "Node", "zoneId": "dc1", "props": props}
+        ],
+        "edges": [{"id": "e", "source": "users", "target": "n", "type": "traffic", "props": {}}]
+    }))
+}
+
+#[test]
+fn every_product_and_every_way_to_run_it_can_be_put_on_a_diagram_and_judged() {
+    let c = cfg();
+    let mut judged = 0;
+    for k in &c.catalog.kinds {
+        let ways: Vec<Option<&str>> = std::iter::once(None).chain(k.variants.iter().map(|v| Some(v.id.as_str()))).collect();
+        for variant in ways {
+            let a = behind_users(&k.id, variant);
+            let issues = engine::model::validate(&a, &c.catalog, &Default::default());
+            assert!(issues.iter().all(|i| i.level != engine::model::IssueLevel::Error), "{} / {variant:?}: {issues:?}", k.id);
+            // the failure of the product, of its site and of the one instance of it never breaks the simulator
+            let ix = engine::graph::Index::build(&a, &c.catalog, &c.settings);
+            for sc in [engine::sim::Scenario::Node { node_id: "n".into() }, engine::sim::Scenario::Instance { node_id: "n".into(), count: 1 }, engine::sim::Scenario::Zone { zone_id: "dc1".into() }] {
+                let r = engine::sim::simulate_timeline(&ix, &sc);
+                assert!(r.traffic_before.is_some(), "{} / {variant:?}: the story of {sc:?} starts with normal operation", k.id);
+            }
+            judged += 1;
+        }
+    }
+    assert!(judged >= 1_000, "the library has {judged} ways to run products: it is meant to be broad");
+}
+
+#[test]
+fn a_service_the_provider_sizes_is_not_asked_for_instances_nor_for_a_capacity_it_does_not_have() {
+    let c = cfg();
+    let elastic: Vec<&engine::catalog::KindDef> = c.catalog.kinds.iter().filter(|k| k.traits.iter().any(|t| c.settings.assumptions.elastic_traits.contains(t))).collect();
+    assert!(elastic.len() >= 150, "the managed services of the library are marked as the provider's to size: {} are", elastic.len());
+    for k in elastic {
+        let rep = evaluate(&behind_users(&k.id, None), &c, &[]);
+        for rule in ["HA-SPOF-01", "HA-APP-01", "HA-LB-01", "HA-DB-01", "CAP-01", "CAP-02"] {
+            assert!(
+                rep.findings.iter().all(|f| f.rule_id != rule),
+                "{}: the provider keeps it available and scales it, yet {rule} says: {:?}",
+                k.id,
+                rep.findings.iter().filter(|f| f.rule_id == rule).map(|f| &f.vars).collect::<Vec<_>>()
+            );
+        }
+    }
+    // but a capacity the node declares itself is the architect's own word, and is judged
+    let mut a = behind_users("amazon_sqs", None);
+    a.nodes[1].props.insert("rpsPerReplica".into(), json!(10));
+    a.requirements.rps_peak = Some(1000.0);
+    assert!(evaluate(&a, &c, &[]).findings.iter().any(|f| f.rule_id == "CAP-01"), "a declared capacity is checked against the peak load");
+}
+
+#[test]
+fn a_waf_is_asked_for_web_workloads_and_not_for_telephony_mail_media_or_iot() {
+    let c = cfg();
+    let reachable = |kind: &str| {
+        let mut a = behind_users(kind, None);
+        a.nodes[1].props.insert("replicas".into(), json!(2));
+        evaluate(&a, &c, &[]).findings.iter().any(|f| f.rule_id == "NET-WAF-01")
+    };
+    assert!(reachable("tomcat"), "a web application server behind the users has no WAF in front of it");
+    for kind in ["asterisk", "postfix", "wowza_streaming_engine", "thingsboard"] {
+        assert!(!reachable(kind), "{kind} does not speak HTTP to its users: a WAF is not what protects it");
+    }
+}

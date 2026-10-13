@@ -1,0 +1,13 @@
+{
+ "id": "technitium_dns",
+ "title": {
+  "ru": "Technitium DNS Server",
+  "en": "Technitium DNS Server"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Зоны и записи Technitium DNS Server зависят от вашей схемы имён: нейтрального шаблона нет. Добавьте свой.",
+  "en": "The zones and records of Technitium DNS Server depend on your naming scheme: there is no neutral template. Add your own."
+ }
+}

@@ -1,7 +1,7 @@
 /** Keyboard shortcuts of the editor, as data: the help window, the palette and the tooltips read this list, the
  *  handler in `EditorView.vue` implements it (tests/shortcuts.test.ts keeps the two honest). */
 
-export type ShortcutGroup = 'general' | 'edit' | 'tools' | 'canvas'
+export type ShortcutGroup = 'general' | 'edit' | 'tools' | 'canvas' | 'simulation'
 
 export interface Shortcut {
   /** key of the description (`kb.<id>`) */
@@ -29,6 +29,8 @@ export const SHORTCUTS: Shortcut[] = [
   { id: 'save', group: 'general', keys: [['Mod', 'S']] },
   { id: 'escape', group: 'general', keys: [['Esc']] },
   { id: 'library', group: 'general', keys: [['/']] },
+  { id: 'foldLibrary', group: 'general', keys: [['[']] },
+  { id: 'foldRight', group: 'general', keys: [[']']] },
   { id: 'undo', group: 'edit', keys: [['Mod', 'Z']] },
   { id: 'redo', group: 'edit', keys: [['Mod', 'Shift', 'Z'], ['Mod', 'Y']] },
   { id: 'duplicate', group: 'edit', keys: [['Mod', 'D']] },
@@ -41,9 +43,11 @@ export const SHORTCUTS: Shortcut[] = [
   { id: 'multi.box', group: 'canvas', keys: [['Shift', 'drag']] },
   { id: 'pan', group: 'canvas', keys: [['drag']] },
   { id: 'zoom', group: 'canvas', keys: [['Mod', 'scroll']] },
+  { id: 'play', group: 'simulation', keys: [['Space']] },
+  { id: 'step', group: 'simulation', keys: [['←'], ['→']] },
 ]
 
-export const GROUPS: ShortcutGroup[] = ['general', 'edit', 'tools', 'canvas']
+export const GROUPS: ShortcutGroup[] = ['general', 'edit', 'tools', 'canvas', 'simulation']
 
 /** `Ctrl+K` for a shortcut id (first alternative): used in tooltips and palette hints. */
 export function shortcutText(id: string): string {

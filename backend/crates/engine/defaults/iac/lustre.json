@@ -1,0 +1,13 @@
+{
+ "id": "lustre",
+ "title": {
+  "ru": "Lustre",
+  "en": "Lustre"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Хранилище Lustre разворачивается оператором или средствами вендора, зависящими от оборудования: проверенного шаблона нет. Добавьте свой.",
+  "en": "The Lustre storage is deployed by an operator or the vendor’s tools that depend on the hardware: there is no verified template. Add your own."
+ }
+}

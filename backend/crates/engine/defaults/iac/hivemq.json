@@ -1,0 +1,13 @@
+{
+ "id": "hivemq",
+ "title": {
+  "ru": "HiveMQ",
+  "en": "HiveMQ"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Для HiveMQ нужен оператор или сценарий развёртывания, зависящий от выбранного варианта; схемы ресурсов оператора не подтверждены, поэтому код не генерируется. Добавьте проверенный шаблон.",
+  "en": "HiveMQ needs an operator or a deployment playbook that depends on the chosen variant; the operator’s resource schemas have not been confirmed, so no code is generated. Add a verified template."
+ }
+}

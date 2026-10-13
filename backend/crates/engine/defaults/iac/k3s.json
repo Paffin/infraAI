@@ -1,0 +1,13 @@
+{
+ "id": "k3s",
+ "title": {
+  "ru": "K3s",
+  "en": "K3s"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "K3s ставится пакетами или своим сценарием; проверенного шаблона нет — добавьте свой.",
+  "en": "K3s is installed from packages or by your own playbook; there is no verified template — add your own."
+ }
+}

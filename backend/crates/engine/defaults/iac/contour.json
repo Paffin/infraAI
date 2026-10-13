@@ -1,0 +1,13 @@
+{
+ "id": "contour",
+ "title": {
+  "ru": "Contour",
+  "en": "Contour"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Развёртывание Contour зависит от того, где он живёт: пара узлов с VRRP, ingress-контроллер в кластере или облачный сервис. Проверенного шаблона нет — добавьте свой.",
+  "en": "How Contour is deployed depends on where it lives: a VRRP pair, an ingress controller on the cluster or a cloud service. There is no verified template — add your own."
+ }
+}

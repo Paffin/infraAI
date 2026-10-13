@@ -1,0 +1,13 @@
+{
+ "id": "auth0",
+ "title": {
+  "ru": "Auth0",
+  "en": "Auth0"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Auth0 — сервис провайдера: он создаётся через консоль, API и провайдер Terraform самого провайдера, нейтрального шаблона нет. Добавьте свой под вашего провайдера.",
+  "en": "Auth0 is a provider’s service: it is created through the provider’s console, API and Terraform provider, there is no neutral template. Add your own for your provider."
+ }
+}

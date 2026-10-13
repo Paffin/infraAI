@@ -1,0 +1,13 @@
+{
+ "id": "spire",
+ "title": {
+  "ru": "SPIFFE/SPIRE",
+  "en": "SPIFFE/SPIRE"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Значения установки SPIFFE/SPIRE зависят от вашей среды (хранилище, домен, внешняя база): проверенного шаблона нет. Добавьте свой.",
+  "en": "The install values of SPIFFE/SPIRE depend on your environment (storage, domain, an external database): there is no verified template. Add your own."
+ }
+}

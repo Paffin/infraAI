@@ -732,6 +732,22 @@
   "max": 200
  },
  {
+  "key": "llm.catalogExtraKinds",
+  "group": "llm",
+  "type": "number",
+  "default": 40,
+  "min": 0,
+  "max": 400,
+  "label": {
+   "ru": "Каталог в подсказке: продуктов сверх основных",
+   "en": "Catalog in the prompt: products beyond the basic ones"
+  },
+  "help": {
+   "ru": "Основные продукты каталога модель видит всегда и целиком; остальные она видит списком (по функциям). Столько продуктов сверх основных описывается целиком: те, что уже есть на схеме, и те, на которые указывают слова запроса. 0 — только основные и список. Чем больше число, тем длиннее подсказка и дороже запрос.",
+   "en": "The model always sees the basic products of the catalog in full and the rest as a list (by function). This many products beyond the basic ones are described in full: those already on the diagram and those the words of the request point at. 0 means only the basic ones and the list. The bigger the number, the longer the prompt and the dearer the request."
+  }
+ },
+ {
   "key": "jobs.maxConcurrent",
   "group": "jobs",
   "type": "number",
@@ -1225,6 +1241,134 @@
   "help": {
    "ru": "Сколько частиц анимируется одновременно. У большой схемы поток разрежается, чтобы браузер не тормозил. 0 — без частиц: остаются толщина и цвет линий.",
    "en": "How many particles are animated at once. In a big diagram the flow thins out so that the browser keeps up. 0 means no particles: the width and colour of the lines remain."
+  }
+ },
+ {
+  "key": "editor.rightPanelWidth",
+  "group": "editor",
+  "type": "number",
+  "default": 410,
+  "min": 280,
+  "max": 900,
+  "label": {
+   "ru": "Правая панель: ширина по умолчанию, px",
+   "en": "Right panel: default width, px"
+  },
+  "help": {
+   "ru": "С какой шириной открывается правая панель (проверки, требования, анализ, чат, отказ), пока пользователь не растянул её сам. Двойной щелчок по кромке панели возвращает эту ширину; выбранную ширину браузер запоминает.",
+   "en": "The width the right panel (checks, requirements, analysis, chat, failure) opens with until the user drags it. A double click on its edge brings this width back; the width the user chose is remembered by the browser."
+  }
+ },
+ {
+  "key": "editor.rightPanelMinWidth",
+  "group": "editor",
+  "type": "number",
+  "default": 320,
+  "min": 200,
+  "max": 600,
+  "label": {
+   "ru": "Правая панель: наименьшая ширина, px",
+   "en": "Right panel: smallest width, px"
+  },
+  "help": {
+   "ru": "Уже панель не растягивается: ниже этого вкладки и карточки не помещаются.",
+   "en": "The panel cannot be dragged narrower: below this its tabs and cards do not fit."
+  }
+ },
+ {
+  "key": "editor.rightPanelMaxWidth",
+  "group": "editor",
+  "type": "number",
+  "default": 720,
+  "min": 360,
+  "max": 1400,
+  "label": {
+   "ru": "Правая панель: наибольшая ширина, px",
+   "en": "Right panel: largest width, px"
+  },
+  "help": {
+   "ru": "Шире панель не растягивается; кроме того, она оставляет холсту не меньше трети окна.",
+   "en": "The panel cannot be dragged wider; besides, it leaves the canvas at least a third of the window."
+  }
+ },
+ {
+  "key": "editor.floatPanelWidth",
+  "group": "editor",
+  "type": "number",
+  "default": 380,
+  "min": 280,
+  "max": 720,
+  "label": {
+   "ru": "Открепляемые панели: ширина, px",
+   "en": "Detachable panels: width, px"
+  },
+  "help": {
+   "ru": "Ширина панели отказа, когда её открепили от правой панели и она плавает над схемой.",
+   "en": "The width of the failure panel when it is detached from the right panel and floats over the diagram."
+  }
+ },
+ {
+  "key": "editor.impactShown",
+  "group": "editor",
+  "type": "number",
+  "default": 6,
+  "min": 1,
+  "max": 100,
+  "label": {
+   "ru": "Панель отказа: узлов в списке затронутых",
+   "en": "Failure panel: nodes listed as hit"
+  },
+  "help": {
+   "ru": "Сколько узлов каждой группы («не работают», «с потерями», «взяли на себя») панель отказа перечисляет, пока список не раскрыт; остальные прячутся за «ещё N».",
+   "en": "How many nodes of each group (out of service, with losses, took over) the failure panel lists until the list is opened; the rest hide behind \"N more\"."
+  }
+ },
+ {
+  "key": "editor.pickerShown",
+  "group": "editor",
+  "type": "number",
+  "default": 40,
+  "min": 5,
+  "max": 500,
+  "label": {
+   "ru": "Выпадающие списки: строк за раз",
+   "en": "Drop-down lists: rows at a time"
+  },
+  "help": {
+   "ru": "Сколько строк показывает выпадающий список выбора (узлов, площадок, каналов в панели «Что если отказ»), пока поиском не уточнено, что нужно; остальное скрыто под «Ещё N».",
+   "en": "How many rows a picking list (nodes, sites, channels in the \"What if\" bar) shows until a search narrows it down; the rest is hidden under \"N more\"."
+  }
+ },
+ {
+  "key": "editor.librarySearchShown",
+  "group": "editor",
+  "type": "number",
+  "default": 150,
+  "min": 20,
+  "max": 2000,
+  "label": {
+   "ru": "Библиотека: продуктов в результатах поиска",
+   "en": "Library: products in the search results"
+  },
+  "help": {
+   "ru": "Сколько продуктов библиотека показывает в ответ на поиск, пока запрос не уточнён; остальное скрыто под «Показать ещё». Библиотека растёт, и сотни плиток в боковой панели только мешают.",
+   "en": "How many products the library shows for a search until it is narrowed down; the rest hides behind \"Show more\". The library grows, and hundreds of tiles in a side panel only get in the way."
+  }
+ },
+ {
+  "key": "editor.adminListShown",
+  "group": "editor",
+  "type": "number",
+  "default": 100,
+  "min": 20,
+  "max": 2000,
+  "label": {
+   "ru": "Админка: строк в списках за раз",
+   "en": "Admin panel: rows in lists at a time"
+  },
+  "help": {
+   "ru": "Сколько строк показывает список настроек каталога, правил и других элементов, пока поиском не уточнено, что нужно; остальное открывается кнопкой «Показать ещё». В каталоге сотни продуктов.",
+   "en": "How many rows the list of catalog items, rules and other items shows until a search narrows it down; the rest opens with the \"Show more\" button. The catalog holds hundreds of products."
   }
  },
  {

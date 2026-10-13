@@ -1,0 +1,13 @@
+{
+ "id": "woocommerce",
+ "title": {
+  "ru": "WooCommerce",
+  "en": "WooCommerce"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Установка WooCommerce зависит от вашей среды (база данных, файловое хранилище, почта, домен): проверенного шаблона нет. Добавьте свой.",
+  "en": "Installing WooCommerce depends on your environment (database, file storage, mail, domain): there is no verified template. Add your own."
+ }
+}

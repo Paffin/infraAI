@@ -1,0 +1,13 @@
+{
+ "id": "cvat",
+ "title": {
+  "ru": "CVAT",
+  "en": "CVAT"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Развёртывание CVAT зависит от кластера, ускорителей и хранилища: проверенного шаблона нет. Добавьте свой.",
+  "en": "Deploying CVAT depends on the cluster, the accelerators and the storage: there is no verified template. Add your own."
+ }
+}

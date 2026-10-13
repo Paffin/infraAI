@@ -127,6 +127,8 @@ export interface KindDef {
   hidden?: boolean
   /** What the product is for (`rdbms`, `cache`…): products of one function replace each other. */
   function?: string | null
+  /** The basic library: listed first within its function, and always described in full to the AI. */
+  core?: boolean
   variants?: VariantDef[]
   /** Release table id when it differs from the kind id; '' = none. */
   versions?: string | null
@@ -214,6 +216,8 @@ export type Scenario =
   | { type: 'isolate'; zoneIds: string[] }
   | { type: 'sites'; zoneIds: string[] }
   | { type: 'geo'; geo: string }
+  /** several failures at the same time */
+  | { type: 'combo'; items: Scenario[] }
 
 export interface Fix { id: string; kind: string; vars: Record<string, unknown>; ops: Op[] }
 
@@ -528,6 +532,14 @@ export interface EditorSettings {
   flowSpeed: number
   flowSpacing: number
   flowParticlesMax: number
+  rightPanelWidth: number
+  rightPanelMinWidth: number
+  rightPanelMaxWidth: number
+  floatPanelWidth: number
+  impactShown: number
+  pickerShown: number
+  librarySearchShown: number
+  adminListShown: number
 }
 
 export interface Bootstrap {

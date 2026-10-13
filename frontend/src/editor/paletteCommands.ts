@@ -1,7 +1,7 @@
 import { computed, type Component, type ComputedRef } from 'vue'
 import { useRouter } from 'vue-router'
 import {
-  Activity, Boxes, Coins, Copy, Download, Gauge, History, Keyboard, Languages, Layers, LayoutDashboard, ListChecks, Maximize, MousePointer2, PanelLeft, Play, Plus, Redo2, Save, ShieldCheck,
+  Activity, Boxes, Coins, Copy, Download, Gauge, History, Keyboard, Languages, Layers, LayoutDashboard, ListChecks, Maximize, MousePointer2, PanelLeft, PanelRight, Play, Plus, Redo2, Save, ShieldCheck,
   MapPinned, Network, Sparkles, Spline, Square, Trash2, Undo2, Zap, Folder, Users,
 } from 'lucide-vue-next'
 import type { KindDef, Status } from '@/api/types'
@@ -158,7 +158,8 @@ export function usePaletteCommands(): ComputedRef<Command[]> {
 
     // ---------------------------------------------------------------- view
     out.push({ id: 'view:fit', group: 'view', title: t('canvas.fit'), icon: Maximize, keywords: ['fit', 'zoom', 'масштаб', 'вид'], suggest: true, run: () => { editor.fitToken++ } })
-    out.push({ id: 'view:library', group: 'view', title: ui.libraryOpen ? t('library.collapse') : t('library.expand'), icon: PanelLeft, shortcut: undefined, run: () => { ui.libraryOpen = !ui.libraryOpen } })
+    out.push({ id: 'view:library', group: 'view', title: ui.libraryOpen ? t('library.collapse') : t('library.expand'), icon: PanelLeft, shortcut: shortcutText('foldLibrary'), run: () => { ui.libraryOpen = !ui.libraryOpen } })
+    out.push({ id: 'view:right', group: 'view', title: ui.rightOpen ? t('right.fold') : t('right.unfold'), icon: PanelRight, shortcut: shortcutText('foldRight'), keywords: ['sidebar', 'панель', 'сайдбар'], run: () => { ui.rightOpen = !ui.rightOpen } })
     out.push({ id: 'view:mode', group: 'view', title: ui.aiMode === 'ai' ? t('cmd.mode.manual') : t('cmd.mode.ai'), icon: Sparkles, keywords: ['ai', 'ии', 'manual', 'вручную'], run: () => { ui.aiMode = ui.aiMode === 'ai' ? 'manual' : 'ai' } })
     for (const l of ['all', 'network', 'data', 'dr'] as const) {
       out.push({ id: 'view:layer.' + l, group: 'view', title: t('cmd.layer', { name: t('layer.' + l) }), icon: Layers, keywords: ['layer', 'слой'], run: () => { editor.layer = l } })

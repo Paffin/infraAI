@@ -2,24 +2,13 @@
 import { ref } from 'vue'
 import { Check, Copy } from 'lucide-vue-next'
 import { t } from '@/i18n'
+import { copyText } from '@/lib/clipboard'
 
 const props = defineProps<{ text: string; label?: string; small?: boolean }>()
 const done = ref(false)
 
 async function copy() {
-  try {
-    await navigator.clipboard.writeText(props.text)
-  } catch {
-    // clipboard API unavailable (insecure context): fall back to a temporary textarea
-    const el = document.createElement('textarea')
-    el.value = props.text
-    el.style.position = 'fixed'
-    el.style.opacity = '0'
-    document.body.appendChild(el)
-    el.select()
-    try { document.execCommand('copy') } catch { /* ignore */ }
-    el.remove()
-  }
+  await copyText(props.text)
   done.value = true
   setTimeout(() => { done.value = false }, 1800)
 }

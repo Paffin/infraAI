@@ -1,0 +1,13 @@
+{
+ "id": "selectel_s3",
+ "title": {
+  "ru": "Selectel Object Storage",
+  "en": "Selectel Object Storage"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Selectel Object Storage — сервис провайдера: он создаётся через консоль, API и провайдер Terraform самого провайдера, нейтрального шаблона нет. Добавьте свой под вашего провайдера.",
+  "en": "Selectel Object Storage is a provider’s service: it is created through the provider’s console, API and Terraform provider, there is no neutral template. Add your own for your provider."
+ }
+}

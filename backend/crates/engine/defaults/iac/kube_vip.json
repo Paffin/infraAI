@@ -1,0 +1,13 @@
+{
+ "id": "kube_vip",
+ "title": {
+  "ru": "kube-vip",
+  "en": "kube-vip"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Развёртывание kube-vip зависит от сети площадки (VRRP, BGP, облачный балансировщик). Проверенного шаблона нет — добавьте свой.",
+  "en": "How kube-vip is deployed depends on the network of the site (VRRP, BGP, a cloud balancer). There is no verified template — add your own."
+ }
+}

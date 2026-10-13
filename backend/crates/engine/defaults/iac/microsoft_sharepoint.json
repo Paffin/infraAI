@@ -1,0 +1,13 @@
+{
+ "id": "microsoft_sharepoint",
+ "title": {
+  "ru": "Microsoft SharePoint",
+  "en": "Microsoft SharePoint"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Установка Microsoft SharePoint зависит от вашей среды (база данных, файловое хранилище, почта, домен): проверенного шаблона нет. Добавьте свой.",
+  "en": "Installing Microsoft SharePoint depends on your environment (database, file storage, mail, domain): there is no verified template. Add your own."
+ }
+}

@@ -1,0 +1,13 @@
+{
+ "id": "sap_s4hana",
+ "title": {
+  "ru": "SAP S/4HANA",
+  "en": "SAP S/4HANA"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Установка SAP S/4HANA зависит от вашей среды (база данных, файловое хранилище, почта, домен): проверенного шаблона нет. Добавьте свой.",
+  "en": "Installing SAP S/4HANA depends on your environment (database, file storage, mail, domain): there is no verified template. Add your own."
+ }
+}

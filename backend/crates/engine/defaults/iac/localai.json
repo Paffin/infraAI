@@ -1,0 +1,13 @@
+{
+ "id": "localai",
+ "title": {
+  "ru": "LocalAI",
+  "en": "LocalAI"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Развёртывание LocalAI зависит от кластера, ускорителей и хранилища: проверенного шаблона нет. Добавьте свой.",
+  "en": "Deploying LocalAI depends on the cluster, the accelerators and the storage: there is no verified template. Add your own."
+ }
+}

@@ -28,6 +28,14 @@ export const FALLBACK_EDITOR_SETTINGS: EditorSettings = {
   flowSpeed: 120,
   flowSpacing: 56,
   flowParticlesMax: 480,
+  rightPanelWidth: 410,
+  rightPanelMinWidth: 320,
+  rightPanelMaxWidth: 720,
+  floatPanelWidth: 380,
+  impactShown: 6,
+  pickerShown: 40,
+  librarySearchShown: 150,
+  adminListShown: 100,
 }
 
 /** Settings from the server, with the fallback for whatever it did not send. */

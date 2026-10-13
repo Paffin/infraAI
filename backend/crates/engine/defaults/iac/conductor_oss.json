@@ -1,0 +1,13 @@
+{
+ "id": "conductor_oss",
+ "title": {
+  "ru": "Conductor OSS (Netflix Conductor)",
+  "en": "Conductor OSS (Netflix Conductor)"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Задания и ресурсы Conductor OSS (Netflix Conductor) зависят от вашей обработки данных: нейтрального шаблона нет. Добавьте свой.",
+  "en": "The jobs and resources of Conductor OSS (Netflix Conductor) depend on your data processing: there is no neutral template. Add your own."
+ }
+}

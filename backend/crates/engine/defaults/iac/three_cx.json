@@ -1,0 +1,13 @@
+{
+ "id": "three_cx",
+ "title": {
+  "ru": "3CX Phone System",
+  "en": "3CX Phone System"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Установка 3CX Phone System зависит от вашей среды (база данных, файловое хранилище, почта, домен): проверенного шаблона нет. Добавьте свой.",
+  "en": "Installing 3CX Phone System depends on your environment (database, file storage, mail, domain): there is no verified template. Add your own."
+ }
+}

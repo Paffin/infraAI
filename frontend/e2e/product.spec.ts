@@ -14,9 +14,9 @@ test.describe('products, variants and versions', () => {
     const search = page.locator('.library .search input')
     await search.fill('aurora')
     // the products that have a variant by that name, with the variant named under them
-    await expect(page.locator('.library .kind', { hasText: 'PostgreSQL' })).toContainText('Amazon Aurora PostgreSQL')
-    await expect(page.locator('.library .kind', { hasText: 'MySQL' })).toContainText('Amazon Aurora MySQL')
-    await page.locator('.library .kind', { hasText: 'MySQL' }).click()
+    await expect(page.locator('.library .kind[data-kind="postgresql"]')).toContainText('Amazon Aurora PostgreSQL')
+    await expect(page.locator('.library .kind[data-kind="mysql"]')).toContainText('Amazon Aurora MySQL')
+    await page.locator('.library .kind[data-kind="mysql"]').click()
     await expect(page.locator('.inspector')).toBeVisible()
     // the node is a managed MySQL: the variant is chosen, and the card carries the provider's cloud
     await expect(page.locator('.inspector select[data-prop="variant"]')).toHaveValue('aurora')
@@ -27,12 +27,17 @@ test.describe('products, variants and versions', () => {
   test('functions group the products that replace each other', async ({ page }) => {
     await page.locator('.library .lnk', { hasText: 'Развернуть всё' }).click()
     const rdbms = page.locator('.library .fn', { has: page.locator('.fh', { hasText: 'Реляционные СУБД' }) })
-    for (const name of ['PostgreSQL', 'MySQL', 'MariaDB', 'Microsoft SQL Server', 'Oracle Database']) await expect(rdbms.locator('.kind', { hasText: name })).toBeVisible()
+    for (const id of ['postgresql', 'mysql', 'mariadb', 'mssql', 'oracle']) await expect(rdbms.locator(`.kind[data-kind="${id}"]`)).toBeVisible()
+    // the heading counts the products of the function: that many tiles, the usual choices first
+    const total = Number(await rdbms.locator('.fh .cnt').innerText())
+    await expect(rdbms.locator('.kind:not(.more-tile)')).toHaveCount(total)
+    expect(total).toBeGreaterThan(5)
+    await expect(rdbms.locator('.kind').first()).toHaveAttribute('data-kind', 'postgresql')
     await page.locator('.library .lnk', { hasText: 'Свернуть всё' }).click()
     // folded: the usual choices stay at hand and the rest is one click away
     await expect(rdbms.locator('.kind:not(.more-tile)')).toHaveCount(2)
     await rdbms.locator('.more-tile').click()
-    await expect(rdbms.locator('.kind:not(.more-tile)')).toHaveCount(5)
+    await expect(rdbms.locator('.kind:not(.more-tile)')).toHaveCount(total)
   })
 
   test('an old version is judged by the release table and the recommended line fixes it', async ({ page }) => {

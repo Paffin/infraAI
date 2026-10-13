@@ -1,0 +1,13 @@
+{
+ "id": "kuma",
+ "title": {
+  "ru": "Kaspersky Unified Monitoring and Analysis Platform (KUMA)",
+  "en": "Kaspersky Unified Monitoring and Analysis Platform (KUMA)"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Настройка Kaspersky Unified Monitoring and Analysis Platform (KUMA) зависит от вашей политики безопасности и инфраструктуры: нейтрального проверенного шаблона нет. Добавьте свой.",
+  "en": "Setting up Kaspersky Unified Monitoring and Analysis Platform (KUMA) depends on your security policy and infrastructure: there is no neutral verified template. Add your own."
+ }
+}

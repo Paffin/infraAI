@@ -1,0 +1,13 @@
+{
+ "id": "matomo",
+ "title": {
+  "ru": "Matomo",
+  "en": "Matomo"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Установка Matomo зависит от вашей среды (база данных, файловое хранилище, почта, домен): проверенного шаблона нет. Добавьте свой.",
+  "en": "Installing Matomo depends on your environment (database, file storage, mail, domain): there is no verified template. Add your own."
+ }
+}

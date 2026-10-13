@@ -1,0 +1,13 @@
+{
+ "id": "apache_hive",
+ "title": {
+  "ru": "Apache Hive",
+  "en": "Apache Hive"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Задания и ресурсы Apache Hive зависят от вашей обработки данных: нейтрального шаблона нет. Добавьте свой.",
+  "en": "The jobs and resources of Apache Hive depend on your data processing: there is no neutral template. Add your own."
+ }
+}

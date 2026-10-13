@@ -1,0 +1,13 @@
+{
+ "id": "openai_api",
+ "title": {
+  "ru": "OpenAI API",
+  "en": "OpenAI API"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "OpenAI API — сервис провайдера: он создаётся через консоль, API и провайдер Terraform самого провайдера, нейтрального шаблона нет. Добавьте свой под вашего провайдера.",
+  "en": "OpenAI API is a provider’s service: it is created through the provider’s console, API and Terraform provider, there is no neutral template. Add your own for your provider."
+ }
+}

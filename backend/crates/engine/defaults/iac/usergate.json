@@ -1,0 +1,13 @@
+{
+ "id": "usergate",
+ "title": {
+  "ru": "UserGate NGFW",
+  "en": "UserGate NGFW"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Правила UserGate NGFW зависят от вендора и сегментации сети: нейтрального шаблона нет. Добавьте шаблон под ваше оборудование.",
+  "en": "The rules of UserGate NGFW depend on the vendor and the network segmentation: there is no neutral template. Add one for your equipment."
+ }
+}

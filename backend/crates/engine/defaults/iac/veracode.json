@@ -1,0 +1,13 @@
+{
+ "id": "veracode",
+ "title": {
+  "ru": "Veracode",
+  "en": "Veracode"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Veracode — сервис провайдера: он создаётся через консоль, API и провайдер Terraform самого провайдера, нейтрального шаблона нет. Добавьте свой под вашего провайдера.",
+  "en": "Veracode is a provider’s service: it is created through the provider’s console, API and Terraform provider, there is no neutral template. Add your own for your provider."
+ }
+}

@@ -1,0 +1,13 @@
+{
+ "id": "huawei_oceanstor",
+ "title": {
+  "ru": "Huawei OceanStor",
+  "en": "Huawei OceanStor"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Huawei OceanStor — оборудование или программно-аппаратный комплекс: его настраивают средствами вендора, нейтрального шаблона нет. Добавьте свой.",
+  "en": "Huawei OceanStor is hardware or an appliance: it is configured with the vendor’s tools, there is no neutral template. Add your own."
+ }
+}

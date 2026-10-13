@@ -1,0 +1,13 @@
+{
+ "id": "sglang",
+ "title": {
+  "ru": "SGLang",
+  "en": "SGLang"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Развёртывание SGLang зависит от кластера, ускорителей и хранилища: проверенного шаблона нет. Добавьте свой.",
+  "en": "Deploying SGLang depends on the cluster, the accelerators and the storage: there is no verified template. Add your own."
+ }
+}

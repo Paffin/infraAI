@@ -1,0 +1,13 @@
+{
+ "id": "mimecast",
+ "title": {
+  "ru": "Mimecast Email Security",
+  "en": "Mimecast Email Security"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Mimecast Email Security — сервис провайдера: он создаётся через консоль, API и провайдер Terraform самого провайдера, нейтрального шаблона нет. Добавьте свой под вашего провайдера.",
+  "en": "Mimecast Email Security is a provider’s service: it is created through the provider’s console, API and Terraform provider, there is no neutral template. Add your own for your provider."
+ }
+}

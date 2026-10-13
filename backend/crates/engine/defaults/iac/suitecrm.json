@@ -1,0 +1,13 @@
+{
+ "id": "suitecrm",
+ "title": {
+  "ru": "SuiteCRM",
+  "en": "SuiteCRM"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Установка SuiteCRM зависит от вашей среды (база данных, файловое хранилище, почта, домен): проверенного шаблона нет. Добавьте свой.",
+  "en": "Installing SuiteCRM depends on your environment (database, file storage, mail, domain): there is no verified template. Add your own."
+ }
+}

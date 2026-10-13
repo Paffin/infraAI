@@ -1,0 +1,13 @@
+{
+ "id": "posit_workbench",
+ "title": {
+  "ru": "Posit Workbench (RStudio Server)",
+  "en": "Posit Workbench (RStudio Server)"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Развёртывание Posit Workbench (RStudio Server) зависит от кластера, ускорителей и хранилища: проверенного шаблона нет. Добавьте свой.",
+  "en": "Deploying Posit Workbench (RStudio Server) depends on the cluster, the accelerators and the storage: there is no verified template. Add your own."
+ }
+}

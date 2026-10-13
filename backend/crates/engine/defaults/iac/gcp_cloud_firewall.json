@@ -1,0 +1,13 @@
+{
+ "id": "gcp_cloud_firewall",
+ "title": {
+  "ru": "Google Cloud NGFW",
+  "en": "Google Cloud NGFW"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Google Cloud NGFW — сервис провайдера: он создаётся через консоль, API и провайдер Terraform самого провайдера, нейтрального шаблона нет. Добавьте свой под вашего провайдера.",
+  "en": "Google Cloud NGFW is a provider’s service: it is created through the provider’s console, API and Terraform provider, there is no neutral template. Add your own for your provider."
+ }
+}

@@ -1,0 +1,13 @@
+{
+ "id": "spring_cloud_gateway",
+ "title": {
+  "ru": "Spring Cloud Gateway",
+  "en": "Spring Cloud Gateway"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Маршруты и плагины Spring Cloud Gateway зависят от ваших API: нейтрального шаблона нет. Добавьте свой.",
+  "en": "The routes and plugins of Spring Cloud Gateway depend on your APIs: there is no neutral template. Add your own."
+ }
+}

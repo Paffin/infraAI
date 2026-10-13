@@ -1,0 +1,13 @@
+{
+ "id": "onlyoffice_docs",
+ "title": {
+  "ru": "ONLYOFFICE Docs",
+  "en": "ONLYOFFICE Docs"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Установка ONLYOFFICE Docs зависит от вашей среды (база данных, файловое хранилище, почта, домен): проверенного шаблона нет. Добавьте свой.",
+  "en": "Installing ONLYOFFICE Docs depends on your environment (database, file storage, mail, domain): there is no verified template. Add your own."
+ }
+}

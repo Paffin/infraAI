@@ -1,0 +1,13 @@
+{
+ "id": "splunk_soar",
+ "title": {
+  "ru": "Splunk SOAR",
+  "en": "Splunk SOAR"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Настройка Splunk SOAR зависит от вашей политики безопасности и инфраструктуры: нейтрального проверенного шаблона нет. Добавьте свой.",
+  "en": "Setting up Splunk SOAR depends on your security policy and infrastructure: there is no neutral verified template. Add your own."
+ }
+}

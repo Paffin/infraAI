@@ -1,0 +1,13 @@
+{
+ "id": "radware_defensepro",
+ "title": {
+  "ru": "Radware DefensePro",
+  "en": "Radware DefensePro"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Radware DefensePro — оборудование или программно-аппаратный комплекс: его настраивают средствами вендора, нейтрального шаблона нет. Добавьте свой.",
+  "en": "Radware DefensePro is hardware or an appliance: it is configured with the vendor’s tools, there is no neutral template. Add your own."
+ }
+}

@@ -1,0 +1,13 @@
+{
+ "id": "gardener",
+ "title": {
+  "ru": "Gardener",
+  "en": "Gardener"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Gardener ставится пакетами или своим сценарием; проверенного шаблона нет — добавьте свой.",
+  "en": "Gardener is installed from packages or by your own playbook; there is no verified template — add your own."
+ }
+}

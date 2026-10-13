@@ -1,0 +1,13 @@
+{
+ "id": "aws_site_to_site_vpn",
+ "title": {
+  "ru": "AWS Site-to-Site VPN",
+  "en": "AWS Site-to-Site VPN"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "AWS Site-to-Site VPN — сервис провайдера: он создаётся через консоль, API и провайдер Terraform самого провайдера, нейтрального шаблона нет. Добавьте свой под вашего провайдера.",
+  "en": "AWS Site-to-Site VPN is a provider’s service: it is created through the provider’s console, API and Terraform provider, there is no neutral template. Add your own for your provider."
+ }
+}

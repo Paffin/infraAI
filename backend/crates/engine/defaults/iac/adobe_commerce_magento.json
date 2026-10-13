@@ -1,0 +1,13 @@
+{
+ "id": "adobe_commerce_magento",
+ "title": {
+  "ru": "Adobe Commerce (Magento)",
+  "en": "Adobe Commerce (Magento)"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Установка Adobe Commerce (Magento) зависит от вашей среды (база данных, файловое хранилище, почта, домен): проверенного шаблона нет. Добавьте свой.",
+  "en": "Installing Adobe Commerce (Magento) depends on your environment (database, file storage, mail, domain): there is no verified template. Add your own."
+ }
+}

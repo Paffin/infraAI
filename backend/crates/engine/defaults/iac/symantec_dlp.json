@@ -1,0 +1,13 @@
+{
+ "id": "symantec_dlp",
+ "title": {
+  "ru": "Symantec Data Loss Prevention",
+  "en": "Symantec Data Loss Prevention"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Настройка Symantec Data Loss Prevention зависит от вашей политики безопасности и инфраструктуры: нейтрального проверенного шаблона нет. Добавьте свой.",
+  "en": "Setting up Symantec Data Loss Prevention depends on your security policy and infrastructure: there is no neutral verified template. Add your own."
+ }
+}

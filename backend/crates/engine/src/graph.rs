@@ -349,6 +349,14 @@ impl<'a> Index<'a> {
     pub fn unit_has_trait(&self, u: usize, t: &str) -> bool {
         self.units[u].traits.contains(t)
     }
+    /// The provider sizes this node and keeps it highly available (`assumptions.elasticTraits`): no instances to count, no capacity of its own.
+    pub fn is_elastic(&self, ni: usize) -> bool {
+        self.settings.assumptions.elastic_traits.iter().any(|t| self.has_trait(ni, t))
+    }
+    /// Every member of the unit is provider-sized.
+    pub fn unit_is_elastic(&self, u: usize) -> bool {
+        !self.units[u].members.is_empty() && self.units[u].members.iter().all(|&m| self.is_elastic(m))
+    }
     pub fn replicas(&self, ni: usize) -> u32 {
         self.eff[ni].num("replicas").map(|r| r.max(1.0) as u32).unwrap_or(1)
     }
@@ -356,10 +364,15 @@ impl<'a> Index<'a> {
         self.arch.nodes[ni].role.as_deref() == Some("witness")
     }
     /// Requests per second one instance of `m` sustains: node override → kind default →
-    /// `rpsPerVcpu × vcpu`. `None` = no capacity model for this node.
+    /// `rpsPerVcpu × vcpu`. `None` = no capacity model for this node. A service the provider sizes (`provider-ha`: no instances to
+    /// count, the provider adds them) has none of its own, unless the node declares one: a default guessed for a product that scales
+    /// by the plan its owner buys would only be a source of findings that are not true.
     pub fn per_replica_rps(&self, m: usize) -> Option<f64> {
         if let Some(v) = self.eff[m].num("rpsPerReplica") {
             return Some(v);
+        }
+        if self.is_elastic(m) {
+            return None;
         }
         let cap = self.variant[m].and_then(|v| v.capacity.as_ref()).or_else(|| self.kind[m].and_then(|k| k.capacity.as_ref()))?;
         if let Some(v) = cap.rps_per_replica {

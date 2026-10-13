@@ -1,0 +1,13 @@
+{
+ "id": "seldon_core",
+ "title": {
+  "ru": "Seldon Core",
+  "en": "Seldon Core"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Развёртывание Seldon Core зависит от кластера, ускорителей и хранилища: проверенного шаблона нет. Добавьте свой.",
+  "en": "Deploying Seldon Core depends on the cluster, the accelerators and the storage: there is no verified template. Add your own."
+ }
+}

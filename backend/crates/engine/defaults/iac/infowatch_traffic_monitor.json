@@ -1,0 +1,13 @@
+{
+ "id": "infowatch_traffic_monitor",
+ "title": {
+  "ru": "InfoWatch Traffic Monitor",
+  "en": "InfoWatch Traffic Monitor"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Настройка InfoWatch Traffic Monitor зависит от вашей политики безопасности и инфраструктуры: нейтрального проверенного шаблона нет. Добавьте свой.",
+  "en": "Setting up InfoWatch Traffic Monitor depends on your security policy and infrastructure: there is no neutral verified template. Add your own."
+ }
+}

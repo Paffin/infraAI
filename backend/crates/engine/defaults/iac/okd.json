@@ -1,0 +1,13 @@
+{
+ "id": "okd",
+ "title": {
+  "ru": "OKD",
+  "en": "OKD"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "OKD ставится пакетами или своим сценарием; проверенного шаблона нет — добавьте свой.",
+  "en": "OKD is installed from packages or by your own playbook; there is no verified template — add your own."
+ }
+}

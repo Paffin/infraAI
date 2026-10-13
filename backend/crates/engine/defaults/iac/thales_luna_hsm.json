@@ -1,0 +1,13 @@
+{
+ "id": "thales_luna_hsm",
+ "title": {
+  "ru": "Thales Luna Network HSM",
+  "en": "Thales Luna Network HSM"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Значения установки Thales Luna Network HSM зависят от вашей среды (хранилище, домен, внешняя база): проверенного шаблона нет. Добавьте свой.",
+  "en": "The install values of Thales Luna Network HSM depend on your environment (storage, domain, an external database): there is no verified template. Add your own."
+ }
+}

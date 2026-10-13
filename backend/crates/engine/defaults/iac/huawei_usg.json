@@ -1,0 +1,13 @@
+{
+ "id": "huawei_usg",
+ "title": {
+  "ru": "Huawei USG (HiSecEngine)",
+  "en": "Huawei USG (HiSecEngine)"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Правила Huawei USG (HiSecEngine) зависят от вендора и сегментации сети: нейтрального шаблона нет. Добавьте шаблон под ваше оборудование.",
+  "en": "The rules of Huawei USG (HiSecEngine) depend on the vendor and the network segmentation: there is no neutral template. Add one for your equipment."
+ }
+}

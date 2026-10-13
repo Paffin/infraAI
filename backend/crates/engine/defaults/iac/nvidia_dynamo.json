@@ -1,0 +1,13 @@
+{
+ "id": "nvidia_dynamo",
+ "title": {
+  "ru": "NVIDIA Dynamo",
+  "en": "NVIDIA Dynamo"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Развёртывание NVIDIA Dynamo зависит от кластера, ускорителей и хранилища: проверенного шаблона нет. Добавьте свой.",
+  "en": "Deploying NVIDIA Dynamo depends on the cluster, the accelerators and the storage: there is no verified template. Add your own."
+ }
+}

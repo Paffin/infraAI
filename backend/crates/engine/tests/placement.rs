@@ -281,9 +281,26 @@ fn rack_tolerance_alone_does_not_demand_site_rules() {
     }
 }
 
-/// Products that cannot meet the generated requirements by their nature: Meilisearch has no clustering, so a lost node
-/// is a manual restore – the engine is right to say so, and the wizard shows it.
-const KNOWN_LIMITS: &[&str] = &["meilisearch"];
+/// Products (and ways to deploy them) that cannot meet the generated requirements by their nature: Meilisearch has no clustering, so a lost
+/// node is a manual restore; a warehouse whose standby coordinator is switched by an operator cannot fail over by itself. The engine is right
+/// to say so, and the wizard shows it. A variant is named when only that way to deploy the product is the limit.
+const KNOWN_LIMITS: &[(&str, Option<&str>)] = &[
+    ("meilisearch", None),
+    ("mosquitto", None), // no built-in clustering: a standby node and a floating address are built around it
+    ("garnet", None),    // no leader election: a failover to a replica is requested by an external control plane
+    ("firebird", None),  // one-way replication: a replica is promoted by hand
+    ("greenplum", None), // the MPP warehouses: the standby coordinator or the second system is switched by an operator
+    ("arenadata_db", None),
+    ("teradata", None),
+    ("exasol", None),
+    ("azure_ai_search", None),                 // the throughput is bought per replica (a hundred queries a second by default): the wizard's load needs more of them
+    ("apache_rocketmq", Some("master-slave")), // the classic mode has no automatic switch of the master
+    ("solace_pubsub", Some("standalone")),     // one broker
+];
+
+fn is_known_limit(kind: &str, variant: Option<&str>) -> bool {
+    KNOWN_LIMITS.iter().any(|(k, v)| *k == kind && v.map(|x| Some(x) == variant).unwrap_or(true))
+}
 
 #[test]
 fn every_product_a_layer_offers_gives_a_clean_design_at_any_size() {
@@ -291,6 +308,7 @@ fn every_product_a_layer_offers_gives_a_clean_design_at_any_size() {
     let stack = c.placement.stack("web-platform").unwrap();
     let defaults: Vec<String> = stack.layers.iter().filter(|l| l.optional && l.default).map(|l| l.id.clone()).collect();
     let mut tried = 0;
+    let mut failures: std::collections::BTreeMap<String, Vec<(String, String)>> = Default::default();
     for (pattern, sites) in [("single-dc", 1), ("two-sites", 2), ("n-sites", 3), ("n-sites", 5), ("n-sites", 10)] {
         for layer in stack.layers.iter().filter(|l| l.optional) {
             for k in engine::placement::layer_products(&c.catalog, layer) {
@@ -313,8 +331,14 @@ fn every_product_a_layer_offers_gives_a_clean_design_at_any_size() {
                     let issues = validate(&res.architecture, &c.catalog, &Default::default());
                     assert!(issues.iter().all(|i| i.level != IssueLevel::Error), "{what}: {issues:?}");
                     let rep = evaluate(&res.architecture, &c, &[]);
-                    if !KNOWN_LIMITS.contains(&k.id.as_str()) {
-                        assert!(bad(&rep).is_empty(), "{what}: {:#?}\nnotes: {:?}", bad(&rep), res.notes);
+                    if !is_known_limit(&k.id, v.as_deref()) {
+                        // every product is judged, and all that is wrong is reported at once: a library of hundreds is fixed in one pass, not one product at a time
+                        for finding in bad(&rep) {
+                            let seen = failures.entry(k.id.clone()).or_default();
+                            if !seen.iter().any(|(f, _)| f == &finding) {
+                                seen.push((finding, what.clone()));
+                            }
+                        }
                     }
                     if let Some(v) = &v {
                         assert!(
@@ -327,6 +351,8 @@ fn every_product_a_layer_offers_gives_a_clean_design_at_any_size() {
             }
         }
     }
+    let report: Vec<String> = failures.iter().map(|(k, v)| format!("{k}: {}", v.iter().map(|(f, w)| format!("{f}  [{w}]")).collect::<Vec<_>>().join("; "))).collect();
+    assert!(report.is_empty(), "{} products give a design with findings:\n{}", report.len(), report.join("\n"));
     assert!(tried >= 500, "only {tried} product choices were tried");
 }
 

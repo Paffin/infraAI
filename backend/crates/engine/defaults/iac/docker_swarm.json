@@ -1,0 +1,13 @@
+{
+ "id": "docker_swarm",
+ "title": {
+  "ru": "Docker Swarm",
+  "en": "Docker Swarm"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Docker Swarm ставится пакетами или своим сценарием; проверенного шаблона нет — добавьте свой.",
+  "en": "Docker Swarm is installed from packages or by your own playbook; there is no verified template — add your own."
+ }
+}

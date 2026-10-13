@@ -10,7 +10,7 @@ rust-version = "1.85"
 
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }
-serde_json = { version = "1", features = ["preserve_order"] }
+serde_json = { version = "1", features = ["preserve_order", "raw_value"] }
 thiserror = "2"
 minijinja = { version = "=3.0.0", default-features = false, features = ["builtins", "serde", "fuel", "json", "preserve_order", "std_collections"] }
 

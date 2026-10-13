@@ -1,0 +1,13 @@
+{
+ "id": "lvs_keepalived",
+ "title": {
+  "ru": "LVS (IPVS) + keepalived",
+  "en": "LVS (IPVS) + keepalived"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Развёртывание LVS (IPVS) + keepalived зависит от сети площадки (VRRP, BGP, облачный балансировщик). Проверенного шаблона нет — добавьте свой.",
+  "en": "How LVS (IPVS) + keepalived is deployed depends on the network of the site (VRRP, BGP, a cloud balancer). There is no verified template — add your own."
+ }
+}

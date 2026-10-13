@@ -1,0 +1,13 @@
+{
+ "id": "rapid7_insightvm",
+ "title": {
+  "ru": "Rapid7 InsightVM",
+  "en": "Rapid7 InsightVM"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Настройка Rapid7 InsightVM зависит от вашей политики безопасности и инфраструктуры: нейтрального проверенного шаблона нет. Добавьте свой.",
+  "en": "Setting up Rapid7 InsightVM depends on your security policy and infrastructure: there is no neutral verified template. Add your own."
+ }
+}

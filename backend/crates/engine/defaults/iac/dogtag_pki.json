@@ -1,0 +1,13 @@
+{
+ "id": "dogtag_pki",
+ "title": {
+  "ru": "Dogtag PKI",
+  "en": "Dogtag PKI"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Значения установки Dogtag PKI зависят от вашей среды (хранилище, домен, внешняя база): проверенного шаблона нет. Добавьте свой.",
+  "en": "The install values of Dogtag PKI depend on your environment (storage, domain, an external database): there is no verified template. Add your own."
+ }
+}

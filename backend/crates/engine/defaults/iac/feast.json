@@ -1,0 +1,13 @@
+{
+ "id": "feast",
+ "title": {
+  "ru": "Feast",
+  "en": "Feast"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Развёртывание Feast зависит от кластера, ускорителей и хранилища: проверенного шаблона нет. Добавьте свой.",
+  "en": "Deploying Feast depends on the cluster, the accelerators and the storage: there is no verified template. Add your own."
+ }
+}

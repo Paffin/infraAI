@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { onBeforeRouteLeave } from 'vue-router'
+import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { t } from '@/i18n'
 import BulkCard from '@/editor/BulkCard.vue'
 import Canvas from '@/editor/Canvas.vue'
@@ -15,12 +15,16 @@ import PromptBar from '@/editor/PromptBar.vue'
 import RightPanel from '@/editor/RightPanel.vue'
 import ScoreModal from '@/editor/ScoreModal.vue'
 import ShortcutsModal from '@/editor/ShortcutsModal.vue'
+import SimWindow from '@/editor/SimWindow.vue'
 import StoryCaption from '@/editor/StoryCaption.vue'
 import VersionsModal from '@/editor/VersionsModal.vue'
 import WhatIfBar from '@/editor/WhatIfBar.vue'
+import { decodeScenario, scenarioFits, SIM_PARAM } from '@/lib/simLink'
 import { useAi } from '@/stores/ai'
 import { useApp } from '@/stores/app'
 import { useEditor } from '@/stores/editor'
+import { usePlayback } from '@/stores/playback'
+import { useToasts } from '@/stores/toasts'
 import { useUi } from '@/stores/ui'
 
 const props = defineProps<{ id: string }>()
@@ -28,6 +32,10 @@ const app = useApp()
 const editor = useEditor()
 const ai = useAi()
 const ui = useUi()
+const playback = usePlayback()
+const toasts = useToasts()
+const route = useRoute()
+const router = useRouter()
 const library = ref<InstanceType<typeof Library> | null>(null)
 
 async function open(id: string) {
@@ -35,6 +43,17 @@ async function open(id: string) {
   ui.modal = null
   await editor.load(id)
   void ai.loadChat()
+  if (!editor.loadError) openLinkedFailure()
+}
+
+/** A link made by "copy a link to this scenario" (`?sim=`) opens the diagram with that failure on screen; the parameter is spent, so a reload does not repeat it. */
+function openLinkedFailure() {
+  const raw = route.query[SIM_PARAM]
+  if (raw === undefined) return
+  void router.replace({ query: { ...route.query, [SIM_PARAM]: undefined } })
+  const sc = decodeScenario(Array.isArray(raw) ? raw[0] : raw)
+  if (sc && scenarioFits(sc, editor.arch)) void editor.runScenario(sc)
+  else toasts.error(t('sim.link.stale'))
 }
 
 onMounted(() => {
@@ -63,6 +82,12 @@ function typing(el: EventTarget | null): boolean {
   return !!n && (n.tagName === 'INPUT' || n.tagName === 'TEXTAREA' || n.tagName === 'SELECT' || n.isContentEditable)
 }
 
+/** A control that handles the key itself (a button takes Space, a slider the arrows): the editor leaves it alone. */
+function control(el: EventTarget | null): boolean {
+  const n = el as HTMLElement | null
+  return !!n && (n.tagName === 'BUTTON' || n.tagName === 'A' || ['slider', 'tab', 'separator', 'menuitem', 'option'].includes(n.getAttribute?.('role') ?? ''))
+}
+
 function onKey(e: KeyboardEvent) {
   const mod = e.ctrlKey || e.metaKey
   if (mod && e.key.toLowerCase() === 'k') { e.preventDefault(); ui.palette = !ui.palette; return }
@@ -84,6 +109,15 @@ function onKey(e: KeyboardEvent) {
     return
   }
   if (e.key === '?') { e.preventDefault(); ui.modal = 'shortcuts'; return }
+  // the panels fold with the keys that look like their edges (by the position of the key, so that the Russian layout has them too)
+  if (e.code === 'BracketLeft') { e.preventDefault(); ui.libraryOpen = !ui.libraryOpen; return }
+  if (e.code === 'BracketRight') { e.preventDefault(); ui.rightOpen = !ui.rightOpen; return }
+  // a failure on screen plays and steps from the keyboard
+  if (editor.sim?.result && playback.available && !control(e.target)) {
+    if (e.code === 'Space') { e.preventDefault(); playback.toggle(); return }
+    if (e.key === 'ArrowRight') { e.preventDefault(); playback.step(1); return }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); playback.step(-1); return }
+  }
   if (e.key === 'Escape') {
     if (editor.pickingNode || editor.connectFrom || editor.tool !== 'select') editor.setTool('select')
     else if (editor.highlight) editor.highlight = null
@@ -119,6 +153,7 @@ const conflict = computed(() => editor.saveState === 'conflict')
           <Inspector />
           <BulkCard v-if="editor.multi.length > 1" />
           <StoryCaption />
+          <SimWindow v-if="editor.sim && ui.simMode === 'float'" />
           <WhatIfBar />
           <div v-if="conflict" class="conflict banner banner-err" role="alert">
             <b>{{ t('editor.conflict.title') }}</b>

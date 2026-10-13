@@ -1,0 +1,13 @@
+{
+ "id": "azure_devops",
+ "title": {
+  "ru": "Azure DevOps",
+  "en": "Azure DevOps"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Значения установки Azure DevOps зависят от вашей среды (хранилище, домен, внешняя база): проверенного шаблона нет. Добавьте свой.",
+  "en": "The install values of Azure DevOps depend on your environment (storage, domain, an external database): there is no verified template. Add your own."
+ }
+}

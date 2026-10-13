@@ -1,0 +1,13 @@
+{
+ "id": "uber_cadence",
+ "title": {
+  "ru": "Cadence",
+  "en": "Cadence"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Задания и ресурсы Cadence зависят от вашей обработки данных: нейтрального шаблона нет. Добавьте свой.",
+  "en": "The jobs and resources of Cadence depend on your data processing: there is no neutral template. Add your own."
+ }
+}

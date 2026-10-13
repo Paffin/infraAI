@@ -1,0 +1,13 @@
+{
+ "id": "apigee",
+ "title": {
+  "ru": "Apigee",
+  "en": "Apigee"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Маршруты и плагины Apigee зависят от ваших API: нейтрального шаблона нет. Добавьте свой.",
+  "en": "The routes and plugins of Apigee depend on your APIs: there is no neutral template. Add your own."
+ }
+}

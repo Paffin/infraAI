@@ -1,0 +1,13 @@
+{
+ "id": "red5",
+ "title": {
+  "ru": "Red5 / Red5 Pro",
+  "en": "Red5 / Red5 Pro"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Установка Red5 / Red5 Pro зависит от вашей среды (база данных, файловое хранилище, почта, домен): проверенного шаблона нет. Добавьте свой.",
+  "en": "Installing Red5 / Red5 Pro depends on your environment (database, file storage, mail, domain): there is no verified template. Add your own."
+ }
+}

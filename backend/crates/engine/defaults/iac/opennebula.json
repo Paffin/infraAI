@@ -1,0 +1,13 @@
+{
+ "id": "opennebula",
+ "title": {
+  "ru": "OpenNebula",
+  "en": "OpenNebula"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Платформа OpenNebula ставится на оборудование и настраивается средствами вендора: проверенного шаблона нет. Добавьте свой.",
+  "en": "The OpenNebula platform is installed on hardware and configured with the vendor’s tools: there is no verified template. Add your own."
+ }
+}

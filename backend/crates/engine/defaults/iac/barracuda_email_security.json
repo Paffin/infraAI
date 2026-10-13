@@ -1,0 +1,13 @@
+{
+ "id": "barracuda_email_security",
+ "title": {
+  "ru": "Barracuda Email Security Gateway",
+  "en": "Barracuda Email Security Gateway"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Настройка Barracuda Email Security Gateway зависит от вашей политики безопасности и инфраструктуры: нейтрального проверенного шаблона нет. Добавьте свой.",
+  "en": "Setting up Barracuda Email Security Gateway depends on your security policy and infrastructure: there is no neutral verified template. Add your own."
+ }
+}

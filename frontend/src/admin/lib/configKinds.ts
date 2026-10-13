@@ -104,15 +104,23 @@ function sitesRange(data: Record<string, unknown>): string {
 }
 
 /** Search over id, title and the raw JSON of an item (so values like a `check` type are found too). */
+/** The lower-cased text of an item's data, made once per item: a list of hundreds of items is searched on every key. */
+const texts = new WeakMap<object, string>()
+function textOf(data: unknown): string {
+  if (data === null || typeof data !== 'object') return String(data ?? '').toLowerCase()
+  let t = texts.get(data)
+  if (t === undefined) {
+    try { t = JSON.stringify(data).toLowerCase() } catch { t = '' }
+    texts.set(data, t)
+  }
+  return t
+}
+
 export function itemMatches(id: string, title: string, data: unknown, query: string): boolean {
   const q = query.trim().toLowerCase()
   if (!q) return true
   if (id.toLowerCase().includes(q) || title.toLowerCase().includes(q)) return true
-  try {
-    return JSON.stringify(data).toLowerCase().includes(q)
-  } catch {
-    return false
-  }
+  return textOf(data).includes(q)
 }
 
 const ID_RE = /^[A-Za-z0-9_.-]{1,80}$/

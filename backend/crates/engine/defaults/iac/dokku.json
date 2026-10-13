@@ -1,0 +1,13 @@
+{
+ "id": "dokku",
+ "title": {
+  "ru": "Dokku",
+  "en": "Dokku"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Dokku — сервис провайдера: он создаётся через консоль, API и провайдер Terraform самого провайдера, нейтрального шаблона нет. Добавьте свой под вашего провайдера.",
+  "en": "Dokku is a provider’s service: it is created through the provider’s console, API and Terraform provider, there is no neutral template. Add your own for your provider."
+ }
+}

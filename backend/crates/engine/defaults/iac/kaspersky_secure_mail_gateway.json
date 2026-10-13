@@ -1,0 +1,13 @@
+{
+ "id": "kaspersky_secure_mail_gateway",
+ "title": {
+  "ru": "Kaspersky Secure Mail Gateway",
+  "en": "Kaspersky Secure Mail Gateway"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Настройка Kaspersky Secure Mail Gateway зависит от вашей политики безопасности и инфраструктуры: нейтрального проверенного шаблона нет. Добавьте свой.",
+  "en": "Setting up Kaspersky Secure Mail Gateway depends on your security policy and infrastructure: there is no neutral verified template. Add your own."
+ }
+}

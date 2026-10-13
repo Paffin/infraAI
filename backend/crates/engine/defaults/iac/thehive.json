@@ -1,0 +1,13 @@
+{
+ "id": "thehive",
+ "title": {
+  "ru": "TheHive",
+  "en": "TheHive"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Настройка TheHive зависит от вашей политики безопасности и инфраструктуры: нейтрального проверенного шаблона нет. Добавьте свой.",
+  "en": "Setting up TheHive depends on your security policy and infrastructure: there is no neutral verified template. Add your own."
+ }
+}

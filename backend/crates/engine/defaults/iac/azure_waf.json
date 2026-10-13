@@ -1,0 +1,13 @@
+{
+ "id": "azure_waf",
+ "title": {
+  "ru": "Azure Web Application Firewall",
+  "en": "Azure Web Application Firewall"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Azure Web Application Firewall — сервис провайдера: он создаётся через консоль, API и провайдер Terraform самого провайдера, нейтрального шаблона нет. Добавьте свой под вашего провайдера.",
+  "en": "Azure Web Application Firewall is a provider’s service: it is created through the provider’s console, API and Terraform provider, there is no neutral template. Add your own for your provider."
+ }
+}

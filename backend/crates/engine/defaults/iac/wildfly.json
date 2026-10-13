@@ -1,0 +1,13 @@
+{
+ "id": "wildfly",
+ "title": {
+  "ru": "WildFly",
+  "en": "WildFly"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Установка WildFly зависит от вашей среды (база данных, файловое хранилище, почта, домен): проверенного шаблона нет. Добавьте свой.",
+  "en": "Installing WildFly depends on your environment (database, file storage, mail, domain): there is no verified template. Add your own."
+ }
+}

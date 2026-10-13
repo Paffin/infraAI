@@ -1,0 +1,13 @@
+{
+ "id": "vcluster",
+ "title": {
+  "ru": "vCluster",
+  "en": "vCluster"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "vCluster ставится пакетами или своим сценарием; проверенного шаблона нет — добавьте свой.",
+  "en": "vCluster is installed from packages or by your own playbook; there is no verified template — add your own."
+ }
+}

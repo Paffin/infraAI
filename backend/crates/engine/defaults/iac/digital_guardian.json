@@ -1,0 +1,13 @@
+{
+ "id": "digital_guardian",
+ "title": {
+  "ru": "Digital Guardian",
+  "en": "Digital Guardian"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Настройка Digital Guardian зависит от вашей политики безопасности и инфраструктуры: нейтрального проверенного шаблона нет. Добавьте свой.",
+  "en": "Setting up Digital Guardian depends on your security policy and infrastructure: there is no neutral verified template. Add your own."
+ }
+}

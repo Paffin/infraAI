@@ -1,0 +1,13 @@
+{
+ "id": "bitrix24",
+ "title": {
+  "ru": "Битрикс24",
+  "en": "Bitrix24"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Установка Битрикс24 зависит от вашей среды (база данных, файловое хранилище, почта, домен): проверенного шаблона нет. Добавьте свой.",
+  "en": "Installing Bitrix24 depends on your environment (database, file storage, mail, domain): there is no verified template. Add your own."
+ }
+}

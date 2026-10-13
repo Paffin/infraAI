@@ -1,0 +1,13 @@
+{
+ "id": "deckhouse",
+ "title": {
+  "ru": "Deckhouse Kubernetes Platform",
+  "en": "Deckhouse Kubernetes Platform"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Deckhouse Kubernetes Platform ставится пакетами или своим сценарием; проверенного шаблона нет — добавьте свой.",
+  "en": "Deckhouse Kubernetes Platform is installed from packages or by your own playbook; there is no verified template — add your own."
+ }
+}

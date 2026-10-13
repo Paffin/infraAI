@@ -1,0 +1,13 @@
+{
+ "id": "forescout",
+ "title": {
+  "ru": "Forescout Platform",
+  "en": "Forescout Platform"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Настройка Forescout Platform зависит от вашей политики безопасности и инфраструктуры: нейтрального проверенного шаблона нет. Добавьте свой.",
+  "en": "Setting up Forescout Platform depends on your security policy and infrastructure: there is no neutral verified template. Add your own."
+ }
+}

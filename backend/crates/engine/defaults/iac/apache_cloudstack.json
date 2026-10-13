@@ -1,0 +1,13 @@
+{
+ "id": "apache_cloudstack",
+ "title": {
+  "ru": "Apache CloudStack",
+  "en": "Apache CloudStack"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Платформа Apache CloudStack ставится на оборудование и настраивается средствами вендора: проверенного шаблона нет. Добавьте свой.",
+  "en": "The Apache CloudStack platform is installed on hardware and configured with the vendor’s tools: there is no verified template. Add your own."
+ }
+}

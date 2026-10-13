@@ -1,0 +1,13 @@
+{
+ "id": "truenas",
+ "title": {
+  "ru": "TrueNAS",
+  "en": "TrueNAS"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "TrueNAS — оборудование или программно-аппаратный комплекс: его настраивают средствами вендора, нейтрального шаблона нет. Добавьте свой.",
+  "en": "TrueNAS is hardware or an appliance: it is configured with the vendor’s tools, there is no neutral template. Add your own."
+ }
+}

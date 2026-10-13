@@ -70,7 +70,8 @@ export function functionGroups(catalog: Catalog, categoryId: string, filter: (k:
   const out: FunctionGroup[] = []
   const used = new Set<string>()
   for (const f of cat?.functions ?? []) {
-    const ks = kinds.filter((k) => k.function === f.id)
+    // the basic products first: they are the usual choices, and a folded group shows its first ones
+    const ks = kinds.filter((k) => k.function === f.id).sort((a, b) => Number(!!b.core) - Number(!!a.core))
     if (ks.length) out.push({ id: f.id, name: f.name, kinds: ks })
     for (const k of ks) used.add(k.id)
   }

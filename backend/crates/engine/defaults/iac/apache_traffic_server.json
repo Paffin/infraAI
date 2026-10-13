@@ -1,0 +1,13 @@
+{
+ "id": "apache_traffic_server",
+ "title": {
+  "ru": "Apache Traffic Server",
+  "en": "Apache Traffic Server"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Правила кэширования Apache Traffic Server (VCL) пишутся под приложение: нейтрального шаблона нет. Добавьте свой.",
+  "en": "The caching rules of Apache Traffic Server (VCL) are written for the application: there is no neutral template. Add your own."
+ }
+}

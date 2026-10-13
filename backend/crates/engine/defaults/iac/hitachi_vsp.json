@@ -1,0 +1,13 @@
+{
+ "id": "hitachi_vsp",
+ "title": {
+  "ru": "Hitachi VSP",
+  "en": "Hitachi VSP"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Hitachi VSP — оборудование или программно-аппаратный комплекс: его настраивают средствами вендора, нейтрального шаблона нет. Добавьте свой.",
+  "en": "Hitachi VSP is hardware or an appliance: it is configured with the vendor’s tools, there is no neutral template. Add your own."
+ }
+}

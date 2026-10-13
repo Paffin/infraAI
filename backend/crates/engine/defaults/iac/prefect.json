@@ -1,0 +1,13 @@
+{
+ "id": "prefect",
+ "title": {
+  "ru": "Prefect",
+  "en": "Prefect"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Задания и ресурсы Prefect зависят от вашей обработки данных: нейтрального шаблона нет. Добавьте свой.",
+  "en": "The jobs and resources of Prefect depend on your data processing: there is no neutral template. Add your own."
+ }
+}

@@ -1,0 +1,13 @@
+{
+ "id": "wowza_streaming_engine",
+ "title": {
+  "ru": "Wowza Streaming Engine",
+  "en": "Wowza Streaming Engine"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Установка Wowza Streaming Engine зависит от вашей среды (база данных, файловое хранилище, почта, домен): проверенного шаблона нет. Добавьте свой.",
+  "en": "Installing Wowza Streaming Engine depends on your environment (database, file storage, mail, domain): there is no verified template. Add your own."
+ }
+}

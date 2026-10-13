@@ -1,0 +1,13 @@
+{
+ "id": "label_studio",
+ "title": {
+  "ru": "Label Studio",
+  "en": "Label Studio"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Развёртывание Label Studio зависит от кластера, ускорителей и хранилища: проверенного шаблона нет. Добавьте свой.",
+  "en": "Deploying Label Studio depends on the cluster, the accelerators and the storage: there is no verified template. Add your own."
+ }
+}

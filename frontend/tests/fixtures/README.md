@@ -32,5 +32,7 @@ events, and where the traffic goes in normal operation (`trafficBefore`), at eve
 | `sim-two-dc-zone` | `two-dc-witness`, the data centre `dc1` fails | a stateful failover with several frames: requests sent into the dead data centre are lost, the replica is promoted, the traffic flows to `dc2` |
 | `sim-three-az-app` | `three-az-region`, the node `app-a` fails | the load balancer keeps sending to the dead member until the health check notices, then the traffic goes on by *detours* (routes no drawn link leads along) |
 | `sim-three-az-link` | `three-az-region`, the link between `az-a` and `az-b` is cut | a partition: the cut links lose their traffic, the nodes behind them are reached by detours |
+| `sim-two-dc-sites` | `two-dc-witness`, both data centres (`dc1`, `dc2`) fail | the service is down, a person restores it from the backup (7200 s), the Kafka clusters lose their data: the tiles of the failure panel (`simpanel`) |
+| `sim-two-dc-combo` | `two-dc-witness`, `dc1` fails **and** the node `pg-replica` with it (`combo`) | two failures at once, each survived alone and fatal together: the label, the written account and the link of a combined scenario |
 
 Record one with `deploy/record-sim.sh <template-id | architecture.json> '<scenario json>' <name>` (it runs `cargo run -p engine --example simulate`).

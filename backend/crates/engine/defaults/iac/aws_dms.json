@@ -1,0 +1,13 @@
+{
+ "id": "aws_dms",
+ "title": {
+  "ru": "AWS Database Migration Service",
+  "en": "AWS Database Migration Service"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "AWS Database Migration Service — сервис провайдера: он создаётся через консоль, API и провайдер Terraform самого провайдера, нейтрального шаблона нет. Добавьте свой под вашего провайдера.",
+  "en": "AWS Database Migration Service is a provider’s service: it is created through the provider’s console, API and Terraform provider, there is no neutral template. Add your own for your provider."
+ }
+}

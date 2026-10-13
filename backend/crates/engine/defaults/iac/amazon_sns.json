@@ -1,0 +1,13 @@
+{
+ "id": "amazon_sns",
+ "title": {
+  "ru": "Amazon SNS",
+  "en": "Amazon SNS"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Amazon SNS — сервис провайдера: он создаётся через консоль, API и провайдер Terraform самого провайдера, нейтрального шаблона нет. Добавьте свой под вашего провайдера.",
+  "en": "Amazon SNS is a provider’s service: it is created through the provider’s console, API and Terraform provider, there is no neutral template. Add your own for your provider."
+ }
+}

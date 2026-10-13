@@ -1,0 +1,13 @@
+{
+ "id": "vmware_vks",
+ "title": {
+  "ru": "VMware vSphere Kubernetes Service",
+  "en": "VMware vSphere Kubernetes Service"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "VMware vSphere Kubernetes Service ставится пакетами или своим сценарием; проверенного шаблона нет — добавьте свой.",
+  "en": "VMware vSphere Kubernetes Service is installed from packages or by your own playbook; there is no verified template — add your own."
+ }
+}

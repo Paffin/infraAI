@@ -1,0 +1,13 @@
+{
+ "id": "cloud_foundry",
+ "title": {
+  "ru": "Cloud Foundry",
+  "en": "Cloud Foundry"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Cloud Foundry ставится пакетами или своим сценарием; проверенного шаблона нет — добавьте свой.",
+  "en": "Cloud Foundry is installed from packages or by your own playbook; there is no verified template — add your own."
+ }
+}

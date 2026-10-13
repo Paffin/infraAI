@@ -1,0 +1,13 @@
+{
+ "id": "red_hat_openshift_ai",
+ "title": {
+  "ru": "Red Hat OpenShift AI",
+  "en": "Red Hat OpenShift AI"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Развёртывание Red Hat OpenShift AI зависит от кластера, ускорителей и хранилища: проверенного шаблона нет. Добавьте свой.",
+  "en": "Deploying Red Hat OpenShift AI depends on the cluster, the accelerators and the storage: there is no verified template. Add your own."
+ }
+}

@@ -1,0 +1,13 @@
+{
+ "id": "drupal",
+ "title": {
+  "ru": "Drupal",
+  "en": "Drupal"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Установка Drupal зависит от вашей среды (база данных, файловое хранилище, почта, домен): проверенного шаблона нет. Добавьте свой.",
+  "en": "Installing Drupal depends on your environment (database, file storage, mail, domain): there is no verified template. Add your own."
+ }
+}

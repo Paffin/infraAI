@@ -1,7 +1,7 @@
 //! Deterministic failure simulator.
 //!
 //! Given an architecture and a failure scenario (instance, node, zone/site, network cut between
-//! sites, several sites, a whole disaster domain) it computes the steady state after all
+//! sites, several sites, a whole disaster domain, or several of these at once) it computes the steady state after all
 //! *automatic* recovery, the interruption time, the data-loss window (RPO), split-brain risk,
 //! the remaining capacity and an explanation chain. No LLM is involved: results are
 //! reproducible and every value says whether it was declared or assumed.
@@ -56,6 +56,9 @@ pub enum Scenario {
     Sites { zone_ids: Vec<String> },
     /// Every site of a disaster domain (`geo` label) is destroyed.
     Geo { geo: String },
+    /// Several failures at the same time, of any of the kinds above (a site and a node elsewhere, a node and a cut channel): what each one
+    /// takes away is taken away together. The question "and if, while this is down, that fails too?" that a single failure never asks.
+    Combo { items: Vec<Scenario> },
 }
 
 impl Scenario {
@@ -63,7 +66,11 @@ impl Scenario {
         serde_json::to_string(self).unwrap_or_default()
     }
     pub fn is_destructive(&self) -> bool {
-        matches!(self, Scenario::Zone { .. } | Scenario::Sites { .. } | Scenario::Geo { .. })
+        match self {
+            Scenario::Zone { .. } | Scenario::Sites { .. } | Scenario::Geo { .. } => true,
+            Scenario::Combo { items } => items.iter().any(Scenario::is_destructive),
+            _ => false,
+        }
     }
 }
 
@@ -245,6 +252,105 @@ pub struct SimResult {
 
 // -------------------------------------------------------------------------------------------
 
+/// What a scenario takes away: zones that are destroyed (with everything inside), instances that are lost, pairs of sites that cannot
+/// talk, and the names of what failed, for display. A [`Scenario::Combo`] adds up what each of its items takes.
+struct Damage {
+    down_zone: Vec<bool>,
+    lost: Vec<u32>,
+    cut: Vec<(usize, usize)>,
+    failed: Vec<String>,
+}
+
+impl Damage {
+    fn name(&mut self, label: String) {
+        if !self.failed.contains(&label) {
+            self.failed.push(label);
+        }
+    }
+
+    fn fail_zone(&mut self, ix: &Index, zi: usize) {
+        for d in ix.zone_descendants(zi) {
+            self.down_zone[d] = true;
+        }
+        self.name(ix.arch.zones[zi].name.clone());
+    }
+
+    fn add(&mut self, ix: &Index, sc: &Scenario) {
+        match sc {
+            Scenario::None => {}
+            Scenario::Instance { node_id, count } => {
+                if let Some(&ni) = ix.node_ix.get(node_id.as_str()) {
+                    self.lost[ni] = self.lost[ni].saturating_add(*count);
+                    self.name(format!("{} ×{}", ix.arch.nodes[ni].name, count));
+                }
+            }
+            Scenario::Node { node_id } => {
+                if let Some(&ni) = ix.node_ix.get(node_id.as_str()) {
+                    self.lost[ni] = u32::MAX;
+                    self.name(ix.arch.nodes[ni].name.clone());
+                }
+            }
+            Scenario::Unit { unit } => {
+                if let Some(&u) = ix.unit_ix.get(unit.as_str()) {
+                    for &m in &ix.units[u].members {
+                        self.lost[m] = u32::MAX;
+                    }
+                    self.name(ix.units[u].name.clone());
+                }
+            }
+            Scenario::Zone { zone_id } => {
+                if let Some(&zi) = ix.zone_ix.get(zone_id.as_str()) {
+                    self.fail_zone(ix, zi);
+                }
+            }
+            Scenario::Sites { zone_ids } => {
+                for z in zone_ids {
+                    if let Some(&zi) = ix.zone_ix.get(z.as_str()) {
+                        self.fail_zone(ix, zi);
+                    }
+                }
+            }
+            Scenario::Geo { geo } => {
+                let mut seen = vec![];
+                for (ni, g) in ix.geo_of.iter().enumerate() {
+                    if g.as_deref() == Some(geo.as_str()) {
+                        if let Some(si) = ix.site_of[ni] {
+                            if !seen.contains(&si) {
+                                seen.push(si);
+                            }
+                        }
+                    }
+                }
+                for si in seen {
+                    self.fail_zone(ix, si);
+                }
+            }
+            Scenario::Link { a, b } => {
+                if let (Some(&za), Some(&zb)) = (ix.zone_ix.get(a.as_str()), ix.zone_ix.get(b.as_str())) {
+                    self.cut.push((za, zb));
+                    self.name(format!("{} ↔ {}", ix.arch.zones[za].name, ix.arch.zones[zb].name));
+                }
+            }
+            Scenario::Isolate { zone_ids } => {
+                let island: Vec<usize> = zone_ids.iter().filter_map(|z| ix.zone_ix.get(z.as_str()).copied()).collect();
+                for &inside in &island {
+                    for outside in ix.sites() {
+                        if !island.contains(&outside) {
+                            self.cut.push((inside, outside));
+                        }
+                    }
+                    self.name(ix.arch.zones[inside].name.clone());
+                }
+            }
+            Scenario::Combo { items } => {
+                for item in items {
+                    self.add(ix, item);
+                }
+            }
+        }
+    }
+}
+
 struct Sim<'a, 'b> {
     ix: &'b Index<'a>,
     alive: Vec<u32>,
@@ -293,85 +399,9 @@ impl<'a, 'b> Sim<'a, 'b> {
     fn new(ix: &'b Index<'a>, sc: &Scenario, horizon: Option<f64>) -> Self {
         let n = ix.arch.nodes.len();
         let nz = ix.arch.zones.len();
-        let mut down_zone = vec![false; nz];
-        let mut lost = vec![0u32; n];
-        let mut cut: Vec<(usize, usize)> = Vec::new();
-        let mut failed: Vec<String> = Vec::new();
-
-        let fail_zone = |zi: usize, dz: &mut Vec<bool>, failed: &mut Vec<String>| {
-            for d in ix.zone_descendants(zi) {
-                dz[d] = true;
-            }
-            failed.push(ix.arch.zones[zi].name.clone());
-        };
-
-        match sc {
-            Scenario::None => {}
-            Scenario::Instance { node_id, count } => {
-                if let Some(&ni) = ix.node_ix.get(node_id.as_str()) {
-                    lost[ni] = *count;
-                    failed.push(format!("{} ×{}", ix.arch.nodes[ni].name, count));
-                }
-            }
-            Scenario::Node { node_id } => {
-                if let Some(&ni) = ix.node_ix.get(node_id.as_str()) {
-                    lost[ni] = u32::MAX;
-                    failed.push(ix.arch.nodes[ni].name.clone());
-                }
-            }
-            Scenario::Unit { unit } => {
-                if let Some(&u) = ix.unit_ix.get(unit.as_str()) {
-                    for &m in &ix.units[u].members {
-                        lost[m] = u32::MAX;
-                    }
-                    failed.push(ix.units[u].name.clone());
-                }
-            }
-            Scenario::Zone { zone_id } => {
-                if let Some(&zi) = ix.zone_ix.get(zone_id.as_str()) {
-                    fail_zone(zi, &mut down_zone, &mut failed);
-                }
-            }
-            Scenario::Sites { zone_ids } => {
-                for z in zone_ids {
-                    if let Some(&zi) = ix.zone_ix.get(z.as_str()) {
-                        fail_zone(zi, &mut down_zone, &mut failed);
-                    }
-                }
-            }
-            Scenario::Geo { geo } => {
-                let mut seen = vec![];
-                for (ni, g) in ix.geo_of.iter().enumerate() {
-                    if g.as_deref() == Some(geo.as_str()) {
-                        if let Some(si) = ix.site_of[ni] {
-                            if !seen.contains(&si) {
-                                seen.push(si);
-                            }
-                        }
-                    }
-                }
-                for si in seen {
-                    fail_zone(si, &mut down_zone, &mut failed);
-                }
-            }
-            Scenario::Link { a, b } => {
-                if let (Some(&za), Some(&zb)) = (ix.zone_ix.get(a.as_str()), ix.zone_ix.get(b.as_str())) {
-                    cut.push((za, zb));
-                    failed.push(format!("{} ↔ {}", ix.arch.zones[za].name, ix.arch.zones[zb].name));
-                }
-            }
-            Scenario::Isolate { zone_ids } => {
-                let island: Vec<usize> = zone_ids.iter().filter_map(|z| ix.zone_ix.get(z.as_str()).copied()).collect();
-                for &inside in &island {
-                    for outside in ix.sites() {
-                        if !island.contains(&outside) {
-                            cut.push((inside, outside));
-                        }
-                    }
-                    failed.push(ix.arch.zones[inside].name.clone());
-                }
-            }
-        }
+        let mut dmg = Damage { down_zone: vec![false; nz], lost: vec![0u32; n], cut: Vec::new(), failed: Vec::new() };
+        dmg.add(ix, sc);
+        let Damage { down_zone, lost, cut, failed } = dmg;
 
         let mut alive = vec![0u32; n];
         let site_failure = down_zone.iter().any(|&d| d);

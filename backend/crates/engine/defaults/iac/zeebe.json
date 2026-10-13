@@ -1,0 +1,13 @@
+{
+ "id": "zeebe",
+ "title": {
+  "ru": "Camunda 8 (Zeebe)",
+  "en": "Camunda 8 (Zeebe)"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Задания и ресурсы Camunda 8 (Zeebe) зависят от вашей обработки данных: нейтрального шаблона нет. Добавьте свой.",
+  "en": "The jobs and resources of Camunda 8 (Zeebe) depend on your data processing: there is no neutral template. Add your own."
+ }
+}

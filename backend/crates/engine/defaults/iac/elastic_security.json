@@ -1,0 +1,13 @@
+{
+ "id": "elastic_security",
+ "title": {
+  "ru": "Elastic Security",
+  "en": "Elastic Security"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Настройка Elastic Security зависит от вашей политики безопасности и инфраструктуры: нейтрального проверенного шаблона нет. Добавьте свой.",
+  "en": "Setting up Elastic Security depends on your security policy and infrastructure: there is no neutral verified template. Add your own."
+ }
+}

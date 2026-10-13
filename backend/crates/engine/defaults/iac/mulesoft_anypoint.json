@@ -1,0 +1,13 @@
+{
+ "id": "mulesoft_anypoint",
+ "title": {
+  "ru": "MuleSoft Anypoint (Mule runtime)",
+  "en": "MuleSoft Anypoint (Mule runtime)"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Маршруты и плагины MuleSoft Anypoint (Mule runtime) зависят от ваших API: нейтрального шаблона нет. Добавьте свой.",
+  "en": "The routes and plugins of MuleSoft Anypoint (Mule runtime) depend on your APIs: there is no neutral template. Add your own."
+ }
+}

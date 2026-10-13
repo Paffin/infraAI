@@ -17,6 +17,7 @@ export function scenarioLabel(sc: Scenario, arch: Architecture, units: Record<st
     case 'isolate': return t('sim.sc.isolate', { names: sc.zoneIds.map((z) => shortZone(nameOf(arch, 'zones', z))).join(' + ') })
     case 'sites': return sc.zoneIds.map((z) => shortZone(nameOf(arch, 'zones', z))).join(' + ')
     case 'geo': return t('sim.sc.geo', { name: sc.geo })
+    case 'combo': return sc.items.map((x) => (x.type === 'zone' ? shortZone(scenarioLabel(x, arch, units)) : scenarioLabel(x, arch, units))).join(' + ')
   }
 }
 

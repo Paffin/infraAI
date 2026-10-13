@@ -1,0 +1,13 @@
+{
+ "id": "ibm_spectrum_scale",
+ "title": {
+  "ru": "IBM Storage Scale (Spectrum Scale)",
+  "en": "IBM Storage Scale (Spectrum Scale)"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Хранилище IBM Storage Scale (Spectrum Scale) разворачивается оператором или средствами вендора, зависящими от оборудования: проверенного шаблона нет. Добавьте свой.",
+  "en": "The IBM Storage Scale (Spectrum Scale) storage is deployed by an operator or the vendor’s tools that depend on the hardware: there is no verified template. Add your own."
+ }
+}

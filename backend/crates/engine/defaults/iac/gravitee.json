@@ -1,0 +1,13 @@
+{
+ "id": "gravitee",
+ "title": {
+  "ru": "Gravitee API Management",
+  "en": "Gravitee API Management"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Маршруты и плагины Gravitee API Management зависят от ваших API: нейтрального шаблона нет. Добавьте свой.",
+  "en": "The routes and plugins of Gravitee API Management depend on your APIs: there is no neutral template. Add your own."
+ }
+}

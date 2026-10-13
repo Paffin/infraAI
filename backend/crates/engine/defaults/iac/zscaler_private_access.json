@@ -1,0 +1,13 @@
+{
+ "id": "zscaler_private_access",
+ "title": {
+  "ru": "Zscaler Private Access",
+  "en": "Zscaler Private Access"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Zscaler Private Access — сервис провайдера: он создаётся через консоль, API и провайдер Terraform самого провайдера, нейтрального шаблона нет. Добавьте свой под вашего провайдера.",
+  "en": "Zscaler Private Access is a provider’s service: it is created through the provider’s console, API and Terraform provider, there is no neutral template. Add your own for your provider."
+ }
+}

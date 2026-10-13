@@ -1,0 +1,13 @@
+{
+ "id": "microsoft_dns",
+ "title": {
+  "ru": "Microsoft DNS Server",
+  "en": "Microsoft DNS Server"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Зоны и записи Microsoft DNS Server зависят от вашей схемы имён: нейтрального шаблона нет. Добавьте свой.",
+  "en": "The zones and records of Microsoft DNS Server depend on your naming scheme: there is no neutral template. Add your own."
+ }
+}

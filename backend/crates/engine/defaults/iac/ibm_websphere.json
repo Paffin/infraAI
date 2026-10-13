@@ -1,0 +1,13 @@
+{
+ "id": "ibm_websphere",
+ "title": {
+  "ru": "IBM WebSphere Application Server",
+  "en": "IBM WebSphere Application Server"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Установка IBM WebSphere Application Server зависит от вашей среды (база данных, файловое хранилище, почта, домен): проверенного шаблона нет. Добавьте свой.",
+  "en": "Installing IBM WebSphere Application Server depends on your environment (database, file storage, mail, domain): there is no verified template. Add your own."
+ }
+}

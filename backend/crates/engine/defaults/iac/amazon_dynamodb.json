@@ -1,0 +1,13 @@
+{
+ "id": "amazon_dynamodb",
+ "title": {
+  "ru": "Amazon DynamoDB",
+  "en": "Amazon DynamoDB"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Amazon DynamoDB — сервис провайдера: он создаётся через консоль, API и провайдер Terraform самого провайдера, нейтрального шаблона нет. Добавьте свой под вашего провайдера.",
+  "en": "Amazon DynamoDB is a provider’s service: it is created through the provider’s console, API and Terraform provider, there is no neutral template. Add your own for your provider."
+ }
+}

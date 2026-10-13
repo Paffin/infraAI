@@ -265,3 +265,6 @@ td.actions { text-align: right; white-space: nowrap; }
   .savebar { padding: 12px 16px; }
   .adm-search { width: 100%; order: 5; }
 }
+
+.adm-more { display: block; width: 100%; margin: 10px 0 4px; height: 36px; border-style: dashed; color: var(--muted); }
+.adm-more:hover { color: var(--accent); }

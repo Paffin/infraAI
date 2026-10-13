@@ -1,0 +1,13 @@
+{
+ "id": "confluence",
+ "title": {
+  "ru": "Confluence",
+  "en": "Confluence"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Установка Confluence зависит от вашей среды (база данных, файловое хранилище, почта, домен): проверенного шаблона нет. Добавьте свой.",
+  "en": "Installing Confluence depends on your environment (database, file storage, mail, domain): there is no verified template. Add your own."
+ }
+}

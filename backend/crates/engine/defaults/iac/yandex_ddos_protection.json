@@ -1,0 +1,13 @@
+{
+ "id": "yandex_ddos_protection",
+ "title": {
+  "ru": "Yandex DDoS Protection",
+  "en": "Yandex DDoS Protection"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Yandex DDoS Protection — сервис провайдера: он создаётся через консоль, API и провайдер Terraform самого провайдера, нейтрального шаблона нет. Добавьте свой под вашего провайдера.",
+  "en": "Yandex DDoS Protection is a provider’s service: it is created through the provider’s console, API and Terraform provider, there is no neutral template. Add your own for your provider."
+ }
+}

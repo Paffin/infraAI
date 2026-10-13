@@ -1,0 +1,13 @@
+{
+ "id": "netscout_arbor",
+ "title": {
+  "ru": "NETSCOUT Arbor Edge Defense",
+  "en": "NETSCOUT Arbor Edge Defense"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "NETSCOUT Arbor Edge Defense — оборудование или программно-аппаратный комплекс: его настраивают средствами вендора, нейтрального шаблона нет. Добавьте свой.",
+  "en": "NETSCOUT Arbor Edge Defense is hardware or an appliance: it is configured with the vendor’s tools, there is no neutral template. Add your own."
+ }
+}

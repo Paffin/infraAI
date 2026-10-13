@@ -403,7 +403,7 @@ fn capacity_rows(ctx: &Ctx<'_>, set: &ScenarioSet) -> Vec<CapacityRow> {
         let Some(&u) = ix.unit_ix.get(&l.unit) else { continue };
         let unit = &ix.units[u];
         // a source of load without a capacity model that needs none (external users) is not part of the plan
-        if l.capacity_rps.is_none() && !model_traits.iter().any(|t| unit.traits.contains(t)) {
+        if l.capacity_rps.is_none() && (!model_traits.iter().any(|t| unit.traits.contains(t)) || ix.unit_is_elastic(u)) {
             continue;
         }
         let serving: Vec<usize> = unit.members.iter().copied().filter(|&m| !ix.is_witness(m)).collect();

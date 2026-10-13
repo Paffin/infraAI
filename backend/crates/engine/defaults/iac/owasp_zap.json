@@ -1,0 +1,13 @@
+{
+ "id": "owasp_zap",
+ "title": {
+  "ru": "ZAP (Zed Attack Proxy)",
+  "en": "ZAP (Zed Attack Proxy)"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Настройка ZAP (Zed Attack Proxy) зависит от вашей политики безопасности и инфраструктуры: нейтрального проверенного шаблона нет. Добавьте свой.",
+  "en": "Setting up ZAP (Zed Attack Proxy) depends on your security policy and infrastructure: there is no neutral verified template. Add your own."
+ }
+}

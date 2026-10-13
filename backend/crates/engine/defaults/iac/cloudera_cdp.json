@@ -1,0 +1,13 @@
+{
+ "id": "cloudera_cdp",
+ "title": {
+  "ru": "Cloudera Data Platform (CDP)",
+  "en": "Cloudera Data Platform (CDP)"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Задания и ресурсы Cloudera Data Platform (CDP) зависят от вашей обработки данных: нейтрального шаблона нет. Добавьте свой.",
+  "en": "The jobs and resources of Cloudera Data Platform (CDP) depend on your data processing: there is no neutral template. Add your own."
+ }
+}

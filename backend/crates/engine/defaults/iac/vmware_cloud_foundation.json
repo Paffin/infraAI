@@ -1,0 +1,13 @@
+{
+ "id": "vmware_cloud_foundation",
+ "title": {
+  "ru": "VMware Cloud Foundation",
+  "en": "VMware Cloud Foundation"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Платформа VMware Cloud Foundation ставится на оборудование и настраивается средствами вендора: проверенного шаблона нет. Добавьте свой.",
+  "en": "The VMware Cloud Foundation platform is installed on hardware and configured with the vendor’s tools: there is no verified template. Add your own."
+ }
+}

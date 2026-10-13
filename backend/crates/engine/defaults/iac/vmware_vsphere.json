@@ -1,0 +1,13 @@
+{
+ "id": "vmware_vsphere",
+ "title": {
+  "ru": "VMware vSphere",
+  "en": "VMware vSphere"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Платформа VMware vSphere ставится на оборудование и настраивается средствами вендора: проверенного шаблона нет. Добавьте свой.",
+  "en": "The VMware vSphere platform is installed on hardware and configured with the vendor’s tools: there is no verified template. Add your own."
+ }
+}

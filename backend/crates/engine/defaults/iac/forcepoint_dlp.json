@@ -1,0 +1,13 @@
+{
+ "id": "forcepoint_dlp",
+ "title": {
+  "ru": "Forcepoint DLP",
+  "en": "Forcepoint DLP"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Настройка Forcepoint DLP зависит от вашей политики безопасности и инфраструктуры: нейтрального проверенного шаблона нет. Добавьте свой.",
+  "en": "Setting up Forcepoint DLP depends on your security policy and infrastructure: there is no neutral verified template. Add your own."
+ }
+}

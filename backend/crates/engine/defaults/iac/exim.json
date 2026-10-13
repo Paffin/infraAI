@@ -1,0 +1,13 @@
+{
+ "id": "exim",
+ "title": {
+  "ru": "Exim",
+  "en": "Exim"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Установка Exim зависит от вашей среды (база данных, файловое хранилище, почта, домен): проверенного шаблона нет. Добавьте свой.",
+  "en": "Installing Exim depends on your environment (database, file storage, mail, domain): there is no verified template. Add your own."
+ }
+}

@@ -55,6 +55,14 @@ pub async fn public_config(State(state): State<AppState>) -> ApiResult<Json<Valu
 }
 
 /// Everything the editor needs: catalog, rules (for rendering findings), templates, limits.
+/// The bootstrap body: everything that is built per request, and the catalog as the text it already is.
+#[derive(serde::Serialize)]
+struct WithCatalog<'a> {
+    #[serde(flatten)]
+    rest: &'a Value,
+    catalog: &'a serde_json::value::RawValue,
+}
+
 pub async fn bootstrap(State(state): State<AppState>, user: AuthUser, headers: HeaderMap) -> ApiResult<Response> {
     let cfg = state.cfg().await?;
     let templates: Vec<Value> = cfg
@@ -88,6 +96,14 @@ pub async fn bootstrap(State(state): State<AppState>, user: AuthUser, headers: H
         "flowSpeed",
         "flowSpacing",
         "flowParticlesMax",
+        "rightPanelWidth",
+        "rightPanelMinWidth",
+        "rightPanelMaxWidth",
+        "floatPanelWidth",
+        "impactShown",
+        "pickerShown",
+        "librarySearchShown",
+        "adminListShown",
     ]
     .iter()
     .map(|k| (k.to_string(), cfg.settings.get(&format!("editor.{k}"))))
@@ -108,7 +124,6 @@ pub async fn bootstrap(State(state): State<AppState>, user: AuthUser, headers: H
             "helpUrl": cfg.settings.str("ui.helpUrl"),
             "quickPrompts": cfg.settings.get("ui.quickPrompts"),
         },
-        "catalog": cfg.catalog,
         "rules": cfg.rules,
         "templates": templates,
         "exportFormats": engine::export::FORMATS.iter().map(|f| json!({"id": f, "group": engine::export::group_of(f)})).collect::<Vec<_>>(),
@@ -133,12 +148,13 @@ pub async fn bootstrap(State(state): State<AppState>, user: AuthUser, headers: H
             "recommendations": {"enabled": cfg.engine.recommendations.enabled, "show": cfg.engine.recommendations.show},
         },
     });
-    // conditional GET: the catalog is large and rarely changes
-    let bytes = serde_json::to_vec(&body)?;
-    let etag = format!("\"{}\"", &crate::crypto::sha256_hex(&bytes)[..24]);
+    // conditional GET: the catalog is megabytes and changes only with the configuration, whose revision (`rev`) is in the rest of the body, so the tag is
+    // made from the rest; the catalog is written from the text made when the configuration was loaded, and only when it has to be sent
+    let etag = format!("\"{}\"", &crate::crypto::sha256_hex(&serde_json::to_vec(&body)?)[..24]);
     if headers.get(header::IF_NONE_MATCH).and_then(|v| v.to_str().ok()) == Some(etag.as_str()) {
         return Ok(Response::builder().status(StatusCode::NOT_MODIFIED).header(header::ETAG, etag).body(Body::empty()).unwrap());
     }
+    let bytes = serde_json::to_vec(&WithCatalog { rest: &body, catalog: &cfg.catalog_json })?;
     Response::builder()
         .header(header::CONTENT_TYPE, "application/json")
         .header(header::ETAG, etag)

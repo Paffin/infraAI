@@ -1,0 +1,13 @@
+{
+ "id": "saltstack",
+ "title": {
+  "ru": "Salt",
+  "en": "Salt"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Значения установки Salt зависят от вашей среды (хранилище, домен, внешняя база): проверенного шаблона нет. Добавьте свой.",
+  "en": "The install values of Salt depend on your environment (storage, domain, an external database): there is no verified template. Add your own."
+ }
+}

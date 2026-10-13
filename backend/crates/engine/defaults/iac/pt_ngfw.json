@@ -1,0 +1,13 @@
+{
+ "id": "pt_ngfw",
+ "title": {
+  "ru": "PT NGFW",
+  "en": "PT NGFW"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Правила PT NGFW зависят от вендора и сегментации сети: нейтрального шаблона нет. Добавьте шаблон под ваше оборудование.",
+  "en": "The rules of PT NGFW depend on the vendor and the network segmentation: there is no neutral template. Add one for your equipment."
+ }
+}

@@ -1,0 +1,13 @@
+{
+ "id": "microsoft_defender_for_office_365",
+ "title": {
+  "ru": "Microsoft Defender for Office 365",
+  "en": "Microsoft Defender for Office 365"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Microsoft Defender for Office 365 — сервис провайдера: он создаётся через консоль, API и провайдер Terraform самого провайдера, нейтрального шаблона нет. Добавьте свой под вашего провайдера.",
+  "en": "Microsoft Defender for Office 365 is a provider’s service: it is created through the provider’s console, API and Terraform provider, there is no neutral template. Add your own for your provider."
+ }
+}

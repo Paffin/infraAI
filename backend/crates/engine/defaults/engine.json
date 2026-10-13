@@ -14,7 +14,10 @@
   "defaultFailureTolerance": "site",
   "implicitMesh": true,
   "transitRouting": false,
-  "defaultScaleUpSeconds": 300
+  "defaultScaleUpSeconds": 300,
+  "elasticTraits": [
+   "provider-ha"
+  ]
  },
  "scoring": {
   "critical": 15,
@@ -177,7 +180,14 @@
     "dashboards": 0.999,
     "ci": 0.999,
     "access": 0.999,
-    "cni": 0.9995
+    "cni": 0.9995,
+    "identity": 0.9995,
+    "paas": 0.9995,
+    "kv": 0.9999,
+    "ddos": 0.9999,
+    "proxy": 0.9999,
+    "zero-trust": 0.9999,
+    "email-security": 0.9999
    },
    "default": 0.999,
    "incidentSeconds": 1800

@@ -1,0 +1,13 @@
+{
+ "id": "openvino_model_server",
+ "title": {
+  "ru": "OpenVINO Model Server",
+  "en": "OpenVINO Model Server"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Развёртывание OpenVINO Model Server зависит от кластера, ускорителей и хранилища: проверенного шаблона нет. Добавьте свой.",
+  "en": "Deploying OpenVINO Model Server depends on the cluster, the accelerators and the storage: there is no verified template. Add your own."
+ }
+}

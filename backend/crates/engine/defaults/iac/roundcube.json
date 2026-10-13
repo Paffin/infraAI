@@ -1,0 +1,13 @@
+{
+ "id": "roundcube",
+ "title": {
+  "ru": "Roundcube Webmail",
+  "en": "Roundcube Webmail"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Установка Roundcube Webmail зависит от вашей среды (база данных, файловое хранилище, почта, домен): проверенного шаблона нет. Добавьте свой.",
+  "en": "Installing Roundcube Webmail depends on your environment (database, file storage, mail, domain): there is no verified template. Add your own."
+ }
+}

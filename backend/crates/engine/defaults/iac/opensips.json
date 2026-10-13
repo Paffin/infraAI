@@ -1,0 +1,13 @@
+{
+ "id": "opensips",
+ "title": {
+  "ru": "OpenSIPS",
+  "en": "OpenSIPS"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Установка OpenSIPS зависит от вашей среды (база данных, файловое хранилище, почта, домен): проверенного шаблона нет. Добавьте свой.",
+  "en": "Installing OpenSIPS depends on your environment (database, file storage, mail, domain): there is no verified template. Add your own."
+ }
+}

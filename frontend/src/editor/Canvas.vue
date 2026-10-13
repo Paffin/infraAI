@@ -110,7 +110,8 @@ function zoomBy(dir: 1 | -1) {
 function covered(): boolean {
   const area = wrap.value?.parentElement
   if (!area || !wrap.value) return false
-  const panels = Array.from(area.querySelectorAll<HTMLElement>('[data-overlay]')).map((e) => e.getBoundingClientRect()).filter((r) => r.height > 0)
+  // what the user put there themselves (`float`) is theirs: the diagram does not move out of its way
+  const panels = Array.from(area.querySelectorAll<HTMLElement>('[data-overlay]:not([data-overlay="float"])')).map((e) => e.getBoundingClientRect()).filter((r) => r.height > 0)
   return Array.from(wrap.value.querySelectorAll<HTMLElement>('.arch-node')).some((n) => {
     const c = n.getBoundingClientRect()
     return panels.some((p) => Math.min(c.right, p.right) - Math.max(c.left, p.left) > 2 && Math.min(c.bottom, p.bottom) - Math.max(c.top, p.top) > 2)
@@ -120,10 +121,14 @@ function covered(): boolean {
 /**
  * The notices that hang under the toolbar (what the tool asks for, the proposal being previewed, the layout that drifted) go where the toolbar
  * ends: it takes a second row when the window is narrow or the tools many, and a notice at a fixed height would sit on top of that row.
+ * The same goes for the window of a failure from the other side: it stops above the what-if bar, however many rows the bar has (`--bars-bottom`).
  */
 function placeBars() {
   const host = wrap.value?.parentElement
-  if (host) host.style.setProperty('--bars-top', `${clearance(false).top + 8}px`)
+  if (!host) return
+  const { top, bottom } = clearance(false)
+  host.style.setProperty('--bars-top', `${top + 8}px`)
+  host.style.setProperty('--bars-bottom', `${bottom + 8}px`)
 }
 
 // the panels change size (the what-if bar grows a row once the scenarios are known): a diagram still at its fit that has

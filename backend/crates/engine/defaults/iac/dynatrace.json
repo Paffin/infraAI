@@ -1,0 +1,13 @@
+{
+ "id": "dynatrace",
+ "title": {
+  "ru": "Dynatrace",
+  "en": "Dynatrace"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Dynatrace — сервис провайдера: он создаётся через консоль, API и провайдер Terraform самого провайдера, нейтрального шаблона нет. Добавьте свой под вашего провайдера.",
+  "en": "Dynatrace is a provider’s service: it is created through the provider’s console, API and Terraform provider, there is no neutral template. Add your own for your provider."
+ }
+}

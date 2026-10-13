@@ -1,0 +1,13 @@
+{
+ "id": "ibm_qradar",
+ "title": {
+  "ru": "IBM QRadar SIEM",
+  "en": "IBM QRadar SIEM"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Настройка IBM QRadar SIEM зависит от вашей политики безопасности и инфраструктуры: нейтрального проверенного шаблона нет. Добавьте свой.",
+  "en": "Setting up IBM QRadar SIEM depends on your security policy and infrastructure: there is no neutral verified template. Add your own."
+ }
+}

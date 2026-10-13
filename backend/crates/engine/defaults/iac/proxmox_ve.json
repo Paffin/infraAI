@@ -1,0 +1,13 @@
+{
+ "id": "proxmox_ve",
+ "title": {
+  "ru": "Proxmox VE",
+  "en": "Proxmox VE"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Платформа Proxmox VE ставится на оборудование и настраивается средствами вендора: проверенного шаблона нет. Добавьте свой.",
+  "en": "The Proxmox VE platform is installed on hardware and configured with the vendor’s tools: there is no verified template. Add your own."
+ }
+}

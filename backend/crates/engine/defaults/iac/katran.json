@@ -1,0 +1,13 @@
+{
+ "id": "katran",
+ "title": {
+  "ru": "Katran",
+  "en": "Katran"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Развёртывание Katran зависит от сети площадки (VRRP, BGP, облачный балансировщик). Проверенного шаблона нет — добавьте свой.",
+  "en": "How Katran is deployed depends on the network of the site (VRRP, BGP, a cloud balancer). There is no verified template — add your own."
+ }
+}

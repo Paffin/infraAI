@@ -1,0 +1,13 @@
+{
+ "id": "stalwart_mail",
+ "title": {
+  "ru": "Stalwart Mail Server",
+  "en": "Stalwart Mail Server"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Установка Stalwart Mail Server зависит от вашей среды (база данных, файловое хранилище, почта, домен): проверенного шаблона нет. Добавьте свой.",
+  "en": "Installing Stalwart Mail Server depends on your environment (database, file storage, mail, domain): there is no verified template. Add your own."
+ }
+}

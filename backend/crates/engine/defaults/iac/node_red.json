@@ -1,0 +1,13 @@
+{
+ "id": "node_red",
+ "title": {
+  "ru": "Node-RED",
+  "en": "Node-RED"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Установка Node-RED зависит от вашей среды (база данных, файловое хранилище, почта, домен): проверенного шаблона нет. Добавьте свой.",
+  "en": "Installing Node-RED depends on your environment (database, file storage, mail, domain): there is no verified template. Add your own."
+ }
+}

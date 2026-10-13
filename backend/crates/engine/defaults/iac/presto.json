@@ -1,0 +1,13 @@
+{
+ "id": "presto",
+ "title": {
+  "ru": "Presto",
+  "en": "Presto"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Задания и ресурсы Presto зависят от вашей обработки данных: нейтрального шаблона нет. Добавьте свой.",
+  "en": "The jobs and resources of Presto depend on your data processing: there is no neutral template. Add your own."
+ }
+}

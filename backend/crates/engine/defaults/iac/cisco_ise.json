@@ -1,0 +1,13 @@
+{
+ "id": "cisco_ise",
+ "title": {
+  "ru": "Cisco Identity Services Engine",
+  "en": "Cisco Identity Services Engine"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Настройка Cisco Identity Services Engine зависит от вашей политики безопасности и инфраструктуры: нейтрального проверенного шаблона нет. Добавьте свой.",
+  "en": "Setting up Cisco Identity Services Engine depends on your security policy and infrastructure: there is no neutral verified template. Add your own."
+ }
+}

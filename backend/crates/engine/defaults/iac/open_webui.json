@@ -1,0 +1,13 @@
+{
+ "id": "open_webui",
+ "title": {
+  "ru": "Open WebUI",
+  "en": "Open WebUI"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Развёртывание Open WebUI зависит от кластера, ускорителей и хранилища: проверенного шаблона нет. Добавьте свой.",
+  "en": "Deploying Open WebUI depends on the cluster, the accelerators and the storage: there is no verified template. Add your own."
+ }
+}
