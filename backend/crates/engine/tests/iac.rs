@@ -10,7 +10,7 @@ use engine::model::Architecture;
 use serde_json::json;
 
 fn cfg() -> EngineConfig {
-    EngineConfig { catalog: defaults::catalog(), rules: defaults::rules(), settings: defaults::engine_settings(), iac: defaults::iac_templates(), lang: "en".into() }
+    defaults::engine_config("en")
 }
 
 fn template(id: &str) -> Architecture {

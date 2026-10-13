@@ -6,6 +6,7 @@ use crate::crypto::{sha256_hex, Keys};
 use crate::settings::Settings;
 use engine::catalog::{Catalog, Category, EdgeTypeDef, KindDef, PropDef, ZoneTypeDef};
 use engine::config::{EngineConfig, EngineSettings, IacTemplate, Rule, Template};
+use engine::placement::{Pattern, PlacementConfig, PlacementSettings, Stack};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sqlx::PgPool;
@@ -24,8 +25,11 @@ pub const K_TEMPLATE: &str = "template";
 pub const K_PROMPT: &str = "prompt";
 pub const K_ENGINE: &str = "engine";
 pub const K_IAC: &str = "iac";
+pub const K_PLACEMENT_PATTERN: &str = "placement.pattern";
+pub const K_PLACEMENT_STACK: &str = "placement.stack";
+pub const K_PLACEMENT_SETTINGS: &str = "placement.settings";
 
-pub const ALL_KINDS: &[&str] = &[K_KIND, K_EDGE, K_ZONE, K_CATEGORY, K_COMMON, K_RULE, K_TEMPLATE, K_PROMPT, K_ENGINE, K_IAC];
+pub const ALL_KINDS: &[&str] = &[K_KIND, K_EDGE, K_ZONE, K_CATEGORY, K_COMMON, K_RULE, K_TEMPLATE, K_PROMPT, K_ENGINE, K_IAC, K_PLACEMENT_PATTERN, K_PLACEMENT_STACK, K_PLACEMENT_SETTINGS];
 
 pub const PROMPTS_JSON: &str = include_str!("../defaults/prompts.json");
 
@@ -73,6 +77,10 @@ pub fn default_items() -> Vec<DefaultItem> {
     for (i, (id, raw)) in engine::defaults::IAC_JSON.iter().enumerate() {
         out.push(DefaultItem { kind: K_IAC, id: id.to_string(), data: serde_json::from_str(raw).expect("iac template"), sort: i as i32 });
     }
+    let placement: Value = serde_json::from_str(engine::defaults::PLACEMENT_JSON).expect("placement.json");
+    push_list(&mut out, K_PLACEMENT_PATTERN, placement.get("patterns"));
+    push_list(&mut out, K_PLACEMENT_STACK, placement.get("stacks"));
+    out.push(DefaultItem { kind: K_PLACEMENT_SETTINGS, id: "placement".into(), data: placement.get("settings").cloned().unwrap_or(json!({})), sort: 0 });
     let prompts: Value = serde_json::from_str(PROMPTS_JSON).expect("prompts.json");
     push_list(&mut out, K_PROMPT, Some(&prompts));
     out.push(DefaultItem { kind: K_ENGINE, id: "engine".into(), data: serde_json::from_str(engine::defaults::ENGINE_JSON).expect("engine.json"), sort: 0 });
@@ -148,6 +156,7 @@ pub struct Loaded {
     pub engine: EngineSettings,
     pub templates: Vec<Template>,
     pub iac: Vec<IacTemplate>,
+    pub placement: PlacementConfig,
     pub prompts: HashMap<String, PromptDef>,
     /// Items that failed to parse (kind, id, error) – surfaced in the admin panel.
     pub errors: Vec<(String, String, String)>,
@@ -189,6 +198,7 @@ impl Loaded {
         let mut rules = vec![];
         let mut templates = vec![];
         let mut iac = vec![];
+        let mut placement = PlacementConfig::default();
         let mut prompts = HashMap::new();
         let mut engine_settings = EngineSettings::default();
         for (kind, id, data) in rows {
@@ -226,6 +236,18 @@ impl Loaded {
                     Ok(v) => iac.push(v),
                     Err(e) => fail(e.to_string()),
                 },
+                K_PLACEMENT_PATTERN => match serde_json::from_value::<Pattern>(data) {
+                    Ok(v) => placement.patterns.push(v),
+                    Err(e) => fail(e.to_string()),
+                },
+                K_PLACEMENT_STACK => match serde_json::from_value::<Stack>(data) {
+                    Ok(v) => placement.stacks.push(v),
+                    Err(e) => fail(e.to_string()),
+                },
+                K_PLACEMENT_SETTINGS => match serde_json::from_value::<PlacementSettings>(data) {
+                    Ok(v) => placement.settings = v,
+                    Err(e) => fail(e.to_string()),
+                },
                 K_PROMPT => match serde_json::from_value::<PromptDef>(data) {
                     Ok(v) => {
                         prompts.insert(v.id.clone(), v);
@@ -240,6 +262,8 @@ impl Loaded {
             }
         }
         templates.sort_by_key(|t| t.order);
+        placement.patterns.sort_by_key(|p| p.order);
+        placement.stacks.sort_by_key(|p| p.order);
         let mut langs = settings.list("app.languages");
         if langs.is_empty() {
             langs.push(settings.str("app.defaultLanguage"));
@@ -247,18 +271,18 @@ impl Loaded {
         let engine_cfgs = langs
             .into_iter()
             .map(|l| {
-                let c = EngineConfig { catalog: catalog.clone(), rules: rules.clone(), settings: engine_settings.clone(), iac: iac.clone(), lang: l.clone() };
+                let c = EngineConfig { catalog: catalog.clone(), rules: rules.clone(), settings: engine_settings.clone(), iac: iac.clone(), placement: placement.clone(), lang: l.clone() };
                 (l, Arc::new(c))
             })
             .collect();
-        Loaded { rev, settings, catalog, rules, engine: engine_settings, templates, iac, prompts, errors, engine_cfgs }
+        Loaded { rev, settings, catalog, rules, engine: engine_settings, templates, iac, placement, prompts, errors, engine_cfgs }
     }
 }
 
 /// Validate an item before it is written (so the admin cannot break the running system).
 pub fn validate_item(kind: &str, id: &str, data: &Value) -> Result<(), String> {
     let id_in_data = data.get("id").and_then(|v| v.as_str());
-    let needs_id = !matches!(kind, K_COMMON | K_ENGINE);
+    let needs_id = !matches!(kind, K_COMMON | K_ENGINE | K_PLACEMENT_SETTINGS);
     if needs_id && id_in_data != Some(id) {
         return Err(format!("data.id must equal '{id}'"));
     }
@@ -272,6 +296,9 @@ pub fn validate_item(kind: &str, id: &str, data: &Value) -> Result<(), String> {
         K_TEMPLATE => serde_json::from_value::<Template>(data.clone()).map(|_| ()),
         K_PROMPT => serde_json::from_value::<PromptDef>(data.clone()).map(|_| ()),
         K_ENGINE => serde_json::from_value::<EngineSettings>(data.clone()).map(|_| ()),
+        K_PLACEMENT_PATTERN => serde_json::from_value::<Pattern>(data.clone()).map(|_| ()),
+        K_PLACEMENT_STACK => serde_json::from_value::<Stack>(data.clone()).map(|_| ()),
+        K_PLACEMENT_SETTINGS => serde_json::from_value::<PlacementSettings>(data.clone()).map(|_| ()),
         K_IAC => {
             // the template must parse and every expression in it must compile
             let t: IacTemplate = serde_json::from_value(data.clone()).map_err(|e| e.to_string())?;

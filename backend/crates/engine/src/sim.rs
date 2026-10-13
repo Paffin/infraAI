@@ -46,6 +46,9 @@ pub enum Scenario {
     Zone { zone_id: String },
     /// Network partition between two sites; both sides keep running.
     Link { a: String, b: String },
+    /// Several sites lose the network to every site outside the group but keep running and keep talking to each other
+    /// (a WAN uplink or peering outage). With three or more sites this is the failure a single cut link never shows.
+    Isolate { zone_ids: Vec<String> },
     /// Several zones at once.
     Sites { zone_ids: Vec<String> },
     /// Every site of a disaster domain (`geo` label) is destroyed.
@@ -283,6 +286,17 @@ impl<'a, 'b> Sim<'a, 'b> {
                 if let (Some(&za), Some(&zb)) = (ix.zone_ix.get(a.as_str()), ix.zone_ix.get(b.as_str())) {
                     cut.push((za, zb));
                     failed.push(format!("{} ↔ {}", ix.arch.zones[za].name, ix.arch.zones[zb].name));
+                }
+            }
+            Scenario::Isolate { zone_ids } => {
+                let island: Vec<usize> = zone_ids.iter().filter_map(|z| ix.zone_ix.get(z.as_str()).copied()).collect();
+                for &inside in &island {
+                    for outside in ix.sites() {
+                        if !island.contains(&outside) {
+                            cut.push((inside, outside));
+                        }
+                    }
+                    failed.push(ix.arch.zones[inside].name.clone());
                 }
             }
         }
@@ -999,14 +1013,146 @@ pub fn simulate(ix: &Index<'_>, sc: &Scenario) -> SimResult {
     sim.finish(sc)
 }
 
-/// Standard scenario set derived from the architecture, bounded by `scenarios.maxCount`.
-pub fn standard_scenarios(ix: &Index<'_>) -> Vec<Scenario> {
+/// The scenarios the engine derives from an architecture, and whether the cap cut some of them.
+#[derive(Debug, Clone, Default)]
+pub struct ScenarioSet {
+    pub scenarios: Vec<Scenario>,
+    /// How many scenarios the architecture yields before `scenarios.maxCount` and the combination caps.
+    pub generated: usize,
+    /// True if some scenarios were left out (cap on the total, or sampled combinations of many sites).
+    pub truncated: bool,
+}
+
+/// `C(n, k)`, saturating.
+pub fn binomial(n: usize, k: usize) -> u128 {
+    if k > n {
+        return 0;
+    }
+    let k = k.min(n - k);
+    let mut r: u128 = 1;
+    for i in 0..k {
+        r = match r.checked_mul((n - i) as u128) {
+            Some(v) => v / (i as u128 + 1),
+            None => return u128::MAX,
+        };
+    }
+    r
+}
+
+/// The `rank`-th (0-based, lexicographic) k-combination of `0..n`.
+fn unrank_combination(n: usize, k: usize, mut rank: u128) -> Vec<usize> {
+    let mut out = Vec::with_capacity(k);
+    let mut x = 0usize;
+    for i in 0..k {
+        loop {
+            let c = binomial(n - x - 1, k - i - 1);
+            if rank < c {
+                break;
+            }
+            rank -= c;
+            x += 1;
+        }
+        out.push(x);
+        x += 1;
+    }
+    out
+}
+
+/// Combinations of `k` out of `n` items (indices), at most `cap` of them. Within the cap every combination is
+/// returned; past it they are picked at even steps through the lexicographic order, so the choice is
+/// deterministic and spread over the whole range. The flag says the result was sampled.
+pub fn combinations(n: usize, k: usize, cap: usize) -> (Vec<Vec<usize>>, bool) {
+    if k == 0 || k > n || cap == 0 {
+        return (vec![], false);
+    }
+    let total = binomial(n, k);
+    if total <= cap as u128 {
+        let mut out = Vec::with_capacity(total as usize);
+        let mut idx: Vec<usize> = (0..k).collect();
+        loop {
+            out.push(idx.clone());
+            let mut i = k;
+            while i > 0 && idx[i - 1] == n - k + i - 1 {
+                i -= 1;
+            }
+            if i == 0 {
+                break;
+            }
+            idx[i - 1] += 1;
+            for j in i..k {
+                idx[j] = idx[j - 1] + 1;
+            }
+        }
+        return (out, false);
+    }
+    let out = (0..cap as u128).map(|i| unrank_combination(n, k, i * total / cap as u128)).collect();
+    (out, true)
+}
+
+/// Sites ordered for scenario generation (zone index order, the order of the document).
+fn scenario_sites(ix: &Index<'_>) -> Vec<usize> {
+    ix.sites()
+}
+
+/// Groups of sites that are cut off from the rest, smallest first. A partition and its complement are the same
+/// cut, so only the smaller side is listed (for two equal halves the side holding the first site).
+fn isolation_groups(ix: &Index<'_>, sites: &[usize]) -> (Vec<Vec<usize>>, bool) {
+    let cfg = &ix.settings.scenarios;
+    let n = sites.len();
+    let mut out: Vec<Vec<usize>> = vec![];
+    let mut sampled = false;
+    for size in 1..=cfg.isolation_max_sites.min(n.saturating_sub(1)) {
+        if size * 2 > n {
+            break;
+        }
+        let (combos, s) = combinations(n, size, cfg.max_combinations);
+        sampled |= s;
+        for c in combos {
+            if size * 2 == n && !c.contains(&0) {
+                continue;
+            }
+            out.push(c.into_iter().map(|i| sites[i]).collect());
+        }
+    }
+    (out, sampled)
+}
+
+/// All combinations of `k` sites (zone indices), capped at `scenarios.maxCombinations`; the flag says they were sampled.
+pub fn site_combinations(ix: &Index<'_>, k: usize) -> (Vec<Vec<usize>>, bool) {
+    let sites = scenario_sites(ix);
+    let (combos, sampled) = combinations(sites.len(), k, ix.settings.scenarios.max_combinations);
+    (combos.into_iter().map(|c| c.into_iter().map(|i| sites[i]).collect()).collect(), sampled)
+}
+
+/// Standard scenario set derived from the architecture, bounded by `scenarios.maxCount`. Ordered by importance, so
+/// the cap drops the single-instance scenarios first.
+pub fn scenario_set(ix: &Index<'_>) -> ScenarioSet {
     let cfg = &ix.settings.scenarios;
     let mut out: Vec<Scenario> = Vec::new();
-    let sites = ix.sites();
+    let mut truncated = false;
+    let sites = scenario_sites(ix);
+
+    // racks inside sites (a rack that is itself the failure domain of its nodes is a site already)
+    if cfg.include_racks {
+        for zi in ix.rack_zones() {
+            if !sites.contains(&zi) {
+                out.push(Scenario::Zone { zone_id: ix.arch.zones[zi].id.clone() });
+            }
+        }
+    }
     for &s in &sites {
         out.push(Scenario::Zone { zone_id: ix.arch.zones[s].id.clone() });
     }
+
+    // sites cut off the network while they keep running
+    if cfg.include_isolation && sites.len() >= 3 {
+        let (groups, sampled) = isolation_groups(ix, &sites);
+        truncated |= sampled;
+        for g in groups {
+            out.push(Scenario::Isolate { zone_ids: g.into_iter().map(|s| ix.arch.zones[s].id.clone()).collect() });
+        }
+    }
+
     // links between sites that are actually connected by an edge or an implicit mesh
     let mut pairs: Vec<(usize, usize)> = vec![];
     for ends in ix.edge_ends.iter().flatten() {
@@ -1033,9 +1179,16 @@ pub fn standard_scenarios(ix: &Index<'_>) -> Vec<Scenario> {
         }
     }
     pairs.sort();
+    if pairs.len() > cfg.max_combinations {
+        // keep an even spread of the links when there are far too many to show
+        let n = pairs.len();
+        pairs = (0..cfg.max_combinations).map(|i| pairs[i * n / cfg.max_combinations]).collect();
+        truncated = true;
+    }
     for (a, b) in &pairs {
         out.push(Scenario::Link { a: ix.arch.zones[*a].id.clone(), b: ix.arch.zones[*b].id.clone() });
     }
+
     // disaster domains with several sites (a single-site domain is the zone scenario itself)
     let mut geos: Vec<String> = ix.geo_of.iter().flatten().cloned().collect();
     geos.sort();
@@ -1055,14 +1208,13 @@ pub fn standard_scenarios(ix: &Index<'_>) -> Vec<Scenario> {
         }
     }
     if cfg.include_pairs && sites.len() >= 3 {
-        for i in 0..sites.len() {
-            for j in i + 1..sites.len() {
-                let pair = vec![sites[i], sites[j]];
-                if geo_sets.contains(&pair) {
-                    continue;
-                }
-                out.push(Scenario::Sites { zone_ids: vec![ix.arch.zones[sites[i]].id.clone(), ix.arch.zones[sites[j]].id.clone()] });
+        let (combos, sampled) = site_combinations(ix, 2);
+        truncated |= sampled;
+        for pair in combos {
+            if geo_sets.contains(&pair) {
+                continue;
             }
+            out.push(Scenario::Sites { zone_ids: pair.into_iter().map(|s| ix.arch.zones[s].id.clone()).collect() });
         }
     }
     if cfg.include_instances {
@@ -1078,8 +1230,17 @@ pub fn standard_scenarios(ix: &Index<'_>) -> Vec<Scenario> {
             }
         }
     }
-    out.truncate(cfg.max_count);
-    out
+    let generated = out.len();
+    if out.len() > cfg.max_count {
+        out.truncate(cfg.max_count);
+        truncated = true;
+    }
+    ScenarioSet { scenarios: out, generated, truncated }
+}
+
+/// Standard scenarios of the architecture (see [`scenario_set`]).
+pub fn standard_scenarios(ix: &Index<'_>) -> Vec<Scenario> {
+    scenario_set(ix).scenarios
 }
 
 /// Worst-case RPO over the per-unit items, ignoring units that carry any of `exclude_traits`.

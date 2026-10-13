@@ -3,6 +3,7 @@
 pub mod admin;
 pub mod ai;
 pub mod engine_api;
+pub mod placement;
 pub mod projects;
 pub mod public;
 
@@ -96,6 +97,9 @@ pub async fn router(state: AppState) -> Router {
         .route("/simulate", post(engine_api::simulate_scenario))
         .route("/ops/apply", post(engine_api::apply))
         .route("/templates/{id}", get(engine_api::get_template))
+        .route("/placement/options", get(placement::options))
+        .route("/placement/preview", post(placement::preview))
+        .route("/placement/compare", post(placement::compare))
         .route("/admin/settings", get(admin::get_settings).put(admin::put_settings))
         .route("/admin/llm/models", get(admin::llm_models))
         .route("/admin/llm/test", post(admin::llm_test))

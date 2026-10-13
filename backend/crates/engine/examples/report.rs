@@ -5,7 +5,6 @@
 //!   cargo run -p engine --example report -- three-az-region en --json     (the whole report as JSON – how the
 //!                                                                        frontend test fixtures are recorded)
 
-use engine::config::EngineConfig;
 use engine::defaults;
 use engine::evaluate::{evaluate, render_message, Status};
 use engine::model::Architecture;
@@ -22,7 +21,7 @@ fn main() {
     } else {
         serde_json::from_str(&std::fs::read_to_string(&what).expect("read file")).expect("parse architecture")
     };
-    let cfg = EngineConfig { catalog: defaults::catalog(), rules: defaults::rules(), settings: defaults::engine_settings(), iac: defaults::iac_templates(), lang: lang.clone() };
+    let cfg = defaults::engine_config(&lang);
     let rep = evaluate(&arch, &cfg, &[]);
     if json {
         println!("{}", serde_json::to_string_pretty(&rep).expect("serialize the report"));

@@ -26,7 +26,68 @@
   "maxCount": 400,
   "includePairs": true,
   "includeInstances": true,
-  "includeNodes": true
+  "includeNodes": true,
+  "includeRacks": true,
+  "includeIsolation": true,
+  "isolationMaxSites": 2,
+  "maxSiteFailures": 4,
+  "maxCombinations": 120
+ },
+ "tolerance": {
+  "levels": [
+   {
+    "id": "instance",
+    "rank": 0,
+    "domain": null,
+    "name": {
+     "ru": "Отказ экземпляра",
+     "en": "Instance failure"
+    },
+    "help": {
+     "ru": "Падает один под, ВМ или процесс — остальное работает.",
+     "en": "A single pod, VM or process dies; everything else keeps running."
+    }
+   },
+   {
+    "id": "rack",
+    "rank": 1,
+    "domain": "rack",
+    "name": {
+     "ru": "Отказ стойки",
+     "en": "Rack failure"
+    },
+    "help": {
+     "ru": "Потеря стойки (питание, ToR-коммутатор) внутри площадки. Подходит для одного ЦОД.",
+     "en": "A rack is lost (power, ToR switch) inside a site. The level for a single data center."
+    }
+   },
+   {
+    "id": "site",
+    "rank": 2,
+    "domain": "site",
+    "name": {
+     "ru": "Отказ площадки (ЦОД/AZ)",
+     "en": "Site failure (DC/AZ)"
+    },
+    "help": {
+     "ru": "Потеря ЦОД или зоны доступности целиком; с параметром «сколько площадок» — нескольких сразу.",
+     "en": "A whole DC or availability zone is lost; with the number of sites setting, several at once."
+    }
+   },
+   {
+    "id": "geo",
+    "rank": 3,
+    "domain": "geo",
+    "name": {
+     "ru": "Катастрофа: потеря региона/города",
+     "en": "Disaster: loss of a region/city"
+    },
+    "help": {
+     "ru": "Все площадки одного гео-домена недоступны одновременно.",
+     "en": "Every site of one geo domain is down at once."
+    }
+   }
+  ]
  },
  "cost": {
   "currency": "RUB",

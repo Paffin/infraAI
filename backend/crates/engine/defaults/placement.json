@@ -1,0 +1,859 @@
+{
+ "settings": {
+  "intraSite": {
+   "latencyMs": 0.3,
+   "bandwidthMbps": 25000,
+   "paths": 2,
+   "lagSeconds": 1
+  },
+  "intraGeo": {
+   "latencyMs": 1.2,
+   "bandwidthMbps": 25000,
+   "paths": 2,
+   "lagSeconds": 1
+  },
+  "interGeo": {
+   "latencyMs": 28,
+   "bandwidthMbps": 2000,
+   "paths": 2,
+   "lagSeconds": 5
+  },
+  "siteNames": {
+   "dc": {
+    "ru": "ЦОД-{n}",
+    "en": "DC-{n}"
+   },
+   "az": {
+    "ru": "Зона доступности {n}",
+    "en": "Availability zone {n}"
+   },
+   "cloud": {
+    "ru": "Облако-{n}",
+    "en": "Cloud-{n}"
+   }
+  },
+  "regionName": {
+   "ru": "Регион {n}",
+   "en": "Region {n}"
+  },
+  "witnessName": {
+   "ru": "Арбитр-{n}",
+   "en": "Arbiter-{n}"
+  },
+  "rackName": {
+   "ru": "{site} · стойка {n}",
+   "en": "{site} · rack {n}"
+  },
+  "backupSiteName": {
+   "ru": "Внешняя площадка резервных копий",
+   "en": "Off-site backup location"
+  },
+  "geoPrefix": "geo",
+  "witnessSiteType": "cloud",
+  "regionZoneType": "region",
+  "rackZoneType": "rack",
+  "minVoters": 3,
+  "maxVoters": 7,
+  "witnessProps": {
+   "vcpu": 1,
+   "ramGb": 1
+  },
+  "standbyScaleUpSeconds": 600,
+  "standbyMinReplicas": 2,
+  "maxNodes": 500,
+  "rackShortName": {
+   "ru": "стойка {n}",
+   "en": "rack {n}"
+  },
+  "tlsBetweenSites": true
+ },
+ "stacks": [
+  {
+   "id": "web-platform",
+   "name": {
+    "ru": "Веб-платформа",
+    "en": "Web platform"
+   },
+   "description": {
+    "ru": "Пользователи → GSLB → WAF → балансировщики → приложение → база, кэш, очередь, объекты; секреты, мониторинг, GitOps, резервные копии.",
+    "en": "Users → GSLB → WAF → balancers → application → database, cache, queue, objects; secrets, monitoring, GitOps, backups."
+   },
+   "order": 0,
+   "layers": [
+    {
+     "id": "users",
+     "name": {
+      "ru": "Пользователи",
+      "en": "Users"
+     },
+     "kind": "users",
+     "scope": "global"
+    },
+    {
+     "id": "gslb",
+     "name": {
+      "ru": "GSLB / DNS",
+      "en": "GSLB / DNS"
+     },
+     "kind": "gslb",
+     "scope": "global",
+     "props": {
+      "replicas": 3,
+      "healthCheckSeconds": 5,
+      "failThreshold": 1,
+      "dnsTtlSeconds": 30
+     },
+     "from": [
+      {
+       "layer": "users"
+      }
+     ]
+    },
+    {
+     "id": "waf",
+     "name": {
+      "ru": "WAF",
+      "en": "WAF"
+     },
+     "kind": "waf",
+     "scope": "global",
+     "optional": true,
+     "default": true,
+     "props": {
+      "replicas": 3
+     },
+     "from": [
+      {
+       "layer": "gslb"
+      }
+     ]
+    },
+    {
+     "id": "ingress",
+     "name": {
+      "ru": "Балансировщик",
+      "en": "Ingress"
+     },
+     "kind": "l7",
+     "alternatives": [
+      "l4"
+     ],
+     "scope": "site",
+     "props": {
+      "healthCheckSeconds": 3,
+      "failThreshold": 2
+     },
+     "sizing": {
+      "mode": "load",
+      "share": 1,
+      "minReplicas": 2
+     },
+     "from": [
+      {
+       "layer": "waf",
+       "type": "traffic",
+       "wire": "all"
+      },
+      {
+       "layer": "gslb",
+       "type": "traffic",
+       "wire": "all",
+       "unless": "waf"
+      }
+     ]
+    },
+    {
+     "id": "app",
+     "name": {
+      "ru": "Приложение",
+      "en": "Application"
+     },
+     "kind": "kubernetes",
+     "alternatives": [
+      "vm_pool"
+     ],
+     "scope": "site",
+     "props": {
+      "vcpu": 1,
+      "ramGb": 2,
+      "clusterName": "main"
+     },
+     "sizing": {
+      "mode": "load",
+      "share": 1,
+      "minReplicas": 2,
+      "hpaMinRatio": 0.75,
+      "hpaMaxRatio": 3
+     },
+     "from": [
+      {
+       "layer": "ingress"
+      },
+      {
+       "layer": "monitoring",
+       "type": "control",
+       "wire": "each_target"
+      },
+      {
+       "layer": "gitops",
+       "type": "control",
+       "wire": "each_target",
+       "props": {
+        "tls": true
+       }
+      }
+     ]
+    },
+    {
+     "id": "dcs",
+     "name": {
+      "ru": "Консенсус (DCS)",
+      "en": "Consensus (DCS)"
+     },
+     "kind": "etcd",
+     "scope": "cluster",
+     "optional": true,
+     "default": true,
+     "props": {
+      "vcpu": 2,
+      "ramGb": 4,
+      "diskGb": 50
+     }
+    },
+    {
+     "id": "db",
+     "name": {
+      "ru": "База данных",
+      "en": "Database"
+     },
+     "kind": "postgresql",
+     "scope": "cluster",
+     "optional": true,
+     "default": true,
+     "props": {
+      "version": "16",
+      "vcpu": 16,
+      "ramGb": 64,
+      "diskGb": 1000,
+      "storageClass": "nvme",
+      "failoverSeconds": 30,
+      "connectionPooler": true,
+      "encryptionAtRest": true,
+      "failover": "auto"
+     },
+     "copies": {
+      "min": 2,
+      "max": 5
+     },
+     "dcs": "dcs",
+     "from": [
+      {
+       "layer": "app",
+       "type": "traffic",
+       "props": {
+        "fanout": 0.3,
+        "fanoutColdCache": 0.8,
+        "tls": true
+       }
+      }
+     ]
+    },
+    {
+     "id": "cache",
+     "name": {
+      "ru": "Кэш",
+      "en": "Cache"
+     },
+     "kind": "redis",
+     "scope": "cluster",
+     "optional": true,
+     "default": true,
+     "props": {
+      "mode": "sentinel",
+      "vcpu": 4,
+      "ramGb": 32
+     },
+     "copies": {
+      "min": 2,
+      "max": 5
+     },
+     "from": [
+      {
+       "layer": "app",
+       "type": "traffic",
+       "props": {
+        "fanout": 1
+       }
+      }
+     ]
+    },
+    {
+     "id": "mq",
+     "name": {
+      "ru": "Очередь сообщений",
+      "en": "Message queue"
+     },
+     "kind": "kafka",
+     "scope": "cluster",
+     "optional": true,
+     "default": false,
+     "props": {
+      "replicationFactor": 3,
+      "minInsync": 2,
+      "vcpu": 4,
+      "ramGb": 16,
+      "diskGb": 500,
+      "storageClass": "nvme",
+      "encryptionAtRest": true
+     },
+     "from": [
+      {
+       "layer": "app",
+       "type": "traffic",
+       "props": {
+        "fanout": 0.2,
+        "tls": true
+       }
+      }
+     ]
+    },
+    {
+     "id": "objects",
+     "name": {
+      "ru": "Объектное хранилище",
+      "en": "Object storage"
+     },
+     "kind": "object_storage",
+     "scope": "cluster",
+     "optional": true,
+     "default": false,
+     "props": {
+      "replicas": 2,
+      "diskGb": 10000,
+      "encryptionAtRest": true
+     },
+     "from": [
+      {
+       "layer": "app",
+       "type": "traffic",
+       "props": {
+        "fanout": 0.1,
+        "tls": true
+       }
+      }
+     ]
+    },
+    {
+     "id": "search",
+     "name": {
+      "ru": "Поиск",
+      "en": "Search"
+     },
+     "kind": "opensearch",
+     "scope": "cluster",
+     "optional": true,
+     "default": false,
+     "props": {
+      "minInsync": 2,
+      "vcpu": 8,
+      "ramGb": 32,
+      "diskGb": 1000,
+      "encryptionAtRest": true
+     },
+     "from": [
+      {
+       "layer": "app",
+       "type": "traffic",
+       "props": {
+        "fanout": 0.1,
+        "tls": true
+       }
+      }
+     ]
+    },
+    {
+     "id": "analytics",
+     "name": {
+      "ru": "Аналитика",
+      "en": "Analytics"
+     },
+     "kind": "clickhouse",
+     "scope": "cluster",
+     "optional": true,
+     "default": false,
+     "props": {
+      "minInsync": 2,
+      "vcpu": 16,
+      "ramGb": 64,
+      "diskGb": 4000,
+      "storageClass": "nvme",
+      "encryptionAtRest": true
+     },
+     "from": [
+      {
+       "layer": "app",
+       "type": "control"
+      }
+     ]
+    },
+    {
+     "id": "secrets",
+     "name": {
+      "ru": "Секреты",
+      "en": "Secrets"
+     },
+     "kind": "vault",
+     "scope": "cluster",
+     "optional": true,
+     "default": true,
+     "props": {
+      "vcpu": 2,
+      "ramGb": 4,
+      "diskGb": 50,
+      "encryptionAtRest": true
+     },
+     "copies": {
+      "min": 2,
+      "max": 3
+     },
+     "from": [
+      {
+       "layer": "app",
+       "type": "control",
+       "label": {
+        "ru": "секреты",
+        "en": "secrets"
+       }
+      }
+     ]
+    },
+    {
+     "id": "monitoring",
+     "name": {
+      "ru": "Мониторинг",
+      "en": "Monitoring"
+     },
+     "kind": "monitoring",
+     "scope": "site",
+     "optional": true,
+     "default": true,
+     "props": {
+      "replicas": 2,
+      "vcpu": 2,
+      "ramGb": 8,
+      "diskGb": 200
+     }
+    },
+    {
+     "id": "gitops",
+     "name": {
+      "ru": "GitOps",
+      "en": "GitOps"
+     },
+     "kind": "gitops",
+     "scope": "single",
+     "place": "witness",
+     "optional": true,
+     "default": true,
+     "props": {
+      "replicas": 2,
+      "vcpu": 2,
+      "ramGb": 4
+     }
+    },
+    {
+     "id": "backup",
+     "name": {
+      "ru": "Резервные копии",
+      "en": "Backups"
+     },
+     "kind": "backup_storage",
+     "scope": "single",
+     "place": "offsite",
+     "optional": true,
+     "default": true,
+     "props": {
+      "immutable": true,
+      "retentionDays": 30,
+      "backupIntervalSeconds": 300,
+      "restoreSeconds": 7200,
+      "restoreTestedDays": 30,
+      "encryptionAtRest": true,
+      "diskGb": 20000
+     },
+     "from": [
+      {
+       "layer": "db",
+       "type": "backup",
+       "props": {
+        "intervalSeconds": 300,
+        "tls": true
+       }
+      },
+      {
+       "layer": "secrets",
+       "type": "backup",
+       "props": {
+        "intervalSeconds": 3600,
+        "tls": true
+       }
+      },
+      {
+       "layer": "objects",
+       "type": "backup",
+       "props": {
+        "intervalSeconds": 3600,
+        "tls": true
+       }
+      },
+      {
+       "layer": "analytics",
+       "type": "backup",
+       "props": {
+        "intervalSeconds": 3600,
+        "tls": true
+       }
+      },
+      {
+       "layer": "search",
+       "type": "backup",
+       "props": {
+        "intervalSeconds": 3600,
+        "tls": true
+       }
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "patterns": [
+  {
+   "id": "single-dc",
+   "name": {
+    "ru": "Один ЦОД, несколько стоек",
+    "en": "One data center, several racks"
+   },
+   "description": {
+    "ru": "Всё в одном ЦОД; стойки — домены отказа. Переживает отказ стойки, а потерю ЦОДа — только восстановлением из внешней копии.",
+    "en": "Everything in one data center; racks are the failure domains. Survives a rack failure; losing the data center is a restore from an off-site copy."
+   },
+   "badge": "1 ЦОД",
+   "enabled": true,
+   "order": 0,
+   "minSites": 1,
+   "maxSites": 1,
+   "defaultSites": 1,
+   "siteType": "dc",
+   "regions": {
+    "mode": "single",
+    "default": 1,
+    "min": 1,
+    "max": 1
+   },
+   "racks": {
+    "default": 3,
+    "min": 2,
+    "max": 6
+   },
+   "tolerance": "rack",
+   "siteFailures": {
+    "mode": "fixed",
+    "value": 0,
+    "max": 0
+   },
+   "witness": false,
+   "offsiteBackupSite": true,
+   "syncWithinGeo": true,
+   "requirements": {
+    "rpsPeak": 3000,
+    "growthPercent": 30,
+    "rtoSeconds": 14400,
+    "rpoSeconds": 300,
+    "availabilitySlo": 99.9
+   },
+   "stack": "web-platform",
+   "pros": [
+    {
+     "ru": "Самый дешёвый и простой",
+     "en": "The cheapest and simplest"
+    },
+    {
+     "ru": "Низкие задержки между узлами",
+     "en": "Low latency between nodes"
+    }
+   ],
+   "cons": [
+    {
+     "ru": "Потеря ЦОДа = простой до восстановления из копии",
+     "en": "Losing the data center means downtime until a restore"
+    },
+    {
+     "ru": "Общие питание, сеть и здание",
+     "en": "Shared power, network and building"
+    }
+   ]
+  },
+  {
+   "id": "two-sites",
+   "name": {
+    "ru": "Два ЦОД + арбитр",
+    "en": "Two sites + arbiter"
+   },
+   "description": {
+    "ru": "Два рабочих ЦОД active/active в одном городе и арбитр кворума на третьей площадке. Переживает потерю любого ЦОД и разрыв канала без split-brain.",
+    "en": "Two active/active data centers in one metro area and a quorum arbiter on a third site. Survives the loss of either data center and a link cut without split-brain."
+   },
+   "badge": "2 + арбитр",
+   "enabled": true,
+   "order": 1,
+   "minSites": 2,
+   "maxSites": 2,
+   "defaultSites": 2,
+   "siteType": "dc",
+   "regions": {
+    "mode": "single",
+    "default": 1,
+    "min": 1,
+    "max": 1
+   },
+   "racks": {
+    "default": 1,
+    "min": 1,
+    "max": 4
+   },
+   "tolerance": "site",
+   "siteFailures": {
+    "mode": "fixed",
+    "value": 1,
+    "max": 1
+   },
+   "witness": true,
+   "syncWithinGeo": true,
+   "requirements": {
+    "rpsPeak": 5000,
+    "growthPercent": 30,
+    "rtoSeconds": 900,
+    "rpoSeconds": 0,
+    "availabilitySlo": 99.95
+   },
+   "stack": "web-platform",
+   "pros": [
+    {
+     "ru": "RPO = 0 благодаря синхронной реплике",
+     "en": "RPO = 0 thanks to the synchronous replica"
+    },
+    {
+     "ru": "Каждая площадка тянет всю нагрузку",
+     "en": "Either site carries the full load"
+    }
+   ],
+   "cons": [
+    {
+     "ru": "Нужна третья точка для арбитра",
+     "en": "A third location is needed for the arbiter"
+    },
+    {
+     "ru": "Двойная мощность",
+     "en": "Double the capacity"
+    }
+   ]
+  },
+  {
+   "id": "n-sites",
+   "name": {
+    "ru": "N площадок, кворум большинством",
+    "en": "N sites, majority quorum"
+   },
+   "description": {
+    "ru": "Три и более площадок одного метро или региона. Данные и кворум на k+1 площадках — переживает одновременную потерю нескольких площадок.",
+    "en": "Three or more sites of one metro area or region. Data and quorum on k+1 sites – survives losing several sites at the same time."
+   },
+   "badge": "3…20",
+   "enabled": true,
+   "order": 2,
+   "minSites": 3,
+   "maxSites": 20,
+   "defaultSites": 5,
+   "siteType": "dc",
+   "regions": {
+    "mode": "single",
+    "default": 1,
+    "min": 1,
+    "max": 1
+   },
+   "racks": {
+    "default": 1,
+    "min": 1,
+    "max": 3
+   },
+   "tolerance": "site",
+   "siteFailures": {
+    "mode": "auto",
+    "value": 1,
+    "max": 2
+   },
+   "witness": true,
+   "syncWithinGeo": true,
+   "requirements": {
+    "rpsPeak": 5000,
+    "growthPercent": 30,
+    "rtoSeconds": 300,
+    "rpoSeconds": 0,
+    "availabilitySlo": 99.99
+   },
+   "stack": "web-platform",
+   "pros": [
+    {
+     "ru": "Нагрузка делится на N площадок — запас дешевле",
+     "en": "Load is split over N sites – spare capacity is cheaper"
+    },
+    {
+     "ru": "Переживает k одновременных отказов",
+     "en": "Survives k simultaneous failures"
+    }
+   ],
+   "cons": [
+    {
+     "ru": "Больше узлов и связей",
+     "en": "More nodes and links"
+    },
+    {
+     "ru": "Синхронные реплики требуют малых задержек",
+     "en": "Synchronous replicas need low latency"
+    }
+   ]
+  },
+  {
+   "id": "multi-region",
+   "name": {
+    "ru": "Несколько регионов",
+    "en": "Several regions"
+   },
+   "description": {
+    "ru": "Площадки в нескольких регионах (disaster domains). Внутри региона — синхронно, между регионами — асинхронно; переживает потерю целого региона.",
+    "en": "Sites in several regions (disaster domains). Synchronous inside a region, asynchronous between regions; survives the loss of a whole region."
+   },
+   "badge": "регионы",
+   "enabled": true,
+   "order": 3,
+   "minSites": 2,
+   "maxSites": 20,
+   "defaultSites": 4,
+   "siteType": "dc",
+   "regions": {
+    "mode": "count",
+    "default": 2,
+    "min": 2,
+    "max": 6
+   },
+   "racks": {
+    "default": 1,
+    "min": 1,
+    "max": 3
+   },
+   "tolerance": "geo",
+   "siteFailures": {
+    "mode": "auto",
+    "value": 1,
+    "max": 2
+   },
+   "witness": true,
+   "syncWithinGeo": true,
+   "requirements": {
+    "rpsPeak": 5000,
+    "growthPercent": 30,
+    "rtoSeconds": 3600,
+    "rpoSeconds": 300,
+    "availabilitySlo": 99.95
+   },
+   "stack": "web-platform",
+   "pros": [
+    {
+     "ru": "Переживает катастрофу целого региона",
+     "en": "Survives a disaster of a whole region"
+    },
+    {
+     "ru": "Низкие задержки внутри региона",
+     "en": "Low latency inside a region"
+    }
+   ],
+   "cons": [
+    {
+     "ru": "Между регионами возможна потеря данных (async RPO)",
+     "en": "Data loss between regions is possible (async RPO)"
+    },
+    {
+     "ru": "Самое дорогое",
+     "en": "The most expensive"
+    }
+   ]
+  },
+  {
+   "id": "active-standby",
+   "name": {
+    "ru": "Основная площадка + резервная (pilot light)",
+    "en": "Active site + standby (pilot light)"
+   },
+   "description": {
+    "ru": "Основные площадки работают, последняя — резервная в другом регионе: минимум узлов, масштабируется при аварии. Дешевле полного active/active.",
+    "en": "The main sites work, the last one is a standby in another region: a minimum of nodes that scales out on a disaster. Cheaper than full active/active."
+   },
+   "badge": "DR",
+   "enabled": true,
+   "order": 4,
+   "minSites": 2,
+   "maxSites": 8,
+   "defaultSites": 3,
+   "siteType": "dc",
+   "regions": {
+    "mode": "count",
+    "default": 2,
+    "min": 2,
+    "max": 2
+   },
+   "racks": {
+    "default": 1,
+    "min": 1,
+    "max": 3
+   },
+   "tolerance": "geo",
+   "siteFailures": {
+    "mode": "fixed",
+    "value": 1,
+    "max": 1
+   },
+   "witness": true,
+   "standbySites": 1,
+   "syncWithinGeo": true,
+   "requirements": {
+    "rpsPeak": 3000,
+    "growthPercent": 30,
+    "rtoSeconds": 3600,
+    "rpoSeconds": 300,
+    "availabilitySlo": 99.9
+   },
+   "stack": "web-platform",
+   "pros": [
+    {
+     "ru": "Дешевле active/active",
+     "en": "Cheaper than active/active"
+    },
+    {
+     "ru": "Отдельный регион на случай катастрофы",
+     "en": "A separate region for disasters"
+    }
+   ],
+   "cons": [
+    {
+     "ru": "Переключение занимает время (масштабирование)",
+     "en": "Failover takes time (scale-out)"
+    },
+    {
+     "ru": "Резервная площадка требует регулярной проверки",
+     "en": "The standby needs regular drills"
+    }
+   ]
+  }
+ ]
+}

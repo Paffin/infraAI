@@ -66,6 +66,74 @@
   }
  },
  {
+  "id": "HA-RACK-02",
+  "category": "ha",
+  "check": "survive_site",
+  "enabled": true,
+  "severity": "critical",
+  "params": {
+   "domain": "rack"
+  },
+  "title": {
+   "ru": "Сервис переживает потерю стойки",
+   "en": "Service survives a rack loss"
+  },
+  "message": {
+   "ru": "При потере стойки «{zone}» сервис остановится. Недоступно: {reason}.",
+   "en": "If rack “{zone}” is lost the service stops. Unavailable: {reason}."
+  },
+  "ok": {
+   "ru": "Сервис переживает потерю любой стойки",
+   "en": "Service survives the loss of any rack"
+  },
+  "rationale": {
+   "ru": "Движок «роняет» каждую стойку и проверяет, обслуживаются ли пользователи.",
+   "en": "The engine drops each rack and checks whether users are still served."
+  },
+  "fixLabels": {
+   "add_member": {
+    "ru": "Добавить «{unit}» в стойку {zone}",
+    "en": "Add “{unit}” in rack {zone}"
+   }
+  }
+ },
+ {
+  "id": "HA-SITE-02",
+  "category": "ha",
+  "check": "survive_sites",
+  "enabled": true,
+  "severity": "critical",
+  "params": {
+   "excludeTraits": [
+    "mq",
+    "secrets",
+    "cache"
+   ],
+   "maxFindings": 8,
+   "capacity": true
+  },
+  "title": {
+   "ru": "Сервис переживает одновременную потерю нескольких площадок",
+   "en": "Service survives losing several sites at once"
+  },
+  "message": {
+   "ru": "Если одновременно потеряны {count} площадок ({zones}), не выполняются требования: {problems}. Недоступно: {reason}. RTO {seconds|dur}, RPO {rpo|dur}, потеряны данные: {lost}. Остальных сочетаний с проблемами: {more}.",
+   "en": "If {count} sites are lost at once ({zones}) the requirements are violated: {problems}. Unavailable: {reason}. RTO {seconds|dur}, RPO {rpo|dur}, lost data: {lost}. Other bad combinations: {more}."
+  },
+  "ok": {
+   "ru": "Сервис переживает одновременную потерю заданного числа площадок",
+   "en": "Service survives the loss of the required number of sites at once"
+  },
+  "rationale": {
+   "ru": "Требование «сколько площадок может отказать одновременно» проверяется перебором всех сочетаний (при большом числе площадок — равномерной выборкой, об этом сказано в отчёте). Для k отказов данные и кворум должны быть минимум на k+1 площадках.",
+   "en": "The \"how many sites may fail at once\" requirement is verified over every combination of sites (an even sample when there are many sites; the report says so). To survive k failures data and quorum need at least k+1 sites."
+  },
+  "remediation": {
+   "ru": "Добавьте площадки и разместите сервисы минимум на k+1 из них; кворум — так, чтобы оставшиеся площадки удерживали большинство голосов.",
+   "en": "Add sites and place services on at least k+1 of them; place the quorum so that the surviving sites keep the majority of votes."
+  }
+ },
+ {
   "id": "HA-RTO-01",
   "category": "dr",
   "check": "rto",
@@ -236,6 +304,60 @@
   }
  },
  {
+  "id": "DR-NET-03",
+  "category": "dr",
+  "check": "partition_safety",
+  "enabled": true,
+  "severity": "critical",
+  "params": {
+   "mode": "split_brain",
+   "scope": "isolate"
+  },
+  "title": {
+   "ru": "Изоляция площадки не вызывает split-brain",
+   "en": "An isolated site does not cause split-brain"
+  },
+  "message": {
+   "ru": "Если площадки «{link}» отрезаны от сети, но продолжают работать, в «{unit}» возможны два писателя (split-brain): данные разойдутся.",
+   "en": "If “{link}” are cut off the network but keep running, “{unit}” may get two writers (split-brain): data will diverge."
+  },
+  "ok": {
+   "ru": "Изоляция любой площадки не вызывает split-brain",
+   "en": "No isolated site causes split-brain"
+  },
+  "rationale": {
+   "ru": "Изоляция площадки — не обрыв одного канала: площадка жива, но не видит остальные (отказ внешнего канала, ошибка маршрутизации). Меньшинство кворума обязано остановиться, большинство — продолжить; без арбитра обе стороны становятся primary.",
+   "en": "An isolated site is not one cut link: the site is alive but sees none of the others (uplink failure, routing mistake). The minority of a quorum must stop and the majority continue; without an arbiter both sides become primary."
+  }
+ },
+ {
+  "id": "DR-NET-04",
+  "category": "dr",
+  "check": "partition_safety",
+  "enabled": true,
+  "severity": "risk",
+  "params": {
+   "mode": "unavailable",
+   "scope": "isolate"
+  },
+  "title": {
+   "ru": "Сервис переживает изоляцию площадки",
+   "en": "Service survives an isolated site"
+  },
+  "message": {
+   "ru": "Если площадки «{link}» отрезаны от сети, сервис остановится: {reason}.",
+   "en": "If “{link}” are cut off the network the service stops: {reason}."
+  },
+  "ok": {
+   "ru": "Сервис переживает изоляцию любой площадки",
+   "en": "Service survives the isolation of any site"
+  },
+  "rationale": {
+   "ru": "Для трёх и более площадок один разрыв канала почти ничего не показывает; потеря связи площадки со всеми остальными — реальный отказ, который нужно пережить.",
+   "en": "With three or more sites a single cut link shows little; a site losing contact with all the others is the real failure to survive."
+  }
+ },
+ {
   "id": "HA-LB-01",
   "category": "ha",
   "check": "min_instances",
@@ -316,7 +438,8 @@
    "trait": "backup-required",
    "minSites": 2,
    "requireTolerance": "site",
-   "acceptReplication": true
+   "acceptReplication": true,
+   "scaleWithSiteFailures": true
   },
   "title": {
    "ru": "Хранилища размещены минимум на двух площадках",
@@ -346,15 +469,16 @@
   "params": {
    "trait": "workload",
    "minSites": 2,
-   "requireTolerance": "site"
+   "requireTolerance": "site",
+   "scaleWithSiteFailures": true
   },
   "title": {
    "ru": "Приложения размещены минимум на двух площадках",
    "en": "Workloads span at least two sites"
   },
   "message": {
-   "ru": "«{unit}» размещён на {sites} площадке.",
-   "en": "“{unit}” lives on {sites} site."
+   "ru": "«{unit}» размещён на {sites} {sites|plural:площадке,площадках,площадках}, а нужно минимум {min}.",
+   "en": "“{unit}” lives on {sites} {sites|plural:site,sites}, at least {min} are needed."
   },
   "ok": {
    "ru": "Приложения размещены минимум на двух площадках",
@@ -364,6 +488,52 @@
    "add_member": {
     "ru": "Добавить «{unit}» на площадку {zone}",
     "en": "Add “{unit}” on {zone}"
+   }
+  }
+ },
+ {
+  "id": "HA-RACK-01",
+  "category": "ha",
+  "check": "spread_sites",
+  "enabled": true,
+  "severity": "critical",
+  "params": {
+   "anyTrait": [
+    "workload",
+    "datastore",
+    "balancer"
+   ],
+   "excludeTraits": [
+    "entry"
+   ],
+   "minSites": 2,
+   "domain": "rack",
+   "requireTolerance": "rack"
+  },
+  "title": {
+   "ru": "Сервисы размещены минимум в двух стойках",
+   "en": "Services span at least two racks"
+  },
+  "message": {
+   "ru": "«{unit}» занимает {sites} {sites|plural:стойку,стойки,стоек} из {min} необходимых: потеря одной стойки остановит его.",
+   "en": "“{unit}” occupies {sites} {sites|plural:rack,racks} of the {min} needed: losing one rack takes it down."
+  },
+  "ok": {
+   "ru": "Сервисы размещены минимум в двух стойках",
+   "en": "Services span at least two racks"
+  },
+  "rationale": {
+   "ru": "Стойка — общий домен отказа: питание, ToR-коммутатор, охлаждение. Узлы одного кластера в одной стойке падают вместе. Работает, когда нужная устойчивость — «отказ стойки» (один ЦОД).",
+   "en": "A rack is a shared failure domain: power, ToR switch, cooling. Nodes of one cluster in one rack fail together. Applies when the required tolerance is rack failure (a single data center)."
+  },
+  "remediation": {
+   "ru": "Создайте стойки (зоны типа «Стойка») внутри площадки и разместите экземпляры в разных — это делает мастер размещения.",
+   "en": "Create racks (zones of type Rack) inside the site and spread the instances across them – the placement wizard does it."
+  },
+  "fixLabels": {
+   "add_member": {
+    "ru": "Добавить «{unit}» в стойку {zone}",
+    "en": "Add “{unit}” in rack {zone}"
    }
   }
  },
@@ -402,24 +572,59 @@
   "enabled": true,
   "severity": "critical",
   "params": {
-   "mode": "survive_site"
+   "mode": "survive_site",
+   "requireTolerance": "site"
   },
   "title": {
-   "ru": "Кворум переживает потерю площадки",
-   "en": "Quorum survives a site loss"
+   "ru": "Кворум переживает потерю площадок",
+   "en": "Quorum survives site losses"
   },
   "message": {
    "ru": "Потеря «{zone}» лишает «{unit}» кворума: остаётся {votes} из {total} голосов.",
    "en": "Losing “{zone}” breaks the quorum of “{unit}”: {votes} of {total} votes remain."
   },
   "ok": {
-   "ru": "Кворум переживает потерю любой площадки",
-   "en": "Quorum survives the loss of any site"
+   "ru": "Кворум переживает потерю заданного числа площадок",
+   "en": "Quorum survives the loss of the required number of sites"
   },
   "fixLabels": {
    "add_witness": {
     "ru": "Добавить арбитра «{unit}» на площадку {zone}",
     "en": "Add an arbiter for “{unit}” on {zone}"
+   }
+  }
+ },
+ {
+  "id": "HA-QRM-03",
+  "category": "ha",
+  "check": "quorum_voters",
+  "enabled": true,
+  "severity": "critical",
+  "params": {
+   "mode": "survive_site",
+   "domain": "rack",
+   "requireTolerance": "rack"
+  },
+  "title": {
+   "ru": "Кворум переживает потерю стойки",
+   "en": "Quorum survives a rack loss"
+  },
+  "message": {
+   "ru": "Потеря стойки «{zone}» лишает «{unit}» кворума: остаётся {votes} из {total} голосов.",
+   "en": "Losing rack “{zone}” breaks the quorum of “{unit}”: {votes} of {total} votes remain."
+  },
+  "ok": {
+   "ru": "Кворум переживает потерю любой стойки",
+   "en": "Quorum survives the loss of any rack"
+  },
+  "rationale": {
+   "ru": "Голоса кластера должны лежать в разных стойках так, чтобы потеря любой из них оставляла большинство.",
+   "en": "Votes must sit in different racks so that losing any one of them leaves a majority."
+  },
+  "fixLabels": {
+   "add_witness": {
+    "ru": "Добавить арбитра «{unit}» в стойку {zone}",
+    "en": "Add an arbiter for “{unit}” in rack {zone}"
    }
   }
  },
@@ -670,7 +875,8 @@
   "enabled": true,
   "severity": "risk",
   "params": {
-   "mode": "replication"
+   "mode": "replication",
+   "requireTolerance": "site"
   },
   "title": {
    "ru": "Кэш реплицирован между площадками",

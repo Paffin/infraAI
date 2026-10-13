@@ -344,6 +344,48 @@ impl<'a> Index<'a> {
         s
     }
 
+    /// Failure domain of node `ni` at `level`: the nearest zone of that level in its chain. Rack level falls back to
+    /// the site (a node placed straight on a site is the only thing that site says about its rack); site and geo
+    /// level follow `site_of`. `None` for global nodes.
+    pub fn domain_of(&self, ni: usize, level: ZoneLevel) -> Option<usize> {
+        match level {
+            ZoneLevel::Site => self.site_of[ni],
+            ZoneLevel::Geo => self.zone_chain[ni].iter().copied().find(|&z| self.zone_level(z) == ZoneLevel::Geo).or(self.site_of[ni]),
+            _ => self.zone_chain[ni].iter().copied().find(|&z| self.zone_level(z) == level).or(self.site_of[ni]),
+        }
+    }
+
+    /// Distinct failure domains of `level` hosting members of a unit.
+    pub fn unit_domains(&self, u: usize, level: ZoneLevel) -> Vec<usize> {
+        let mut s: Vec<usize> = self.units[u].members.iter().filter_map(|&m| self.domain_of(m, level)).collect();
+        s.sort_unstable();
+        s.dedup();
+        s
+    }
+
+    /// The site a zone belongs to: the nearest Site-level zone up its parent chain (the zone itself if it is one), else
+    /// the nearest Geo-level zone, else the zone.
+    pub fn zone_site(&self, zi: usize) -> usize {
+        let mut chain = vec![zi];
+        let mut cur = zi;
+        while let Some(p) = self.arch.zones[cur].parent_id.as_deref().and_then(|p| self.zone_ix.get(p).copied()) {
+            if chain.contains(&p) {
+                break;
+            }
+            chain.push(p);
+            cur = p;
+        }
+        chain.iter().copied().find(|&c| self.zone_level(c) == ZoneLevel::Site).or_else(|| chain.iter().copied().find(|&c| self.zone_level(c) == ZoneLevel::Geo)).unwrap_or(zi)
+    }
+
+    /// Rack-level zones that host at least one node, in document order.
+    pub fn rack_zones(&self) -> Vec<usize> {
+        let mut s: Vec<usize> = self.zone_chain.iter().flat_map(|c| c.iter().copied()).filter(|&z| self.zone_level(z) == ZoneLevel::Rack).collect();
+        s.sort_unstable();
+        s.dedup();
+        s
+    }
+
     /// Distinct sites hosting members of a unit.
     pub fn unit_sites(&self, u: usize) -> Vec<usize> {
         let mut s: Vec<usize> = self.units[u].members.iter().filter_map(|&m| self.site_of[m]).collect();

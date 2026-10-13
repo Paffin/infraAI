@@ -10,7 +10,7 @@ use crate::cost::{self, CostReport};
 use crate::graph::Index;
 use crate::model::{validate, Architecture, Issue, ValidationLimits};
 use crate::ops::Op;
-use crate::sim::{simulate, standard_scenarios, RecoveryKind, Scenario, ServiceState, SimResult, UnitLoad};
+use crate::sim::{scenario_set, simulate, RecoveryKind, Scenario, ScenarioSet, ServiceState, SimResult, UnitLoad};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use std::cell::RefCell;
@@ -167,6 +167,24 @@ pub struct Score {
     pub breakdown: Vec<ScoreItem>,
 }
 
+/// How much of the scenario space an evaluation looked at. With many sites the combinations explode, so the engine
+/// caps them (settings `scenarios.*`) – and says so instead of pretending to be exhaustive.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ScenarioStats {
+    /// Scenarios the architecture yields before the caps.
+    pub generated: usize,
+    /// Scenarios listed in `scenarios` (instance and node losses are simulated by the checks, not listed).
+    pub listed: usize,
+    /// Some scenarios or site combinations were left out (cap on the total, sampled combinations).
+    pub truncated: bool,
+    /// Failure domains the scenarios are built on.
+    pub sites: usize,
+    pub racks: usize,
+    /// Sites that may fail at the same time (requirement, within the configured bound).
+    pub site_failures: usize,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Report {
@@ -177,6 +195,7 @@ pub struct Report {
     pub findings: Vec<Finding>,
     pub objectives: Vec<Objective>,
     pub scenarios: Vec<ScenarioSummary>,
+    pub scenario_stats: ScenarioStats,
     pub baseline_loads: Vec<UnitLoad>,
     /// Per-service capacity plan (empty without a declared peak load).
     pub capacity: Vec<CapacityRow>,
@@ -225,11 +244,17 @@ pub struct Ctx<'a> {
     pub ix: Index<'a>,
     pub cfg: &'a EngineConfig,
     cache: RefCell<HashMap<String, Rc<SimResult>>>,
+    /// A check looked at a sample of the site combinations instead of all of them.
+    sampled: std::cell::Cell<bool>,
 }
 
 impl<'a> Ctx<'a> {
     pub fn new(arch: &'a Architecture, cfg: &'a EngineConfig) -> Self {
-        Ctx { ix: Index::build(arch, &cfg.catalog, &cfg.settings), cfg, cache: RefCell::new(HashMap::new()) }
+        Ctx { ix: Index::build(arch, &cfg.catalog, &cfg.settings), cfg, cache: RefCell::new(HashMap::new()), sampled: std::cell::Cell::new(false) }
+    }
+    /// Remember that a check sampled the combinations (reported as `scenarioStats.truncated`).
+    pub fn mark_sampled(&self) {
+        self.sampled.set(true);
     }
     pub fn sim(&self, sc: &Scenario) -> Rc<SimResult> {
         let key = sc.key();
@@ -303,17 +328,26 @@ pub fn evaluate(arch: &Architecture, cfg: &EngineConfig, waivers: &[Waiver]) -> 
     counts.accepted = findings.iter().filter(|f| f.accepted.is_some()).count();
 
     let score = compute_score(cfg, &rules);
-    let scenarios = scenario_summaries(&ctx);
+    let set = scenario_set(&ctx.ix);
+    let scenarios = scenario_summaries(&ctx, &set);
     let baseline = ctx.sim(&Scenario::None);
     let objectives = objectives(&ctx, &findings);
     let units = ctx.ix.units.iter().map(|u| (u.key.clone(), u.name.clone())).collect();
     let cost = cost::estimate(&ctx.ix);
-    let capacity = capacity_rows(&ctx);
+    let capacity = capacity_rows(&ctx, &set);
+    let scenario_stats = ScenarioStats {
+        generated: set.generated,
+        listed: scenarios.len(),
+        truncated: set.truncated || ctx.sampled.get(),
+        sites: ctx.ix.sites().len(),
+        racks: ctx.ix.rack_zones().len(),
+        site_failures: checks::site_failures(&ctx),
+    };
 
-    Report { engine_version: ENGINE_VERSION, issues, counts, rules, findings, objectives, scenarios, baseline_loads: baseline.unit_loads.clone(), capacity, score, cost, units }
+    Report { engine_version: ENGINE_VERSION, issues, counts, rules, findings, objectives, scenarios, scenario_stats, baseline_loads: baseline.unit_loads.clone(), capacity, score, cost, units }
 }
 
-fn capacity_rows(ctx: &Ctx<'_>) -> Vec<CapacityRow> {
+fn capacity_rows(ctx: &Ctx<'_>, set: &ScenarioSet) -> Vec<CapacityRow> {
     let ix = &ctx.ix;
     let baseline = ctx.sim(&Scenario::None);
     if baseline.unit_loads.is_empty() {
@@ -323,7 +357,7 @@ fn capacity_rows(ctx: &Ctx<'_>) -> Vec<CapacityRow> {
     let growth = req.growth_percent.unwrap_or(0.0) / 100.0;
     let headroom = ctx.cfg.settings.assumptions.headroom_percent / 100.0;
     let model_traits = checks::capacity_model_traits(ctx.cfg.rules.iter().find(|r| r.check == CheckType::Capacity && r.enabled));
-    let scenarios: Vec<_> = standard_scenarios(ix).into_iter().filter(|sc| !matches!(sc, Scenario::Instance { .. } | Scenario::Node { .. } | Scenario::None)).collect();
+    let scenarios: Vec<_> = set.scenarios.iter().filter(|sc| !matches!(sc, Scenario::Instance { .. } | Scenario::Node { .. } | Scenario::None)).cloned().collect();
     let results: Vec<_> = scenarios.iter().map(|sc| ctx.sim(sc)).collect();
     let mut rows = vec![];
     for l in &baseline.unit_loads {
@@ -407,12 +441,12 @@ fn compute_score(cfg: &EngineConfig, rules: &[RuleResult]) -> Score {
     Score { value: (100.0 - penalty).clamp(0.0, 100.0).round(), penalty, coverage: (coverage * 1000.0).round() / 1000.0, breakdown }
 }
 
-fn scenario_summaries(ctx: &Ctx<'_>) -> Vec<ScenarioSummary> {
-    standard_scenarios(&ctx.ix)
-        .into_iter()
+fn scenario_summaries(ctx: &Ctx<'_>, set: &ScenarioSet) -> Vec<ScenarioSummary> {
+    set.scenarios
+        .iter()
         .filter(|sc| !matches!(sc, Scenario::Instance { .. } | Scenario::Node { .. }))
         .map(|sc| {
-            let r = ctx.sim(&sc);
+            let r = ctx.sim(sc);
             summarize(&r)
         })
         .collect()
@@ -545,6 +579,14 @@ fn objectives(ctx: &Ctx<'_>, findings: &[Finding]) -> Vec<Objective> {
         actual: Some(json!(survived)),
         assumed: false,
     });
+
+    // Several sites at once
+    let k = checks::site_failures(ctx);
+    if k >= 2 && !site_sc.is_empty() {
+        let sites = ctx.ix.sites().len();
+        let survived = sites > k && checks::failing_combinations(ctx, k, &[], false).0.iter().all(|v| !v.problems.iter().any(|p| matches!(*p, "down" | "data_lost")));
+        out.push(Objective { id: "sites_loss".into(), status: if survived { Status::Ok } else { Status::Critical }, required: Some(json!(k)), actual: Some(json!(survived)), assumed: false });
+    }
 
     // SPOF
     let spof = findings.iter().filter(|f| f.rule_id_check_is(ctx, CheckType::Spof) && f.accepted.is_none()).count();

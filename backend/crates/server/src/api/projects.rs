@@ -88,6 +88,9 @@ pub struct CreateProject {
     pub template_id: Option<String>,
     #[serde(default)]
     pub architecture: Option<Value>,
+    /// Generate the architecture from a placement pattern (see `/api/placement/preview`).
+    #[serde(default)]
+    pub placement: Option<engine::placement::PlacementRequest>,
     #[serde(default)]
     pub lang: Option<String>,
 }
@@ -103,14 +106,24 @@ pub async fn create(State(state): State<AppState>, user: AuthUser, ConnectInfo(a
     if count >= cfg.settings.num("limits.maxProjectsPerUser") as i64 {
         return Err(ApiError::conflict("project_limit", "project limit reached"));
     }
+    let lang = lang_of(&cfg, b.lang.as_deref());
+    let from_placement = b.placement.is_some();
     let arch: Architecture = if let Some(t) = &b.template_id {
         cfg.templates.iter().find(|x| &x.id == t).ok_or_else(|| ApiError::not_found("template not found"))?.architecture.clone()
+    } else if let Some(mut req) = b.placement {
+        req.lang = Some(lang.clone());
+        req.max_nodes = Some(crate::api_support::limits(&cfg).max_nodes);
+        let ec = cfg.engine_config(&lang);
+        tokio::task::spawn_blocking(move || engine::placement::generate(&ec, &ec.placement, &req))
+            .await
+            .map_err(ApiError::internal)?
+            .map_err(|e| ApiError::bad_request("placement_failed", e.message.clone()).with_details(json!({"code": e.code})))?
+            .architecture
     } else if let Some(a) = b.architecture {
         parse_valid_arch(&cfg, a)?
     } else {
         Architecture::default()
     };
-    let lang = lang_of(&cfg, b.lang.as_deref());
     let report = run_evaluate(cfg.clone(), arch.clone(), vec![], lang).await?;
     let summary = serde_json::to_value(summarize(&report)).map_err(ApiError::internal)?;
     let mut tx = state.pool.begin().await?;
@@ -123,7 +136,13 @@ pub async fn create(State(state): State<AppState>, user: AuthUser, ConnectInfo(a
         .await?;
     sqlx::query("insert into versions (project_id, n, message, author_id, author, architecture, summary, engine_version) values ($1, 1, $2, $3, $4, $5, $6, $7)")
         .bind(id)
-        .bind(if b.template_id.is_some() { "Created from template" } else { "Created" })
+        .bind(if b.template_id.is_some() {
+            "Created from template"
+        } else if from_placement {
+            "Created from a placement pattern"
+        } else {
+            "Created"
+        })
         .bind(user.id)
         .bind(&user.email)
         .bind(serde_json::to_value(&arch)?)

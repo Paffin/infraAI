@@ -381,6 +381,67 @@ async fn simulate_and_ops_preview() {
 }
 
 #[tokio::test]
+async fn placement_options_preview_compare_and_project_creation() {
+    let app = TestApp::new().await;
+    let c = app.login_admin().await;
+
+    let (s, o) = app.get(&c, "/api/placement/options").await;
+    assert_eq!(s, StatusCode::OK, "{o}");
+    let patterns = o["patterns"].as_array().unwrap();
+    assert!(patterns.iter().any(|p| p["id"] == "single-dc") && patterns.iter().any(|p| p["id"] == "n-sites"), "{o}");
+    let layers = o["stacks"][0]["layers"].as_array().unwrap();
+    assert!(layers.iter().any(|l| l["id"] == "db" && l["optional"] == true), "{o}");
+    assert_eq!(o["maxNodes"], 500);
+
+    // five sites: the engine judges the generated design, the response says what it survives
+    let (s, p) = app.post(&c, "/api/placement/preview", json!({"pattern": "n-sites", "sites": 5})).await;
+    assert_eq!(s, StatusCode::OK, "{p}");
+    assert_eq!(p["siteFailures"], 2);
+    assert_eq!(p["sites"].as_array().unwrap().len(), 5);
+    assert_eq!(p["report"]["counts"]["critical"], 0, "{}", p["report"]);
+    assert!(p["report"]["score"].as_f64().unwrap() >= 90.0);
+    assert!(p["report"]["objectives"].as_array().unwrap().iter().any(|o| o["id"] == "sites_loss" && o["status"] == "ok"));
+    assert_eq!(p["architecture"]["requirements"]["siteFailures"], 2);
+
+    // wrong numbers are refused with a code the UI translates
+    let (s, e) = app.post(&c, "/api/placement/preview", json!({"pattern": "two-sites", "sites": 7})).await;
+    assert_eq!(s, StatusCode::BAD_REQUEST, "{e}");
+    assert_eq!(e["error"]["details"]["code"], "sites_out_of_range");
+
+    // one request compares 1, 2, 3, 5 and 10 sites
+    let variants: Vec<Value> = [3, 4, 5, 7, 10].iter().map(|n| json!({"sites": n})).collect();
+    let (s, cmp) = app.post(&c, "/api/placement/compare", json!({"base": {"pattern": "n-sites"}, "variants": variants})).await;
+    assert_eq!(s, StatusCode::OK, "{cmp}");
+    let v = cmp["variants"].as_array().unwrap();
+    assert_eq!(v.len(), 5);
+    assert!(v.iter().all(|x| x["ok"] == true), "{cmp}");
+    let cost = |i: usize| v[i]["report"]["cost"]["total"].as_f64().unwrap();
+    assert!(cost(4) > cost(0), "ten sites cost more than three");
+    let (s, e) = app.post(&c, "/api/placement/compare", json!({"base": {"pattern": "n-sites"}, "variants": []})).await;
+    assert_eq!(s, StatusCode::BAD_REQUEST, "{e}");
+
+    // a project is created straight from the request: the draft is the generated architecture, the first version is judged
+    let (s, created) = app.post(&c, "/api/projects", json!({"name": "Ten sites", "placement": {"pattern": "n-sites", "sites": 10}})).await;
+    assert_eq!(s, StatusCode::OK, "{created}");
+    let id = created["id"].as_str().unwrap();
+    let (_, got) = app.get(&c, &format!("/api/projects/{id}")).await;
+    // ten working sites and the arbiter site that gives an even number of locations a deciding vote
+    assert_eq!(got["architecture"]["zones"].as_array().unwrap().len(), 11);
+    let (_, versions) = app.get(&c, &format!("/api/projects/{id}/versions")).await;
+    assert_eq!(versions["versions"][0]["message"], "Created from a placement pattern", "{versions}");
+    let (s, e) = app.post(&c, "/api/projects", json!({"name": "Bad", "placement": {"pattern": "n-sites", "sites": 99}})).await;
+    assert_eq!(s, StatusCode::BAD_REQUEST, "{e}");
+
+    // viewers cannot create projects, but may look at previews
+    let viewer = app.create_user(&c, "viewer@test.local", "viewer").await;
+    let (s, _) = app.post(&viewer, "/api/placement/preview", json!({"pattern": "single-dc", "sites": 1})).await;
+    assert_eq!(s, StatusCode::OK);
+    let (s, _) = app.post(&viewer, "/api/projects", json!({"name": "No", "placement": {"pattern": "single-dc", "sites": 1}})).await;
+    assert_eq!(s, StatusCode::FORBIDDEN);
+    app.cleanup().await;
+}
+
+#[tokio::test]
 async fn diff_endpoint_compares_two_architectures_without_storing_anything() {
     let app = TestApp::new().await;
     let c = app.login_admin().await;

@@ -11,7 +11,7 @@ use engine::sim::{simulate, NodeState, RecoveryKind, Scenario, ServiceState};
 use serde_json::json;
 
 fn cfg() -> EngineConfig {
-    EngineConfig { catalog: defaults::catalog(), rules: defaults::rules(), settings: defaults::engine_settings(), iac: defaults::iac_templates(), lang: "ru".into() }
+    defaults::engine_config("ru")
 }
 
 fn template(id: &str) -> Architecture {

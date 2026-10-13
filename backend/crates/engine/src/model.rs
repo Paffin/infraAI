@@ -63,9 +63,14 @@ pub struct Requirements {
     pub availability_slo: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub budget_monthly: Option<f64>,
-    /// Largest failure the service must survive: `instance`, `site` (default) or `geo`.
+    /// Largest failure the service must survive: a level of `tolerance.levels` of the engine
+    /// settings (`instance`, `rack`, `site` (default), `geo`, …).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub failure_tolerance: Option<String>,
+    /// How many sites may be lost **at the same time** (1 = the default, one site). With five or more
+    /// sites a design is normally meant to survive two.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub site_failures: Option<u32>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub compliance: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

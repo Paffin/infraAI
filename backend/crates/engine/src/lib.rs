@@ -18,5 +18,6 @@ pub mod graph;
 pub mod iac;
 pub mod model;
 pub mod ops;
+pub mod placement;
 pub mod sim;
 pub mod text;

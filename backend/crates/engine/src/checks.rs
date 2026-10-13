@@ -114,25 +114,79 @@ pub fn tolerance(ctx: &Ctx<'_>) -> String {
     ctx.ix.arch.requirements.failure_tolerance.clone().filter(|s| !s.is_empty()).unwrap_or_else(|| ctx.cfg.settings.assumptions.default_failure_tolerance.clone())
 }
 
-fn tol_rank(s: &str) -> u8 {
-    match s {
-        "instance" => 0,
-        "geo" => 2,
-        _ => 1,
+fn tol_rank(ctx: &Ctx<'_>, id: &str) -> u32 {
+    ctx.cfg.settings.tolerance.rank(id)
+}
+
+/// Does the required tolerance include surviving the loss of a failure domain of `level`?
+fn tol_covers(ctx: &Ctx<'_>, level: ZoneLevel) -> bool {
+    ctx.cfg.settings.tolerance.covers(&tolerance(ctx), level)
+}
+
+/// How many sites may be lost at the same time (`requirements.siteFailures`), within the configured bound.
+pub fn site_failures(ctx: &Ctx<'_>) -> usize {
+    let max = ctx.cfg.settings.scenarios.max_site_failures.max(1);
+    (ctx.ix.arch.requirements.site_failures.unwrap_or(1) as usize).clamp(1, max)
+}
+
+/// Failure-domain level a rule works on (`domain` parameter, `site` unless stated).
+fn domain_level(rule: &Rule) -> ZoneLevel {
+    p_str(rule, "domain").and_then(|d| serde_json::from_value(Value::String(d)).ok()).unwrap_or(ZoneLevel::Site)
+}
+
+/// Is failure-domain `level` part of what the architecture is verified against? The required tolerance has to
+/// reach it. A level below the one asked for (racks when sites are required) only counts once the model actually
+/// has such zones – nobody asked for racks, so a design without any is not at fault.
+fn domain_applies(ctx: &Ctx<'_>, level: ZoneLevel) -> bool {
+    if !tol_covers(ctx, level) {
+        return false;
+    }
+    let tol = &ctx.cfg.settings.tolerance;
+    let asked = tol.rank(&tolerance(ctx));
+    match level {
+        ZoneLevel::Rack => !ctx.ix.rack_zones().is_empty() || tol.rank_of_domain(level) == Some(asked),
+        _ => true,
     }
 }
 
-/// Zone scenarios for every site that hosts at least one node (empty if the requirement is
-/// only to tolerate instance failures).
-pub fn site_scenarios(ctx: &Ctx<'_>) -> Vec<Scenario> {
-    if tol_rank(&tolerance(ctx)) == 0 {
+/// Zone scenarios for every failure domain of `level` that hosts at least one node – empty if the required
+/// tolerance does not reach that level.
+pub fn domain_scenarios(ctx: &Ctx<'_>, level: ZoneLevel) -> Vec<Scenario> {
+    if !domain_applies(ctx, level) {
         return vec![];
     }
-    ctx.ix.sites().into_iter().map(|s| Scenario::Zone { zone_id: ctx.ix.arch.zones[s].id.clone() }).collect()
+    let zones: Vec<usize> = match level {
+        ZoneLevel::Rack => ctx.ix.rack_zones(),
+        ZoneLevel::Site => ctx.ix.sites(),
+        _ => vec![],
+    };
+    zones.into_iter().map(|s| Scenario::Zone { zone_id: ctx.ix.arch.zones[s].id.clone() }).collect()
 }
 
-fn link_scenarios(ctx: &Ctx<'_>) -> Vec<Scenario> {
-    crate::sim::standard_scenarios(&ctx.ix).into_iter().filter(|s| matches!(s, Scenario::Link { .. })).collect()
+/// Every single-domain failure the required tolerance asks for: racks, then sites (empty if only instance failures
+/// have to be survived).
+pub fn site_scenarios(ctx: &Ctx<'_>) -> Vec<Scenario> {
+    let mut out = domain_scenarios(ctx, ZoneLevel::Rack);
+    for sc in domain_scenarios(ctx, ZoneLevel::Site) {
+        if !out.contains(&sc) {
+            out.push(sc);
+        }
+    }
+    out
+}
+
+/// Partition scenarios of the standard set: cut links, isolated sites or both (`scope` of the rule). Only as many
+/// sites are isolated together as the requirement lets fail at once.
+fn link_scenarios(ctx: &Ctx<'_>, scope: &str) -> Vec<Scenario> {
+    let k = site_failures(ctx);
+    crate::sim::standard_scenarios(&ctx.ix)
+        .into_iter()
+        .filter(|s| match s {
+            Scenario::Link { .. } => scope != "isolate",
+            Scenario::Isolate { zone_ids } => scope != "link" && zone_ids.len() <= k,
+            _ => false,
+        })
+        .collect()
 }
 
 /// One scenario per disaster domain: the multi-site `Geo` scenario, or – for a domain made of a
@@ -166,6 +220,10 @@ fn unit_matches(ctx: &Ctx<'_>, rule: &Rule, u: usize) -> bool {
         if !unit.traits.contains(&t) {
             return false;
         }
+    }
+    let any = p_vec(rule, "anyTrait");
+    if !any.is_empty() && !any.iter().any(|t| unit.traits.contains(t)) {
+        return false;
     }
     if let Some(b) = p_str(rule, "behavior") {
         let want: Option<Behavior> = serde_json::from_value(Value::String(b)).ok();
@@ -249,10 +307,33 @@ fn candidate_sites(ctx: &Ctx<'_>, u: usize) -> Vec<usize> {
     c
 }
 
-/// Add one more member of the unit in another site (replica for stateful, clone for stateless).
-fn add_member_fix(ctx: &Ctx<'_>, u: usize) -> Option<Fix> {
+/// Zones of `level` that host no member of `u`, best candidates first. Sites: another disaster domain first. Racks:
+/// the sites the unit already lives in first (cheaper than a new site).
+fn candidate_domains(ctx: &Ctx<'_>, u: usize, level: ZoneLevel) -> Vec<usize> {
+    if level == ZoneLevel::Site {
+        return candidate_sites(ctx, u);
+    }
     let ix = &ctx.ix;
-    let target = *candidate_sites(ctx, u).first()?;
+    let used = ix.unit_domains(u, level);
+    let used_sites = ix.unit_sites(u);
+    let mut c: Vec<usize> = (0..ix.arch.zones.len()).filter(|&zi| ix.zone_level(zi) == level && !used.contains(&zi)).collect();
+    c.sort_by_key(|&zi| (!used_sites.contains(&ix.zone_site(zi)), zi));
+    c
+}
+
+/// Add one more member of the unit in another site (replica for stateful, clone for stateless). Without another
+/// site the member goes to another rack when the required tolerance reaches racks.
+fn add_member_fix(ctx: &Ctx<'_>, u: usize) -> Option<Fix> {
+    add_member_fix_in(ctx, u, ZoneLevel::Site)
+}
+
+fn add_member_fix_in(ctx: &Ctx<'_>, u: usize, level: ZoneLevel) -> Option<Fix> {
+    let ix = &ctx.ix;
+    let target = match candidate_domains(ctx, u, level).first() {
+        Some(&t) => t,
+        None if level == ZoneLevel::Site && tol_covers(ctx, ZoneLevel::Rack) => *candidate_domains(ctx, u, ZoneLevel::Rack).first()?,
+        None => return None,
+    };
     let t = primary_of(ctx, u);
     let tn: &Node = &ix.arch.nodes[t];
     let tz = zone_name(ctx, target).to_string();
@@ -304,8 +385,12 @@ fn add_member_fix(ctx: &Ctx<'_>, u: usize) -> Option<Fix> {
 
 /// Add an arbiter/voter of the unit in a site that hosts none of its members.
 fn add_witness_fix(ctx: &Ctx<'_>, u: usize) -> Option<Fix> {
+    add_witness_fix_in(ctx, u, ZoneLevel::Site)
+}
+
+fn add_witness_fix_in(ctx: &Ctx<'_>, u: usize, level: ZoneLevel) -> Option<Fix> {
     let ix = &ctx.ix;
-    let target = *candidate_sites(ctx, u).first()?;
+    let target = *candidate_domains(ctx, u, level).first()?;
     let t = primary_of(ctx, u);
     let tn = &ix.arch.nodes[t];
     let tz = zone_name(ctx, target).to_string();
@@ -410,6 +495,7 @@ pub fn run(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
     match rule.check {
         CheckType::Spof => spof(ctx, rule),
         CheckType::SurviveSite => survive_site(ctx, rule),
+        CheckType::SurviveSites => survive_sites(ctx, rule),
         CheckType::Rto => rto(ctx, rule),
         CheckType::Rpo => rpo(ctx, rule),
         CheckType::GeoSurvive => geo_survive(ctx, rule),
@@ -473,7 +559,8 @@ fn status_for(rule: &Rule) -> Status {
 }
 
 fn survive_site(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
-    let scs = site_scenarios(ctx);
+    let level = domain_level(rule);
+    let scs = domain_scenarios(ctx, level);
     if scs.is_empty() {
         return CheckOut::na();
     }
@@ -491,10 +578,134 @@ fn survive_site(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
                     }
                 }
             }
-            // remedy: give the first single-site unit that is down a member elsewhere
-            let fixf = r.down_units.iter().filter_map(|name| ctx.ix.units.iter().position(|x| &x.name == name)).find_map(|ui| add_member_fix(ctx, ui));
+            // remedy: give the first single-domain unit that is down a member elsewhere
+            let fixf = r.down_units.iter().filter_map(|name| ctx.ix.units.iter().position(|x| &x.name == name)).find_map(|ui| add_member_fix_in(ctx, ui, level));
             out.push(raw.fix(fixf));
         }
+    }
+    CheckOut::found(out)
+}
+
+/// What `k` sites lost at the same time do to the service: the verdict of one combination.
+pub(crate) struct ComboVerdict {
+    pub scenario: Scenario,
+    pub zones: Vec<String>,
+    pub names: Vec<String>,
+    pub problems: Vec<&'static str>,
+    pub seconds: Option<f64>,
+    pub rpo: Option<f64>,
+    pub reason: String,
+    pub lost: String,
+    pub ratio: Option<f64>,
+}
+
+/// Simulates every combination of `k` sites (sampled past `scenarios.maxCombinations`) and keeps the ones that hurt.
+pub(crate) fn failing_combinations(ctx: &Ctx<'_>, k: usize, excl: &[String], check_capacity: bool) -> (Vec<ComboVerdict>, usize, bool) {
+    let ix = &ctx.ix;
+    let (combos, sampled) = crate::sim::site_combinations(ix, k);
+    let total = combos.len();
+    let req = &ix.arch.requirements;
+    let min_cap = ctx.cfg.settings.assumptions.min_capacity_during_failure;
+    let mut out = vec![];
+    for combo in combos {
+        let ids: Vec<String> = combo.iter().map(|&z| ix.arch.zones[z].id.clone()).collect();
+        let sc = Scenario::Sites { zone_ids: ids.clone() };
+        let r = ctx.sim(&sc);
+        let mut problems: Vec<&'static str> = vec![];
+        if r.state == ServiceState::Down && r.recovery.kind == RecoveryKind::Never {
+            problems.push("down");
+        }
+        if let (Some(s), Some(rto)) = (r.recovery.seconds, req.rto_seconds) {
+            if s > rto && r.recovery.kind != RecoveryKind::Never {
+                problems.push("rto");
+            }
+        }
+        let lost = lost_units(ctx, &r.data_lost, excl);
+        if !lost.is_empty() {
+            problems.push("data_lost");
+        }
+        let (rpo, _) = crate::sim::rpo_filtered(&r.rpo_items, excl);
+        if let (Some(v), Some(want)) = (rpo, req.rpo_seconds) {
+            if v > want && lost.is_empty() {
+                problems.push("rpo");
+            }
+        }
+        if check_capacity && r.state != ServiceState::Down {
+            if let Some(ratio) = r.capacity_ratio {
+                if ratio < min_cap {
+                    problems.push("capacity");
+                }
+            }
+        }
+        if !problems.is_empty() {
+            out.push(ComboVerdict {
+                scenario: sc,
+                zones: ids,
+                names: combo.iter().map(|&z| zone_name(ctx, z).to_string()).collect(),
+                problems,
+                seconds: r.recovery.seconds,
+                rpo,
+                reason: r.down_units.join(", "),
+                lost: lost.join(", "),
+                ratio: r.capacity_ratio,
+            });
+        }
+    }
+    (out, total, sampled)
+}
+
+/// The service must survive the loss of `requirements.siteFailures` sites at the same time (two of five, three of
+/// ten…). Every combination of that many sites is simulated.
+fn survive_sites(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
+    let k = site_failures(ctx);
+    if k < 2 || !tol_covers(ctx, ZoneLevel::Site) {
+        return CheckOut::na();
+    }
+    let ix = &ctx.ix;
+    let sites = ix.sites();
+    if sites.len() <= k {
+        // not even one site would be left
+        let mut raw = Raw::new("sites", sev(rule))
+            .var("sites", sites.len())
+            .var("count", k)
+            .var("need", k + 1)
+            .var("zones", sites.iter().map(|&s| zone_name(ctx, s).to_string()).collect::<Vec<_>>().join(", "))
+            .var("problems", "down")
+            .var("reason", ix.units.iter().filter(|u| !u.traits.contains("entry")).map(|u| u.name.clone()).collect::<Vec<_>>().join(", "))
+            .var("lost", "")
+            .var("seconds", Value::Null)
+            .var("rpo", Value::Null)
+            .var("more", 0);
+        for &s in &sites {
+            raw = raw.zone(&ix.arch.zones[s].id);
+        }
+        return CheckOut::found(vec![raw]);
+    }
+    let excl = p_vec(rule, "excludeTraits");
+    let max_findings = p_f64(rule, "maxFindings").unwrap_or(8.0).max(1.0) as usize;
+    let (bad, _total, sampled) = failing_combinations(ctx, k, &excl, p_bool(rule, "capacity").unwrap_or(true));
+    if sampled {
+        ctx.mark_sampled();
+    }
+    let hidden = bad.len().saturating_sub(max_findings);
+    let mut out = vec![];
+    for (i, v) in bad.into_iter().take(max_findings).enumerate() {
+        let st = if v.problems == ["capacity"] { Status::Risk } else { sev(rule) };
+        let mut raw = Raw::new(v.zones.join("+"), st)
+            .var("zones", v.names.join(", "))
+            .var("count", k)
+            .var("problems", v.problems.join(","))
+            .var("reason", v.reason.clone())
+            .var("lost", v.lost.clone())
+            .var("seconds", v.seconds.map(|x| json!(x)).unwrap_or(Value::Null))
+            .var("rpo", v.rpo.map(|x| json!(x)).unwrap_or(Value::Null))
+            .var("ratio", v.ratio.map(|x| json!((x * 100.0).round())).unwrap_or(Value::Null))
+            .var("more", if i == 0 { hidden } else { 0 })
+            .scenario(v.scenario);
+        for z in &v.zones {
+            raw = raw.zone(z);
+        }
+        out.push(raw);
     }
     CheckOut::found(out)
 }
@@ -568,7 +779,7 @@ fn rpo(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
 }
 
 fn geo_survive(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
-    if tol_rank(&tolerance(ctx)) < 2 {
+    if !tol_covers(ctx, ZoneLevel::Geo) {
         return CheckOut::na();
     }
     let scs = geo_scenarios(ctx);
@@ -616,7 +827,7 @@ fn geo_survive(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
 }
 
 fn geo_spread(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
-    if tol_rank(&tolerance(ctx)) < 2 {
+    if !tol_covers(ctx, ZoneLevel::Geo) {
         return CheckOut::na();
     }
     let ix = &ctx.ix;
@@ -649,7 +860,8 @@ fn geo_spread(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
 }
 
 fn partition_safety(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
-    let scs = link_scenarios(ctx);
+    let scope = p_str(rule, "scope").unwrap_or_else(|| "link".into());
+    let scs = link_scenarios(ctx, &scope);
     if scs.is_empty() {
         return CheckOut::na();
     }
@@ -657,19 +869,29 @@ fn partition_safety(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
     let mut out = vec![];
     for sc in scs {
         let r = ctx.sim(&sc);
-        let Scenario::Link { a, b } = &sc else { continue };
-        let (za, zb) = (ctx.ix.zone_ix[a.as_str()], ctx.ix.zone_ix[b.as_str()]);
-        let link = format!("{} ↔ {}", zone_name(ctx, za), zone_name(ctx, zb));
+        // the zones that take part, a stable key and the label of the cut
+        let (zones, key, link): (Vec<String>, String, String) = match &sc {
+            Scenario::Link { a, b } => {
+                let (za, zb) = (ctx.ix.zone_ix[a.as_str()], ctx.ix.zone_ix[b.as_str()]);
+                (vec![a.clone(), b.clone()], format!("{}|{}", a, b), format!("{} ↔ {}", zone_name(ctx, za), zone_name(ctx, zb)))
+            }
+            Scenario::Isolate { zone_ids } => {
+                let names: Vec<String> = zone_ids.iter().filter_map(|z| ctx.ix.zone_ix.get(z.as_str())).map(|&zi| zone_name(ctx, zi).to_string()).collect();
+                (zone_ids.clone(), format!("iso:{}", zone_ids.join("+")), names.join(" + "))
+            }
+            _ => continue,
+        };
         if !r.split_brain.is_empty() {
             if mode == "unavailable" {
                 continue;
             }
-            let mut raw = Raw::new(format!("{}|{}:split", a, b), Status::Critical)
+            let mut raw = Raw::new(format!("{}:split", key), Status::Critical)
                 .var("link", link.clone())
                 .var("unit", r.split_brain.iter().filter_map(|k| ctx.ix.unit_ix.get(k)).map(|&u| ctx.ix.units[u].name.clone()).collect::<Vec<_>>().join(", "))
-                .zone(a)
-                .zone(b)
                 .scenario(sc.clone());
+            for z in &zones {
+                raw = raw.zone(z);
+            }
             for k in &r.split_brain {
                 if let Some(&u) = ctx.ix.unit_ix.get(k) {
                     for &m in &ctx.ix.units[u].members {
@@ -679,7 +901,11 @@ fn partition_safety(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
             }
             out.push(raw);
         } else if r.state == ServiceState::Down && mode != "split_brain" {
-            out.push(Raw::new(format!("{}|{}:down", a, b), sev(rule)).var("link", link).var("reason", r.down_units.join(", ")).zone(a).zone(b).scenario(sc.clone()));
+            let mut raw = Raw::new(format!("{}:down", key), sev(rule)).var("link", link).var("reason", r.down_units.join(", ")).scenario(sc.clone());
+            for z in &zones {
+                raw = raw.zone(z);
+            }
+            out.push(raw);
         }
     }
     CheckOut::found(out)
@@ -734,10 +960,18 @@ fn min_instances(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
 
 fn spread_sites(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
     let required = p_str(rule, "requireTolerance").unwrap_or_else(|| "site".into());
-    if tol_rank(&tolerance(ctx)) < tol_rank(&required) {
+    if tol_rank(ctx, &tolerance(ctx)) < tol_rank(ctx, &required) {
         return CheckOut::na();
     }
-    let min = p_f64(rule, "minSites").unwrap_or(2.0) as usize;
+    let level = domain_level(rule);
+    if !domain_applies(ctx, level) {
+        return CheckOut::na();
+    }
+    let mut min = p_f64(rule, "minSites").unwrap_or(2.0) as usize;
+    // losing k sites at once leaves copies only if the unit lives in at least k + 1 of them
+    if level == ZoneLevel::Site && p_bool(rule, "scaleWithSiteFailures").unwrap_or(false) {
+        min = min.max(site_failures(ctx) + 1);
+    }
     let accept_repl = p_bool(rule, "acceptReplication").unwrap_or(false);
     let ix = &ctx.ix;
     let mut out = vec![];
@@ -746,7 +980,7 @@ fn spread_sites(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
         if !unit_matches(ctx, rule, u) {
             continue;
         }
-        let sites = ix.unit_sites(u);
+        let sites = ix.unit_domains(u, level);
         // global (zone-less) units are not bound to a site
         if sites.is_empty() {
             continue;
@@ -776,7 +1010,7 @@ fn spread_sites(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
         for &m in &unit.members {
             raw = raw.node(&nid(ctx, m));
         }
-        out.push(raw.fix(add_member_fix(ctx, u)));
+        out.push(raw.fix(add_member_fix_in(ctx, u, level)));
     }
     if any {
         CheckOut::found(out)
@@ -811,6 +1045,19 @@ fn quorum_voters(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
         return CheckOut::na();
     }
     let mode = p_str(rule, "mode").unwrap_or_else(|| "odd_min3".into());
+    let level = domain_level(rule);
+    if mode == "survive_site" {
+        // a quorum that must outlive a failure domain only matters when that domain is part of the requirement
+        let required = p_str(rule, "requireTolerance");
+        if let Some(r) = &required {
+            if tol_rank(ctx, &tolerance(ctx)) < tol_rank(ctx, r) {
+                return CheckOut::na();
+            }
+        }
+        if !domain_applies(ctx, level) {
+            return CheckOut::na();
+        }
+    }
     let ix = &ctx.ix;
     let mut out = vec![];
     for u in units {
@@ -820,20 +1067,44 @@ fn quorum_voters(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
             if total < 3.0 {
                 continue; // reported by the odd/min-3 rule
             }
-            for s in ix.unit_sites(u) {
-                let rem: f64 = unit.members.iter().filter(|&&m| ix.site_of[m] != Some(s)).map(|&m| vote_weight(ctx, u, m)).sum();
-                if rem * 2.0 <= total {
-                    let mut raw = Raw::new(format!("{}@{}", unit.key, ix.arch.zones[s].id), sev(rule))
-                        .var("unit", unit.name.clone())
-                        .var("zone", zone_name(ctx, s))
-                        .var("votes", rem)
-                        .var("total", total)
-                        .zone(&ix.arch.zones[s].id);
-                    for &m in &unit.members {
-                        raw = raw.node(&nid(ctx, m));
-                    }
-                    out.push(raw.fix(add_witness_fix(ctx, u)));
+            // quorum must outlive the loss of `siteFailures` sites at once (one by default; racks: one rack)
+            let doms = ix.unit_domains(u, level);
+            let want = if level == ZoneLevel::Site { site_failures(ctx) } else { 1 };
+            let k = want.min(doms.len());
+            if k == 0 {
+                continue;
+            }
+            let held = |d: usize| -> f64 { unit.members.iter().filter(|&&m| ix.domain_of(m, level) == Some(d)).map(|&m| vote_weight(ctx, u, m)).sum() };
+            let (combos, sampled) = crate::sim::combinations(doms.len(), k, ctx.cfg.settings.scenarios.max_combinations);
+            if sampled {
+                ctx.mark_sampled();
+            }
+            let max_findings = p_f64(rule, "maxFindings").unwrap_or(12.0).max(1.0) as usize;
+            let mut emitted = 0;
+            for c in combos {
+                let lost_doms: Vec<usize> = c.iter().map(|&i| doms[i]).collect();
+                let rem: f64 = total - lost_doms.iter().map(|&d| held(d)).sum::<f64>();
+                if rem * 2.0 > total {
+                    continue;
                 }
+                if emitted >= max_findings {
+                    break;
+                }
+                emitted += 1;
+                let ids: Vec<&str> = lost_doms.iter().map(|&d| ix.arch.zones[d].id.as_str()).collect();
+                let mut raw = Raw::new(format!("{}@{}", unit.key, ids.join("+")), sev(rule))
+                    .var("unit", unit.name.clone())
+                    .var("zone", lost_doms.iter().map(|&d| zone_name(ctx, d).to_string()).collect::<Vec<_>>().join(", "))
+                    .var("votes", rem)
+                    .var("total", total)
+                    .var("count", k);
+                for id in &ids {
+                    raw = raw.zone(id);
+                }
+                for &m in &unit.members {
+                    raw = raw.node(&nid(ctx, m));
+                }
+                out.push(raw.fix(add_witness_fix_in(ctx, u, level)));
             }
         } else {
             let odd = (total as i64) % 2 == 1;
@@ -853,6 +1124,17 @@ fn witness_independent(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
     let ix = &ctx.ix;
     let mut out = vec![];
     let mut any = false;
+    // an arbiter must not share a failure domain with the data it arbitrates – at every level the requirement reaches
+    let mut levels = vec![];
+    if tol_covers(ctx, ZoneLevel::Site) {
+        levels.push(ZoneLevel::Site);
+    }
+    if domain_applies(ctx, ZoneLevel::Rack) {
+        levels.push(ZoneLevel::Rack);
+    }
+    if levels.is_empty() {
+        levels.push(ZoneLevel::Site);
+    }
     for u in 0..ix.units.len() {
         let witnesses: Vec<usize> = ix.units[u].members.iter().copied().filter(|&m| ix.is_witness(m)).collect();
         if witnesses.is_empty() {
@@ -861,9 +1143,12 @@ fn witness_independent(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
         any = true;
         let data = data_members(ctx, u);
         for w in witnesses {
-            let Some(ws) = ix.site_of[w] else { continue };
-            if data.iter().any(|&d| ix.site_of[d] == Some(ws)) {
-                out.push(Raw::new(nid(ctx, w), sev(rule)).var("node", ix.node_name(w)).var("zone", zone_name(ctx, ws)).node(&nid(ctx, w)).zone(&ix.arch.zones[ws].id));
+            for &level in &levels {
+                let Some(wd) = ix.domain_of(w, level) else { continue };
+                if data.iter().any(|&d| ix.domain_of(d, level) == Some(wd)) {
+                    out.push(Raw::new(nid(ctx, w), sev(rule)).var("node", ix.node_name(w)).var("zone", zone_name(ctx, wd)).node(&nid(ctx, w)).zone(&ix.arch.zones[wd].id));
+                    break;
+                }
             }
         }
     }
@@ -1027,7 +1312,7 @@ fn backup_exists(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
 
 fn backup_offsite(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
     let ix = &ctx.ix;
-    let geo_tol = tol_rank(&tolerance(ctx)) >= 2;
+    let geo_tol = tol_covers(ctx, ZoneLevel::Geo);
     let mut out = vec![];
     let mut any = false;
     for (ei, ends) in ix.edge_ends.iter().enumerate() {
@@ -1553,7 +1838,8 @@ fn cache_resilience(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
     }
     let mode = p_str(rule, "mode").unwrap_or_else(|| "both".into());
     let mut out = vec![];
-    let multi_site = ix.sites().len() >= 2;
+    let required_ok = p_str(rule, "requireTolerance").map(|r| tol_rank(ctx, &tolerance(ctx)) >= tol_rank(ctx, &r)).unwrap_or(true);
+    let multi_site = ix.sites().len() >= 2 && required_ok;
     for &u in &caches {
         let unit = &ix.units[u];
         if mode != "cold" && multi_site && ix.unit_sites(u).len() < 2 {

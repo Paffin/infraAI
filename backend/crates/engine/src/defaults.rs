@@ -14,6 +14,7 @@ pub const CATALOG_JSON: &str = include_str!("../defaults/catalog.json");
 pub const ENGINE_JSON: &str = include_str!("../defaults/engine.json");
 pub const RULES_JSON: &str = include_str!("../defaults/rules.json");
 pub const DEMO_PROJECT_JSON: &str = include_str!("../defaults/demo_project.json");
+pub const PLACEMENT_JSON: &str = include_str!("../defaults/placement.json");
 
 pub const TEMPLATES_JSON: &[(&str, &str)] = &[
     ("two-dc-witness", include_str!("../defaults/templates/two-dc-witness.json")),
@@ -73,6 +74,15 @@ pub fn templates() -> Vec<Template> {
 
 pub fn iac_templates() -> Vec<IacTemplate> {
     IAC_JSON.iter().map(|(id, s)| serde_json::from_str(s).unwrap_or_else(|e| panic!("embedded iac template {id} is valid: {e}"))).collect()
+}
+
+pub fn placement() -> crate::placement::PlacementConfig {
+    serde_json::from_str(PLACEMENT_JSON).expect("embedded placement.json is valid")
+}
+
+/// The complete engine configuration as shipped (what a fresh installation starts with).
+pub fn engine_config(lang: &str) -> crate::config::EngineConfig {
+    crate::config::EngineConfig { catalog: catalog(), rules: rules(), settings: engine_settings(), iac: iac_templates(), placement: placement(), lang: lang.into() }
 }
 
 pub fn demo_project() -> DemoProject {

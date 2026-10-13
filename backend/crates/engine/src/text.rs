@@ -47,7 +47,9 @@ pub fn interpolate(tpl: &str, vars: &BTreeMap<String, Value>) -> String {
 }
 
 /// Like [`interpolate`], with formats: `{seconds|dur}` renders a duration (`35 s`, `15 min`,
-/// `2 h`, in the given language) and `{ratio|pct}` a ratio as a percentage.
+/// `2 h`, in the given language), `{ratio|pct}` a ratio as a percentage and
+/// `{n|plural:площадка,площадки,площадок}` the word form that agrees with the number (three forms for
+/// Russian-like languages, two – singular and plural – for the others).
 pub fn interpolate_l(tpl: &str, vars: &BTreeMap<String, Value>, lang: &str) -> String {
     let mut out = String::with_capacity(tpl.len());
     let mut rest = tpl;
@@ -82,7 +84,31 @@ fn format_value(v: &Value, format: Option<&str>, lang: &str) -> String {
     match (format, v.as_f64()) {
         (Some("dur"), Some(s)) => format_duration(s, lang),
         (Some("pct"), Some(r)) => format!("{}%", (r * 100.0).round() as i64),
+        (Some(f), Some(n)) if f.starts_with("plural:") => plural_form(n, &f["plural:".len()..], lang),
         _ => display_value(v),
+    }
+}
+
+/// The word form for `n` out of `forms` (comma separated). Russian, Ukrainian and Belarusian use the one / few / many
+/// rule; every other language picks the first form for exactly one and the last for the rest.
+pub fn plural_form(n: f64, forms: &str, lang: &str) -> String {
+    let list: Vec<&str> = forms.split(',').map(str::trim).collect();
+    let pick = |i: usize| list.get(i).or_else(|| list.last()).copied().unwrap_or("").to_string();
+    let n = n.abs().round() as i64;
+    if matches!(lang, "ru" | "uk" | "be") && list.len() >= 3 {
+        let (m10, m100) = (n % 10, n % 100);
+        return if m10 == 1 && m100 != 11 {
+            pick(0)
+        } else if (2..=4).contains(&m10) && !(12..=14).contains(&m100) {
+            pick(1)
+        } else {
+            pick(2)
+        };
+    }
+    if n == 1 {
+        pick(0)
+    } else {
+        pick(list.len().saturating_sub(1))
     }
 }
 
@@ -165,6 +191,18 @@ mod tests {
         assert_eq!(interpolate_l("{a|dur} {b|dur} {c|dur} {d|dur} {r|pct}", &vars, "ru"), "35 с 15 мин 2 ч 3 дн 96%");
         assert_eq!(interpolate_l("{a|dur} {b|dur}", &vars, "en"), "35 s 15 min");
         assert_eq!(interpolate_l("{zzz|dur}", &vars, "en"), "{zzz|dur}");
+    }
+
+    #[test]
+    fn plural_forms_follow_the_language() {
+        let mut vars = BTreeMap::new();
+        for (k, n) in [("a", 1), ("b", 2), ("c", 5), ("d", 11), ("e", 21), ("f", 22), ("g", 112)] {
+            vars.insert(k.to_string(), json!(n));
+        }
+        let ru = |k: &str| interpolate_l(&format!("{{{k}}} {{{k}|plural:площадка,площадки,площадок}}"), &vars, "ru");
+        assert_eq!([ru("a"), ru("b"), ru("c"), ru("d"), ru("e"), ru("f"), ru("g")], ["1 площадка", "2 площадки", "5 площадок", "11 площадок", "21 площадка", "22 площадки", "112 площадок"]);
+        let en = |k: &str| interpolate_l(&format!("{{{k}}} {{{k}|plural:site,sites}}"), &vars, "en");
+        assert_eq!([en("a"), en("b"), en("d")], ["1 site", "2 sites", "11 sites"]);
     }
 
     #[test]
