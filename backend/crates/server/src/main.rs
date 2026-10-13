@@ -28,6 +28,11 @@ async fn main() -> anyhow::Result<()> {
     if std::env::args().nth(1).as_deref() == Some("healthcheck") {
         healthcheck();
     }
+    // `check` judges architectures kept in files for a pipeline: no database, no server, nothing is started
+    if std::env::args().nth(1).as_deref() == Some("check") {
+        let args: Vec<String> = std::env::args().skip(2).collect();
+        std::process::exit(server::cli::check(&args));
+    }
     let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info,sqlx=warn,tower_http=info,hyper=warn"));
     let json = std::env::var("LOG_JSON").map(|v| matches!(v.as_str(), "1" | "true")).unwrap_or(std::env::var("APP_ENV").map(|v| v != "development").unwrap_or(true));
     if json {

@@ -45,6 +45,9 @@ OPENROUTER_API_KEY=sk-or-… cargo test -p server --test live -- --ignored --noc
 ```
 
 * **IaC** проверяется настоящими инструментами: `make iac-check` ([IAC.md](IAC.md)).
+* **Проверка в конвейере** (`infra-architect check`, [CLI.md](CLI.md)): `crates/engine/tests/gate.rs` — на настоящем движке; `crates/server/tests/cli.rs` запускает **настоящий бинарник** с пустым окружением на файлах во временном каталоге
+  (коды выхода, форматы, база, принятые риски, `--config`); каждая поставляемая эталонная схема должна проходить свой шлюз. SARIF сверяется с официальной схемой: `python3 deploy/check-sarif.py файл.sarif` (нужен `pip install jsonschema`).
+  Вручную: `cargo run -q -p server -- check ../файл.json --recommend`.
 
 ## Фронтенд
 

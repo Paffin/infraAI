@@ -206,6 +206,51 @@ impl Loaded {
         Loaded::assemble(0, Settings::defaults(), rows)
     }
 
+    /// The shipped configuration with an instance's configuration backup (`GET /admin/config-export`) laid over it: what that instance
+    /// runs. Every item is validated like an administrator's edit, so a broken backup is refused with the reason instead of being half
+    /// applied. No database needed.
+    pub fn from_export(export: &Value) -> Result<Loaded, String> {
+        match export.get("format").and_then(|v| v.as_str()) {
+            Some("infra-architect-config/1") | None => {}
+            Some(other) => return Err(format!("unknown configuration format '{other}' (expected 'infra-architect-config/1')")),
+        }
+        // the defaults keep their order (rules and templates are listed in it); what the backup adds goes after them
+        let mut rows: Vec<(String, String, Value)> = default_items().into_iter().map(|i| (i.kind.to_string(), i.id, i.data)).collect();
+        rows.sort_by(|a, b| a.0.cmp(&b.0));
+        let mut problems = vec![];
+        for it in export.get("items").and_then(|v| v.as_array()).map(|a| a.as_slice()).unwrap_or(&[]) {
+            let (Some(kind), Some(id), Some(data)) = (it.get("kind").and_then(|v| v.as_str()), it.get("id").and_then(|v| v.as_str()), it.get("data")) else {
+                problems.push("an item lacks kind, id or data".to_string());
+                continue;
+            };
+            if let Err(e) = validate_item(kind, id, data) {
+                problems.push(format!("{kind}:{id}: {e}"));
+                continue;
+            }
+            match rows.iter_mut().find(|r| r.0 == kind && r.1 == id) {
+                Some(r) => r.2 = data.clone(),
+                None => rows.push((kind.to_string(), id.to_string(), data.clone())),
+            }
+        }
+        let mut settings = Settings::defaults();
+        if let Some(changed) = export.get("settings").and_then(|v| v.as_object()) {
+            for (k, v) in changed {
+                match settings.clone().with(k, v.clone()) {
+                    Ok(s) => settings = s,
+                    Err(e) => problems.push(e),
+                }
+            }
+        }
+        if !problems.is_empty() {
+            return Err(problems.join("; "));
+        }
+        let loaded = Loaded::assemble(0, settings, rows);
+        if let Some((kind, id, e)) = loaded.errors.first() {
+            return Err(format!("{kind}:{id}: {e}"));
+        }
+        Ok(loaded)
+    }
+
     fn assemble(rev: i64, settings: Settings, rows: Vec<(String, String, Value)>) -> Loaded {
         let mut errors = vec![];
         let mut catalog = Catalog::default();

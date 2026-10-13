@@ -7,6 +7,7 @@ pub mod api;
 pub mod api_support;
 pub mod audit;
 pub mod auth;
+pub mod cli;
 pub mod config;
 pub mod config_store;
 pub mod crypto;

@@ -14,6 +14,7 @@ pub mod cost;
 pub mod defaults;
 pub mod evaluate;
 pub mod export;
+pub mod gate;
 pub mod graph;
 pub mod iac;
 pub mod lifecycle;

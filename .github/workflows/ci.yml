@@ -149,6 +149,14 @@ jobs:
           docker tag infra-architect:ci infra-architect:local
           docker compose up -d --no-build --wait --wait-timeout 120
           ./deploy/smoke.sh http://localhost:8080 "$ADMIN_EMAIL" "$ADMIN_PASSWORD"
+      - name: "The gate in the image: every reference design passes, and the SARIF it writes is valid"
+        run: |
+          mkdir -p /tmp/gate
+          for f in backend/crates/engine/defaults/templates/*.json; do
+            docker run --rm -v "$PWD:/work:ro" -w /work infra-architect:ci check "$f" --lang en --format sarif > "/tmp/gate/$(basename "$f" .json).sarif"
+          done
+          python3 -m pip install --quiet jsonschema
+          python3 deploy/check-sarif.py /tmp/gate/*.sarif
       - uses: actions/setup-node@v4
         with:
           node-version: 22
