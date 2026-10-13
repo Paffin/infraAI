@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import type { ProjectThumb } from '@/api/types'
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
+import * as api from '@/api/endpoints'
+import type { Architecture, ProjectThumb } from '@/api/types'
+import { placeMissing } from '@/editor/layout'
 import { buildScene, EMPTY_SCENE, themePalette, thumbToArchitecture } from '@/lib/diagram'
 import { useApp } from '@/stores/app'
 
-const props = defineProps<{ thumb: ProjectThumb | null }>()
+const props = defineProps<{ id: string; thumb: ProjectThumb | null; nodeCount: number }>()
 const app = useApp()
 const root = ref<HTMLElement | null>(null)
 /** Cards far below the fold are drawn when they scroll into view: laying out a hundred diagrams at once is wasted work. */
@@ -20,12 +22,32 @@ onMounted(() => {
 })
 onBeforeUnmount(() => observer?.disconnect())
 
+// The list brings the thumbnail of the most recently changed projects only (`limits.listThumbnails`); for the rest the
+// project is loaded when its card comes into view – a few at a time, so that scrolling a long list does not flood the server.
+const MAX_PARALLEL = 3
+let running = 0
+const waiting: (() => void)[] = []
+async function limited<T>(job: () => Promise<T>): Promise<T> {
+  if (running >= MAX_PARALLEL) await new Promise<void>((resolve) => waiting.push(resolve))
+  running++
+  try { return await job() } finally { running--; waiting.shift()?.() }
+}
+
+const loaded = shallowRef<Architecture | null>(null)
+let requested = false
+watch(seen, async (v) => {
+  if (!v || props.thumb || props.nodeCount === 0 || requested) return
+  requested = true
+  try { loaded.value = (await limited(() => api.projects.get(props.id))).architecture } catch { /* the placeholder stays */ }
+}, { immediate: true })
+
 const palette = themePalette()
 const scene = computed(() => {
   const ix = app.index
-  const t = props.thumb
-  if (!seen.value || !ix || !t || !t.nodes.length) return EMPTY_SCENE
-  return buildScene(thumbToArchitecture(t, ix), ix, { detail: 'thumb', palette })
+  if (!seen.value || !ix) return EMPTY_SCENE
+  if (props.thumb) return props.thumb.nodes.length ? buildScene(thumbToArchitecture(props.thumb, ix), ix, { detail: 'thumb', palette }) : EMPTY_SCENE
+  const a = loaded.value
+  return a && a.nodes.length ? buildScene(placeMissing(a, ix), ix, { detail: 'thumb', palette }) : EMPTY_SCENE
 })
 const empty = computed(() => !scene.value.shapes.length)
 </script>

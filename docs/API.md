@@ -69,7 +69,9 @@ answers `403 password_change_required`.
 
 `thumb` is the working copy boiled down to a layout: `{zones:[{i,x,y,w,h,t,p}], nodes:[{i,x,y,k,z}], edges:[[source,target,type]]}`
 (`i` id, `t` zone type, `p` parent zone, `k` kind, `z` zone). It carries no names or properties, so the list does not grow
-with the document. Coordinates are `null` until the editor has laid the project out (a project made from a template or
+with the document, and it is sent only for the `limits.listThumbnails` (60 by default) most recently changed projects: for the
+rest `thumb` is `null` and the client loads the project (`GET /projects/{id}`) when its card comes into view. Coordinates are
+`null` until the editor has laid the project out (a project made from a template or
 through the API is laid out the first time somebody opens it); the web UI then lays the thumbnail out itself with the same
 algorithm.
 

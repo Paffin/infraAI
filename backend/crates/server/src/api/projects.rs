@@ -31,7 +31,7 @@ pub struct ProjectRow {
     draft_rev: i64,
     node_count: i64,
     summary: Option<Value>,
-    /// Layout of the working copy, just enough to draw a thumbnail: `zones` (`i` id, `x y w h`, `t` type, `p` parent),
+    /// Layout of the working copy, just enough to draw a thumbnail (only for the most recently changed projects, `limits.listThumbnails`; `null` = load the project): `zones` (`i` id, `x y w h`, `t` type, `p` parent),
     /// `nodes` (`i` id, `x y`, `k` kind, `z` zone) and `edges` (`[source, target, type]`). Coordinates are `null` until the
     /// project has been laid out in the editor.
     thumb: Option<Value>,
@@ -44,18 +44,21 @@ const THUMB_SQL: &str = "(select jsonb_build_object(
         'nodes', coalesce((select jsonb_agg(jsonb_build_object('i', n->'id', 'x', n#>'{ui,x}', 'y', n#>'{ui,y}', 'k', n->'kind', 'z', n->'zoneId'))
                              from jsonb_array_elements(coalesce(p.draft->'nodes', '[]'::jsonb)) n), '[]'::jsonb),
         'edges', coalesce((select jsonb_agg(jsonb_build_array(e->'source', e->'target', e->'type'))
-                             from jsonb_array_elements(coalesce(p.draft->'edges', '[]'::jsonb)) e), '[]'::jsonb))) as thumb";
+                             from jsonb_array_elements(coalesce(p.draft->'edges', '[]'::jsonb)) e), '[]'::jsonb)))";
 
 pub async fn list(State(state): State<AppState>, _user: AuthUser) -> ApiResult<Json<Value>> {
+    // the thumbnail comes with the list only for the most recently changed projects (`limits.listThumbnails`);
+    // the web UI loads the rest when their cards scroll into view, so the list stays light for a long project list
+    let thumbs = state.cfg().await?.settings.num("limits.listThumbnails") as i64;
     let sql = format!(
         "select p.id, p.name, p.description, u.email as owner, p.updated_at, p.created_at, p.head_version, p.draft_rev,
                 jsonb_array_length(coalesce(p.draft->'nodes', '[]'::jsonb)) as node_count,
                 (select v.summary from versions v where v.project_id = p.id and v.n = p.head_version) as summary,
-                {THUMB_SQL}
+                case when row_number() over (order by p.updated_at desc) <= $1 then {THUMB_SQL} end as thumb
          from projects p left join users u on u.id = p.owner_id
          where p.deleted_at is null order by p.updated_at desc limit 500"
     );
-    let rows = sqlx::query(&sql).fetch_all(&state.pool).await?;
+    let rows = sqlx::query(&sql).bind(thumbs).fetch_all(&state.pool).await?;
     let items: Vec<ProjectRow> = rows
         .into_iter()
         .map(|r| ProjectRow {

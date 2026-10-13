@@ -93,7 +93,7 @@ export function createFlowBuilder() {
       const lanes = group.length
       const sig = `${e.source}|${e.target}|${s}|${t}|${lane}|${lanes}`
       edges.push(reuse<FlowEdge>(id, sig, () => ({
-        id, type: 'arch', source: nodeFlowId(e.source), target: nodeFlowId(e.target), sourceHandle: s, targetHandle: t, zIndex: 10,
+        id, type: 'arch', source: nodeFlowId(e.source), target: nodeFlowId(e.target), sourceHandle: s, targetHandle: t, zIndex: 10, selectable: false, focusable: false,
         data: { id: e.id, lane, lanes, horizontal: s === 'l' || s === 'r' }, interactionWidth: 20,
       })))
     }

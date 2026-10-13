@@ -756,6 +756,22 @@
   "max": 1000
  },
  {
+  "key": "limits.listThumbnails",
+  "group": "limits",
+  "type": "number",
+  "default": 60,
+  "label": {
+   "ru": "Миниатюр в списке проектов",
+   "en": "Thumbnails in the project list"
+  },
+  "help": {
+   "ru": "Для стольких последних изменённых проектов миниатюра приходит сразу со списком, для остальных — подгружается при прокрутке. 0 — всегда подгружать.",
+   "en": "The thumbnail of this many most recently changed projects arrives with the list; the others load as they scroll into view. 0 loads them all lazily."
+  },
+  "min": 0,
+  "max": 500
+ },
+ {
   "key": "limits.maxProjectsPerUser",
   "group": "limits",
   "type": "number",

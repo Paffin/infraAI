@@ -61,7 +61,7 @@ npm run typecheck && npm test && npm run build
 * Предметная область (виды, свойства, тексты замечаний) приходит из `/bootstrap`, а не из кода.
 * **Тесты фронтенда тоже без заглушек.** Чистая логика (`lib/needs`, `lib/objectives`, `lib/capacity`, `lib/diagram`, раскладка) проверяется
   на **настоящем выводе движка**: `tests/fixtures/*.json` — это `{architecture, report}`, записанные примером движка
-  (`cargo run -p engine --example report -- <шаблон | файл.json> en --json`), и настоящий каталог из `backend/crates/engine/defaults`
+  (`deploy/record-fixture.sh <шаблон | файл.json> <имя>`), и настоящий каталог из `backend/crates/engine/defaults`
   ([README фикстур](../frontend/tests/fixtures/README.md)). Изменился JSON-ответ движка — тест падает здесь, а не в браузере. Тест
   «каждая потребность (`needs`), которую выдаёт движок, ведёт на редактируемое свойство» ловит рассинхрон каталога и правил.
 * Подводные камни интерфейса: глобальные классы `.row`, `.field`, `.empty`, `.kbd` из `styles/` перебивают одноимённые классы

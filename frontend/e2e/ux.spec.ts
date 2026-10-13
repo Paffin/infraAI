@@ -264,4 +264,27 @@ test.describe('projects', () => {
     await page.reload()
     await expect(page.locator('select[aria-label="Сортировка"]')).toHaveValue('name') // remembered
   })
+
+  test('thumbnails the list did not bring are loaded when the card scrolls into view', async ({ page }) => {
+    await login(page)
+    const name = uniqueName('lazy-thumb')
+    await createProject(page, name, TEMPLATE)
+    await expect(page.locator('.arch-node').first()).toBeVisible()
+    await expect(page.locator('.crumbs .meta')).toContainText('сохранено', { timeout: 10_000 })
+    const setting = (value: number) =>
+      page.evaluate(async (v) => {
+        const r = await fetch('/api/admin/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ changes: { 'limits.listThumbnails': v } }) })
+        if (!r.ok) throw new Error(await r.text())
+      }, value)
+    await setting(0) // no thumbnail comes with the list
+    try {
+      await page.goto('/')
+      const card = page.locator('article.project', { hasText: name })
+      await expect(card.locator('.thumb svg rect').first()).toBeVisible({ timeout: 15_000 })
+      expect(await card.locator('.thumb svg rect').count()).toBeGreaterThan(10)
+    } finally {
+      await setting(60)
+    }
+  })
 })
+

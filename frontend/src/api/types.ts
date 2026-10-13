@@ -384,6 +384,7 @@ export interface ProjectListItem {
   draftRev: number
   nodeCount: number
   summary: ReportSummary | null
+  /** only for the most recently changed projects (`limits.listThumbnails`); `null` = load the project */
   thumb: ProjectThumb | null
 }
 

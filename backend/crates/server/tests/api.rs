@@ -214,6 +214,20 @@ async fn project_list_carries_a_thumbnail_of_the_diagram() {
     // an empty project has an empty thumbnail
     let item = find(&blank["id"]);
     assert_eq!(item["thumb"], json!({"zones": [], "nodes": [], "edges": []}));
+
+    // a long list stays light: only the most recently changed projects bring their thumbnail (`limits.listThumbnails`),
+    // the web UI loads the others as their cards scroll into view
+    let (s, v) = app.put(&c, "/api/admin/settings", json!({"changes": {"limits.listThumbnails": 1}})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    let (_, list) = app.get(&c, "/api/projects").await;
+    let items = list["projects"].as_array().unwrap();
+    assert!(items.len() >= 3, "demo project, the template project and the blank one");
+    assert!(items[0]["thumb"].is_object(), "the newest project has its thumbnail");
+    assert!(items[1..].iter().all(|p| p["thumb"].is_null()), "the others are loaded later: {:?}", items.iter().map(|p| p["thumb"].is_null()).collect::<Vec<_>>());
+    let (s, v) = app.put(&c, "/api/admin/settings", json!({"changes": {"limits.listThumbnails": 0}})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    let (_, list) = app.get(&c, "/api/projects").await;
+    assert!(list["projects"].as_array().unwrap().iter().all(|p| p["thumb"].is_null()));
     app.cleanup().await;
 }
 

@@ -152,7 +152,7 @@ onMounted(load)
 
       <div v-if="items.length" class="grid">
         <article v-for="p in filtered" :key="p.id" class="card project" @click="router.push({ name: 'editor', params: { id: p.id } })">
-          <DiagramThumb :thumb="p.thumb" />
+          <DiagramThumb :id="p.id" :thumb="p.thumb" :node-count="p.nodeCount" />
           <div class="pbody">
           <div class="top">
             <h3 class="grow truncate">{{ p.name }}</h3>
