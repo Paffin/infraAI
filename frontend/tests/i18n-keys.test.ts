@@ -5,18 +5,20 @@ import en from '../src/i18n/en'
 import enAdmin from '../src/i18n/en.admin'
 import ru from '../src/i18n/ru'
 import ruAdmin from '../src/i18n/ru.admin'
+import enPlacement from '../src/i18n/en.placement'
+import ruPlacement from '../src/i18n/ru.placement'
 import { GROUP_ORDER } from '../src/editor/paletteCommands'
 import { GROUPS, SHORTCUTS } from '../src/lib/shortcuts'
 
 function sources(dir: string): string[] {
   return readdirSync(dir).flatMap((f) => {
     const p = join(dir, f)
-    return statSync(p).isDirectory() ? sources(p) : /\.(vue|ts)$/.test(f) && !f.includes('.admin.') && !/\/i18n\/(ru|en)\.ts$/.test(p) ? [p] : []
+    return statSync(p).isDirectory() ? sources(p) : /\.(vue|ts)$/.test(f) && !/\.(admin|placement)\./.test(f) && !/\/i18n\/(ru|en)\.ts$/.test(p) ? [p] : []
   })
 }
 
-const RU = { ...ru, ...ruAdmin }
-const EN = { ...en, ...enAdmin }
+const RU = { ...ru, ...ruAdmin, ...ruPlacement }
+const EN = { ...en, ...enAdmin, ...enPlacement }
 
 describe('translations', () => {
   it('have the same keys in Russian and English', () => {
@@ -36,7 +38,7 @@ describe('translations', () => {
   })
 
   it('keeps placeholders consistent between languages', () => {
-    const names = (s: string) => [...new Set([...s.matchAll(/\{(\w+)(?:\|\w+)?\}/g)].map((m) => m[1]))].sort().join(',')
+    const names = (s: string) => [...new Set([...s.matchAll(/\{(\w+)(?:\|[^{}]+)?\}/g)].map((m) => m[1]))].sort().join(',')
     const broken = Object.keys(RU).filter((k) => k in EN && names(RU[k]) !== names(EN[k]))
     expect(broken).toEqual([])
   })
@@ -49,7 +51,10 @@ describe('translations', () => {
       'checks.statuses.': ['critical', 'risk', 'no_data', 'ok', 'na'],
       'export.': ['json', 'terraform', 'helm', 'adr', 'runbook', 'mermaid', 'svg'],
       'layer.': ['network', 'data', 'dr', 'all'],
-      'req.failureTolerance.': ['instance', 'site', 'geo'],
+      'req.failureTolerance.': ['instance', 'rack', 'site', 'geo'],
+      'problem.': ['down', 'rto', 'rpo', 'data_lost', 'capacity'],
+      'placement.error.': ['sites_out_of_range', 'unknown_pattern', 'unknown_stack', 'bad_kind', 'unknown_kind', 'too_many_nodes', 'unknown_tolerance', 'unknown_zone_type'],
+      'placement.note.': ['witness_sites', 'site_failures_clamped', 'copies_limited', 'single_copy', 'no_authority', 'arbiters_share_locations', 'voters_share_locations', 'cluster_per_domain'],
       'node.state.': ['up', 'partial', 'down', 'stalled', 'fenced', 'promoted', 'isolated'],
       'job.': ['preparing', 'calling_model', 'repairing', 'evaluating', 'refining', 'autofix', 'previewing'],
       'ai.error.': ['llm_not_configured', 'llm_disabled', 'llm_budget', 'llm_auth', 'llm_credits', 'llm_rate_limited', 'llm_http', 'llm_timeout', 'llm_empty', 'llm_truncated', 'invalid_output', 'interrupted', 'ai_rate_limited', 'job_running', 'prompt_too_long'],

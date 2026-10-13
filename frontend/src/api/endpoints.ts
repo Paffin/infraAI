@@ -2,7 +2,7 @@ import { http, qs } from './client'
 import type {
   AdminUser, AiJob, ArchDiff, Architecture, AuditEvent, Bootstrap, ChatMessage, ConfigError, ConfigExport, ConfigImportResult,
   ConfigItem, ConfigKindCounter, ExportFile, IacReport, LlmModel, LlmTestResult, LlmUsage, Op, ProjectDetail, ProjectListItem, Proposal,
-  Report, ReportSummary, Scenario, SettingDef, SimResult, SystemInfo, Template, User, VersionItem,
+  PlacementOptions, PlacementPreview, PlacementRequest, PlacementVariant, Report, ReportSummary, Scenario, SettingDef, SimResult, SystemInfo, Template, User, VersionItem,
 } from './types'
 
 export const auth = {
@@ -17,7 +17,7 @@ export const bootstrap = () => http.get<Bootstrap>('/bootstrap')
 
 export const projects = {
   list: () => http.get<{ projects: ProjectListItem[] }>('/projects'),
-  create: (b: { name: string; description?: string; templateId?: string; architecture?: Architecture; lang?: string }) => http.post<{ id: string }>('/projects', b),
+  create: (b: { name: string; description?: string; templateId?: string; architecture?: Architecture; placement?: PlacementRequest; lang?: string }) => http.post<{ id: string }>('/projects', b),
   get: (id: string) => http.get<ProjectDetail>(`/projects/${id}`),
   patch: (id: string, b: { name?: string; description?: string }) => http.patch<{ ok: boolean }>(`/projects/${id}`, b),
   remove: (id: string) => http.del<{ ok: boolean }>(`/projects/${id}`),
@@ -40,6 +40,12 @@ export const engine = {
     http.post<{ architecture: Architecture; cascadedEdges: string[]; renamed: Record<string, string>; diff?: ArchDiff; before?: ReportSummary; after?: ReportSummary; introduced?: string[]; resolved?: string[] }>('/ops/apply', { architecture, ops, ...opts }),
   template: (id: string) => http.get<Template>(`/templates/${id}`),
   diff: (from: Architecture, to: Architecture) => http.post<ArchDiff>('/diff', { from, to }),
+}
+
+export const placement = {
+  options: () => http.get<PlacementOptions>('/placement/options'),
+  preview: (req: PlacementRequest, lang?: string, signal?: AbortSignal) => http.post<PlacementPreview>('/placement/preview', { ...req, lang }, signal),
+  compare: (base: PlacementRequest, variants: Partial<PlacementRequest>[], lang?: string, signal?: AbortSignal) => http.post<{ variants: PlacementVariant[] }>('/placement/compare', { base: { ...base, lang }, variants }, signal),
 }
 
 export const ai = {

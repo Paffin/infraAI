@@ -133,7 +133,12 @@ interface Block {
   levels: number
 }
 
-export function layoutAll(input: Architecture, ix: CatalogIndex): Architecture {
+export interface LayoutOptions {
+  /** Root zones (sites) per row; more are wrapped into the next row. Default: no wrapping. */
+  zonesPerRow?: number
+}
+
+export function layoutAll(input: Architecture, ix: CatalogIndex, opts: LayoutOptions = {}): Architecture {
   const arch = clone(input)
   if (!arch.nodes.length && !arch.zones.length) return arch
 
@@ -225,8 +230,14 @@ export function layoutAll(input: Architecture, ix: CatalogIndex): Architecture {
   const R1 = withContent.length ? Math.max(...withContent.map((b) => b.r1!)) : 0
   const rootLevels = roots.length ? Math.max(...roots.map((b) => b.levels)) : 0
 
+  // many sites wrap into rows; every row uses the same row mapping, so equivalent components still line up
+  const perRow = Math.max(1, Math.floor(opts.zonesPerRow ?? Infinity))
+  const zoneRows: Block[][] = []
+  for (let i = 0; i < roots.length; i += perRow) zoneRows.push(roots.slice(i, i + perRow))
+  const rowW = (row: Block[]) => row.reduce((s, b) => s + b.w, 0) + Math.max(0, row.length - 1) * ZONE_GAP
+
   // horizontal extent of the zone band decides where the global nodes are centred
-  const zonesW = roots.reduce((s, b) => s + b.w, 0) + Math.max(0, roots.length - 1) * ZONE_GAP
+  const zonesW = zoneRows.length ? Math.max(...zoneRows.map(rowW)) : 0
   const rowWidth = (n: number) => n * (CARD_W + H_GAP) - H_GAP
   const bandW = (nodes: ArchNode[], rows: Map<number, number>) => {
     const counts = new Map<number, number>()
@@ -255,12 +266,12 @@ export function layoutAll(input: Architecture, ix: CatalogIndex): Architecture {
   const bandY0 = (hasTop ? topBottom + BAND_GAP : 0) + PAD_TOP + NEST * rootLevels
   const rowY = (r: number) => bandY0 + (r - R0) * rowStep
 
-  const place = (b: Block, x: number, topLevels: number | null) => {
+  const place = (b: Block, x: number, topLevels: number | null, dy = 0) => {
     const lv = topLevels ?? b.levels
     const r0 = topLevels !== null ? R0 : b.r0 ?? R0
     const r1 = topLevels !== null ? R1 : b.r1 ?? R0
-    const y = rowY(r0) - PAD_TOP - NEST * lv
-    const bottom = rowY(r1) + CARD_H + PAD_BOTTOM + (NEST / 2) * lv
+    const y = rowY(r0) + dy - PAD_TOP - NEST * lv
+    const bottom = rowY(r1) + dy + CARD_H + PAD_BOTTOM + (NEST / 2) * lv
     b.zone.ui = { ...b.zone.ui, x: Math.round(x), y: Math.round(y), w: Math.round(b.w), h: Math.round(Math.max(MIN_ZONE_H, bottom - y)) }
     const slots = (b.directW ? 1 : 0) + b.kids.length
     const innerW = b.directW + b.kids.reduce((s, k) => s + k.w, 0) + Math.max(0, slots - 1) * H_GAP
@@ -268,14 +279,19 @@ export function layoutAll(input: Architecture, ix: CatalogIndex): Architecture {
     if (b.directW) {
       for (const [r, list] of b.nodes) {
         const w = rowWidth(list.length)
-        list.forEach((n, i) => { n.ui = { ...n.ui, x: Math.round(cursor + (b.directW - w) / 2 + i * (CARD_W + H_GAP)), y: Math.round(rowY(r)) } })
+        list.forEach((n, i) => { n.ui = { ...n.ui, x: Math.round(cursor + (b.directW - w) / 2 + i * (CARD_W + H_GAP)), y: Math.round(rowY(r) + dy) } })
       }
       cursor += b.directW + H_GAP
     }
-    for (const k of b.kids) { place(k, cursor, null); cursor += k.w + H_GAP }
+    for (const k of b.kids) { place(k, cursor, null, dy); cursor += k.w + H_GAP }
   }
-  let x = Math.round((totalW - zonesW) / 2)
-  for (const b of roots) { place(b, x, b.r0 !== null || roots.length ? rootLevels : null); x += b.w + ZONE_GAP }
+  let stride = 0
+  zoneRows.forEach((row, ri) => {
+    let x = Math.round((totalW - rowW(row)) / 2)
+    for (const b of row) { place(b, x, b.r0 !== null || roots.length ? rootLevels : null, ri * stride); x += b.w + ZONE_GAP }
+    // every row is as tall as the first one
+    if (ri === 0) stride = Math.max(...row.map((b) => (b.zone.ui?.y ?? 0) + (b.zone.ui?.h ?? 0))) - Math.min(...row.map((b) => b.zone.ui?.y ?? 0)) + ZONE_GAP
+  })
 
   const zoneBottom = roots.length ? Math.max(...roots.map((b) => (b.zone.ui?.y ?? 0) + (b.zone.ui?.h ?? 0))) : topBottom
   placeBand(bottomNodes, bottomRows, zoneBottom + BAND_GAP)
@@ -297,11 +313,11 @@ export function boundsOf(arch: Architecture): Rect | null {
 const overlaps = (a: Rect, b: Rect, m = 10) => a.x < b.x + b.w + m && a.x + a.w + m > b.x && a.y < b.y + b.h + m && a.y + a.h + m > b.y
 
 /** Give every node/zone without coordinates a position, keeping everything that already has one. */
-export function placeMissing(input: Architecture, ix: CatalogIndex): Architecture {
+export function placeMissing(input: Architecture, ix: CatalogIndex, opts: LayoutOptions = {}): Architecture {
   const missingNodes = input.nodes.filter((n) => !hasPos(n.ui))
   const missingZones = input.zones.filter((z) => !hasRect(z.ui))
   if (!missingNodes.length && !missingZones.length) return input
-  if (missingNodes.length === input.nodes.length && missingZones.length === input.zones.length) return layoutAll(input, ix)
+  if (missingNodes.length === input.nodes.length && missingZones.length === input.zones.length) return layoutAll(input, ix, opts)
 
   const arch = clone(input)
   const bounds = boundsOf(arch)
@@ -376,9 +392,9 @@ export function zoneAt(arch: Architecture, x: number, y: number, ignore?: Set<st
 }
 
 /** Place `add` to the right of `base`; ids and groups that collide get a common `-N` suffix. */
-export function mergeArchitecture(base: Architecture, add: Architecture, ix: CatalogIndex): Architecture {
+export function mergeArchitecture(base: Architecture, add: Architecture, ix: CatalogIndex, opts: LayoutOptions = {}): Architecture {
   const merged = clone(base)
-  const laid = layoutAll(add, ix)
+  const laid = layoutAll(add, ix, opts)
   const taken = new Set([...base.nodes.map((n) => n.id), ...base.zones.map((z) => z.id), ...base.edges.map((e) => e.id)])
   const groups = new Set(base.nodes.map((n) => n.group).filter(Boolean) as string[])
   const ids = [...laid.zones.map((z) => z.id), ...laid.nodes.map((n) => n.id), ...laid.edges.map((e) => e.id)]

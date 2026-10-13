@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
-import type { Requirements } from '@/api/types'
-import { t } from '@/i18n'
+import { lt, t } from '@/i18n'
 import { splitSeconds, toSeconds } from '@/lib/format'
 import { useApp } from '@/stores/app'
 import { useEditor } from '@/stores/editor'
@@ -13,6 +12,13 @@ const ui = useUi()
 const req = computed(() => editor.arch.requirements)
 const dis = computed(() => editor.readonly)
 const tolerance = computed(() => app.boot?.engine.defaultFailureTolerance ?? 'site')
+/** The failure ladder comes from the engine settings (delivered by /bootstrap). */
+const levels = computed(() => [...(app.boot?.engine.toleranceLevels ?? [])].sort((a, b) => a.rank - b.rank))
+const levelName = (id: string) => { const l = levels.value.find((x) => x.id === id); return l ? lt(l.name) : t('req.failureTolerance.' + id) }
+const levelHelp = computed(() => { const l = levels.value.find((x) => x.id === (req.value.failureTolerance ?? tolerance.value)); return l ? lt(l.help) : '' })
+const maxSiteFailures = computed(() => app.boot?.engine.maxSiteFailures ?? 4)
+/** Several sites at once only make sense when sites are the failure domain being asked about. */
+const asksSites = computed(() => { const cur = levels.value.find((x) => x.id === (req.value.failureTolerance ?? tolerance.value)); return !cur ? true : cur.domain === 'site' || cur.domain === 'geo' })
 const symbol = computed(() => app.boot?.engine.symbol ?? '')
 const compliance = ref('')
 
@@ -42,7 +48,11 @@ function setUnit(k: DurKey, u: 'seconds' | 'minutes' | 'hours') {
 
 function setTolerance(e: Event) {
   const v = (e.target as HTMLSelectElement).value
-  editor.setRequirement('failureTolerance', (v || undefined) as Requirements['failureTolerance'])
+  editor.setRequirement('failureTolerance', v || undefined)
+}
+function setSiteFailures(e: Event) {
+  const raw = (e.target as HTMLInputElement).value
+  editor.setRequirement('siteFailures', raw === '' ? undefined : Math.max(1, Math.min(maxSiteFailures.value, Math.round(Number(raw)))))
 }
 
 // ------------------------------------------------------------------------- "fill this in" requests
@@ -117,11 +127,15 @@ function removeCompliance(x: string) {
     <div class="field" v-bind="attrs('failureTolerance')">
       <label>{{ t('req.failureTolerance') }}</label>
       <select class="select" :disabled="dis" :value="req.failureTolerance ?? ''" @change="setTolerance">
-        <option value="">{{ t('inspector.default', { v: t('req.failureTolerance.' + tolerance) }) }}</option>
-        <option value="instance">{{ t('req.failureTolerance.instance') }}</option>
-        <option value="site">{{ t('req.failureTolerance.site') }}</option>
-        <option value="geo">{{ t('req.failureTolerance.geo') }}</option>
+        <option value="">{{ t('inspector.default', { v: levelName(tolerance) }) }}</option>
+        <option v-for="l in levels" :key="l.id" :value="l.id">{{ levelName(l.id) }}</option>
       </select>
+      <span v-if="levelHelp" class="hint">{{ levelHelp }}</span>
+    </div>
+    <div v-if="asksSites" class="field" v-bind="attrs('siteFailures')">
+      <label>{{ t('req.siteFailures') }}</label>
+      <input class="input mono" type="number" min="1" :max="maxSiteFailures" step="1" :disabled="dis" :value="req.siteFailures ?? ''" placeholder="1" @input="setSiteFailures" />
+      <span class="hint">{{ t('req.siteFailures.hint') }}</span>
     </div>
     <div class="field" v-bind="attrs('compliance')">
       <label>{{ t('req.compliance') }}</label>

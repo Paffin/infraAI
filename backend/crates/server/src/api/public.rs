@@ -77,6 +77,7 @@ pub async fn bootstrap(State(state): State<AppState>, user: AuthUser, headers: H
         "errorToastMs",
         "highlightMs",
         "paletteMaxResults",
+        "layoutZonesPerRow",
     ]
     .iter()
     .map(|k| (k.to_string(), cfg.settings.get(&format!("editor.{k}"))))
@@ -110,6 +111,8 @@ pub async fn bootstrap(State(state): State<AppState>, user: AuthUser, headers: H
             "currency": cfg.engine.cost.currency, "symbol": cfg.engine.cost.symbol,
             "minCapacityDuringFailure": a.min_capacity_during_failure, "headroomPercent": a.headroom_percent,
             "defaultFailureTolerance": a.default_failure_tolerance,
+            "toleranceLevels": cfg.engine.tolerance.levels,
+            "maxSiteFailures": cfg.engine.scenarios.max_site_failures,
         },
     });
     // conditional GET: the catalog is large and rarely changes

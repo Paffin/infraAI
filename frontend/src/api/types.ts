@@ -15,7 +15,10 @@ export interface Requirements {
   rpoSeconds?: number
   availabilitySlo?: number
   budgetMonthly?: number
-  failureTolerance?: 'instance' | 'site' | 'geo'
+  /** a level of the engine's tolerance ladder (`instance`, `rack`, `site`, `geo`, …) */
+  failureTolerance?: string
+  /** sites that may fail at the same time */
+  siteFailures?: number
   compliance?: string[]
   notes?: string
 }
@@ -174,6 +177,7 @@ export type Scenario =
   | { type: 'unit'; unit: string }
   | { type: 'zone'; zoneId: string }
   | { type: 'link'; a: string; b: string }
+  | { type: 'isolate'; zoneIds: string[] }
   | { type: 'sites'; zoneIds: string[] }
   | { type: 'geo'; geo: string }
 
@@ -206,7 +210,7 @@ export interface RuleResult { ruleId: string; category: string; status: Status; 
 export interface Counts { critical: number; risk: number; noData: number; ok: number; na: number; accepted: number }
 
 export interface Objective {
-  id: 'rto' | 'rpo' | 'site_loss' | 'spof' | 'capacity' | string
+  id: 'rto' | 'rpo' | 'site_loss' | 'sites_loss' | 'spof' | 'capacity' | string
   status: Status
   required?: unknown
   actual?: unknown
@@ -267,6 +271,16 @@ export interface CostReport {
 
 export interface Issue { level: 'error' | 'warning'; code: string; message: string; subject?: string }
 
+/** How much of the scenario space an evaluation looked at (the engine caps the combinations of many sites and says so). */
+export interface ScenarioStats {
+  generated: number
+  listed: number
+  truncated: boolean
+  sites: number
+  racks: number
+  siteFailures: number
+}
+
 export interface Report {
   engineVersion: number
   issues: Issue[]
@@ -275,6 +289,7 @@ export interface Report {
   findings: Finding[]
   objectives: Objective[]
   scenarios: ScenarioSummary[]
+  scenarioStats?: ScenarioStats
   baselineLoads: UnitLoad[]
   capacity: CapacityRow[]
   score: { value: number; penalty: number; coverage: number; breakdown: { ruleId: string; status: Status; penalty: number }[] }
@@ -346,6 +361,7 @@ export interface EditorSettings {
   errorToastMs: number
   highlightMs: number
   paletteMaxResults: number
+  layoutZonesPerRow: number
 }
 
 export interface Bootstrap {
@@ -362,8 +378,11 @@ export interface Bootstrap {
   editor?: Partial<EditorSettings>
   ai: { enabled: boolean; configured: boolean; maxPromptChars: number; plannerModel: string; fastModel: string }
   limits: { maxNodes: number; maxEdges: number; maxZones: number; waiverMinReasonChars: number; waiverMaxDays: number }
-  engine: { currency: string; symbol: string; minCapacityDuringFailure: number; headroomPercent: number; defaultFailureTolerance: string }
+  engine: { currency: string; symbol: string; minCapacityDuringFailure: number; headroomPercent: number; defaultFailureTolerance: string; toleranceLevels?: ToleranceLevel[]; maxSiteFailures?: number }
 }
+
+/** One step of the failure ladder a requirement can ask for (data of the engine settings). */
+export interface ToleranceLevel { id: string; rank: number; domain: ZoneLevel | null; name: LText; help: LText }
 
 /** What the project list ships to draw a thumbnail (coordinates are `null` until the editor has laid the diagram out). */
 export interface ProjectThumb {
@@ -572,3 +591,89 @@ export interface SystemInfo {
   llm: { enabled: boolean; keyConfigured: boolean; keySource: 'database' | 'environment' | 'none' }
   env: Record<string, string | number | boolean>
 }
+
+// ---------------------------------------------------------------------------- placement
+
+export interface PlacementPattern {
+  id: string
+  name: LText
+  description?: LText | null
+  pros: LText[]
+  cons: LText[]
+  badge?: string | null
+  order: number
+  minSites: number
+  maxSites?: number | null
+  defaultSites: number
+  siteType: string
+  regions: { mode: 'single' | 'count' | 'per_site'; default: number; min: number; max: number }
+  racks: { default: number; min: number; max: number }
+  tolerance: string
+  siteFailures: { mode: string; value: number; max: number }
+  witness: boolean
+  standbySites: number
+  syncWithinGeo: boolean
+  offsiteBackupSite: boolean
+  requirements: Requirements
+  stack: string
+}
+
+export interface PlacementLayer {
+  id: string
+  name: LText
+  kind: string
+  alternatives: string[]
+  scope: 'global' | 'site' | 'cluster' | 'single'
+  optional: boolean
+  default: boolean
+}
+
+export interface PlacementOptions {
+  patterns: PlacementPattern[]
+  stacks: { id: string; name: LText; description?: LText | null; layers: PlacementLayer[] }[]
+  siteTypes: string[]
+  maxSiteFailures: number
+  maxNodes: number
+}
+
+export interface PlacementRequest {
+  pattern: string
+  sites?: number
+  regions?: number
+  racks?: number
+  siteFailures?: number
+  stack?: string
+  layers?: string[]
+  kinds?: Record<string, string>
+  siteType?: string
+  requirements?: Requirements
+  name?: string
+}
+
+export interface PlacedSite { id: string; name: string; role: 'working' | 'standby' | 'witness' | 'backup'; geo: string; racks: string[] }
+export interface PlacementNote { code: string; level: 'info' | 'warn' | 'error'; vars?: Record<string, unknown> }
+
+export interface PlacementVerdict {
+  score: number
+  coverage: number
+  counts: Counts
+  objectives: Objective[]
+  cost: { total: number; currency: string; symbol: string; incomplete: number }
+  scenarioStats: ScenarioStats
+  worstCapacity: number | null
+  findings: { id: string; ruleId: string; status: Status; vars: Record<string, unknown> }[]
+}
+
+export interface PlacementPreview {
+  architecture: Architecture
+  sites: PlacedSite[]
+  siteFailures: number
+  notes: PlacementNote[]
+  report: PlacementVerdict
+  nodes: number
+  edges: number
+}
+
+export type PlacementVariant =
+  | { ok: true; pattern: string; sites: number | null; siteFailures: number; nodes: number; zones: number; workingSites: number; arbiterSites: number; notes: PlacementNote[]; report: PlacementVerdict }
+  | { ok: false; pattern: string; sites: number | null; error: { code: string; message: string } }

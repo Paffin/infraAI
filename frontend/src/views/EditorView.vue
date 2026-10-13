@@ -10,6 +10,7 @@ import ExportModal from '@/editor/ExportModal.vue'
 import FailureMatrix from '@/editor/FailureMatrix.vue'
 import Inspector from '@/editor/Inspector.vue'
 import Library from '@/editor/Library.vue'
+import PlacementWizard from '@/editor/PlacementWizard.vue'
 import PromptBar from '@/editor/PromptBar.vue'
 import RightPanel from '@/editor/RightPanel.vue'
 import ScoreModal from '@/editor/ScoreModal.vue'
@@ -135,6 +136,7 @@ const conflict = computed(() => editor.saveState === 'conflict')
     <FailureMatrix v-if="ui.modal === 'matrix'" />
     <ScoreModal v-if="ui.modal === 'score'" />
     <ShortcutsModal v-if="ui.modal === 'shortcuts'" />
+    <PlacementWizard v-if="ui.modal === 'placement'" mode="replace" @close="ui.modal = null" />
     <CommandPalette v-if="ui.palette" />
   </div>
 </template>

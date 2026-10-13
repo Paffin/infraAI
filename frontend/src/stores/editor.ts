@@ -35,6 +35,9 @@ export const useEditor = defineStore('editor', () => {
   const app = useApp()
   const toasts = useToasts()
 
+  /** Layout options from the editor settings (sites per row). */
+  const layoutOpts = () => ({ zonesPerRow: app.editorCfg.layoutZonesPerRow })
+
   // ------------------------------------------------------------------------------------- state
   const projectId = ref('')
   const project = ref<ProjectDetail['project'] | null>(null)
@@ -92,7 +95,7 @@ export const useEditor = defineStore('editor', () => {
     for (const z of p.base.zones) if (!have.has(z.id) && p.diff.zones.removed.some((r) => r.id === z.id)) out.zones.push(z)
     for (const n of p.base.nodes) if (!have.has(n.id) && p.diff.nodes.removed.some((r) => r.id === n.id)) out.nodes.push(n)
     for (const e of p.base.edges) if (!have.has(e.id) && p.diff.edges.removed.some((r) => r.id === e.id)) out.edges.push(e)
-    return placeMissing(out, app.index!)
+    return placeMissing(out, app.index!, layoutOpts())
   })
   const previewSets = computed(() => {
     const p = preview.value
@@ -125,6 +128,7 @@ export const useEditor = defineStore('editor', () => {
 
   const groups = computed(() => [...new Set(arch.value.nodes.map((n) => n.group).filter((g): g is string => !!g))].sort())
   const siteZones = computed(() => arch.value.zones.filter((z) => app.index?.zoneTypes.get(z.type)?.level === 'site'))
+  const rackZones = computed(() => arch.value.zones.filter((z) => app.index?.zoneTypes.get(z.type)?.level === 'rack'))
 
   // ------------------------------------------------------------------------------------ loading
   async function load(id: string) {
@@ -136,7 +140,7 @@ export const useEditor = defineStore('editor', () => {
       project.value = d.project
       rev.value = d.rev
       waivers.value = d.waivers
-      const placed = placeMissing(d.architecture, app.index!)
+      const placed = placeMissing(d.architecture, app.index!, layoutOpts())
       arch.value = placed
       saveState.value = app.canEdit ? 'saved' : 'readonly'
       if (placed !== d.architecture && app.canEdit) touchSave()
@@ -689,13 +693,13 @@ export const useEditor = defineStore('editor', () => {
   /** Re-run the automatic layout for everything. */
   function autoLayout() {
     if (readonly.value) return
-    commit(layoutAll(arch.value, app.index!))
+    commit(layoutAll(arch.value, app.index!, layoutOpts()))
     fitToken.value++
   }
 
   /** Replace the whole architecture (template, restored version, applied AI proposal). */
   function replaceArchitecture(next: Architecture, o: { keepRev?: number; history?: boolean } = {}) {
-    const placed = placeMissing(next, app.index!)
+    const placed = placeMissing(next, app.index!, layoutOpts())
     if (o.history === false) {
       past.length = 0
       future.length = 0
@@ -719,7 +723,7 @@ export const useEditor = defineStore('editor', () => {
       merged.requirements = { ...tpl.requirements }
       replaceArchitecture(merged)
     } else {
-      commit(mergeArchitecture(arch.value, tpl, app.index!))
+      commit(mergeArchitecture(arch.value, tpl, app.index!, layoutOpts()))
       fitToken.value++
     }
   }
@@ -734,7 +738,7 @@ export const useEditor = defineStore('editor', () => {
   async function applyOps(ops: Op[]): Promise<boolean> {
     try {
       const r = await api.engine.apply(arch.value, ops, { projectId: projectId.value, lang: lang.value })
-      commit(placeMissing(r.architecture, app.index!))
+      commit(placeMissing(r.architecture, app.index!, layoutOpts()))
       return true
     } catch (e) {
       toasts.error(errorMessage(e))
@@ -827,7 +831,7 @@ export const useEditor = defineStore('editor', () => {
   return {
     projectId, project, arch, rev, waivers, loading, loadError, saveState, saveError, serverRev, report, evaluating, evalError,
     selection, multi, selectRequest, tool, layer, highlight, preview, viewCenter, fitToken, reveal, sim, pickingNode, connectFrom,
-    readonly, canUndo, canRedo, isEmpty, shown, previewSets, nodeById, edgeById, zoneById, openFindings, nodeStatus, edgeStatus, zoneStatus, findingsOf, groups, siteZones,
+    readonly, canUndo, canRedo, isEmpty, shown, previewSets, nodeById, edgeById, zoneById, openFindings, nodeStatus, edgeStatus, zoneStatus, findingsOf, groups, siteZones, rackZones,
     load, reset, flushSave, touchSave, reloadFromServer, evaluateNow, scheduleEvaluate,
     runScenario, exitSim, undo, redo, edit, commit,
     addNode, addZone, updateNode, setProp, updateEdge, reverseEdge, updateZone, connect, removeNode, removeEdge, removeZone, removeSelection, duplicateNode,

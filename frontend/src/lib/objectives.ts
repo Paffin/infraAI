@@ -37,9 +37,19 @@ function worstScenario(id: string, sites: ScenarioSummary[]): ScenarioSummary | 
   return undefined
 }
 
+/** The scenario that hurts most among the simultaneous losses of several sites. */
+function worstCombination(report: Pick<Report, 'scenarios'>): ScenarioSummary | undefined {
+  const combos = report.scenarios.filter((s) => s.scenario.type === 'sites')
+  return combos.find((s) => s.state === 'down' && s.recoveryKind === 'never') ?? combos.find((s) => s.dataLost) ?? [...combos].sort((a, b) => STATE_RANK[a.state] - STATE_RANK[b.state] || (a.capacityRatio ?? 1) - (b.capacityRatio ?? 1))[0]
+}
+
 export function objectiveAction(o: Objective, report: Report, ctx: ObjectiveContext): ObjectiveAction | null {
   const sites = siteScenarios(report)
   switch (o.id) {
+    case 'sites_loss': {
+      const sc = worstCombination(report)
+      return sc ? { kind: 'scenario', scenario: sc.scenario } : null
+    }
     case 'rto':
     case 'rpo': {
       if (o.required === null || o.required === undefined) return { kind: 'fill', need: { target: 'requirements', prop: o.id === 'rto' ? 'rtoSeconds' : 'rpoSeconds' } }

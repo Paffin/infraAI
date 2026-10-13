@@ -1,5 +1,6 @@
 import type { Architecture, Scenario, SimEvent, SimResult } from '@/api/types'
 import { t } from '@/i18n'
+import type { CatalogIndex } from './catalog'
 import { fmtDuration, fmtPct, round } from './format'
 
 const nameOf = (arch: Architecture, kind: 'nodes' | 'zones', id: string) => (arch[kind] as { id: string; name: string }[]).find((x) => x.id === id)?.name ?? id
@@ -13,6 +14,7 @@ export function scenarioLabel(sc: Scenario, arch: Architecture, units: Record<st
     case 'unit': return t('sim.sc.unit', { name: units[sc.unit] ?? sc.unit })
     case 'zone': return nameOf(arch, 'zones', sc.zoneId)
     case 'link': return t('sim.sc.link', { a: shortZone(nameOf(arch, 'zones', sc.a)), b: shortZone(nameOf(arch, 'zones', sc.b)) })
+    case 'isolate': return t('sim.sc.isolate', { names: sc.zoneIds.map((z) => shortZone(nameOf(arch, 'zones', z))).join(' + ') })
     case 'sites': return sc.zoneIds.map((z) => shortZone(nameOf(arch, 'zones', z))).join(' + ')
     case 'geo': return t('sim.sc.geo', { name: sc.geo })
   }
@@ -20,6 +22,22 @@ export function scenarioLabel(sc: Scenario, arch: Architecture, units: Record<st
 
 /** `ЦОД-1 · Москва` → `ЦОД-1`: buttons need the short form. */
 export const shortZone = (name: string) => name.split(' · ')[0]
+
+/** Which family a scenario belongs to – the filter chips of the failure matrix. */
+export type ScenarioFamily = 'zone' | 'rack' | 'isolate' | 'link' | 'sites' | 'geo' | 'other'
+export function scenarioFamily(sc: Scenario, arch: Architecture, ix: CatalogIndex): ScenarioFamily {
+  switch (sc.type) {
+    case 'zone': {
+      const z = arch.zones.find((x) => x.id === sc.zoneId)
+      return z && ix.zoneTypes.get(z.type)?.level === 'rack' ? 'rack' : 'zone'
+    }
+    case 'isolate': return 'isolate'
+    case 'link': return 'link'
+    case 'sites': return 'sites'
+    case 'geo': return 'geo'
+    default: return 'other'
+  }
+}
 
 export function sameScenario(a: Scenario | null | undefined, b: Scenario | null | undefined): boolean {
   return !!a && !!b && JSON.stringify(a) === JSON.stringify(b)

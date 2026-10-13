@@ -4,12 +4,14 @@ import ru from './ru'
 import en from './en'
 import ruAdmin from './ru.admin'
 import enAdmin from './en.admin'
+import ruPlacement from './ru.placement'
+import enPlacement from './en.placement'
 
 // Two flat dictionaries per language: the editor/common one and the admin panel one (kept apart so
 // that they can evolve independently). Missing keys fall back to English, then to the key itself.
 const dicts: Record<string, Record<string, string>> = {
-  ru: { ...ru, ...ruAdmin },
-  en: { ...en, ...enAdmin },
+  ru: { ...ru, ...ruAdmin, ...ruPlacement },
+  en: { ...en, ...enAdmin, ...enPlacement },
 }
 
 function initialLang(): string {
@@ -56,13 +58,18 @@ function renderValue(v: unknown, format: string | undefined): string | null {
   if (v === undefined || v === null) return null
   if (format === 'dur' && typeof v === 'number') return durationText(v)
   if (format === 'pct' && typeof v === 'number') return `${Math.round(v * 100)}%`
+  if (format?.startsWith('plural:') && typeof v === 'number') {
+    // `{n|plural:площадка,площадки,площадок}` – the word form that agrees with the number
+    const forms = format.slice('plural:'.length).split(',').map((x) => x.trim())
+    return forms[Math.min(pluralIndex(lang.value, Math.round(Math.abs(v))), forms.length - 1)] ?? ''
+  }
   if (typeof v === 'number') return Number.isInteger(v) ? String(v) : String(Math.round(v * 100) / 100)
   return String(v)
 }
 
-/** Replace `{name}` / `{name|dur}` / `{name|pct}`; unknown placeholders stay visible. */
+/** Replace `{name}` / `{name|dur}` / `{name|pct}` / `{name|plural:one,few,many}`; unknown placeholders stay visible. */
 export function substitute(s: string, vars: Record<string, unknown>): string {
-  return s.replace(/\{(\w+)(?:\|(\w+))?\}/g, (m, k: string, f: string | undefined) => (k in vars ? renderValue(vars[k], f) ?? m : m))
+  return s.replace(/\{(\w+)(?:\|([^{}]+))?\}/g, (m, k: string, f: string | undefined) => (k in vars ? renderValue(vars[k], f) ?? m : m))
 }
 
 /** Translate `key`; `{name}` placeholders are replaced from `vars`; `a|b|c` picks a plural form by `vars.n`. */

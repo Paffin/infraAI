@@ -39,7 +39,8 @@ function objLabel(o: Objective): string {
   switch (o.id) {
     case 'rto': return typeof o.required === 'number' ? t('obj.rto', { v: fmtDuration(o.required) }) : t('obj.rto.none')
     case 'rpo': return typeof o.required === 'number' ? t('obj.rpo', { v: o.required === 0 ? '0' : fmtDuration(o.required) }) : t('obj.rpo.none')
-    case 'site_loss': return t('obj.site_loss.' + (o.required === 'geo' ? 'geo' : o.required === 'instance' ? 'instance' : 'site'))
+    case 'site_loss': return t('obj.site_loss.' + (o.required === 'geo' ? 'geo' : o.required === 'instance' ? 'instance' : o.required === 'rack' ? 'rack' : 'site'))
+    case 'sites_loss': return typeof o.required === 'number' ? t('obj.sites_loss.count', { n: o.required }) : t('obj.sites_loss')
     case 'spof': return t('obj.spof')
     case 'capacity': return t('obj.capacity')
     default: return o.id
@@ -52,7 +53,8 @@ function objValue(o: Objective): string {
   switch (o.id) {
     case 'rto': return a === 'never' ? t('obj.value.never') : typeof a === 'number' ? fmtDuration(a) : t('obj.value.nodata')
     case 'rpo': return a === 'lost' ? t('obj.value.lost') : typeof a !== 'number' ? t('obj.value.nodata') : (a === 0 ? t('obj.value.sync') : fmtDuration(a)) + (o.assumed && a > 0 ? ' ~' : '')
-    case 'site_loss': return a === true ? t('obj.value.lives') : a === false ? t('obj.value.dies') : t('obj.value.nodata')
+    case 'site_loss':
+    case 'sites_loss': return a === true ? t('obj.value.lives') : a === false ? t('obj.value.dies') : t('obj.value.nodata')
     case 'spof': return a === 0 ? t('obj.value.none') : String(a ?? '')
     case 'capacity': return typeof a === 'number' ? fmtPct(a) : t('obj.value.nodata')
     default: return String(a ?? '')

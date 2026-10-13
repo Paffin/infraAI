@@ -1,0 +1,756 @@
+{
+ "id": "single-dc-racks",
+ "name": {
+  "ru": "1 ЦОД · 3 стойки",
+  "en": "1 DC · 3 racks"
+ },
+ "description": {
+  "ru": "Один ЦОД, стойки — домены отказа: приложения, база (primary + 2 реплики), кворум etcd и кэш разнесены по стойкам; копии — на внешней площадке. Переживает отказ стойки; потеря ЦОДа — восстановление из копии.",
+  "en": "One data center, racks as failure domains: applications, the database (primary + 2 replicas), the etcd quorum and the cache are spread over racks; backups sit on an off-site location. Survives a rack failure; losing the data center is a restore from the copy."
+ },
+ "badge": "1 ЦОД",
+ "enabled": true,
+ "order": 0,
+ "architecture": {
+  "schemaVersion": 1,
+  "meta": {
+   "name": "1 ЦОД · 3 стойки",
+   "description": "Один ЦОД, стойки — домены отказа: приложения, база (primary + 2 реплики), кворум etcd и кэш разнесены по стойкам; копии — на внешней площадке. Переживает отказ стойки; потеря ЦОДа — восстановление из копии."
+  },
+  "requirements": {
+   "rpsPeak": 3000.0,
+   "growthPercent": 30.0,
+   "rtoSeconds": 14400.0,
+   "rpoSeconds": 300.0,
+   "availabilitySlo": 99.9,
+   "failureTolerance": "rack"
+  },
+  "zones": [
+   {
+    "id": "dc1",
+    "name": "ЦОД-1",
+    "type": "dc",
+    "parentId": null,
+    "role": "active",
+    "props": {
+     "geo": "geo-1"
+    }
+   },
+   {
+    "id": "dc1-r1",
+    "name": "ЦОД-1 · стойка 1",
+    "type": "rack",
+    "parentId": "dc1",
+    "role": null,
+    "props": {}
+   },
+   {
+    "id": "dc1-r2",
+    "name": "ЦОД-1 · стойка 2",
+    "type": "rack",
+    "parentId": "dc1",
+    "role": null,
+    "props": {}
+   },
+   {
+    "id": "dc1-r3",
+    "name": "ЦОД-1 · стойка 3",
+    "type": "rack",
+    "parentId": "dc1",
+    "role": null,
+    "props": {}
+   },
+   {
+    "id": "backup-site",
+    "name": "Внешняя площадка резервных копий",
+    "type": "cloud",
+    "parentId": null,
+    "role": "backup",
+    "props": {
+     "geo": "geo-2"
+    }
+   }
+  ],
+  "nodes": [
+   {
+    "id": "users",
+    "kind": "users",
+    "name": "Пользователи",
+    "zoneId": null,
+    "group": null,
+    "role": null,
+    "props": {}
+   },
+   {
+    "id": "gslb",
+    "kind": "gslb",
+    "name": "GSLB / DNS",
+    "zoneId": null,
+    "group": "gslb",
+    "role": null,
+    "props": {
+     "dnsTtlSeconds": 30,
+     "failThreshold": 1,
+     "healthCheckSeconds": 5,
+     "replicas": 3
+    }
+   },
+   {
+    "id": "waf",
+    "kind": "waf",
+    "name": "WAF",
+    "zoneId": null,
+    "group": "waf",
+    "role": null,
+    "props": {
+     "replicas": 3
+    }
+   },
+   {
+    "id": "ingress-dc1-r1",
+    "kind": "l7",
+    "name": "Балансировщик · стойка 1",
+    "zoneId": "dc1-r1",
+    "group": "ingress",
+    "role": null,
+    "props": {
+     "failThreshold": 2,
+     "healthCheckSeconds": 3,
+     "replicas": 2
+    }
+   },
+   {
+    "id": "ingress-dc1-r2",
+    "kind": "l7",
+    "name": "Балансировщик · стойка 2",
+    "zoneId": "dc1-r2",
+    "group": "ingress",
+    "role": null,
+    "props": {
+     "failThreshold": 2,
+     "healthCheckSeconds": 3,
+     "replicas": 2
+    }
+   },
+   {
+    "id": "ingress-dc1-r3",
+    "kind": "l7",
+    "name": "Балансировщик · стойка 3",
+    "zoneId": "dc1-r3",
+    "group": "ingress",
+    "role": null,
+    "props": {
+     "failThreshold": 2,
+     "healthCheckSeconds": 3,
+     "replicas": 2
+    }
+   },
+   {
+    "id": "app-dc1-r1",
+    "kind": "kubernetes",
+    "name": "Приложение · стойка 1",
+    "zoneId": "dc1-r1",
+    "group": "app",
+    "role": null,
+    "props": {
+     "clusterName": "main",
+     "hpaMax": 39,
+     "hpaMin": 10,
+     "ramGb": 2,
+     "replicas": 13,
+     "vcpu": 1
+    }
+   },
+   {
+    "id": "app-dc1-r2",
+    "kind": "kubernetes",
+    "name": "Приложение · стойка 2",
+    "zoneId": "dc1-r2",
+    "group": "app",
+    "role": null,
+    "props": {
+     "clusterName": "main",
+     "hpaMax": 39,
+     "hpaMin": 10,
+     "ramGb": 2,
+     "replicas": 13,
+     "vcpu": 1
+    }
+   },
+   {
+    "id": "app-dc1-r3",
+    "kind": "kubernetes",
+    "name": "Приложение · стойка 3",
+    "zoneId": "dc1-r3",
+    "group": "app",
+    "role": null,
+    "props": {
+     "clusterName": "main",
+     "hpaMax": 39,
+     "hpaMin": 10,
+     "ramGb": 2,
+     "replicas": 13,
+     "vcpu": 1
+    }
+   },
+   {
+    "id": "dcs-dc1-r1",
+    "kind": "etcd",
+    "name": "Консенсус (DCS) · стойка 1",
+    "zoneId": "dc1-r1",
+    "group": "dcs",
+    "role": "voter",
+    "props": {
+     "diskGb": 50,
+     "ramGb": 4,
+     "vcpu": 2
+    }
+   },
+   {
+    "id": "dcs-dc1-r2",
+    "kind": "etcd",
+    "name": "Консенсус (DCS) · стойка 2",
+    "zoneId": "dc1-r2",
+    "group": "dcs",
+    "role": "voter",
+    "props": {
+     "diskGb": 50,
+     "ramGb": 4,
+     "vcpu": 2
+    }
+   },
+   {
+    "id": "dcs-dc1-r3",
+    "kind": "etcd",
+    "name": "Консенсус (DCS) · стойка 3",
+    "zoneId": "dc1-r3",
+    "group": "dcs",
+    "role": "voter",
+    "props": {
+     "diskGb": 50,
+     "ramGb": 4,
+     "vcpu": 2
+    }
+   },
+   {
+    "id": "db-dc1-r1",
+    "kind": "postgresql",
+    "name": "База данных · стойка 1",
+    "zoneId": "dc1-r1",
+    "group": "db",
+    "role": "primary",
+    "props": {
+     "connectionPooler": true,
+     "dcs": "dcs",
+     "diskGb": 1000,
+     "encryptionAtRest": true,
+     "failover": "auto",
+     "failoverSeconds": 30,
+     "ramGb": 64,
+     "storageClass": "nvme",
+     "vcpu": 16,
+     "version": "16"
+    }
+   },
+   {
+    "id": "db-dc1-r2",
+    "kind": "postgresql",
+    "name": "База данных · стойка 2",
+    "zoneId": "dc1-r2",
+    "group": "db",
+    "role": "replica",
+    "props": {
+     "connectionPooler": true,
+     "dcs": "dcs",
+     "diskGb": 1000,
+     "encryptionAtRest": true,
+     "failover": "auto",
+     "failoverSeconds": 30,
+     "ramGb": 64,
+     "storageClass": "nvme",
+     "vcpu": 16,
+     "version": "16"
+    }
+   },
+   {
+    "id": "cache-dc1-r1",
+    "kind": "redis",
+    "name": "Кэш · стойка 1",
+    "zoneId": "dc1-r1",
+    "group": "cache",
+    "role": "primary",
+    "props": {
+     "mode": "sentinel",
+     "ramGb": 32,
+     "vcpu": 4
+    }
+   },
+   {
+    "id": "cache-dc1-r2",
+    "kind": "redis",
+    "name": "Кэш · стойка 2",
+    "zoneId": "dc1-r2",
+    "group": "cache",
+    "role": "replica",
+    "props": {
+     "mode": "sentinel",
+     "ramGb": 32,
+     "vcpu": 4
+    }
+   },
+   {
+    "id": "cache-witness-dc1-r3",
+    "kind": "redis",
+    "name": "Кэш · стойка 3",
+    "zoneId": "dc1-r3",
+    "group": "cache",
+    "role": "witness",
+    "props": {
+     "mode": "sentinel",
+     "ramGb": 1,
+     "vcpu": 1
+    }
+   },
+   {
+    "id": "secrets-dc1-r1",
+    "kind": "vault",
+    "name": "Секреты · стойка 1",
+    "zoneId": "dc1-r1",
+    "group": "secrets",
+    "role": "primary",
+    "props": {
+     "diskGb": 50,
+     "encryptionAtRest": true,
+     "ramGb": 4,
+     "vcpu": 2
+    }
+   },
+   {
+    "id": "secrets-dc1-r2",
+    "kind": "vault",
+    "name": "Секреты · стойка 2",
+    "zoneId": "dc1-r2",
+    "group": "secrets",
+    "role": "replica",
+    "props": {
+     "diskGb": 50,
+     "encryptionAtRest": true,
+     "ramGb": 4,
+     "vcpu": 2
+    }
+   },
+   {
+    "id": "monitoring-dc1-r1",
+    "kind": "monitoring",
+    "name": "Мониторинг · стойка 1",
+    "zoneId": "dc1-r1",
+    "group": "monitoring",
+    "role": null,
+    "props": {
+     "diskGb": 200,
+     "ramGb": 8,
+     "replicas": 2,
+     "vcpu": 2
+    }
+   },
+   {
+    "id": "monitoring-dc1-r2",
+    "kind": "monitoring",
+    "name": "Мониторинг · стойка 2",
+    "zoneId": "dc1-r2",
+    "group": "monitoring",
+    "role": null,
+    "props": {
+     "diskGb": 200,
+     "ramGb": 8,
+     "replicas": 2,
+     "vcpu": 2
+    }
+   },
+   {
+    "id": "monitoring-dc1-r3",
+    "kind": "monitoring",
+    "name": "Мониторинг · стойка 3",
+    "zoneId": "dc1-r3",
+    "group": "monitoring",
+    "role": null,
+    "props": {
+     "diskGb": 200,
+     "ramGb": 8,
+     "replicas": 2,
+     "vcpu": 2
+    }
+   },
+   {
+    "id": "gitops-dc1-r3",
+    "kind": "gitops",
+    "name": "GitOps · стойка 3",
+    "zoneId": "dc1-r3",
+    "group": "gitops",
+    "role": null,
+    "props": {
+     "ramGb": 4,
+     "replicas": 2,
+     "vcpu": 2
+    }
+   },
+   {
+    "id": "backup-backup-site",
+    "kind": "backup_storage",
+    "name": "Резервные копии · Внешняя площадка резервных копий",
+    "zoneId": "backup-site",
+    "group": "backup",
+    "role": null,
+    "props": {
+     "backupIntervalSeconds": 300,
+     "diskGb": 20000,
+     "encryptionAtRest": true,
+     "immutable": true,
+     "restoreSeconds": 7200,
+     "restoreTestedDays": 30,
+     "retentionDays": 30
+    }
+   }
+  ],
+  "edges": [
+   {
+    "id": "e-dcs-dc1-r1--dcs-dc1-r2",
+    "source": "dcs-dc1-r1",
+    "target": "dcs-dc1-r2",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "bandwidthMbps": 25000.0,
+     "latencyMs": 0.3,
+     "paths": 2,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-dcs-dc1-r2--dcs-dc1-r3",
+    "source": "dcs-dc1-r2",
+    "target": "dcs-dc1-r3",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "bandwidthMbps": 25000.0,
+     "latencyMs": 0.3,
+     "paths": 2,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-dcs-dc1-r3--dcs-dc1-r1",
+    "source": "dcs-dc1-r3",
+    "target": "dcs-dc1-r1",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "bandwidthMbps": 25000.0,
+     "latencyMs": 0.3,
+     "paths": 2,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-db-dc1-r1--db-dc1-r2",
+    "source": "db-dc1-r1",
+    "target": "db-dc1-r2",
+    "type": "sync",
+    "label": null,
+    "props": {
+     "bandwidthMbps": 25000.0,
+     "latencyMs": 0.3,
+     "paths": 2,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-cache-dc1-r1--cache-dc1-r2",
+    "source": "cache-dc1-r1",
+    "target": "cache-dc1-r2",
+    "type": "sync",
+    "label": null,
+    "props": {
+     "bandwidthMbps": 25000.0,
+     "latencyMs": 0.3,
+     "paths": 2,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-cache-witness-dc1-r3--cache-dc1-r1",
+    "source": "cache-witness-dc1-r3",
+    "target": "cache-dc1-r1",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "bandwidthMbps": 25000.0,
+     "latencyMs": 0.3,
+     "paths": 2,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-cache-witness-dc1-r3--cache-dc1-r2",
+    "source": "cache-witness-dc1-r3",
+    "target": "cache-dc1-r2",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "bandwidthMbps": 25000.0,
+     "latencyMs": 0.3,
+     "paths": 2,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-secrets-dc1-r1--secrets-dc1-r2",
+    "source": "secrets-dc1-r1",
+    "target": "secrets-dc1-r2",
+    "type": "sync",
+    "label": null,
+    "props": {
+     "bandwidthMbps": 25000.0,
+     "latencyMs": 0.3,
+     "paths": 2,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-users--gslb",
+    "source": "users",
+    "target": "gslb",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-gslb--waf",
+    "source": "gslb",
+    "target": "waf",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-waf--ingress-dc1-r1",
+    "source": "waf",
+    "target": "ingress-dc1-r1",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-waf--ingress-dc1-r2",
+    "source": "waf",
+    "target": "ingress-dc1-r2",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-waf--ingress-dc1-r3",
+    "source": "waf",
+    "target": "ingress-dc1-r3",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-ingress-dc1-r1--app-dc1-r1",
+    "source": "ingress-dc1-r1",
+    "target": "app-dc1-r1",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-ingress-dc1-r2--app-dc1-r2",
+    "source": "ingress-dc1-r2",
+    "target": "app-dc1-r2",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-ingress-dc1-r3--app-dc1-r3",
+    "source": "ingress-dc1-r3",
+    "target": "app-dc1-r3",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-monitoring-dc1-r1--app-dc1-r1",
+    "source": "monitoring-dc1-r1",
+    "target": "app-dc1-r1",
+    "type": "control",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-monitoring-dc1-r2--app-dc1-r2",
+    "source": "monitoring-dc1-r2",
+    "target": "app-dc1-r2",
+    "type": "control",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-monitoring-dc1-r3--app-dc1-r3",
+    "source": "monitoring-dc1-r3",
+    "target": "app-dc1-r3",
+    "type": "control",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-gitops-dc1-r3--app-dc1-r1",
+    "source": "gitops-dc1-r3",
+    "target": "app-dc1-r1",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-gitops-dc1-r3--app-dc1-r2",
+    "source": "gitops-dc1-r3",
+    "target": "app-dc1-r2",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-gitops-dc1-r3--app-dc1-r3",
+    "source": "gitops-dc1-r3",
+    "target": "app-dc1-r3",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-app-dc1-r1--db-dc1-r1",
+    "source": "app-dc1-r1",
+    "target": "db-dc1-r1",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "fanout": 0.3,
+     "fanoutColdCache": 0.8,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-app-dc1-r2--db-dc1-r2",
+    "source": "app-dc1-r2",
+    "target": "db-dc1-r2",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "fanout": 0.3,
+     "fanoutColdCache": 0.8,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-app-dc1-r3--db-dc1-r1",
+    "source": "app-dc1-r3",
+    "target": "db-dc1-r1",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "fanout": 0.3,
+     "fanoutColdCache": 0.8,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-app-dc1-r1--cache-dc1-r1",
+    "source": "app-dc1-r1",
+    "target": "cache-dc1-r1",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "fanout": 1
+    }
+   },
+   {
+    "id": "e-app-dc1-r2--cache-dc1-r2",
+    "source": "app-dc1-r2",
+    "target": "cache-dc1-r2",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "fanout": 1
+    }
+   },
+   {
+    "id": "e-app-dc1-r3--cache-dc1-r1",
+    "source": "app-dc1-r3",
+    "target": "cache-dc1-r1",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "fanout": 1
+    }
+   },
+   {
+    "id": "e-app-dc1-r1--secrets-dc1-r1",
+    "source": "app-dc1-r1",
+    "target": "secrets-dc1-r1",
+    "type": "control",
+    "label": "секреты",
+    "props": {}
+   },
+   {
+    "id": "e-app-dc1-r2--secrets-dc1-r2",
+    "source": "app-dc1-r2",
+    "target": "secrets-dc1-r2",
+    "type": "control",
+    "label": "секреты",
+    "props": {}
+   },
+   {
+    "id": "e-app-dc1-r3--secrets-dc1-r1",
+    "source": "app-dc1-r3",
+    "target": "secrets-dc1-r1",
+    "type": "control",
+    "label": "секреты",
+    "props": {}
+   },
+   {
+    "id": "e-db-dc1-r2--backup-backup-site",
+    "source": "db-dc1-r2",
+    "target": "backup-backup-site",
+    "type": "backup",
+    "label": null,
+    "props": {
+     "bandwidthMbps": 2000.0,
+     "intervalSeconds": 300,
+     "latencyMs": 28.0,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-secrets-dc1-r2--backup-backup-site",
+    "source": "secrets-dc1-r2",
+    "target": "backup-backup-site",
+    "type": "backup",
+    "label": null,
+    "props": {
+     "bandwidthMbps": 2000.0,
+     "intervalSeconds": 3600,
+     "latencyMs": 28.0,
+     "tls": true
+    }
+   }
+  ]
+ }
+}

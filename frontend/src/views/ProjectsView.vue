@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { Plus, Search, Pencil, Trash2, Boxes, Copy } from 'lucide-vue-next'
+import { Plus, Search, Pencil, Trash2, Boxes, Copy, Network } from 'lucide-vue-next'
 import * as api from '@/api/endpoints'
 import type { ProjectListItem } from '@/api/types'
 import DiagramThumb from '@/components/DiagramThumb.vue'
 import Modal from '@/components/Modal.vue'
+import PlacementWizard from '@/editor/PlacementWizard.vue'
 import TopBar from '@/components/TopBar.vue'
 import { lang, lt, t } from '@/i18n'
 import { fmtRelative } from '@/lib/format'
@@ -25,6 +26,7 @@ const loading = ref(true)
 const error = ref('')
 const query = ref('')
 const creating = ref(false)
+const wizard = ref(false)
 const form = ref({ name: '', templateId: '' })
 const busy = ref(false)
 
@@ -67,6 +69,11 @@ async function load() {
 function openCreate() {
   form.value = { name: '', templateId: '' }
   creating.value = true
+}
+
+function openWizard() {
+  creating.value = false
+  wizard.value = true
 }
 
 async function create() {
@@ -188,12 +195,18 @@ onMounted(load)
       </div>
     </main>
 
+    <PlacementWizard v-if="wizard" mode="new" @close="wizard = false" />
     <Modal v-if="creating" :title="t('projects.create.title')" @close="creating = false">
       <form class="col" style="gap: 16px" @submit.prevent="create">
         <div class="field">
           <label>{{ t('projects.create.name') }}</label>
           <input v-model="form.name" class="input" required autofocus maxlength="120" />
         </div>
+        <button type="button" class="wizard-card" @click="openWizard">
+          <span class="wi"><Network :size="20" /></span>
+          <span class="wt"><b>{{ t('projects.create.placement') }}</b><span class="muted">{{ t('projects.create.placement.hint') }}</span></span>
+          <span class="tag tag-accent tag-mono">1 · 2 · 3 · 5 · 10</span>
+        </button>
         <div class="field">
           <label>{{ t('projects.create.from') }}</label>
           <div class="templates">
@@ -252,5 +265,9 @@ onMounted(load)
 .tpl:hover { border-color: #b8c2d4; }
 .tpl.on { border-color: var(--accent); background: var(--accent-soft); }
 .tpl input { position: absolute; opacity: 0; pointer-events: none; }
+.wizard-card { display: flex; align-items: center; gap: 12px; text-align: left; padding: 12px 14px; border: 1px solid var(--accent-line); border-radius: var(--radius); background: var(--accent-soft); transition: box-shadow .15s, transform .15s; }
+.wizard-card:hover { box-shadow: var(--shadow-2); transform: translateY(-1px); }
+.wizard-card .wi { width: 38px; height: 38px; border-radius: 10px; background: var(--accent); color: #fff; display: grid; place-items: center; flex: none; }
+.wizard-card .wt { display: flex; flex-direction: column; gap: 2px; flex: 1; font-size: 13px; }
 @media (max-width: 640px) { .templates { grid-template-columns: 1fr; } .content { padding: 18px 16px; } }
 </style>

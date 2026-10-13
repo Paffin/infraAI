@@ -19,6 +19,7 @@ export const FALLBACK_EDITOR_SETTINGS: EditorSettings = {
   errorToastMs: 7000,
   highlightMs: 5000,
   paletteMaxResults: 60,
+  layoutZonesPerRow: 5,
 }
 
 /** Settings from the server, with the fallback for whatever it did not send. */

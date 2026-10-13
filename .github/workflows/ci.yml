@@ -111,7 +111,7 @@ jobs:
         run: |
           mkdir -p /tmp/iac-out
           cargo build -q -p engine --example export
-          for tpl in demo two-dc-witness three-az-region multi-region-pilot-light event-driven-kafka; do
+          for tpl in demo two-dc-witness three-az-region multi-region-pilot-light event-driven-kafka single-dc-racks three-sites-quorum five-sites-two-failures ten-sites-regions; do
             for fmt in kubernetes helm terraform; do
               ./target/debug/examples/export "$tpl" "$fmt" "/tmp/iac-out/$tpl/$fmt" en > /dev/null 2> "/tmp/iac-out/$tpl-$fmt.report.json"
             done

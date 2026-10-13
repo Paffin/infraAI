@@ -4,7 +4,7 @@ import type { Need } from '@/api/types'
 import { useAi } from './ai'
 
 export type RightTab = 'checks' | 'requirements' | 'capacity' | 'cost' | 'chat'
-export type ModalKind = 'versions' | 'export' | 'matrix' | 'score' | 'shortcuts' | null
+export type ModalKind = 'versions' | 'export' | 'matrix' | 'score' | 'shortcuts' | 'placement' | null
 
 const read = (k: string): string | null => { try { return localStorage.getItem(k) } catch { return null } }
 const write = (k: string, v: string) => { try { localStorage.setItem(k, v) } catch { /* ignore */ } }

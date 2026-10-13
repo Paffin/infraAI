@@ -1,10 +1,17 @@
 import type { Finding, Rule, Status } from '@/api/types'
 import { has, lt, ltf, t } from '@/i18n'
 
+/** Words for the engine's problem codes (`down,rto` → "service is down, RTO is not met"). */
+function withProblemWords(vars: Record<string, unknown>): Record<string, unknown> {
+  if (typeof vars.problems !== 'string' || !vars.problems) return vars
+  const words = vars.problems.split(',').map((c) => (has('problem.' + c) ? t('problem.' + c) : c))
+  return { ...vars, problems: words.join(', ') }
+}
+
 /** Findings whose fingerprint ends with `:req` come from an unmet explicit requirement. */
 export function findingText(rule: Rule | undefined, f: Finding): string {
   if (!rule) return f.ruleId
-  const vars = f.vars ?? {}
+  const vars = withProblemWords(f.vars ?? {})
   if (f.id.endsWith(':lost') && f.status !== 'no_data' && rule.dataLostMessage) return ltf(rule.dataLostMessage, vars)
   if (f.status === 'no_data') {
     const m = rule.noDataMessage ?? rule.message

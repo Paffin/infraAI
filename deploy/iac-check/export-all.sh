@@ -7,7 +7,7 @@ rm -rf "$OUT"/*
 cd /src
 cargo build -q -p engine --example export
 BIN=${CARGO_TARGET_DIR:-target}/debug/examples/export
-for tpl in demo two-dc-witness three-az-region multi-region-pilot-light event-driven-kafka; do
+for tpl in demo two-dc-witness three-az-region multi-region-pilot-light event-driven-kafka single-dc-racks three-sites-quorum five-sites-two-failures ten-sites-regions; do
   for fmt in kubernetes helm terraform; do
     "$BIN" "$tpl" "$fmt" "$OUT/$tpl/$fmt" en >/dev/null 2>"$OUT/$tpl-$fmt.report.json"
   done

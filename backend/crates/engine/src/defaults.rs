@@ -21,6 +21,10 @@ pub const TEMPLATES_JSON: &[(&str, &str)] = &[
     ("three-az-region", include_str!("../defaults/templates/three-az-region.json")),
     ("multi-region-pilot-light", include_str!("../defaults/templates/multi-region-pilot-light.json")),
     ("event-driven-kafka", include_str!("../defaults/templates/event-driven-kafka.json")),
+    ("single-dc-racks", include_str!("../defaults/templates/single-dc-racks.json")),
+    ("three-sites-quorum", include_str!("../defaults/templates/three-sites-quorum.json")),
+    ("five-sites-two-failures", include_str!("../defaults/templates/five-sites-two-failures.json")),
+    ("ten-sites-regions", include_str!("../defaults/templates/ten-sites-regions.json")),
 ];
 
 /// Infrastructure-as-code generators, one per catalog kind (see `iac`).

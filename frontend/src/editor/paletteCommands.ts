@@ -2,7 +2,7 @@ import { computed, type Component, type ComputedRef } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   Boxes, Coins, Copy, Download, Gauge, History, Keyboard, Languages, Layers, LayoutDashboard, ListChecks, Maximize, MousePointer2, PanelLeft, Play, Plus, Redo2, Save, ShieldCheck,
-  Sparkles, Spline, Square, Trash2, Undo2, Zap, Folder, Users,
+  Network, Sparkles, Spline, Square, Trash2, Undo2, Zap, Folder, Users,
 } from 'lucide-vue-next'
 import type { Status } from '@/api/types'
 import { lang, lt, setLang, t } from '@/i18n'
@@ -125,6 +125,7 @@ export function usePaletteCommands(): ComputedRef<Command[]> {
       out.push({ id: 'edit:undo', group: 'edit', title: t('tool.undo'), icon: Undo2, shortcut: shortcutText('undo'), suggest: editor.canUndo, run: () => editor.undo() })
       out.push({ id: 'edit:redo', group: 'edit', title: t('tool.redo'), icon: Redo2, shortcut: shortcutText('redo'), suggest: editor.canRedo, run: () => editor.redo() })
       out.push({ id: 'edit:layout', group: 'edit', title: t('tool.layout'), icon: LayoutDashboard, keywords: ['layout', 'раскладка'], suggest: true, run: () => editor.autoLayout() })
+      out.push({ id: 'edit:placement', group: 'edit', title: t('placement.open'), icon: Network, keywords: ['placement', 'sites', 'racks', 'размещение', 'площадки', 'цод', 'стойки', 'регионы'], suggest: true, run: () => { ui.modal = 'placement' } })
       out.push({ id: 'edit:tool.select', group: 'edit', title: t('cmd.tool.select'), icon: MousePointer2, shortcut: shortcutText('tool.select'), run: () => editor.setTool('select') })
       out.push({ id: 'edit:tool.connect', group: 'edit', title: t('cmd.tool.connect'), icon: Spline, shortcut: shortcutText('tool.connect'), keywords: ['connect', 'edge', 'связь'], run: () => editor.setTool('connect') })
       out.push({ id: 'edit:tool.zone', group: 'edit', title: t('cmd.tool.zone'), icon: Square, shortcut: shortcutText('tool.zone'), keywords: ['zone', 'зона'], run: () => editor.setTool('zone') })

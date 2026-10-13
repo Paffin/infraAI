@@ -12,10 +12,15 @@ fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let pattern = args.first().cloned().unwrap_or_else(|| "n-sites".into());
     let num = |i: usize| args.get(i).and_then(|v| v.parse::<u32>().ok());
-    let cfg = defaults::engine_config("en");
-    let req = PlacementRequest { pattern, sites: num(1), racks: num(2), regions: num(3), site_failures: num(4), lang: Some("en".into()), ..Default::default() };
+    let lang = std::env::var("PLACEMENT_LANG").unwrap_or_else(|_| "en".into());
+    let cfg = defaults::engine_config(&lang);
+    let req = PlacementRequest { pattern, sites: num(1), racks: num(2), regions: num(3), site_failures: num(4), lang: Some(lang.clone()), ..Default::default() };
     match generate(&cfg, &cfg.placement, &req) {
         Ok(res) => {
+            if std::env::var("JSON").is_ok() {
+                println!("{}", serde_json::to_string_pretty(&res.architecture).unwrap());
+                return;
+            }
             let rep = evaluate(&res.architecture, &cfg, &[]);
             println!("sites: {:?}", res.sites.iter().map(|s| format!("{}:{}:{}", s.id, s.role, s.geo)).collect::<Vec<_>>());
             println!("k={} nodes={} edges={} zones={}", res.site_failures, res.architecture.nodes.len(), res.architecture.edges.len(), res.architecture.zones.len());

@@ -1020,6 +1020,22 @@
   "max": 300
  },
  {
+  "key": "editor.layoutZonesPerRow",
+  "group": "editor",
+  "type": "number",
+  "default": 5,
+  "label": {
+   "ru": "Автораскладка: площадок в одном ряду",
+   "en": "Auto-layout: sites per row"
+  },
+  "help": {
+   "ru": "Когда площадок больше, автораскладка переносит их в следующий ряд, а не растягивает схему в одну линию. Одинаковые компоненты разных площадок остаются на одной высоте.",
+   "en": "When there are more sites the auto-layout wraps them into the next row instead of stretching the diagram into one line. Equivalent components of different sites keep their height."
+  },
+  "min": 1,
+  "max": 20
+ },
+ {
   "key": "retention.auditDays",
   "group": "retention",
   "type": "number",
