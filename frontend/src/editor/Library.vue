@@ -121,7 +121,7 @@ defineExpose({ focus: () => { ui.libraryOpen = true; setTimeout(() => input.valu
       <section v-if="templates.length">
         <h2>{{ t('library.templates') }}</h2>
         <button v-for="tpl in templates" :key="tpl.id" class="tpl" :disabled="editor.readonly" :title="lt(tpl.description)" @click="pickTemplate(tpl)">
-          <span class="grow truncate">{{ lt(tpl.name) }}</span>
+          <span class="grow tname">{{ lt(tpl.name) }}</span>
           <span v-if="tpl.badge" class="badge">{{ tpl.badge }} ✓</span>
         </button>
       </section>
@@ -198,7 +198,8 @@ defineExpose({ focus: () => { ui.libraryOpen = true; setTimeout(() => input.valu
 .scroll { flex: 1; overflow: auto; padding: 0 14px 18px; }
 section { margin-top: 14px; }
 h2 { font-size: 11.5px; letter-spacing: .09em; text-transform: uppercase; color: var(--label); font-weight: 600; margin: 0 0 8px 2px; }
-.tpl { width: 100%; display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 12px; margin-bottom: 8px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius); font-size: 13.5px; text-align: left; }
+.tname { min-width: 0; line-height: 1.25; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
+.tpl { width: 100%; display: flex; align-items: center; gap: 8px; min-height: 38px; padding: 6px 12px; margin-bottom: 8px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius); font-size: 13.5px; text-align: left; }
 .tpl:hover:not(:disabled) { background: var(--surface-2); border-color: #b8c2d4; }
 .tpl:disabled { opacity: .55; cursor: not-allowed; }
 .badge { font-family: var(--mono); font-size: 11px; color: var(--ok); letter-spacing: .02em; }

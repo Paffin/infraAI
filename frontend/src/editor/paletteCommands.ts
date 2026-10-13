@@ -2,7 +2,7 @@ import { computed, type Component, type ComputedRef } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   Activity, Boxes, Coins, Copy, Download, Gauge, History, Keyboard, Languages, Layers, LayoutDashboard, ListChecks, Maximize, MousePointer2, PanelLeft, Play, Plus, Redo2, Save, ShieldCheck,
-  Network, Sparkles, Spline, Square, Trash2, Undo2, Zap, Folder, Users,
+  MapPinned, Network, Sparkles, Spline, Square, Trash2, Undo2, Zap, Folder, Users,
 } from 'lucide-vue-next'
 import type { Status } from '@/api/types'
 import { lang, lt, setLang, t } from '@/i18n'
@@ -39,7 +39,7 @@ export interface Command {
 
 const TABS: RightTab[] = ['checks', 'requirements', 'chat']
 const TAB_ICON: Record<RightTab, Component> = { checks: ListChecks, requirements: ShieldCheck, analysis: Gauge, chat: Sparkles }
-const ANALYSIS_ICON: Record<AnalysisView, Component> = { capacity: Gauge, availability: Activity, cost: Coins }
+const ANALYSIS_ICON: Record<AnalysisView, Component> = { capacity: Gauge, availability: Activity, cost: Coins, sites: MapPinned }
 
 /** Everything the command palette (Ctrl/⌘+K) can find or do for the open project; rebuilt when the project, the report or the language changes. */
 export function usePaletteCommands(): ComputedRef<Command[]> {

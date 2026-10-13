@@ -23,8 +23,8 @@ export async function createProject(page: Page, name: string, template?: string)
 
 export const uniqueName = (prefix: string) => `${prefix}-${Date.now().toString(36)}`
 
-/** Opens one of the analyses (Ёмкость, Доступность, Стоимость): the Анализ tab of the right panel, on that view. */
-export async function openAnalysis(page: Page, view: 'Ёмкость' | 'Доступность' | 'Стоимость') {
+/** Opens one of the analyses (Ёмкость, Доступность, Стоимость, Площадки): the Анализ tab of the right panel, on that view. */
+export async function openAnalysis(page: Page, view: 'Ёмкость' | 'Доступность' | 'Стоимость' | 'Площадки') {
   await page.locator('.right .tab', { hasText: 'Анализ' }).click()
   await page.locator('.right .seg .segbtn', { hasText: view }).click()
 }

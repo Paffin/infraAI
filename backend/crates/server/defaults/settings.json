@@ -1132,6 +1132,22 @@
   "max": 20
  },
  {
+  "key": "editor.quietEdgesSites",
+  "group": "editor",
+  "type": "number",
+  "default": 4,
+  "label": {
+   "ru": "Приглушать связи между площадками: от скольких площадок",
+   "en": "Quiet the links between sites: from how many sites"
+  },
+  "help": {
+   "ru": "У схемы с таким числом площадок и более связи между площадками при отдалении становятся бледнее, чтобы были видны сами площадки. Выбранное и его связи остаются яркими. 1 — всегда.",
+   "en": "In a design with this many sites or more, the links between sites turn pale when the diagram is zoomed out, so that the sites themselves read. What is selected, and its links, stay bright. 1 means always."
+  },
+  "min": 1,
+  "max": 50
+ },
+ {
   "key": "editor.playbackStepMs",
   "group": "editor",
   "type": "number",

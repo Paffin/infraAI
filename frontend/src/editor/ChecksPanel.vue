@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { Check, ChevronDown, ChevronRight, CircleHelp, TriangleAlert, X } from 'lucide-vue-next'
+import { Check, ChevronDown, ChevronRight, CircleCheck, CircleHelp, Download, Gauge, Grid3x3, TriangleAlert, X } from 'lucide-vue-next'
 import type { Objective, Status } from '@/api/types'
 import { lt, t } from '@/i18n'
 import { fmtDuration, fmtPct } from '@/lib/format'
@@ -50,6 +50,9 @@ const showAccepted = ref(false)
 const open = computed(() => [...editor.openFindings].sort((a, b) => statusRank[a.status] - statusRank[b.status]).filter((f) => filter.value === 'all' || f.status === filter.value))
 const accepted = computed(() => (report.value?.findings ?? []).filter((f) => f.accepted))
 const okRules = computed(() => (report.value?.rules ?? []).filter((r) => r.status === 'ok'))
+
+/** The word the tile of that level carries (`критично`, `риск`, `нет данных`). */
+const levelWord = (s: Status | 'all') => t(s === 'no_data' ? 'checks.nodata' : 'checks.' + s)
 
 function pick(s: Status) {
   filter.value = filter.value === s ? 'all' : s
@@ -134,7 +137,7 @@ const markIcon = (s: Status) => (s === 'ok' ? Check : s === 'critical' ? X : s =
 
       <div class="objectives">
         <component :is="actionOf(o) ? 'button' : 'div'" v-for="o in report.objectives" :key="o.id" class="obj" :class="[o.status, actionOf(o) && 'act']" :title="objHint(o) || undefined" @click="openObjective(o)">
-          <span class="ol truncate">{{ objLabel(o) }}</span>
+          <span class="ol">{{ objLabel(o) }}</span>
           <span class="ov mono">{{ objValue(o) }}<component :is="markIcon(o.status)" :size="12" class="mark" /></span>
         </component>
       </div>
@@ -152,7 +155,20 @@ const markIcon = (s: Status) => (s === 'ok' ? Check : s === 'critical' ? X : s =
       <TransitionGroup name="list" tag="div" class="fgroup" @before-enter="beforeEnter" @after-enter="afterEnter">
         <FindingCard v-for="(f, i) in open" :key="f.id" :finding="f" :data-i="i" />
       </TransitionGroup>
-      <div v-if="report && !open.length && filter === 'all' && !editor.isEmpty" class="empty none">{{ t('checks.none') }}</div>
+      <section v-if="report && !open.length && filter === 'all' && !editor.isEmpty" class="clear" data-testid="all-clear">
+        <CircleCheck :size="26" class="cc" aria-hidden="true" />
+        <h3>{{ t('checks.none') }}</h3>
+        <p>{{ t('checks.clear.text', { n: total, pct: Math.round(report.score.coverage * 100) }) }}</p>
+        <div class="next">
+          <button class="btn btn-sm" @click="ui.modal = 'matrix'"><Grid3x3 :size="13" />{{ t('checks.clear.matrix') }}</button>
+          <button v-if="report.availability" class="btn btn-sm" @click="ui.showAnalysis('availability')"><Gauge :size="13" />{{ t('checks.clear.availability') }}</button>
+          <button class="btn btn-sm" @click="ui.modal = 'export'"><Download :size="13" />{{ t('checks.clear.export') }}</button>
+        </div>
+      </section>
+      <div v-else-if="report && !open.length && filter !== 'all' && !editor.isEmpty" class="empty muted-none">
+        <span>{{ t('checks.none.level', { level: levelWord(filter) }) }}</span>
+        <button class="btn btn-sm" @click="filter = 'all'">{{ t('checks.filter.reset') }}</button>
+      </div>
       <div v-if="!report && editor.evaluating" class="sk-list" aria-busy="true" :aria-label="t('editor.checking')">
         <div v-for="n in 3" :key="n" class="skel sk-finding" />
       </div>
@@ -182,12 +198,12 @@ const markIcon = (s: Status) => (s === 'ok' ? Check : s === 'critical' ? X : s =
 .tile.ok { background: var(--ok-bg); color: var(--ok); }
 .tile.on { border-color: currentColor; }
 .objectives { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 10px 20px 0; }
-.obj { display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 12px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius); font-size: 12.5px; min-width: 0; transition: border-color var(--dur-base), box-shadow var(--dur-fast); }
+.obj { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1px 8px; min-height: 38px; padding: 6px 12px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius); font-size: 12.5px; min-width: 0; transition: border-color var(--dur-base), box-shadow var(--dur-fast); }
 .obj .ov, .obj .mark { transition: color var(--dur-base); }
 .obj.act { cursor: pointer; text-align: left; }
 .obj.act:hover { border-color: var(--accent); box-shadow: var(--shadow-1); }
 .obj:last-child:nth-child(odd) { grid-column: 1 / -1; }
-.ol { color: var(--muted); flex: 1; }
+.ol { color: var(--muted); flex: 1 1 auto; min-width: 0; line-height: 1.25; }
 .ov { font-size: 12.5px; color: var(--text); white-space: nowrap; display: inline-flex; align-items: center; gap: 5px; }
 .mark { flex: none; }
 .obj.ok .mark { color: var(--ok); }
@@ -201,8 +217,13 @@ const markIcon = (s: Status) => (s === 'ok' ? Check : s === 'critical' ? X : s =
 .fgroup { display: flex; flex-direction: column; gap: 12px; position: relative; }
 .sk-list { display: flex; flex-direction: column; gap: 12px; }
 .sk-finding { height: 92px; border-radius: var(--radius); }
-.none { color: var(--ok); }
 .empty { display: flex; gap: 8px; align-items: center; justify-content: center; }
+.muted-none { color: var(--muted); font-size: 13px; padding: 14px 0; }
+.clear { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; padding: 26px 18px 22px; background: var(--surface); border: 1px solid var(--ok-line); border-radius: var(--radius-lg); }
+.clear .cc { color: var(--ok); }
+.clear h3 { margin: 2px 0 0; font-size: 15px; color: var(--ok); }
+.clear p { margin: 0; font-size: 12.5px; color: var(--muted); line-height: 1.5; max-width: 290px; }
+.clear .next { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-top: 10px; }
 .fold { display: inline-flex; align-items: center; gap: 4px; border: 0; background: transparent; color: var(--muted); font-size: 12.5px; padding: 2px 0; align-self: flex-start; }
 .fold:hover { color: var(--text); }
 .oklist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; }

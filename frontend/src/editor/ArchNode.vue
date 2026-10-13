@@ -34,6 +34,8 @@ const ghost = computed(() => !!editor.previewSets?.removed.nodes.has(id.value))
 const changed = computed(() => !!editor.previewSets?.changed.nodes.has(id.value))
 const lit = computed(() => !!editor.highlight?.nodes.includes(id.value))
 const dim = computed(() => !!editor.highlight && !lit.value)
+/** Something is selected and this card is not what it touches: it steps back (the links of the selection and the cards at their ends stay). */
+const faded = computed(() => !!editor.focus && !editor.focus.nodes.has(id.value))
 const connecting = computed(() => editor.connectFrom === id.value)
 const inMulti = computed(() => editor.multi.includes(id.value))
 /** The row of the first build this card belongs to: the cards of a freshly opened diagram appear row by row. */
@@ -58,7 +60,7 @@ function onClick(e: MouseEvent) {
     v-if="node"
     class="arch-node"
     :class="[
-      selected && 'selected', inMulti && 'multi', status && !proposed && 'st-' + status, proposed && 'proposed', ghost && 'ghost', changed && 'changed', lit && 'lit', dim && 'dim', connecting && 'connecting',
+      selected && 'selected', inMulti && 'multi', status && !proposed && 'st-' + status, proposed && 'proposed', ghost && 'ghost', changed && 'changed', lit && 'lit', dim && 'dim', faded && 'faded', connecting && 'connecting',
       simState && 'sim-' + simState, stepPulse, editor.pickingNode && 'pickable', editor.tool === 'connect' && 'connectable',
     ]"
     :title="tip"
@@ -103,6 +105,7 @@ function onClick(e: MouseEvent) {
 .ghost { opacity: .5; border: 1.5px dashed var(--crit); background: var(--crit-bg); }
 .ghost .name { text-decoration: line-through; }
 .dim { opacity: .35; }
+.faded { opacity: .5; }
 .lit { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
 .step-a::before, .step-b::before { content: ''; position: absolute; inset: -1px; border-radius: var(--radius); pointer-events: none; }
 .step-a::before { animation: step-a var(--dur-slower) var(--ease-out) 1; }

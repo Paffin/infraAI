@@ -25,8 +25,9 @@ async function violations(page: Page): Promise<string[]> {
   await page.evaluate(axe)
   const found: Violation[] = await page.evaluate(async () => {
     // @ts-expect-error axe is injected above
-    // what a simulation fades out on purpose (`.dim`) is not for reading at that moment; it is back at full strength when the simulation closes
-    const res = await window.axe.run({ include: [['body']], exclude: [['.dim']] }, { resultTypes: ['violations'], runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'best-practice'] } })
+    // what a simulation fades out on purpose (`.dim`), or what the selection steps back from (`.faded`; the "Focus" button turns that off), is not
+    // for reading at that moment: it is back at full strength when the simulation closes or the selection goes
+    const res = await window.axe.run({ include: [['body']], exclude: [['.dim'], ['.faded']] }, { resultTypes: ['violations'], runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'best-practice'] } })
     return res.violations
   })
   return found.map((v) => `${v.id} [${v.impact}] ×${v.nodes.length}: ${v.help} — e.g. ${v.nodes[0]?.target.join(' ')} ${(v.nodes[0]?.failureSummary ?? '').split('\n')[1] ?? ''}`.trim())
@@ -61,7 +62,7 @@ test.describe('accessibility (axe-core)', () => {
       await page.locator('.right .tab', { hasText: tab }).click()
       await clean(page, `tab ${tab}`)
     }
-    for (const view of ['Ёмкость', 'Доступность', 'Стоимость'] as const) {
+    for (const view of ['Ёмкость', 'Доступность', 'Стоимость', 'Площадки'] as const) {
       await openAnalysis(page, view)
       await clean(page, `analysis ${view}`)
     }

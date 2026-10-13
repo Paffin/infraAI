@@ -3,7 +3,7 @@ import { computed, markRaw, nextTick, onBeforeUnmount, onMounted, ref, watch } f
 import { ConnectionMode, VueFlow, useVueFlow, type GraphNode, type NodeDragEvent } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { MiniMap } from '@vue-flow/minimap'
-import { LayoutDashboard, LayoutTemplate, Minus, MousePointer2, Network, PanelLeftOpen, Plus, Redo2, Sparkles, Spline, Square, TriangleAlert, Undo2, X } from 'lucide-vue-next'
+import { Focus, LayoutDashboard, LayoutTemplate, Minus, MousePointer2, Network, PanelLeftOpen, Plus, Redo2, Sparkles, Spline, Square, TriangleAlert, Undo2, X } from 'lucide-vue-next'
 import '@vue-flow/core/dist/style.css'
 import '@vue-flow/minimap/dist/style.css'
 import { lt, t } from '@/i18n'
@@ -30,7 +30,22 @@ const { screenToFlowCoordinate, fitView, zoomIn, zoomOut, viewport, onNodesIniti
 const wrap = ref<HTMLElement | null>(null)
 
 const build = createFlowBuilder()
-const flow = computed(() => build(editor.shown, !editor.readonly))
+/** The site a zone belongs to: itself when it is one, else the nearest ancestor that is (so a rack belongs to the data center around it). */
+const siteOf = computed(() => {
+  const zones = new Map(editor.shown.zones.map((z) => [z.id, z]))
+  const isSite = (type: string) => app.index?.zoneTypes.get(type)?.level === 'site'
+  return (zoneId: string | null): string | null => {
+    let cur = zoneId ? zones.get(zoneId) : undefined
+    for (let hops = 0; cur && hops < 32; hops++) {
+      if (isSite(cur.type)) return cur.id
+      cur = cur.parentId ? zones.get(cur.parentId) : undefined
+    }
+    return zoneId
+  }
+})
+const flow = computed(() => build(editor.shown, !editor.readonly, siteOf.value))
+/** Many sites: the links between them step back when the diagram is zoomed out (`editor.quietEdgesSites`). */
+const dense = computed(() => editor.siteZones.length >= app.editorCfg.quietEdgesSites)
 
 // ------------------------------------------------------------------------------------- viewport
 function updateCenter() {
@@ -96,10 +111,20 @@ function covered(): boolean {
   })
 }
 
+/**
+ * The notices that hang under the toolbar (what the tool asks for, the proposal being previewed, the layout that drifted) go where the toolbar
+ * ends: it takes a second row when the window is narrow or the tools many, and a notice at a fixed height would sit on top of that row.
+ */
+function placeBars() {
+  const host = wrap.value?.parentElement
+  if (host) host.style.setProperty('--bars-top', `${clearance().top + 8}px`)
+}
+
 // the panels change size (the what-if bar grows a row once the scenarios are known): a diagram still at its fit that has
 // ended up behind one follows. Nothing moves otherwise, and never under a hand that has touched the canvas.
 let settle: ReturnType<typeof setTimeout> | undefined
 const resized = new ResizeObserver(() => {
+  placeBars()
   clearTimeout(settle)
   settle = setTimeout(() => { if (autoFit && !editor.isEmpty && covered()) void fit(glide(DURATIONS.base)) }, 120)
 })
@@ -108,9 +133,9 @@ function watchOverlays() {
 }
 
 onNodesInitialized(() => { if (autoFit) void fit() })
-onMounted(() => { void fit(); watchOverlays() })
+onMounted(() => { void fit(); watchOverlays(); placeBars() })
 onBeforeUnmount(() => { resized.disconnect(); clearTimeout(settle) })
-watch(() => editor.fitToken, () => { void fit(); watchOverlays() })
+watch(() => editor.fitToken, () => { void fit(); watchOverlays(); placeBars() })
 
 watch(() => editor.highlight, (h) => {
   if (!h) return
@@ -266,7 +291,7 @@ function nodeColor(n: { id: string; type?: string }) {
 </script>
 
 <template>
-  <div ref="wrap" class="canvas" :class="['tool-' + editor.tool, editor.pickingNode && 'picking']" :data-lod="lod" :style="{ '--zoom': viewport.zoom || 1 }" @dragover="onDragOver" @drop="onDrop" @pointerdown.capture="takeHold">
+  <div ref="wrap" class="canvas" :class="['tool-' + editor.tool, editor.pickingNode && 'picking']" :data-lod="lod" :data-dense="dense ? 1 : 0" :style="{ '--zoom': viewport.zoom || 1 }" @dragover="onDragOver" @drop="onDrop" @pointerdown.capture="takeHold">
     <VueFlow
       :nodes="flow.nodes" :edges="flow.edges" :node-types="nodeTypes" :edge-types="edgeTypes"
       :min-zoom="0.15" :max-zoom="1.8" :default-viewport="{ x: 40, y: 40, zoom: 0.8 }"
@@ -298,6 +323,7 @@ function nodeColor(n: { id: string; type?: string }) {
         <span class="lbl">{{ t('tool.layers') }}:</span>
         <button v-for="l in layers" :key="l" class="lay" :class="{ on: editor.layer === l }" @click="toggleLayer(l)">{{ t('layer.' + l) }}</button>
       </span>
+      <button class="tool" :class="{ on: editor.focusOn }" :aria-pressed="editor.focusOn" :title="t('tool.focus.hint')" data-testid="focus-toggle" @click="editor.setFocusOn(!editor.focusOn)"><Focus :size="14" />{{ t('tool.focus') }}</button>
       <span class="legend">
         <span v-for="l in legend" :key="l.id" class="leg">
           <svg width="22" height="8" aria-hidden="true"><line x1="0" y1="4" x2="22" y2="4" :stroke="l.color" :stroke-width="l.width" :stroke-dasharray="l.dash" /></svg>{{ l.label }}
@@ -354,6 +380,10 @@ function nodeColor(n: { id: string; type?: string }) {
 .canvas[data-lod='mini'] .arch-node .txt { display: none; }
 .canvas[data-lod='mini'] .arch-node .badge { position: absolute; inset: 0; width: auto; height: auto; border-radius: inherit; font-size: 26px; }
 .canvas[data-lod='mini'] .arch-node .dot { width: 18px; height: 18px; top: -8px; right: -8px; z-index: 2; }
+/* what is selected stays visible however far the diagram is zoomed out: its outline keeps its size on the screen */
+.canvas[data-lod='compact'] .arch-node.selected, .canvas[data-lod='mini'] .arch-node.selected { outline: calc(2.5px / var(--zoom, 1)) solid var(--accent); outline-offset: calc(1.5px / var(--zoom, 1)); }
+/* many sites: the links between sites step back when zoomed out, so that the sites themselves read; the selection's own links and what is faded already keep their own state */
+.canvas[data-dense='1'][data-lod='compact'] g.cross:not(.emph):not(.faded):not(.dim), .canvas[data-dense='1'][data-lod='mini'] g.cross:not(.emph):not(.faded):not(.dim) { opacity: .3; }
 .canvas.tool-zone .vue-flow__pane { cursor: crosshair; }
 .canvas.picking .vue-flow__pane { cursor: crosshair; }
 .minimap.vue-flow__minimap { right: 18px; bottom: 18px; width: 170px; height: 118px; border: 1px solid var(--line-strong); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow-1); margin: 0; overflow: hidden; }
@@ -380,12 +410,12 @@ function nodeColor(n: { id: string; type?: string }) {
 .lay.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 .legend { gap: 11px; }
 .leg { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
-.drift-bar { position: absolute; top: 58px; left: 50%; transform: translateX(-50%); width: max-content; max-width: calc(100% - 32px); display: flex; align-items: center; gap: 10px; background: var(--surface); color: var(--text); border: 1px solid var(--risk-line, var(--line-strong)); font-size: 12.5px; padding: 5px 6px 5px 12px; border-radius: var(--radius-sm); z-index: 60; box-shadow: var(--shadow-1); animation: drift-in var(--dur-base, .22s) var(--ease-out, ease-out); }
+.drift-bar { position: absolute; top: var(--bars-top, 58px); left: 50%; transform: translateX(-50%); width: max-content; max-width: calc(100% - 32px); display: flex; align-items: center; gap: 10px; background: var(--surface); color: var(--text); border: 1px solid var(--risk-line, var(--line-strong)); font-size: 12.5px; padding: 5px 6px 5px 12px; border-radius: var(--radius-sm); z-index: 60; box-shadow: var(--shadow-1); animation: drift-in var(--dur-base, .22s) var(--ease-out, ease-out); }
 .drift-bar svg { color: var(--risk, #b45309); flex: none; }
 .drift-bar .x { border: 0; background: transparent; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; color: var(--muted); }
 .drift-bar .x:hover { background: var(--surface-sunken); color: var(--text); }
 @keyframes drift-in { from { opacity: 0; transform: translate(-50%, -6px); } to { opacity: 1; transform: translate(-50%, 0); } }
-.hint-bar { position: absolute; top: 58px; left: 50%; transform: translateX(-50%); width: max-content; background: var(--ink); color: var(--on-dark); font-size: 12.5px; padding: 6px 12px; border-radius: var(--radius-sm); z-index: 60; pointer-events: none; }
+.hint-bar { position: absolute; top: var(--bars-top, 58px); left: 50%; transform: translateX(-50%); width: max-content; background: var(--ink); color: var(--on-dark); font-size: 12.5px; padding: 6px 12px; border-radius: var(--radius-sm); z-index: 60; pointer-events: none; }
 
 .zoom { position: absolute; left: 18px; bottom: 18px; display: flex; align-items: stretch; height: 34px; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); background: var(--surface); overflow: hidden; z-index: 60; box-shadow: var(--shadow-1); }
 .zoom button { border: 0; background: transparent; padding: 0 11px; color: var(--text-2); display: inline-flex; align-items: center; font-size: 13px; }

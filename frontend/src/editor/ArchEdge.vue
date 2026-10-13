@@ -22,9 +22,14 @@ const status = computed(() => editor.edgeStatus.get(id.value))
 const added = computed(() => !!editor.previewSets?.added.edges.has(id.value))
 const ghost = computed(() => !!editor.previewSets?.removed.edges.has(id.value))
 const lit = computed(() => !!editor.highlight?.edges.includes(id.value))
+/** What the selection touches (`emph`), and the links that are not part of it while something is selected (`faded`). */
+const emph = computed(() => !!editor.focus?.edges.has(id.value))
+const faded = computed(() => !!editor.focus && !editor.focus.edges.has(id.value))
+/** A link between two sites: a design of many sites quiets these when zoomed out (CSS, `data-dense`), so that the sites themselves read. */
+const cross = computed(() => props.data.cross === true)
 
 const color = computed(() => (simState.value === 'cut' ? 'var(--crit)' : simState.value === 'dead' ? 'var(--faint)' : def.value?.style.color ?? 'var(--edge-traffic)'))
-const width = computed(() => (def.value?.style.width ?? 1.6) + (selected.value || lit.value ? 1.4 : 0))
+const width = computed(() => (def.value?.style.width ?? 1.6) + (selected.value || lit.value ? 1.4 : emph.value ? 1.1 : 0))
 const dash = computed(() => (simState.value === 'cut' ? '5 4' : ghost.value ? '4 4' : def.value?.style.dash ?? undefined))
 const dimmed = computed(() => {
   if (editor.highlight && !lit.value) return true
@@ -64,14 +69,14 @@ const long = computed(() => {
   return len >= label.value.length * 6.6 + 40
 })
 const quiet = computed(() => def.value?.semantics === 'control')
-const showLabel = computed(() => !!label.value && (selected.value || hover.value || lit.value || (long.value && !quiet.value)))
+const showLabel = computed(() => !!label.value && (selected.value || hover.value || lit.value || emph.value || (long.value && !quiet.value && !faded.value)))
 
 const markerId = computed(() => `mk-${props.id}`)
 const arrow = computed(() => def.value?.directed !== false)
 </script>
 
 <template>
-  <g v-if="edge" :class="{ dim: dimmed, quiet: quiet && !selected && !hover }" @mouseenter="hover = true" @mouseleave="hover = false">
+  <g v-if="edge" :class="{ dim: dimmed, quiet: quiet && !selected && !hover && !emph, faded: faded && !hover, emph, cross }" @mouseenter="hover = true" @mouseleave="hover = false">
     <defs v-if="arrow">
       <marker :id="markerId" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse" markerUnits="userSpaceOnUse">
         <path d="M0,1 L9,5 L0,9 Z" :fill="color" />
@@ -108,4 +113,5 @@ const arrow = computed(() => def.value?.directed !== false)
 .vue-flow__edge:hover .vue-flow__edge-path { stroke-width: 3; }
 g.dim { opacity: .18; }
 g.quiet { opacity: .55; }
+g.faded { opacity: .14; }
 </style>

@@ -37,7 +37,11 @@ export function createFlowBuilder() {
     return value
   }
 
-  return function build(arch: Architecture, draggable: boolean): FlowModel {
+  /**
+   * `siteOf` says which site a zone belongs to (the zone itself, or the first of its ancestors that is a site); an edge between two
+   * different sites is `cross` (the canvas can quiet those when many sites make a hairball of them).
+   */
+  return function build(arch: Architecture, draggable: boolean, siteOf: (zoneId: string | null) => string | null = () => null): FlowModel {
     const used = new Set<string>()
     const zones = new Map(arch.zones.map((z) => [z.id, z]))
     const zoneAbs = (id: string | null | undefined) => {
@@ -79,6 +83,7 @@ export function createFlowBuilder() {
     }
 
     const abs = new Map(arch.nodes.map((n) => [n.id, { x: (n.ui?.x ?? 0) + CARD_W / 2, y: (n.ui?.y ?? 0) + CARD_H / 2 }]))
+    const site = new Map(arch.nodes.map((n) => [n.id, siteOf(n.zoneId ?? null)]))
     const pairs = new Map<string, string[]>()
     for (const e of arch.edges) {
       const k = [e.source, e.target].sort().join('|')
@@ -96,10 +101,12 @@ export function createFlowBuilder() {
       const group = pairs.get([e.source, e.target].sort().join('|'))!
       const lane = group.indexOf(e.id)
       const lanes = group.length
-      const sig = `${e.source}|${e.target}|${s}|${t}|${lane}|${lanes}`
+      const [sa, sb] = [site.get(e.source) ?? null, site.get(e.target) ?? null]
+      const cross = sa !== null && sb !== null && sa !== sb
+      const sig = `${e.source}|${e.target}|${s}|${t}|${lane}|${lanes}|${cross}`
       edges.push(reuse<FlowEdge>(id, sig, () => ({
         id, type: 'arch', source: nodeFlowId(e.source), target: nodeFlowId(e.target), sourceHandle: s, targetHandle: t, zIndex: 10, selectable: false, focusable: false,
-        data: { id: e.id, lane, lanes, horizontal: s === 'l' || s === 'r' }, interactionWidth: 20,
+        data: { id: e.id, lane, lanes, horizontal: s === 'l' || s === 'r', cross }, interactionWidth: 20,
       })))
     }
     for (const k of [...cache.keys()]) if (!used.has(k)) cache.delete(k)

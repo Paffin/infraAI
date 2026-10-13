@@ -4,9 +4,9 @@ import type { Need } from '@/api/types'
 import { useAi } from './ai'
 
 export type RightTab = 'checks' | 'requirements' | 'analysis' | 'chat'
-/** What the analysis tab shows: the numbers about the design (what it carries, how often it is up, what it costs). */
-export type AnalysisView = 'capacity' | 'availability' | 'cost'
-export const ANALYSIS_VIEWS: AnalysisView[] = ['capacity', 'availability', 'cost']
+/** What the analysis tab shows: the numbers about the design (what it carries, how often it is up, what it costs) and where it runs. */
+export type AnalysisView = 'capacity' | 'availability' | 'cost' | 'sites'
+export const ANALYSIS_VIEWS: AnalysisView[] = ['capacity', 'availability', 'cost', 'sites']
 export type ModalKind = 'versions' | 'export' | 'matrix' | 'score' | 'shortcuts' | 'placement' | null
 
 const read = (k: string): string | null => { try { return localStorage.getItem(k) } catch { return null } }

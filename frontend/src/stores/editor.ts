@@ -28,6 +28,9 @@ export interface Preview {
   diff: ArchDiff
 }
 
+const readPref = (k: string): string | null => { try { return localStorage.getItem(k) } catch { return null } }
+const writePref = (k: string, v: string) => { try { localStorage.setItem(k, v) } catch { /* the preference is not kept: it still holds for this visit */ } }
+
 export const emptyArchitecture = (): Architecture => ({ schemaVersion: 1, meta: {}, requirements: {}, zones: [], nodes: [], edges: [] })
 const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x))
 
@@ -69,6 +72,8 @@ export const useEditor = defineStore('editor', () => {
   const reveal = ref<{ nodes: string[]; zones: string[]; token: number } | null>(null)
 
   const sim = ref<{ scenario: Scenario; result: SimResult | null; loading: boolean; error: string } | null>(null)
+  /** The selection puts what it touches in focus (its links, its neighbours) and quiets the rest: a view preference of the person, remembered. */
+  const focusOn = ref(readPref('ia_focus') !== 'off')
   const pickingNode = ref(false)
   const connectFrom = ref<string | null>(null)
 
@@ -107,6 +112,37 @@ export const useEditor = defineStore('editor', () => {
       ? { added: { nodes: ids(p.diff.nodes.added), edges: ids(p.diff.edges.added), zones: ids(p.diff.zones.added) }, removed: { nodes: ids(p.diff.nodes.removed), edges: ids(p.diff.edges.removed), zones: ids(p.diff.zones.removed) }, changed: { nodes: ids(p.diff.nodes.changed), edges: ids(p.diff.edges.changed), zones: ids(p.diff.zones.changed) } }
       : null
   })
+
+  /**
+   * What the selection is about: a selected card with its links and the cards at their other ends, or a selected link with its two ends.
+   * Nothing while the view is in the hands of something else (a failure being replayed, findings being shown, a proposal being looked at).
+   */
+  const focus = computed<{ nodes: Set<string>; edges: Set<string> } | null>(() => {
+    const s = selection.value
+    if (!focusOn.value || !s || s.type === 'zone' || sim.value || highlight.value || preview.value) return null
+    const nodes = new Set<string>()
+    const edges = new Set<string>()
+    if (s.type === 'edge') {
+      const e = shown.value.edges.find((x) => x.id === s.id)
+      if (!e) return null
+      edges.add(e.id)
+      nodes.add(e.source)
+      nodes.add(e.target)
+      return { nodes, edges }
+    }
+    nodes.add(s.id)
+    for (const e of shown.value.edges) {
+      if (e.source !== s.id && e.target !== s.id) continue
+      edges.add(e.id)
+      nodes.add(e.source)
+      nodes.add(e.target)
+    }
+    return { nodes, edges }
+  })
+  function setFocusOn(on: boolean) {
+    focusOn.value = on
+    writePref('ia_focus', on ? 'on' : 'off')
+  }
 
   const nodeById = computed(() => new Map(shown.value.nodes.map((n) => [n.id, n])))
   const edgeById = computed(() => new Map(shown.value.edges.map((e) => [e.id, e])))
@@ -876,7 +912,7 @@ export const useEditor = defineStore('editor', () => {
 
   return {
     projectId, project, arch, rev, waivers, loading, loadError, saveState, saveError, serverRev, report, evaluating, evalError,
-    selection, multi, selectRequest, tool, layer, highlight, preview, viewCenter, fitToken, reveal, sim, pickingNode, connectFrom,
+    selection, multi, selectRequest, tool, layer, highlight, preview, viewCenter, fitToken, reveal, sim, pickingNode, connectFrom, focusOn, focus, setFocusOn,
     readonly, canUndo, canRedo, isEmpty, shown, previewSets, nodeById, edgeById, zoneById, openFindings, nodeStatus, edgeStatus, zoneStatus, findingsOf, groups, siteZones, rackZones,
     load, reset, flushSave, touchSave, reloadFromServer, evaluateNow, scheduleEvaluate,
     runScenario, exitSim, undo, redo, edit, commit,

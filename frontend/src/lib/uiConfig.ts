@@ -22,6 +22,7 @@ export const FALLBACK_EDITOR_SETTINGS: EditorSettings = {
   highlightMs: 5000,
   paletteMaxResults: 60,
   layoutZonesPerRow: 5,
+  quietEdgesSites: 4,
   playbackStepMs: 1600,
 }
 

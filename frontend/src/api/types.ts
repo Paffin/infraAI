@@ -496,6 +496,7 @@ export interface EditorSettings {
   highlightMs: number
   paletteMaxResults: number
   layoutZonesPerRow: number
+  quietEdgesSites: number
   playbackStepMs: number
 }
 

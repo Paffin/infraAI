@@ -83,4 +83,17 @@ test.describe('the canvas keeps the diagram clear of the panels over it', () => 
     const g = await geometry(page)
     expect(g.cards.every((c) => c.l >= g.host.l - 1 && c.r <= g.host.r + 1 && c.t >= g.host.t - 1 && c.b <= g.host.b + 1)).toBe(true)
   })
+  test('the notices under the toolbar hang below it however many rows it takes', async ({ page }) => {
+    // a window as narrow as a laptop's: the tools, the layers, the focus button and the legend do not fit on one row
+    await page.setViewportSize({ width: 1280, height: 800 })
+    await createProject(page, uniqueName('bars'), '2 ЦОД + witness')
+    await expect(page.locator('.arch-node').first()).toBeVisible()
+    await page.getByRole('button', { name: 'Связь', exact: true }).click()
+    const hint = page.locator('.hint-bar')
+    await expect(hint).toBeVisible()
+    const [toolbarBottom, hintTop] = await page.evaluate(() => [document.querySelector('.toolbar')!.getBoundingClientRect().bottom, document.querySelector('.hint-bar')!.getBoundingClientRect().top])
+    expect(hintTop).toBeGreaterThanOrEqual(toolbarBottom - 1)
+    // and the toolbar really has more than one row here, or the check says nothing
+    expect(toolbarBottom).toBeGreaterThan(80)
+  })
 })
