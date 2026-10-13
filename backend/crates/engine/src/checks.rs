@@ -8,7 +8,8 @@ use crate::catalog::{Behavior, Semantics, ZoneLevel};
 use crate::config::{CheckType, Rule, Severity};
 use crate::cost;
 use crate::evaluate::{Ctx, Fix, Need, Status, Subjects};
-use crate::model::{as_bool, as_f64, as_string, unique_id, Edge, Node, Props};
+use crate::graph::Authority;
+use crate::model::{as_bool, as_f64, as_string, unique_id, Edge, Node, Props, PropsExt};
 use crate::ops::Op;
 use crate::sim::{RecoveryKind, Scenario, ServiceState};
 use serde_json::{json, Map, Value};
@@ -496,6 +497,8 @@ pub fn run(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
         CheckType::Spof => spof(ctx, rule),
         CheckType::SurviveSite => survive_site(ctx, rule),
         CheckType::SurviveSites => survive_sites(ctx, rule),
+        CheckType::VersionLifecycle => version_lifecycle(ctx, rule),
+        CheckType::VersionSkew => version_skew(ctx, rule),
         CheckType::Rto => rto(ctx, rule),
         CheckType::Rpo => rpo(ctx, rule),
         CheckType::GeoSurvive => geo_survive(ctx, rule),
@@ -1024,7 +1027,7 @@ fn voting_units(ctx: &Ctx<'_>) -> Vec<usize> {
     (0..ix.units.len())
         .filter(|&u| match ix.units[u].behavior {
             Behavior::Consensus => true,
-            Behavior::PrimaryReplica => ix.dcs_unit(u).is_none() && ix.units[u].members.iter().any(|&m| ix.is_witness(m)),
+            Behavior::PrimaryReplica => ix.authority(u) == Authority::SelfVotes,
             _ => false,
         })
         .collect()
@@ -1241,8 +1244,7 @@ fn failover_authority(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
         }
         any = true;
         let auto = data.iter().any(|&m| ix.eff[m].text("failover").as_deref() == Some("auto"));
-        let has_witness = ix.units[u].members.iter().any(|&m| ix.is_witness(m));
-        if auto && ix.dcs_unit(u).is_none() && !has_witness {
+        if auto && ix.authority(u) == Authority::None {
             let unit = &ix.units[u];
             let mut raw = Raw::new(&unit.key, sev(rule)).var("unit", unit.name.clone());
             for &m in &unit.members {
@@ -1444,7 +1446,7 @@ fn prop_check(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
                 }
                 if let Some(b) = w_str("behavior") {
                     let want: Option<Behavior> = serde_json::from_value(Value::String(b)).ok();
-                    if want != ix.kind[ni].map(|k| k.behavior) {
+                    if want != Some(ix.behavior[ni]) {
                         continue;
                     }
                 }
@@ -1938,6 +1940,154 @@ fn role_required(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
             if primaries == 0 {
                 let m = data[0];
                 raw = raw.fix(Some(fix("set_role", &unit.key, json!({"node": ix.node_name(m)}), vec![update_node(&ix.arch.nodes[m].id, vec![("role", json!("primary"))])])));
+            }
+            out.push(raw);
+        }
+    }
+    if any {
+        CheckOut::found(out)
+    } else {
+        CheckOut::na()
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// product lifecycle
+// ---------------------------------------------------------------------------------------------
+
+/// A version a node declares and the release table that judges it.
+struct VersionRef<'c> {
+    /// The prop that holds it (`version`, `osVersion`).
+    prop: String,
+    set: &'c crate::lifecycle::VersionSet,
+    /// What is being judged, for the message (`PostgreSQL`, `Ubuntu`).
+    product: String,
+}
+
+/// The release table of the product a node runs, if the catalog has one. A variant may bring its own table (a managed
+/// offering has its own lifecycle); an empty id switches the lifecycle off for it.
+fn version_set<'c>(ctx: &'c Ctx<'_>, ni: usize) -> Option<&'c crate::lifecycle::VersionSet> {
+    let k = ctx.ix.kind[ni]?;
+    let id = ctx.ix.variant[ni].and_then(|v| v.versions.as_deref()).or(k.versions.as_deref()).unwrap_or(&k.id);
+    ctx.versions.get(id).copied()
+}
+
+/// Every version a node can declare that a release table judges: its own `version` and the props marked `lifecycle`.
+fn version_refs<'c>(ctx: &'c Ctx<'_>, ni: usize) -> Vec<VersionRef<'c>> {
+    let ix = &ctx.ix;
+    let mut out = vec![];
+    let Some(k) = ix.kind[ni] else { return out };
+    let lang = &ctx.cfg.lang;
+    if let Some(set) = version_set(ctx, ni) {
+        let own_table = ix.variant[ni].map(|v| v.versions.is_some()).unwrap_or(false);
+        let product = if !set.name.is_empty() {
+            set.name.clone()
+        } else if own_table {
+            ix.variant[ni].map(|v| v.name.get(lang)).unwrap_or_default()
+        } else {
+            k.name.get(lang)
+        };
+        out.push(VersionRef { prop: "version".into(), set, product });
+    }
+    for p in &k.props {
+        let Some(l) = &p.lifecycle else { continue };
+        let table = match l.strip_prefix('@') {
+            Some(key) => ix.eff[ni].text(key),
+            None => Some(l.clone()),
+        };
+        let Some(set) = table.and_then(|t| ctx.versions.get(t.as_str()).copied()) else { continue };
+        let product = if set.name.is_empty() { set.id.clone() } else { set.name.clone() };
+        out.push(VersionRef { prop: p.key.clone(), set, product });
+    }
+    out
+}
+
+/// Versions that no longer get security fixes, or soon will not. Only what the architect declared is judged: a version
+/// the catalog assumes is not a statement about the real system.
+fn version_lifecycle(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
+    use crate::lifecycle::Phase;
+    let Some(today) = ctx.today else { return CheckOut::na() };
+    let ix = &ctx.ix;
+    let lc = &ix.settings.lifecycle;
+    let warn = p_f64(rule, "warnDays").map(|d| d as i64).unwrap_or(lc.warn_days);
+    let on_missing = p_str(rule, "onMissing").unwrap_or_else(|| "skip".into());
+    let on_unknown = p_str(rule, "onUnknown").unwrap_or_else(|| "no_data".into());
+    let mut out = vec![];
+    let mut any = false;
+    for (ni, n) in ix.arch.nodes.iter().enumerate() {
+        for r in version_refs(ctx, ni) {
+            any = true;
+            let key = format!("{}:{}", n.id, r.prop);
+            let Some(version) = n.props.text(&r.prop) else {
+                if on_missing == "no_data" {
+                    out.push(Raw::new(key, Status::NoData).var("node", n.name.clone()).var("product", r.product.clone()).var("variant", "missing").node(&n.id).need("node", Some(&n.id), &r.prop));
+                }
+                continue;
+            };
+            let Some(l) = r.set.lifecycle(&version, today) else {
+                if on_unknown == "no_data" {
+                    out.push(Raw::new(key, Status::NoData).var("node", n.name.clone()).var("product", r.product.clone()).var("version", version.clone()).var("variant", "unknown").node(&n.id));
+                }
+                continue;
+            };
+            let rec = r.set.recommended(today, lc.prefer_lts, lc.mature_days);
+            let base = |st: Status, variant: &str| {
+                Raw::new(key.clone(), st)
+                    .var("node", n.name.clone())
+                    .var("product", r.product.clone())
+                    .var("version", version.clone())
+                    .var("cycle", l.cycle.clone())
+                    .var("eol", l.eol.clone().map(Value::String).unwrap_or(Value::Null))
+                    .var("days", l.days_to_eol.map(|d| json!(d)).unwrap_or(Value::Null))
+                    .var("latest", l.latest.clone().map(Value::String).unwrap_or(Value::Null))
+                    .var("recommended", rec.map(|c| json!(c.cycle)).unwrap_or(Value::Null))
+                    .var("variant", variant)
+                    .node(&n.id)
+            };
+            let fixf = |ctx: &Ctx<'_>| rec.filter(|c| c.cycle != l.cycle).map(|c| set_prop_fix(ctx, ni, &r.prop, json!(c.cycle), "set_version", json!({"recommended": c.cycle, "product": r.product})));
+            match l.phase {
+                Phase::Eol => out.push(base(sev(rule), if l.eol.is_some() { "expired" } else { "expired_undated" }).fix(fixf(ctx))),
+                _ if l.days_to_eol.map(|d| d <= warn).unwrap_or(false) => out.push(base(Status::Risk, "expiring").fix(fixf(ctx))),
+                _ => {}
+            }
+        }
+    }
+    if any {
+        CheckOut::found(out)
+    } else {
+        CheckOut::na()
+    }
+}
+
+/// Members of one cluster on different release lines: replication between major versions does not work, and a
+/// half-upgraded cluster is a state to leave, not to design.
+fn version_skew(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
+    let ix = &ctx.ix;
+    let mut out = vec![];
+    let mut any = false;
+    for u in 0..ix.units.len() {
+        let unit = &ix.units[u];
+        if unit.members.len() < 2 {
+            continue;
+        }
+        let mut lines: Vec<(usize, String)> = vec![];
+        for &m in &unit.members {
+            if ix.is_witness(m) {
+                continue;
+            }
+            let Some(v) = ix.arch.nodes[m].props.text("version") else { continue };
+            let line = version_set(ctx, m).and_then(|s| s.cycle_of(&v)).map(|c| c.cycle.clone()).unwrap_or_else(|| v.clone());
+            lines.push((m, line));
+        }
+        if lines.len() < 2 {
+            continue;
+        }
+        any = true;
+        let distinct: BTreeSet<&String> = lines.iter().map(|(_, l)| l).collect();
+        if distinct.len() > 1 {
+            let mut raw = Raw::new(&unit.key, sev(rule)).var("unit", unit.name.clone()).var("versions", distinct.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(", "));
+            for (m, _) in &lines {
+                raw = raw.node(&nid(ctx, *m));
             }
             out.push(raw);
         }

@@ -89,6 +89,20 @@
    }
   ]
  },
+ "authority": {
+  "selfQuorumTraits": [
+   "self-quorum"
+  ],
+  "providerTraits": [
+   "managed",
+   "platform-quorum"
+  ]
+ },
+ "lifecycle": {
+  "warnDays": 180,
+  "matureDays": 90,
+  "preferLts": true
+ },
  "cost": {
   "currency": "RUB",
   "symbol": "₽",

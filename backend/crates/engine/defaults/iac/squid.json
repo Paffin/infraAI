@@ -1,0 +1,13 @@
+{
+ "id": "squid",
+ "title": {
+  "ru": "Squid",
+  "en": "Squid"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Настройка Squid зависит от сети и политики доступа. Проверенного шаблона нет — добавьте свой.",
+  "en": "Setting up Squid depends on the network and the access policy. There is no verified template — add your own."
+ }
+}

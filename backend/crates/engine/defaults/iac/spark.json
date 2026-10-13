@@ -1,0 +1,13 @@
+{
+ "id": "spark",
+ "title": {
+  "ru": "Apache Spark",
+  "en": "Apache Spark"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Задания и ресурсы Apache Spark зависят от вашей обработки данных: нейтрального шаблона нет. Добавьте свой.",
+  "en": "The jobs and resources of Apache Spark depend on your data processing: there is no neutral template. Add your own."
+ }
+}

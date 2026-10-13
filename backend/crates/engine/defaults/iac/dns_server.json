@@ -1,0 +1,13 @@
+{
+ "id": "dns_server",
+ "title": {
+  "ru": "DNS-сервер",
+  "en": "DNS server"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Зоны и записи DNS-сервер зависят от вашей схемы имён: нейтрального шаблона нет. Добавьте свой.",
+  "en": "The zones and records of DNS server depend on your naming scheme: there is no neutral template. Add your own."
+ }
+}

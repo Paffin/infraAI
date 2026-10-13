@@ -1,0 +1,13 @@
+{
+ "id": "apache_httpd",
+ "title": {
+  "ru": "Apache HTTP Server",
+  "en": "Apache HTTP Server"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Развёртывание Apache HTTP Server зависит от того, где он живёт: пара узлов с VRRP, ingress-контроллер в кластере или облачный сервис. Проверенного шаблона нет — добавьте свой.",
+  "en": "How Apache HTTP Server is deployed depends on where it lives: a VRRP pair, an ingress controller on the cluster or a cloud service. There is no verified template — add your own."
+ }
+}

@@ -1,0 +1,13 @@
+{
+ "id": "nexus",
+ "title": {
+  "ru": "Sonatype Nexus Repository",
+  "en": "Sonatype Nexus Repository"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Значения установки Sonatype Nexus Repository зависят от вашей среды (хранилище, домен, внешняя база): проверенного шаблона нет. Добавьте свой.",
+  "en": "The install values of Sonatype Nexus Repository depend on your environment (storage, domain, an external database): there is no verified template. Add your own."
+ }
+}

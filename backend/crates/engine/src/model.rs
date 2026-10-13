@@ -313,6 +313,17 @@ pub fn validate(arch: &Architecture, cat: &crate::catalog::Catalog, limits: &Val
             out.push(Issue::err("duplicate_id", Some(&n.id), format!("duplicate id '{}'", n.id)));
         }
         node_ids.insert(&n.id);
+        if let Some(v) = n.props.get("variant").and_then(as_string).filter(|v| !v.is_empty()) {
+            if let Some(k) = cat.kind(&n.kind) {
+                if !k.variants.iter().any(|x| x.id == v) {
+                    out.push(Issue::warn(
+                        "unknown_variant",
+                        Some(&n.id),
+                        format!("node '{}' variant '{}' is not defined for kind '{}' (known: {})", n.id, v, n.kind, k.variants.iter().map(|x| x.id.as_str()).collect::<Vec<_>>().join(", ")),
+                    ));
+                }
+            }
+        }
         match cat.kind(&n.kind) {
             None => out.push(Issue::err(
                 "unknown_kind",

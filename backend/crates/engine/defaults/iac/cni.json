@@ -1,0 +1,13 @@
+{
+ "id": "cni",
+ "title": {
+  "ru": "Сеть кластера (CNI)",
+  "en": "Cluster network (CNI)"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Значения установки Сеть кластера (CNI) зависят от вашей среды (хранилище, домен, внешняя база): проверенного шаблона нет. Добавьте свой.",
+  "en": "The install values of Cluster network (CNI) depend on your environment (storage, domain, an external database): there is no verified template. Add your own."
+ }
+}

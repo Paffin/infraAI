@@ -1,0 +1,13 @@
+{
+ "id": "metallb",
+ "title": {
+  "ru": "MetalLB",
+  "en": "MetalLB"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Развёртывание MetalLB зависит от сети площадки (VRRP, BGP, облачный балансировщик). Проверенного шаблона нет — добавьте свой.",
+  "en": "How MetalLB is deployed depends on the network of the site (VRRP, BGP, a cloud balancer). There is no verified template — add your own."
+ }
+}

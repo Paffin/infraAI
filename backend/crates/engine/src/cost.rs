@@ -59,7 +59,7 @@ pub fn estimate(ix: &Index<'_>) -> CostReport {
         let replicas = ix.replicas(ni) as f64;
         let mut missing = Vec::new();
         let kind = ix.kind[ni];
-        let cost_def = kind.and_then(|k| k.cost.clone()).unwrap_or_default();
+        let cost_def = ix.variant[ni].and_then(|v| v.cost.clone()).or_else(|| kind.and_then(|k| k.cost.clone())).unwrap_or_default();
         let multiplier = if cost_def.multiplier == 0.0 { 1.0 } else { cost_def.multiplier };
         let mut per_instance = 0.0;
         if let Some(m) = model {

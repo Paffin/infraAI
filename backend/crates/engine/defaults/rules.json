@@ -693,16 +693,16 @@
    "en": "Automatic failover is protected by a quorum"
   },
   "message": {
-   "ru": "«{unit}»: автоматическое переключение без DCS и арбитра — при разрыве связи оба узла станут primary (split-brain).",
-   "en": "“{unit}”: automatic failover without a DCS or arbiter — on a partition both nodes become primary (split-brain)."
+   "ru": "«{unit}»: автоматическое переключение без DCS, арбитра или кворума участников — при разрыве связи оба узла станут primary (split-brain).",
+   "en": "“{unit}”: automatic failover without a DCS, an arbiter or a quorum of members — on a partition both nodes become primary (split-brain)."
   },
   "ok": {
    "ru": "Автопереключение везде защищено кворумом",
    "en": "Automatic failover is protected by a quorum everywhere"
   },
   "rationale": {
-   "ru": "Только консенсус (etcd/Consul/Sentinel-кворум) гарантирует единственного лидера при разделении сети.",
-   "en": "Only consensus (etcd/Consul/Sentinel quorum) guarantees a single leader during a network partition."
+   "ru": "Только консенсус (etcd/Consul/ZooKeeper, кворум участников кластера или самого провайдера) гарантирует единственного лидера при разделении сети.",
+   "en": "Only consensus (etcd/Consul/ZooKeeper, a quorum of the cluster’s members or of the provider) guarantees a single leader during a network partition."
   },
   "fixLabels": {
    "set_dcs": {
@@ -1719,7 +1719,7 @@
   "params": {
    "subject": "node",
    "where": {
-    "kind": "postgresql",
+    "trait": "connection-pooling",
     "role": "primary"
    },
    "key": "connectionPooler",
@@ -1728,12 +1728,12 @@
    "onMissing": "no_data"
   },
   "title": {
-   "ru": "Пулер соединений у PostgreSQL",
-   "en": "Connection pooler for PostgreSQL"
+   "ru": "Пулер соединений у реляционных баз",
+   "en": "Connection pooler for relational databases"
   },
   "message": {
-   "ru": "«{node}»: нет пулера соединений — рост числа pod-ов исчерпает max_connections.",
-   "en": "“{node}”: no connection pooler — scaling pods exhausts max_connections."
+   "ru": "«{node}»: нет пулера соединений — рост числа экземпляров приложения исчерпает лимит соединений базы.",
+   "en": "“{node}”: no connection pooler — scaling the application out exhausts the database’s connection limit."
   },
   "ok": {
    "ru": "Пулер соединений настроен",
@@ -1840,6 +1840,81 @@
   "noDataMessage": {
    "ru": "У площадки «{zone}» не указан гео-домен: независимость от катастрофы не проверить.",
    "en": "Site “{zone}” has no geo domain: independence from disasters cannot be verified."
+  }
+ },
+ {
+  "id": "VER-01",
+  "category": "lifecycle",
+  "check": "version_lifecycle",
+  "enabled": true,
+  "severity": "critical",
+  "params": {
+   "onMissing": "skip",
+   "onUnknown": "no_data"
+  },
+  "title": {
+   "ru": "Версии продуктов получают исправления безопасности",
+   "en": "Product versions still get security fixes"
+  },
+  "message": {
+   "ru": "«{node}»: {product} {version} — линия {cycle} больше не получает исправлений безопасности (с {eol}). Рекомендуемая линия: {recommended}.",
+   "en": "“{node}”: {product} {version} — the {cycle} line no longer gets security fixes (since {eol}). Recommended line: {recommended}."
+  },
+  "variantMessages": {
+   "expired_undated": {
+    "ru": "«{node}»: {product} {version} — линия {cycle} больше не получает исправлений безопасности. Рекомендуемая линия: {recommended}.",
+    "en": "“{node}”: {product} {version} — the {cycle} line no longer gets security fixes. Recommended line: {recommended}."
+   },
+   "expiring": {
+    "ru": "«{node}»: {product} {version} — исправления безопасности линии {cycle} закончатся {eol} (через {days} {days|plural:день,дня,дней}). Запланируйте переход на {recommended}.",
+    "en": "“{node}”: {product} {version} — security fixes for the {cycle} line end on {eol} (in {days} {days|plural:day,days}). Plan the move to {recommended}."
+   },
+   "unknown": {
+    "ru": "«{node}»: версия {version} продукта {product} не найдена в таблице выпусков — срок поддержки не проверить. Обновите таблицу в админ-панели или укажите линию выпуска.",
+    "en": "“{node}”: version {version} of {product} is not in the release table — its support dates cannot be checked. Refresh the table in the admin panel or give the release line."
+   },
+   "missing": {
+    "ru": "«{node}»: версия {product} не указана — срок поддержки не проверить.",
+    "en": "“{node}”: the {product} version is not set — its support dates cannot be checked."
+   }
+  },
+  "ok": {
+   "ru": "Все объявленные версии поддерживаются",
+   "en": "Every declared version is supported"
+  },
+  "rationale": {
+   "ru": "Линия без исправлений безопасности остаётся с известными уязвимостями, а переход на неё потом делается в спешке. Сроки берутся из таблиц выпусков (endoflife.date) и обновляются без выпуска новой версии сервиса.",
+   "en": "A line without security fixes keeps its known vulnerabilities, and the move off it is then made in a hurry. The dates come from release tables (endoflife.date) that are refreshed without a new release of the service."
+  },
+  "fixLabels": {
+   "set_version": {
+    "ru": "Перейти на {recommended} ({product}, «{node}»)",
+    "en": "Move to {recommended} ({product}, “{node}”)"
+   }
+  }
+ },
+ {
+  "id": "VER-02",
+  "category": "lifecycle",
+  "check": "version_skew",
+  "enabled": true,
+  "severity": "risk",
+  "params": {},
+  "title": {
+   "ru": "Участники кластера на одной линии выпуска",
+   "en": "Cluster members run one release line"
+  },
+  "message": {
+   "ru": "«{unit}»: участники работают на разных линиях ({versions}) — репликация между мажорными версиями не поддерживается, а смешанный кластер допустим только на время обновления.",
+   "en": "“{unit}”: members run different release lines ({versions}) — replication between major versions is not supported and a mixed cluster is acceptable only during an upgrade."
+  },
+  "ok": {
+   "ru": "Участники каждого кластера на одной линии",
+   "en": "The members of every cluster run one line"
+  },
+  "rationale": {
+   "ru": "Обновление кластера идёт по одному узлу, но состояние «часть узлов старая, часть новая» — это переходный режим, а не проект.",
+   "en": "A cluster is upgraded one node at a time, but ‘some nodes old, some new’ is a transition state, not a design."
   }
  }
 ]

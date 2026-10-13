@@ -1,0 +1,13 @@
+{
+ "id": "apisix",
+ "title": {
+  "ru": "Apache APISIX",
+  "en": "Apache APISIX"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Маршруты и плагины Apache APISIX зависят от ваших API: нейтрального шаблона нет. Добавьте свой.",
+  "en": "The routes and plugins of Apache APISIX depend on your APIs: there is no neutral template. Add your own."
+ }
+}

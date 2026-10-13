@@ -246,11 +246,22 @@ pub struct Ctx<'a> {
     cache: RefCell<HashMap<String, Rc<SimResult>>>,
     /// A check looked at a sample of the site combinations instead of all of them.
     sampled: std::cell::Cell<bool>,
+    /// Today as days since 1970-01-01; `None` without a clock.
+    pub today: Option<i64>,
+    /// Release tables by product id.
+    pub versions: HashMap<&'a str, &'a crate::lifecycle::VersionSet>,
 }
 
 impl<'a> Ctx<'a> {
     pub fn new(arch: &'a Architecture, cfg: &'a EngineConfig) -> Self {
-        Ctx { ix: Index::build(arch, &cfg.catalog, &cfg.settings), cfg, cache: RefCell::new(HashMap::new()), sampled: std::cell::Cell::new(false) }
+        Ctx {
+            ix: Index::build(arch, &cfg.catalog, &cfg.settings),
+            cfg,
+            cache: RefCell::new(HashMap::new()),
+            sampled: std::cell::Cell::new(false),
+            today: crate::lifecycle::parse_date(&(cfg.today)()),
+            versions: cfg.versions.iter().map(|v| (v.id.as_str(), v)).collect(),
+        }
     }
     /// Remember that a check sampled the combinations (reported as `scenarioStats.truncated`).
     pub fn mark_sampled(&self) {
@@ -632,7 +643,10 @@ pub fn status_of(sev: Severity) -> Status {
 pub fn render_message(rule: &crate::config::Rule, f: &Finding, lang: &str) -> String {
     use crate::text::LText;
     let vars: BTreeMap<String, Value> = f.vars.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
-    let tpl: &LText = if f.id.ends_with(":lost") && f.status != Status::NoData {
+    let variant = f.vars.get("variant").and_then(|v| v.as_str()).and_then(|v| rule.variant_messages.get(v));
+    let tpl: &LText = if let Some(t) = variant {
+        t
+    } else if f.id.ends_with(":lost") && f.status != Status::NoData {
         rule.data_lost_message.as_ref().unwrap_or(&rule.message)
     } else if f.status == Status::NoData {
         if f.id.ends_with(":req") {

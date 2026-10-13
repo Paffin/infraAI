@@ -1,0 +1,13 @@
+{
+ "id": "firewall",
+ "title": {
+  "ru": "Межсетевой экран",
+  "en": "Firewall"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Правила Межсетевой экран зависят от вендора и сегментации сети: нейтрального шаблона нет. Добавьте шаблон под ваше оборудование.",
+  "en": "The rules of Firewall depend on the vendor and the network segmentation: there is no neutral template. Add one for your equipment."
+ }
+}

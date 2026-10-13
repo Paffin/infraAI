@@ -1,0 +1,13 @@
+{
+ "id": "airflow",
+ "title": {
+  "ru": "Apache Airflow",
+  "en": "Apache Airflow"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Задания и ресурсы Apache Airflow зависят от вашей обработки данных: нейтрального шаблона нет. Добавьте свой.",
+  "en": "The jobs and resources of Apache Airflow depend on your data processing: there is no neutral template. Add your own."
+ }
+}

@@ -15,6 +15,7 @@ pub const ENGINE_JSON: &str = include_str!("../defaults/engine.json");
 pub const RULES_JSON: &str = include_str!("../defaults/rules.json");
 pub const DEMO_PROJECT_JSON: &str = include_str!("../defaults/demo_project.json");
 pub const PLACEMENT_JSON: &str = include_str!("../defaults/placement.json");
+pub const VERSIONS_JSON: &str = include_str!("../defaults/versions.json");
 
 pub const TEMPLATES_JSON: &[(&str, &str)] = &[
     ("two-dc-witness", include_str!("../defaults/templates/two-dc-witness.json")),
@@ -33,8 +34,8 @@ pub const IAC_JSON: &[(&str, &str)] = &[
     ("gslb", include_str!("../defaults/iac/gslb.json")),
     ("cdn", include_str!("../defaults/iac/cdn.json")),
     ("waf", include_str!("../defaults/iac/waf.json")),
-    ("l4", include_str!("../defaults/iac/l4.json")),
     ("l7", include_str!("../defaults/iac/l7.json")),
+    ("l4", include_str!("../defaults/iac/l4.json")),
     ("vpn_dci", include_str!("../defaults/iac/vpn_dci.json")),
     ("kubernetes", include_str!("../defaults/iac/kubernetes.json")),
     ("vm_pool", include_str!("../defaults/iac/vm_pool.json")),
@@ -51,6 +52,89 @@ pub const IAC_JSON: &[(&str, &str)] = &[
     ("vault", include_str!("../defaults/iac/vault.json")),
     ("monitoring", include_str!("../defaults/iac/monitoring.json")),
     ("gitops", include_str!("../defaults/iac/gitops.json")),
+    ("nginx", include_str!("../defaults/iac/nginx.json")),
+    ("haproxy", include_str!("../defaults/iac/haproxy.json")),
+    ("envoy", include_str!("../defaults/iac/envoy.json")),
+    ("traefik", include_str!("../defaults/iac/traefik.json")),
+    ("caddy", include_str!("../defaults/iac/caddy.json")),
+    ("apache_httpd", include_str!("../defaults/iac/apache_httpd.json")),
+    ("varnish", include_str!("../defaults/iac/varnish.json")),
+    ("squid", include_str!("../defaults/iac/squid.json")),
+    ("metallb", include_str!("../defaults/iac/metallb.json")),
+    ("firewall", include_str!("../defaults/iac/firewall.json")),
+    ("network_device", include_str!("../defaults/iac/network_device.json")),
+    ("dns_server", include_str!("../defaults/iac/dns_server.json")),
+    ("nomad", include_str!("../defaults/iac/nomad.json")),
+    ("kong", include_str!("../defaults/iac/kong.json")),
+    ("apisix", include_str!("../defaults/iac/apisix.json")),
+    ("airflow", include_str!("../defaults/iac/airflow.json")),
+    ("spark", include_str!("../defaults/iac/spark.json")),
+    ("flink", include_str!("../defaults/iac/flink.json")),
+    ("nifi", include_str!("../defaults/iac/nifi.json")),
+    ("mysql", include_str!("../defaults/iac/mysql.json")),
+    ("mariadb", include_str!("../defaults/iac/mariadb.json")),
+    ("mssql", include_str!("../defaults/iac/mssql.json")),
+    ("oracle", include_str!("../defaults/iac/oracle.json")),
+    ("cockroachdb", include_str!("../defaults/iac/cockroachdb.json")),
+    ("yugabytedb", include_str!("../defaults/iac/yugabytedb.json")),
+    ("tidb", include_str!("../defaults/iac/tidb.json")),
+    ("vitess", include_str!("../defaults/iac/vitess.json")),
+    ("mongodb", include_str!("../defaults/iac/mongodb.json")),
+    ("couchbase", include_str!("../defaults/iac/couchbase.json")),
+    ("couchdb", include_str!("../defaults/iac/couchdb.json")),
+    ("arangodb", include_str!("../defaults/iac/arangodb.json")),
+    ("neo4j", include_str!("../defaults/iac/neo4j.json")),
+    ("cassandra", include_str!("../defaults/iac/cassandra.json")),
+    ("scylladb", include_str!("../defaults/iac/scylladb.json")),
+    ("hbase", include_str!("../defaults/iac/hbase.json")),
+    ("foundationdb", include_str!("../defaults/iac/foundationdb.json")),
+    ("tarantool", include_str!("../defaults/iac/tarantool.json")),
+    ("influxdb", include_str!("../defaults/iac/influxdb.json")),
+    ("valkey", include_str!("../defaults/iac/valkey.json")),
+    ("memcached", include_str!("../defaults/iac/memcached.json")),
+    ("rabbitmq", include_str!("../defaults/iac/rabbitmq.json")),
+    ("pulsar", include_str!("../defaults/iac/pulsar.json")),
+    ("activemq", include_str!("../defaults/iac/activemq.json")),
+    ("ibm_mq", include_str!("../defaults/iac/ibm_mq.json")),
+    ("nats", include_str!("../defaults/iac/nats.json")),
+    ("redpanda", include_str!("../defaults/iac/redpanda.json")),
+    ("elasticsearch", include_str!("../defaults/iac/elasticsearch.json")),
+    ("solr", include_str!("../defaults/iac/solr.json")),
+    ("meilisearch", include_str!("../defaults/iac/meilisearch.json")),
+    ("ceph", include_str!("../defaults/iac/ceph.json")),
+    ("longhorn", include_str!("../defaults/iac/longhorn.json")),
+    ("nas_san", include_str!("../defaults/iac/nas_san.json")),
+    ("consul", include_str!("../defaults/iac/consul.json")),
+    ("zookeeper", include_str!("../defaults/iac/zookeeper.json")),
+    ("openbao", include_str!("../defaults/iac/openbao.json")),
+    ("zabbix", include_str!("../defaults/iac/zabbix.json")),
+    ("icinga", include_str!("../defaults/iac/icinga.json")),
+    ("checkmk", include_str!("../defaults/iac/checkmk.json")),
+    ("telegraf", include_str!("../defaults/iac/telegraf.json")),
+    ("fluent_bit", include_str!("../defaults/iac/fluent_bit.json")),
+    ("otel_collector", include_str!("../defaults/iac/otel_collector.json")),
+    ("grafana", include_str!("../defaults/iac/grafana.json")),
+    ("loki", include_str!("../defaults/iac/loki.json")),
+    ("graylog", include_str!("../defaults/iac/graylog.json")),
+    ("logstash", include_str!("../defaults/iac/logstash.json")),
+    ("kibana", include_str!("../defaults/iac/kibana.json")),
+    ("jaeger", include_str!("../defaults/iac/jaeger.json")),
+    ("jenkins", include_str!("../defaults/iac/jenkins.json")),
+    ("gitlab", include_str!("../defaults/iac/gitlab.json")),
+    ("forgejo", include_str!("../defaults/iac/forgejo.json")),
+    ("sonarqube", include_str!("../defaults/iac/sonarqube.json")),
+    ("artifactory", include_str!("../defaults/iac/artifactory.json")),
+    ("nexus", include_str!("../defaults/iac/nexus.json")),
+    ("harbor", include_str!("../defaults/iac/harbor.json")),
+    ("keycloak", include_str!("../defaults/iac/keycloak.json")),
+    ("authentik", include_str!("../defaults/iac/authentik.json")),
+    ("teleport", include_str!("../defaults/iac/teleport.json")),
+    ("boundary", include_str!("../defaults/iac/boundary.json")),
+    ("cert_manager", include_str!("../defaults/iac/cert_manager.json")),
+    ("kyverno", include_str!("../defaults/iac/kyverno.json")),
+    ("gatekeeper", include_str!("../defaults/iac/gatekeeper.json")),
+    ("cni", include_str!("../defaults/iac/cni.json")),
+    ("service_mesh", include_str!("../defaults/iac/service_mesh.json")),
 ];
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -84,9 +168,27 @@ pub fn placement() -> crate::placement::PlacementConfig {
     serde_json::from_str(PLACEMENT_JSON).expect("embedded placement.json is valid")
 }
 
-/// The complete engine configuration as shipped (what a fresh installation starts with).
+pub fn versions() -> Vec<crate::lifecycle::VersionSet> {
+    serde_json::from_str(VERSIONS_JSON).expect("embedded versions.json is valid")
+}
+
+/// A clock that says nothing: lifecycle checks are not applicable without a date.
+pub fn no_clock() -> String {
+    String::new()
+}
+
+/// The complete engine configuration as shipped (what a fresh installation starts with). It has no clock.
 pub fn engine_config(lang: &str) -> crate::config::EngineConfig {
-    crate::config::EngineConfig { catalog: catalog(), rules: rules(), settings: engine_settings(), iac: iac_templates(), placement: placement(), lang: lang.into() }
+    crate::config::EngineConfig {
+        catalog: catalog(),
+        rules: rules(),
+        settings: engine_settings(),
+        iac: iac_templates(),
+        placement: placement(),
+        versions: versions(),
+        today: no_clock,
+        lang: lang.into(),
+    }
 }
 
 pub fn demo_project() -> DemoProject {

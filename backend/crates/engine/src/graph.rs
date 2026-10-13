@@ -1,7 +1,7 @@
 //! Derived, read-only view of an [`Architecture`]: units (logical services), failure domains,
 //! adjacency, dependency order and cycles. Built once per evaluation.
 
-use crate::catalog::{Behavior, Catalog, EdgeTypeDef, Eff, KindDef, Semantics, ZoneLevel};
+use crate::catalog::{Behavior, Catalog, EdgeTypeDef, Eff, KindDef, Semantics, VariantDef, ZoneLevel};
 use crate::config::EngineSettings;
 use crate::model::{Architecture, PropsExt};
 use std::collections::{BTreeSet, HashMap};
@@ -18,6 +18,19 @@ pub struct Unit {
     pub name: String,
 }
 
+/// The quorum behind automatic promotion in a primary/replica unit.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Authority {
+    /// Nobody: a replica that cannot see the primary promotes itself (split brain).
+    None,
+    /// A consensus unit referenced by the members (`dcs`): Patroni + etcd, Orchestrator + Raft…
+    External(usize),
+    /// The members (and witnesses) vote: a majority of the votes must be visible.
+    SelfVotes,
+    /// The provider or platform holds it: always available to a live side, never two primaries.
+    Provider,
+}
+
 pub struct Index<'a> {
     pub arch: &'a Architecture,
     pub cat: &'a Catalog,
@@ -26,6 +39,10 @@ pub struct Index<'a> {
     pub node_ix: HashMap<&'a str, usize>,
     pub zone_ix: HashMap<&'a str, usize>,
     pub kind: Vec<Option<&'a KindDef>>,
+    /// Variant every node runs (the one it names or the kind's default).
+    pub variant: Vec<Option<&'a VariantDef>>,
+    /// Behavior of every node: the kind's, unless its variant changes it.
+    pub behavior: Vec<Behavior>,
     pub eff: Vec<Eff>,
     pub traits: Vec<BTreeSet<String>>,
 
@@ -64,8 +81,10 @@ impl<'a> Index<'a> {
         let zone_ix: HashMap<&str, usize> = arch.zones.iter().enumerate().map(|(i, z)| (z.id.as_str(), i)).collect();
 
         let kind: Vec<Option<&KindDef>> = arch.nodes.iter().map(|n| cat.kind(&n.kind)).collect();
-        let eff: Vec<Eff> = arch.nodes.iter().map(|n| Eff::build(cat.default_props(&n.kind), &n.props)).collect();
-        let traits: Vec<BTreeSet<String>> = kind.iter().map(|k| k.map(|k| k.traits.iter().cloned().collect()).unwrap_or_default()).collect();
+        let variant: Vec<Option<&VariantDef>> = arch.nodes.iter().map(|n| cat.variant(&n.kind, n.props.get("variant").and_then(crate::model::as_string).as_deref())).collect();
+        let behavior: Vec<Behavior> = arch.nodes.iter().zip(&variant).map(|(n, v)| cat.behavior_of(&n.kind, *v).unwrap_or_default()).collect();
+        let eff: Vec<Eff> = arch.nodes.iter().zip(&variant).map(|(n, v)| Eff::build(cat.default_props_for(&n.kind, *v), &n.props)).collect();
+        let traits: Vec<BTreeSet<String>> = arch.nodes.iter().zip(&variant).map(|(n, v)| cat.traits_of(&n.kind, *v)).collect();
 
         // Units
         let mut units: Vec<Unit> = Vec::new();
@@ -74,7 +93,7 @@ impl<'a> Index<'a> {
         for (i, n) in arch.nodes.iter().enumerate() {
             let key = n.group.clone().filter(|g| !g.is_empty()).unwrap_or_else(|| n.id.clone());
             let ui = *unit_ix.entry(key.clone()).or_insert_with(|| {
-                units.push(Unit { key: key.clone(), members: vec![], behavior: kind[i].map(|k| k.behavior).unwrap_or_default(), traits: BTreeSet::new(), kind: n.kind.clone(), name: n.name.clone() });
+                units.push(Unit { key: key.clone(), members: vec![], behavior: behavior[i], traits: BTreeSet::new(), kind: n.kind.clone(), name: n.name.clone() });
                 units.len() - 1
             });
             units[ui].members.push(i);
@@ -162,6 +181,8 @@ impl<'a> Index<'a> {
             node_ix,
             zone_ix,
             kind,
+            variant,
+            behavior,
             eff,
             traits,
             unit_of,
@@ -198,6 +219,24 @@ impl<'a> Index<'a> {
             Some((_, t)) => !self.traits[t].contains("soft-dependency"),
             None => true,
         }
+    }
+
+    /// Who decides that a replica may become the primary, and whether two sides of a partition can both do it.
+    pub fn authority(&self, unit: usize) -> Authority {
+        if let Some(du) = self.dcs_unit(unit) {
+            return Authority::External(du);
+        }
+        let a = &self.settings.authority;
+        let members = &self.units[unit].members;
+        let any_trait = |m: usize, list: &[String]| list.iter().any(|t| self.traits[m].contains(t));
+        if members.iter().any(|&m| self.is_witness(m) || any_trait(m, &a.self_quorum_traits)) {
+            return Authority::SelfVotes;
+        }
+        let data: Vec<usize> = members.iter().copied().filter(|&m| !self.is_witness(m)).collect();
+        if !data.is_empty() && data.iter().all(|&m| any_trait(m, &a.provider_traits)) {
+            return Authority::Provider;
+        }
+        Authority::None
     }
 
     /// Unit referenced by the `dcs` prop of any member (external quorum authority).
@@ -322,7 +361,7 @@ impl<'a> Index<'a> {
         if let Some(v) = self.eff[m].num("rpsPerReplica") {
             return Some(v);
         }
-        let cap = self.kind[m].and_then(|k| k.capacity.as_ref())?;
+        let cap = self.variant[m].and_then(|v| v.capacity.as_ref()).or_else(|| self.kind[m].and_then(|k| k.capacity.as_ref()))?;
         if let Some(v) = cap.rps_per_replica {
             return Some(v);
         }

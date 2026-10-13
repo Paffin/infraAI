@@ -1,0 +1,13 @@
+{
+ "id": "consul",
+ "title": {
+  "ru": "Consul",
+  "en": "Consul"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Значения установки Consul зависят от вашей среды (хранилище, домен, внешняя база): проверенного шаблона нет. Добавьте свой.",
+  "en": "The install values of Consul depend on your environment (storage, domain, an external database): there is no verified template. Add your own."
+ }
+}

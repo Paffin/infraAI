@@ -18,7 +18,7 @@
 //!   it can reach. The service is up when the entry points are served.
 
 use crate::catalog::{Behavior, Semantics};
-use crate::graph::Index;
+use crate::graph::{Authority, Index};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use std::collections::BTreeMap;
@@ -180,13 +180,6 @@ pub struct SimResult {
 }
 
 // -------------------------------------------------------------------------------------------
-
-#[derive(Clone, Copy, PartialEq)]
-enum Authority {
-    None,
-    External(usize),
-    SelfVotes,
-}
 
 struct Sim<'a, 'b> {
     ix: &'b Index<'a>,
@@ -553,19 +546,13 @@ impl<'a, 'b> Sim<'a, 'b> {
         };
         // failover mode is a property of the candidate: it decides how *that* node is promoted
         let fmode = |m: usize| ix.eff[m].text("failover").unwrap_or_else(|| "manual".into());
-        let authority = if let Some(du) = ix.dcs_unit(u) {
-            Authority::External(du)
-        } else if members.iter().any(|&m| ix.is_witness(m)) {
-            Authority::SelfVotes
-        } else {
-            Authority::None
-        };
+        let authority = ix.authority(u);
 
         // can member/observer m see the quorum authority?
         let total_votes: f64 = members.iter().map(|&m| self.vote_w(m)).sum();
         let has_q: Vec<bool> = (0..ix.arch.nodes.len())
             .map(|m| match authority {
-                Authority::None => true,
+                Authority::None | Authority::Provider => true,
                 Authority::External(du) => !self.done[du] || self.serving[du].iter().any(|&s| self.reach(m, s)),
                 Authority::SelfVotes => self.seen_weight(m, &members, |k| if self.alive[k] > 0 { self.vote_w(k) } else { 0.0 }) * 2.0 > total_votes,
             })

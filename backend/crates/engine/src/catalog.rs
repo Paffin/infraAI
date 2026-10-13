@@ -33,6 +33,20 @@ pub struct Category {
     pub name: LText,
     #[serde(default)]
     pub order: i32,
+    /// What the products of the category are for, in the order the library shows them.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub functions: Vec<FunctionDef>,
+}
+
+/// A job that several products can do (`rdbms`, `cache`, `l7`…): the library groups products by it, and a placement
+/// layer offers every product of the function as an alternative.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FunctionDef {
+    pub id: String,
+    pub name: LText,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<LText>,
 }
 
 /// How a component fails over / what "serving" means. Drives the simulator.
@@ -126,6 +140,48 @@ pub struct KindDef {
     /// library without deleting it from existing projects.
     #[serde(default)]
     pub hidden: bool,
+    /// What the product is for (`rdbms`, `cache`, `l7`, …): products of one function replace each other, the library
+    /// groups by it and placement stacks offer every product of the function for a layer.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub function: Option<String>,
+    /// Ways to deploy the product (HA topologies, managed offerings). A node picks one with its `variant` prop; the
+    /// variant changes how the engine sees the node (behavior, traits, defaults, capacity, cost).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub variants: Vec<VariantDef>,
+    /// Id of the release table (`catalog.versions`) of this product; the kind id when absent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub versions: Option<String>,
+}
+
+/// A way to deploy a product: Patroni or plain streaming replication for PostgreSQL, Sentinel or Cluster for Redis,
+/// a managed cloud offering… Everything it does not say is inherited from the kind.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct VariantDef {
+    pub id: String,
+    pub name: LText,
+    #[serde(default)]
+    pub description: Option<LText>,
+    /// Assumed when a node declares no variant.
+    #[serde(default)]
+    pub default: bool,
+    #[serde(default)]
+    pub behavior: Option<Behavior>,
+    #[serde(default)]
+    pub add_traits: Vec<String>,
+    #[serde(default)]
+    pub remove_traits: Vec<String>,
+    /// Prop defaults of this variant (they replace the kind's: automatic failover in 30 s, three voters…).
+    #[serde(default)]
+    pub defaults: Props,
+    #[serde(default)]
+    pub capacity: Option<CapacityDef>,
+    #[serde(default)]
+    pub cost: Option<CostDef>,
+    /// Release table of this variant when it differs from the kind's: a managed offering has its own lifecycle
+    /// (Amazon RDS supports a PostgreSQL line for a different time than the community does).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub versions: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
@@ -175,6 +231,14 @@ pub struct PropDef {
     pub ref_behavior: Option<Behavior>,
     #[serde(default)]
     pub advanced: bool,
+    /// Only for these variants of the kind (empty = every variant).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub variants: Vec<String>,
+    /// The prop holds a version of a product that has a release table (`catalog.versions`): the id of the table, or
+    /// `@key` to take it from another prop of the node (`@os`: the value of `os` names the table, so Ubuntu 22.04
+    /// and RHEL 9 are judged by their own dates). The node's own `version` needs no such mark.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lifecycle: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -256,6 +320,10 @@ impl Catalog {
     pub fn kind(&self, id: &str) -> Option<&KindDef> {
         self.kinds.iter().find(|k| k.id == id)
     }
+    /// The products that do one job (`rdbms`), hidden ones left out.
+    pub fn kinds_of_function(&self, function: &str) -> Vec<&KindDef> {
+        self.kinds.iter().filter(|k| !k.hidden && k.function.as_deref() == Some(function)).collect()
+    }
     pub fn edge_type(&self, id: &str) -> Option<&EdgeTypeDef> {
         self.edge_types.iter().find(|t| t.id == id)
     }
@@ -263,8 +331,19 @@ impl Catalog {
         self.zone_types.iter().find(|t| t.id == id)
     }
 
-    /// Catalog-level default props for a kind: common props ← kind props.
+    /// The variant a node of `kind` runs: the one it names, else the kind's default variant; `None` for a kind
+    /// without variants (or without a default one).
+    pub fn variant(&self, kind: &str, id: Option<&str>) -> Option<&VariantDef> {
+        let k = self.kind(kind)?;
+        id.filter(|i| !i.is_empty()).and_then(|i| k.variants.iter().find(|v| v.id == i)).or_else(|| k.variants.iter().find(|v| v.default))
+    }
+
+    /// Catalog-level default props for a kind: common props ← kind props (← the variant's defaults).
     pub fn default_props(&self, kind: &str) -> Props {
+        self.default_props_for(kind, None)
+    }
+
+    pub fn default_props_for(&self, kind: &str, variant: Option<&VariantDef>) -> Props {
         let mut out = Props::new();
         for p in &self.common_props {
             if let Some(d) = &p.default {
@@ -278,7 +357,29 @@ impl Catalog {
                 }
             }
         }
+        if let Some(v) = variant {
+            for (key, val) in &v.defaults {
+                out.insert(key.clone(), val.clone());
+            }
+        }
         out
+    }
+
+    /// Behavior of a node of `kind` in `variant`.
+    pub fn behavior_of(&self, kind: &str, variant: Option<&VariantDef>) -> Option<Behavior> {
+        self.kind(kind).map(|k| variant.and_then(|v| v.behavior).unwrap_or(k.behavior))
+    }
+
+    /// Traits of a node of `kind` in `variant`: the kind's, plus what the variant adds, minus what it removes.
+    pub fn traits_of(&self, kind: &str, variant: Option<&VariantDef>) -> BTreeSet<String> {
+        let mut t: BTreeSet<String> = self.kind(kind).map(|k| k.traits.iter().cloned().collect()).unwrap_or_default();
+        if let Some(v) = variant {
+            t.extend(v.add_traits.iter().cloned());
+            for r in &v.remove_traits {
+                t.remove(r);
+            }
+        }
+        t
     }
 
     pub fn prop_def(&self, kind: &str, key: &str) -> Option<&PropDef> {
@@ -300,11 +401,31 @@ impl Catalog {
             if !self.categories.iter().any(|c| c.id == k.category) {
                 errs.push(format!("kind '{}' references unknown category '{}'", k.id, k.category));
             }
+            if let Some(f) = k.function.as_deref() {
+                let declared = self.categories.iter().find(|c| c.id == k.category).map(|c| c.functions.iter().any(|x| x.id == f)).unwrap_or(false);
+                if !declared {
+                    errs.push(format!("kind '{}' names function '{}' that category '{}' does not declare", k.id, f, k.category));
+                }
+            }
             let mut pk = BTreeSet::new();
             for p in &k.props {
                 if !pk.insert(p.key.as_str()) {
                     errs.push(format!("kind '{}' has duplicate prop '{}'", k.id, p.key));
                 }
+                for v in &p.variants {
+                    if !k.variants.iter().any(|x| &x.id == v) {
+                        errs.push(format!("kind '{}' prop '{}' names unknown variant '{}'", k.id, p.key, v));
+                    }
+                }
+            }
+            let mut vk = BTreeSet::new();
+            for v in &k.variants {
+                if !vk.insert(v.id.as_str()) {
+                    errs.push(format!("kind '{}' has duplicate variant '{}'", k.id, v.id));
+                }
+            }
+            if k.variants.iter().filter(|v| v.default).count() > 1 {
+                errs.push(format!("kind '{}' has more than one default variant", k.id));
             }
         }
         for t in &self.edge_types {

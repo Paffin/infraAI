@@ -1,0 +1,13 @@
+{
+ "id": "kong",
+ "title": {
+  "ru": "Kong Gateway",
+  "en": "Kong Gateway"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Маршруты и плагины Kong Gateway зависят от ваших API: нейтрального шаблона нет. Добавьте свой.",
+  "en": "The routes and plugins of Kong Gateway depend on your APIs: there is no neutral template. Add your own."
+ }
+}

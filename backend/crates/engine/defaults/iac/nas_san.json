@@ -1,0 +1,13 @@
+{
+ "id": "nas_san",
+ "title": {
+  "ru": "Дисковый массив / NAS",
+  "en": "Disk array / NAS"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Хранилище Дисковый массив / NAS разворачивается оператором или средствами вендора, зависящими от оборудования: проверенного шаблона нет. Добавьте свой.",
+  "en": "The Disk array / NAS storage is deployed by an operator or the vendor’s tools that depend on the hardware: there is no verified template. Add your own."
+ }
+}

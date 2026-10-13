@@ -1,0 +1,13 @@
+{
+ "id": "varnish",
+ "title": {
+  "ru": "Varnish Cache",
+  "en": "Varnish Cache"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "Правила кэширования Varnish Cache (VCL) пишутся под приложение: нейтрального шаблона нет. Добавьте свой.",
+  "en": "The caching rules of Varnish Cache (VCL) are written for the application: there is no neutral template. Add your own."
+ }
+}

@@ -1,0 +1,13 @@
+{
+ "id": "nomad",
+ "title": {
+  "ru": "HashiCorp Nomad",
+  "en": "HashiCorp Nomad"
+ },
+ "enabled": true,
+ "target": "none",
+ "reason": {
+  "ru": "HashiCorp Nomad ставится пакетами или своим сценарием; проверенного шаблона нет — добавьте свой.",
+  "en": "HashiCorp Nomad is installed from packages or by your own playbook; there is no verified template — add your own."
+ }
+}
