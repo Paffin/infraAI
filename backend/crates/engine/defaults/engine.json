@@ -60,6 +60,10 @@
   "terraformRequiredVersion": ">= 1.6.0",
   "terraformBackend": "backend \"local\" {\n    path = \"terraform.tfstate\"\n  }",
   "adrStatus": "Proposed",
+  "templateLimits": {
+   "fuel": 50000,
+   "maxItems": 5000
+  },
   "texts": {
    "ru": {
     "adr.title": "ADR-{n}: архитектура «{name}»",

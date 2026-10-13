@@ -103,7 +103,8 @@ pub async fn llm_test(State(state): State<AppState>, user: AuthUser, body: Optio
         return Ok(Json(json!({"ok": false, "code": "llm_not_configured", "message": "API key is not set (admin panel or OPENROUTER_API_KEY)"})));
     };
     let base = cfg.settings.str("llm.baseUrl");
-    let res = state.http.get(format!("{}/key", base.trim_end_matches('/'))).bearer_auth(&key).timeout(std::time::Duration::from_secs(20)).send().await;
+    let res =
+        state.http.get(format!("{}/key", base.trim_end_matches('/'))).bearer_auth(&key).timeout(std::time::Duration::from_secs(cfg.settings.num("llm.catalogTimeoutSeconds") as u64)).send().await;
     let (key_ok, key_info, key_msg) = match res {
         Err(e) => (false, Value::Null, format!("cannot reach OpenRouter: {}", e.without_url())),
         Ok(r) => {

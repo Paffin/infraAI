@@ -384,7 +384,7 @@ async fn generate(state: &AppState, cfg: &Arc<Loaded>, ctx: &CallCtx, p: &Progre
         p.step("refining", json!({"round": round + 1, "criticals": criticals(&report)})).await;
         let refine = cfg.prompts.get("refine").map(|d| d.system.clone()).unwrap_or_default();
         let mut v = BTreeMap::new();
-        v.insert("findings", findings_digest(&report, cfg, lang, true, 25));
+        v.insert("findings", findings_digest(&report, cfg, lang, true, digest_limit(cfg)));
         messages.push(Msg::assistant(cand.raw.clone()));
         messages.push(Msg::user(render(&refine, &v)));
         let Ok(resp) = call(state, cfg, ctx, LlmRequest { purpose: "refine", role, messages: messages.clone(), schema: Some(("architecture", schema.clone())) }).await else { break };
@@ -446,6 +446,11 @@ fn autofix_note(applied: &[String], lang: &str) -> String {
 // patch / fix: edit operations
 // -------------------------------------------------------------------------------------------
 
+/// How many engine findings a prompt lists (`llm.digestFindings`).
+fn digest_limit(cfg: &Loaded) -> usize {
+    cfg.settings.num("llm.digestFindings").max(1.0) as usize
+}
+
 #[allow(clippy::too_many_arguments)]
 async fn patch(state: &AppState, cfg: &Arc<Loaded>, ctx: &CallCtx, p: &Progress, job: &Job, base: Architecture, rev: i64, request: &str, lang: &str) -> PResult<PipelineOutput> {
     let waivers = engine_waivers(state, job.project_id).await?;
@@ -453,7 +458,7 @@ async fn patch(state: &AppState, cfg: &Arc<Loaded>, ctx: &CallCtx, p: &Progress,
     let before_report = run_evaluate(cfg.clone(), base.clone(), waivers.clone(), lang.to_string()).await?;
     let mut vars = common_vars(cfg, lang);
     vars.insert("architecture", arch_digest(&base, cfg.settings.boolean("llm.sendNotes")));
-    vars.insert("findings", findings_digest(&before_report, cfg, lang, true, 30));
+    vars.insert("findings", findings_digest(&before_report, cfg, lang, true, digest_limit(cfg)));
     let sys = system_prompt(cfg, "patch", &vars)?;
     let mut messages = vec![Msg::system(sys), Msg::user(format!("<user_data>\n{}\n</user_data>", request))];
     let schema = patch_schema();
@@ -502,7 +507,7 @@ async fn patch(state: &AppState, cfg: &Arc<Loaded>, ctx: &CallCtx, p: &Progress,
         p.step("refining", json!({"round": round + 1, "criticals": introduced_critical.len()})).await;
         let refine = cfg.prompts.get("refine").map(|d| d.system.clone()).unwrap_or_default();
         let mut v = BTreeMap::new();
-        v.insert("findings", findings_digest(&preview.after_report, cfg, lang, true, 25));
+        v.insert("findings", findings_digest(&preview.after_report, cfg, lang, true, digest_limit(cfg)));
         messages.push(Msg::assistant(cand.raw.clone()));
         messages.push(Msg::user(render(&refine, &v)));
         let Ok(resp) = call(state, cfg, ctx, LlmRequest { purpose: "refine", role, messages: messages.clone(), schema: Some(("operations", schema.clone())) }).await else { break };

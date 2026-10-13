@@ -86,12 +86,14 @@ describe('diff lines', () => {
 
 describe('semantic zoom', () => {
   it('switches the level of detail at the configured zoom levels', async () => {
-    const { lodOf, LOD_COMPACT_BELOW, LOD_MINI_BELOW } = await import('../src/lib/lod')
-    expect(lodOf(1)).toBe('full')
-    expect(lodOf(LOD_COMPACT_BELOW)).toBe('full')
-    expect(lodOf(LOD_COMPACT_BELOW - 0.01)).toBe('compact')
-    expect(lodOf(LOD_MINI_BELOW)).toBe('compact')
-    expect(lodOf(LOD_MINI_BELOW - 0.01)).toBe('mini')
-    expect(LOD_MINI_BELOW).toBeLessThan(LOD_COMPACT_BELOW)
+    const { lodOf } = await import('../src/lib/lod')
+    const limits = { lodCompactBelow: 0.6, lodMiniBelow: 0.25 }
+    expect(lodOf(1, limits)).toBe('full')
+    expect(lodOf(0.6, limits)).toBe('full')
+    expect(lodOf(0.59, limits)).toBe('compact')
+    expect(lodOf(0.25, limits)).toBe('compact')
+    expect(lodOf(0.24, limits)).toBe('mini')
+    // an administrator can move the thresholds
+    expect(lodOf(0.59, { lodCompactBelow: 0.5, lodMiniBelow: 0.2 })).toBe('full')
   })
 })

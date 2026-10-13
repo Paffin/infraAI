@@ -331,6 +331,23 @@ export interface TemplateMeta {
 
 export interface Template extends Omit<TemplateMeta, 'nodeCount' | 'requirements'> { architecture: Architecture }
 
+/** Timings and thresholds of the editor: the `editor.*` settings of the admin panel. */
+export interface EditorSettings {
+  autosaveMs: number
+  evaluateMs: number
+  simulateMs: number
+  historySteps: number
+  saveRetryMs: number
+  saveRetryMaxMs: number
+  jobPollMs: number
+  lodCompactBelow: number
+  lodMiniBelow: number
+  toastMs: number
+  errorToastMs: number
+  highlightMs: number
+  paletteMaxResults: number
+}
+
 export interface Bootstrap {
   user: User
   rev: number
@@ -341,6 +358,8 @@ export interface Bootstrap {
   rules: Rule[]
   templates: TemplateMeta[]
   exportFormats: ExportFormatInfo[]
+  /** absent when talking to a backend that predates the `editor.*` settings */
+  editor?: Partial<EditorSettings>
   ai: { enabled: boolean; configured: boolean; maxPromptChars: number; plannerModel: string; fastModel: string }
   limits: { maxNodes: number; maxEdges: number; maxZones: number; waiverMinReasonChars: number; waiverMaxDays: number }
   engine: { currency: string; symbol: string; minCapacityDuringFailure: number; headroomPercent: number; defaultFailureTolerance: string }

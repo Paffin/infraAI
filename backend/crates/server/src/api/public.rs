@@ -62,6 +62,25 @@ pub async fn bootstrap(State(state): State<AppState>, user: AuthUser, headers: H
         .map(|t| json!({"id": t.id, "name": t.name, "description": t.description, "badge": t.badge, "order": t.order, "nodeCount": t.architecture.nodes.len(), "requirements": t.architecture.requirements}))
         .collect();
     let a = &cfg.engine.assumptions;
+    // timings and thresholds of the web UI: the `editor.*` settings, by their short names
+    let editor: serde_json::Map<String, Value> = [
+        "autosaveMs",
+        "evaluateMs",
+        "simulateMs",
+        "historySteps",
+        "saveRetryMs",
+        "saveRetryMaxMs",
+        "jobPollMs",
+        "lodCompactBelow",
+        "lodMiniBelow",
+        "toastMs",
+        "errorToastMs",
+        "highlightMs",
+        "paletteMaxResults",
+    ]
+    .iter()
+    .map(|k| (k.to_string(), cfg.settings.get(&format!("editor.{k}"))))
+    .collect();
     let body = json!({
         "user": user,
         "rev": cfg.rev,
@@ -85,6 +104,7 @@ pub async fn bootstrap(State(state): State<AppState>, user: AuthUser, headers: H
             "plannerModel": cfg.settings.str("llm.model.planner"),
             "fastModel": cfg.settings.str("llm.model.fast"),
         },
+        "editor": editor,
         "limits": {"maxNodes": cfg.settings.num("limits.maxNodes"), "maxEdges": cfg.settings.num("limits.maxEdges"), "maxZones": cfg.settings.num("limits.maxZones"), "waiverMinReasonChars": cfg.settings.num("limits.waiverMinReasonChars"), "waiverMaxDays": cfg.settings.num("limits.waiverMaxDays")},
         "engine": {
             "currency": cfg.engine.cost.currency, "symbol": cfg.engine.cost.symbol,

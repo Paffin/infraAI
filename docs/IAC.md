@@ -127,6 +127,9 @@ cd app-dc1/00-platform && tofu init && tofu apply
 cd ../10-workloads     && tofu init && tofu apply
 ```
 
+Пределы языка шаблонов — настройки движка: `export.templateLimits.fuel` (бюджет инструкций одного выражения) и `export.templateLimits.maxItems`
+(самый длинный список в одном `$each`). Шаблон, который их превысит, попадает в отчёт как `template_error`, остальные компоненты генерируются.
+
 Состояние: блок `backend` берётся из `export.terraformBackend`; `{arch}`, `{cluster}`, `{stage}` подставляются, поэтому у каждого шага свой
 ключ состояния (по умолчанию — локальный файл; для командной работы укажите удалённый бэкенд).
 

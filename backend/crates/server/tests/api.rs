@@ -755,3 +755,70 @@ async fn stale_jobs_are_failed_and_config_rev_propagates_between_instances() {
     assert_eq!(b.settings.str("app.name"), "Renamed");
     app.cleanup().await;
 }
+
+#[tokio::test]
+async fn editor_timings_are_settings_and_reach_the_browser_through_bootstrap() {
+    let app = TestApp::new().await;
+    let c = app.login_admin().await;
+    let (_, boot) = app.get(&c, "/api/bootstrap").await;
+    let editor = boot["editor"].as_object().expect("bootstrap carries the editor settings");
+    // every `editor.*` setting of the registry arrives under its short name, with its default
+    let (_, reg) = app.get(&c, "/api/admin/settings").await;
+    let defs: Vec<&Value> = reg["settings"].as_array().unwrap().iter().filter(|s| s["key"].as_str().unwrap().starts_with("editor.")).collect();
+    assert_eq!(editor.len(), defs.len());
+    for d in &defs {
+        let short = d["key"].as_str().unwrap().trim_start_matches("editor.");
+        assert_eq!(editor[short], d["value"], "{short}");
+    }
+    assert_eq!(editor["autosaveMs"], 900);
+
+    // an administrator changes one: the next bootstrap says so; out-of-range values are refused
+    let (s, v) = app.put(&c, "/api/admin/settings", json!({"changes": {"editor.autosaveMs": 1500, "editor.lodMiniBelow": 0.2}})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    let (_, boot) = app.get(&c, "/api/bootstrap").await;
+    assert_eq!(boot["editor"]["autosaveMs"], 1500);
+    assert_eq!(boot["editor"]["lodMiniBelow"], 0.2);
+    let (s, v) = app.put(&c, "/api/admin/settings", json!({"changes": {"editor.autosaveMs": 5}})).await;
+    assert_eq!(s, StatusCode::BAD_REQUEST, "{v}");
+    app.cleanup().await;
+}
+
+#[tokio::test]
+async fn the_login_throttle_is_a_setting() {
+    let app = TestApp::new().await;
+    let c = app.login_admin().await; // one attempt counted for this address
+    let (s, v) = app.put(&c, "/api/admin/settings", json!({"changes": {"auth.loginsPerMinutePerIp": 4}})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    // different accounts, so no account lockout interferes: the 4th attempt of the minute is the last one allowed
+    let mut statuses = vec![];
+    for i in 0..4 {
+        let (s, _, _) = app.login_as(&format!("nobody{i}@test.local"), "wrong password 123").await;
+        statuses.push(s);
+    }
+    assert_eq!(statuses, vec![StatusCode::UNAUTHORIZED, StatusCode::UNAUTHORIZED, StatusCode::UNAUTHORIZED, StatusCode::TOO_MANY_REQUESTS], "{statuses:?}");
+    // even the right password has to wait
+    let (s, _, v) = app.login_as("admin@test.local", "correct horse battery staple").await;
+    assert_eq!(s, StatusCode::TOO_MANY_REQUESTS, "{v}");
+    app.cleanup().await;
+}
+
+#[tokio::test]
+async fn how_long_a_replica_trusts_a_users_role_is_a_setting() {
+    let app = TestApp::new().await;
+    let admin = app.login_admin().await;
+    let editor = app.create_user(&admin, "cache@test.local", "editor").await;
+    let (s, _) = app.get(&editor, "/api/projects").await;
+    assert_eq!(s, StatusCode::OK);
+
+    // another replica blocks the user in the database: this one has not heard of it yet and trusts its cache …
+    sqlx::query("update users set disabled = true where email = 'cache@test.local'").execute(&app.state.pool).await.unwrap();
+    let (s, _) = app.get(&editor, "/api/projects").await;
+    assert_eq!(s, StatusCode::OK, "within the cache time (10 s by default) the block is not noticed yet");
+
+    // … unless the administrator asked for no caching at all
+    let (s, v) = app.put(&admin, "/api/admin/settings", json!({"changes": {"auth.userCacheSeconds": 0}})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    let (s, _) = app.get(&editor, "/api/projects").await;
+    assert_eq!(s, StatusCode::UNAUTHORIZED, "with `auth.userCacheSeconds` = 0 every request asks the database");
+    app.cleanup().await;
+}

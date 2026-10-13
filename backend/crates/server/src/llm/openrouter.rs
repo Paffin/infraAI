@@ -299,7 +299,7 @@ pub async fn call(state: &AppState, cfg: &Loaded, ctx: &CallCtx, req: LlmRequest
                 }
                 if retryable && attempt < retries {
                     attempt += 1;
-                    let delay = Duration::from_millis(1000 * (1 << (attempt - 1)).min(8) + (rand::random::<u64>() % 400));
+                    let delay = Duration::from_millis(s.num("llm.retryBaseMs") as u64 * (1 << (attempt - 1)).min(8) + (rand::random::<u64>() % 400));
                     tracing::warn!(error = %e, attempt, "LLM call failed, retrying");
                     tokio::time::sleep(delay).await;
                     continue;
@@ -356,8 +356,13 @@ pub async fn fetch_models(state: &AppState, cfg: &Loaded, refresh: bool) -> Resu
         }
     }
     let url = format!("{}/models", cfg.settings.str("llm.baseUrl").trim_end_matches('/'));
-    let res =
-        state.http.get(&url).timeout(Duration::from_secs(30)).send().await.map_err(|e| ApiError::unavailable("llm_unreachable", format!("cannot reach the model catalog: {}", e.without_url())))?;
+    let res = state
+        .http
+        .get(&url)
+        .timeout(Duration::from_secs(cfg.settings.num("llm.catalogTimeoutSeconds") as u64))
+        .send()
+        .await
+        .map_err(|e| ApiError::unavailable("llm_unreachable", format!("cannot reach the model catalog: {}", e.without_url())))?;
     if !res.status().is_success() {
         // serve a stale list rather than nothing
         if let Some((_, v)) = guard.as_ref() {

@@ -1,12 +1,15 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import { useApp } from './app'
 
 export interface Toast { id: number; kind: 'info' | 'ok' | 'error'; text: string }
 
 export const useToasts = defineStore('toasts', () => {
+  const app = useApp()
   const items = ref<Toast[]>([])
   let seq = 0
-  function push(kind: Toast['kind'], text: string, ms = kind === 'error' ? 7000 : 3500) {
+  /** How long a notification stays is a setting (`editor.toastMs`, `editor.errorToastMs`). */
+  function push(kind: Toast['kind'], text: string, ms = kind === 'error' ? app.editorCfg.errorToastMs : app.editorCfg.toastMs) {
     const id = ++seq
     items.value.push({ id, kind, text })
     setTimeout(() => dismiss(id), ms)

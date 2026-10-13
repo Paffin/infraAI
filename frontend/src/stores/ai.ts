@@ -78,11 +78,11 @@ export const useAi = defineStore('ai', () => {
         const j = await api.ai.job(jobId)
         if (gen !== pollGen) return
         job.value = j
-        if (j.status === 'queued' || j.status === 'running') { pollTimer = setTimeout(tick, 1000); return }
+        if (j.status === 'queued' || j.status === 'running') { pollTimer = setTimeout(tick, app.editorCfg.jobPollMs); return }
         await finish(j)
       } catch (e) {
         if (gen !== pollGen) return
-        if (e instanceof ApiError && e.status === 0) { pollTimer = setTimeout(tick, 2500); return } // transient
+        if (e instanceof ApiError && e.status === 0) { pollTimer = setTimeout(tick, app.editorCfg.jobPollMs * 2.5); return } // transient: back off
         error.value = { code: 'error', message: errorMessage(e) }
         job.value = null
       }

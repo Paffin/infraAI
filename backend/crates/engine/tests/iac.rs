@@ -292,3 +292,30 @@ fn a_template_with_a_runtime_error_is_reported_and_the_rest_is_still_generated()
     assert!(e.message.contains("objects[0].body.spec.replicas"), "the path of the broken expression is shown: {}", e.message);
     assert!(b.files.iter().any(|f| f.path.ends_with("pg-cluster.yaml")), "other components are unaffected");
 }
+
+#[test]
+fn the_guard_rails_of_the_template_language_are_settings() {
+    let arch = template("three-az-region");
+    let ok = iac::kubernetes(&arch, &cfg(), "en");
+    assert!(ok.report.skipped.iter().all(|s| s.code != "template_error"), "the shipped limits are generous enough: {:?}", ok.report.skipped);
+
+    // a template that loops over the nodes of the cluster (none of the shipped ones loops at all)
+    let looping = |max_items: usize| {
+        let mut c = cfg();
+        c.settings.export.template_limits.max_items = max_items;
+        let t = c.iac.iter_mut().find(|t| t.id == "kafka").unwrap();
+        t.objects[0].body["spec"]["replicas"] = json!({"$each": "cluster.nodes", "as": "m", "do": "{{ m }}"});
+        iac::kubernetes(&arch, &c, "en")
+    };
+    assert!(looping(5_000).report.skipped.iter().all(|s| s.code != "template_error"), "the loop is fine within the limit");
+    // longer than the administrator allows: refused and reported, not silently cut
+    let b = looping(1);
+    let errs: Vec<_> = b.report.skipped.iter().filter(|s| s.code == "template_error").collect();
+    assert!(errs.iter().any(|e| e.message.contains("more than 1 items")), "{:?}", b.report.skipped.iter().map(|s| (&s.code, &s.message)).collect::<Vec<_>>());
+
+    // a tiny instruction budget stops the expressions
+    let mut c = cfg();
+    c.settings.export.template_limits.fuel = 3;
+    let b = iac::kubernetes(&arch, &c, "en");
+    assert!(b.report.skipped.iter().any(|s| s.code == "template_error"), "{:?}", b.report.skipped.iter().map(|s| &s.code).collect::<Vec<_>>());
+}

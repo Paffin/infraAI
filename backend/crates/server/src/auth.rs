@@ -91,11 +91,11 @@ struct SessionPayload {
     v: i32,
 }
 
-const USER_CACHE_TTL: Duration = Duration::from_secs(10);
-
 pub async fn load_user(state: &AppState, id: Uuid) -> ApiResult<Option<CachedUser>> {
+    // how long a replica trusts a user's role and lock state (`auth.userCacheSeconds`; 0 = ask on every request)
+    let ttl = Duration::from_secs_f64(state.cfg().await?.settings.num("auth.userCacheSeconds").max(0.0));
     if let Some((u, at)) = state.user_cache.lock().unwrap().get(&id) {
-        if at.elapsed() < USER_CACHE_TTL {
+        if at.elapsed() < ttl {
             return Ok(Some(u.clone()));
         }
     }
@@ -180,13 +180,14 @@ fn session_cookie(state: &AppState, token: String, ttl_hours: f64) -> Cookie<'st
     Cookie::build((COOKIE, token)).http_only(true).secure(state.boot.cookie_secure).same_site(SameSite::Lax).path("/").max_age(time::Duration::seconds((ttl_hours * 3600.0) as i64)).build()
 }
 
-fn throttle_ip(state: &AppState, ip: &str) -> ApiResult<()> {
+/// At most `limit` sign-in attempts per IP and minute (`auth.loginsPerMinutePerIp`).
+fn throttle_ip(state: &AppState, ip: &str, limit: u32) -> ApiResult<()> {
     let mut m = state.login_attempts.lock().unwrap();
     let now = Instant::now();
     m.retain(|_, (_, at)| now.duration_since(*at) < Duration::from_secs(60));
     let e = m.entry(ip.to_string()).or_insert((0, now));
     e.0 += 1;
-    if e.0 > 30 {
+    if e.0 > limit {
         return Err(ApiError::too_many("rate_limited", "too many sign-in attempts, try again later"));
     }
     Ok(())
@@ -194,8 +195,8 @@ fn throttle_ip(state: &AppState, ip: &str) -> ApiResult<()> {
 
 pub async fn login(State(state): State<AppState>, ConnectInfo(addr): ConnectInfo<SocketAddr>, headers: HeaderMap, jar: CookieJar, Json(body): Json<LoginBody>) -> ApiResult<(CookieJar, Json<Value>)> {
     let ip = client_ip(&headers, Some(addr), state.boot.trust_proxy);
-    throttle_ip(&state, &ip)?;
     let cfg = state.cfg().await?;
+    throttle_ip(&state, &ip, cfg.settings.num("auth.loginsPerMinutePerIp") as u32)?;
     let email = body.email.trim().to_lowercase();
     let row: Option<(Uuid, String, String, String, bool, bool, i32, i32, Option<chrono::DateTime<chrono::Utc>>)> =
         sqlx::query_as("select id, password_hash, name, role, disabled, must_change_password, session_version, failed_attempts, locked_until from users where lower(email) = $1")

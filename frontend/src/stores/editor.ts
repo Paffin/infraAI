@@ -30,9 +30,6 @@ export interface Preview {
 
 export const emptyArchitecture = (): Architecture => ({ schemaVersion: 1, meta: {}, requirements: {}, zones: [], nodes: [], edges: [] })
 const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x))
-const HISTORY_LIMIT = 100
-const SAVE_DELAY = 900
-const EVAL_DELAY = 350
 
 export const useEditor = defineStore('editor', () => {
   const app = useApp()
@@ -185,13 +182,13 @@ export const useEditor = defineStore('editor', () => {
   // -------------------------------------------------------------------------------------- saving
   let saveTimer: ReturnType<typeof setTimeout> | undefined
   let inflight: Promise<boolean> | null = null
-  let retryDelay = 3000
+  let retryDelay = 0 // the pause before the next retry; 0 = start from `editor.saveRetryMs`
 
   function touchSave() {
     if (!app.canEdit || saveState.value === 'conflict') return
     saveState.value = 'dirty'
     clearTimeout(saveTimer)
-    saveTimer = setTimeout(() => void flushSave(), SAVE_DELAY)
+    saveTimer = setTimeout(() => void flushSave(), app.editorCfg.autosaveMs)
   }
 
   /** Store the working copy now; resolves when everything that was edited so far is on the server. */
@@ -217,7 +214,7 @@ export const useEditor = defineStore('editor', () => {
     try {
       const r = await api.projects.saveDraft(projectId.value, snapshot, rev.value)
       rev.value = r.rev
-      retryDelay = 3000
+      retryDelay = 0
       saveError.value = ''
       saveState.value = arch.value === snapshot ? 'saved' : 'dirty'
       return true
@@ -230,8 +227,9 @@ export const useEditor = defineStore('editor', () => {
         saveError.value = errorMessage(e)
         // transient failures (network, 5xx) are retried with a growing delay; validation errors are not
         if (!(e instanceof ApiError) || e.status === 0 || e.status >= 500) {
-          saveTimer = setTimeout(() => { saveState.value = 'dirty'; void flushSave() }, retryDelay)
-          retryDelay = Math.min(retryDelay * 2, 30000)
+          const wait = retryDelay || app.editorCfg.saveRetryMs
+          saveTimer = setTimeout(() => { saveState.value = 'dirty'; void flushSave() }, wait)
+          retryDelay = Math.min(wait * 2, app.editorCfg.saveRetryMaxMs)
         }
       }
       return false
@@ -253,7 +251,7 @@ export const useEditor = defineStore('editor', () => {
 
   function scheduleEvaluate() {
     clearTimeout(evalTimer)
-    evalTimer = setTimeout(() => void evaluateNow(), EVAL_DELAY)
+    evalTimer = setTimeout(() => void evaluateNow(), app.editorCfg.evaluateMs)
   }
 
   async function evaluateNow() {
@@ -305,7 +303,7 @@ export const useEditor = defineStore('editor', () => {
     if (!sim.value) return
     clearTimeout(simTimer)
     const sc = sim.value.scenario
-    simTimer = setTimeout(() => void runScenario(sc), 450)
+    simTimer = setTimeout(() => void runScenario(sc), app.editorCfg.simulateMs)
   }
 
   // ------------------------------------------------------------------------------------- history
@@ -314,7 +312,7 @@ export const useEditor = defineStore('editor', () => {
     const merge = !!o.coalesce && o.coalesce === lastKey && now - lastAt < 1200
     if (!merge) {
       past.push(arch.value)
-      if (past.length > HISTORY_LIMIT) past.shift()
+      if (past.length > app.editorCfg.historySteps) past.shift()
     }
     lastKey = o.coalesce ?? ''
     lastAt = now
@@ -773,7 +771,7 @@ export const useEditor = defineStore('editor', () => {
   function showSubjects(f: { subjects: { nodes: string[]; edges: string[]; zones: string[] } }) {
     highlight.value = { ...f.subjects, token: Date.now() }
     selection.value = null
-    setTimeout(() => { if (highlight.value && Date.now() - highlight.value.token >= 5000) highlight.value = null }, 5100)
+    setTimeout(() => { if (highlight.value && Date.now() - highlight.value.token >= app.editorCfg.highlightMs) highlight.value = null }, app.editorCfg.highlightMs + 100)
   }
 
   /** Pan/zoom the canvas to the given elements. */

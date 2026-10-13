@@ -233,10 +233,28 @@ pub struct ExportSettings {
     /// Terraform provider requirements: name -> `{source, version}`.
     pub terraform_providers: BTreeMap<String, ProviderReq>,
     pub adr_status: String,
+    /// Guard rails of the template language (a runaway template must not stall an export).
+    pub template_limits: TemplateLimits,
     /// Kubernetes-native generators (manifests, Helm, Terraform on top of both).
     pub k8s: K8sSettings,
     /// lang -> key -> text for generated documents (ADR, runbook, IaC report).
     pub texts: BTreeMap<String, BTreeMap<String, String>>,
+}
+
+/// Limits of one template evaluation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct TemplateLimits {
+    /// Instruction budget of one expression.
+    pub fuel: u64,
+    /// Largest list one `$each` may walk.
+    pub max_items: usize,
+}
+
+impl Default for TemplateLimits {
+    fn default() -> Self {
+        Self { fuel: 50_000, max_items: 5_000 }
+    }
 }
 
 impl Default for ExportSettings {
@@ -246,6 +264,7 @@ impl Default for ExportSettings {
             terraform_backend: "backend \"local\" {\n    path = \"terraform.tfstate\"\n  }".into(),
             terraform_providers: BTreeMap::new(),
             adr_status: "Proposed".into(),
+            template_limits: TemplateLimits::default(),
             k8s: K8sSettings::default(),
             texts: BTreeMap::new(),
         }

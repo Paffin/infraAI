@@ -23,10 +23,7 @@ use minijinja::{Environment, UndefinedBehavior, Value as MV};
 use serde::Deserialize;
 use serde_json::{Map, Number, Value};
 
-/// Instruction budget of one expression evaluation (protects against runaway templates).
-const FUEL: u64 = 50_000;
-/// Upper bound for the number of iterations of one `$each`.
-const MAX_ITEMS: usize = 5_000;
+use crate::config::TemplateLimits;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct DslError {
@@ -122,6 +119,8 @@ pub fn slug(s: &str) -> String {
 
 pub struct Dsl {
     env: Environment<'static>,
+    /// Upper bound for the number of iterations of one `$each`.
+    max_items: usize,
 }
 
 impl Default for Dsl {
@@ -131,14 +130,19 @@ impl Default for Dsl {
 }
 
 impl Dsl {
+    /// The default limits (`engine.json` → `export.templateLimits` overrides them for real exports).
     pub fn new() -> Self {
+        Self::with_limits(&TemplateLimits::default())
+    }
+
+    pub fn with_limits(limits: &TemplateLimits) -> Self {
         let mut env = Environment::new();
         env.set_undefined_behavior(UndefinedBehavior::Strict);
-        env.set_fuel(Some(FUEL));
+        env.set_fuel(Some(limits.fuel));
         env.add_filter("slug", |s: String| slug(&s));
         // a template can refuse to generate something that would be wrong
         env.add_function("fail", |msg: String| -> Result<MV, minijinja::Error> { Err(minijinja::Error::new(minijinja::ErrorKind::InvalidOperation, msg)) });
-        Dsl { env }
+        Dsl { env, max_items: limits.max_items }
     }
 
     /// Evaluate a bare expression (no braces).
@@ -266,8 +270,8 @@ impl Dsl {
             Err(_) if list.is_undefined() || list.is_none() => vec![],
             Err(_) => return Err(err(&format!("{path}.$each"), "expression is not iterable")),
         };
-        if items.len() > MAX_ITEMS {
-            return Err(err(&format!("{path}.$each"), format!("more than {MAX_ITEMS} items")));
+        if items.len() > self.max_items {
+            return Err(err(&format!("{path}.$each"), format!("more than {} items", self.max_items)));
         }
         let mut out = Vec::new();
         for (i, item) in items.into_iter().enumerate() {

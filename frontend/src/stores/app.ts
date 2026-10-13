@@ -5,6 +5,7 @@ import * as api from '@/api/endpoints'
 import type { Bootstrap, Rule, User } from '@/api/types'
 import { setLang, supportedLangs } from '@/i18n'
 import { indexCatalog, type CatalogIndex } from '@/lib/catalog'
+import { editorSettings } from '@/lib/uiConfig'
 
 interface PublicConfig { appName: string; defaultLanguage: string; languages: string[]; theme: Record<string, string> }
 
@@ -34,6 +35,8 @@ export const useApp = defineStore('app', () => {
 
   const isAdmin = computed(() => user.value?.role === 'admin')
   const canEdit = computed(() => user.value?.role === 'admin' || user.value?.role === 'editor')
+  /** Timings and thresholds of the editor (`editor.*` settings). */
+  const editorCfg = computed(() => editorSettings(boot.value?.editor))
   const appName = computed(() => boot.value?.app.name ?? publicConfig.value?.appName ?? 'Infra Architect')
   const languages = computed(() => {
     const l = boot.value?.app.languages ?? publicConfig.value?.languages ?? supportedLangs
@@ -101,5 +104,5 @@ export const useApp = defineStore('app', () => {
     await loadPublic()
   }
 
-  return { user, publicConfig, boot, index, rules, ready, bootError, isAdmin, canEdit, appName, languages, init, loadPublic, loadBootstrap, login, logout }
+  return { user, publicConfig, boot, index, rules, ready, bootError, isAdmin, canEdit, editorCfg, appName, languages, init, loadPublic, loadBootstrap, login, logout }
 })

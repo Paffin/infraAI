@@ -80,7 +80,7 @@ watch(() => editor.selectRequest, (r) => {
 watch(() => editor.multi.length, (n) => { if (!n && getSelectedNodes.value.length > 1) removeSelectedElements() })
 
 const zoomPct = computed(() => Math.round((viewport.value.zoom || 1) * 100))
-const lod = computed(() => lodOf(viewport.value.zoom || 1))
+const lod = computed(() => lodOf(viewport.value.zoom || 1, app.editorCfg))
 
 // ------------------------------------------------------------------------------------ interaction
 function onDragStop(ev: NodeDragEvent) {

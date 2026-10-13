@@ -272,7 +272,7 @@ pub fn build_plan(arch: &Architecture, cfg: &EngineConfig, lang: &str) -> Plan {
     let ix = Index::build(arch, &cfg.catalog, &cfg.settings);
     let ex = &cfg.settings.export;
     let k8s = &ex.k8s;
-    let dsl = Dsl::new();
+    let dsl = Dsl::with_limits(&ex.template_limits);
     let tx = Texts { cfg, lang };
     let arch_name = arch.meta.name.clone().unwrap_or_else(|| "architecture".into());
     let mut plan = Plan {

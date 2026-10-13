@@ -3,12 +3,12 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { CornerDownLeft, Search } from 'lucide-vue-next'
 import { t } from '@/i18n'
 import { rank } from '@/lib/fuzzy'
+import { useApp } from '@/stores/app'
 import { useUi } from '@/stores/ui'
 import { GROUP_ORDER, usePaletteCommands, type Command } from './paletteCommands'
 
-const MAX_RESULTS = 60
-
 const ui = useUi()
+const app = useApp()
 const commands = usePaletteCommands()
 const q = ref('')
 const active = ref(0)
@@ -20,7 +20,7 @@ const results = computed<Command[]>(() => {
   const query = q.value.trim()
   const all = commands.value
   if (!query) return all.filter((c) => c.suggest)
-  return rank(all, query, (c) => [c.title, c.hint ?? '', ...(c.keywords ?? [])]).slice(0, MAX_RESULTS)
+  return rank(all, query, (c) => [c.title, c.hint ?? '', ...(c.keywords ?? [])]).slice(0, app.editorCfg.paletteMaxResults)
 })
 
 /** Sections in a fixed order (elements first, then what to do); inside a section the best match comes first. */

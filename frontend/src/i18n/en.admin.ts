@@ -40,6 +40,7 @@ const en: Record<string, string> = {
   'admin.group.auth': 'Sign-in and passwords',
   'admin.group.llm': 'OpenRouter / AI',
   'admin.group.jobs': 'Background jobs',
+  'admin.group.editor': 'Editor',
   'admin.group.limits': 'Limits',
   'admin.group.retention': 'Data retention',
   'admin.group.observability': 'Observability',

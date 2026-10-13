@@ -147,7 +147,7 @@ pub fn report_digest(report: &Report, cfg: &Loaded, lang: &str) -> String {
         "objectives": report.objectives.iter().map(|o| json!({"id": o.id, "status": o.status, "required": o.required, "actual": o.actual, "assumed": o.assumed})).collect::<Vec<_>>(),
         "cost": {"total": report.cost.total, "currency": report.cost.currency, "incomplete": report.cost.incomplete},
         "scenarios": scen,
-        "findings": findings_digest(report, cfg, lang, false, 40),
+        "findings": findings_digest(report, cfg, lang, false, cfg.settings.num("llm.digestFindings").max(1.0) as usize),
     })
     .to_string()
 }

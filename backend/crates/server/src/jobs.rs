@@ -78,8 +78,9 @@ async fn run_job(state: AppState, job_id: Uuid) {
     // heartbeat + cancellation watcher
     let (cancel_tx, mut cancel_rx) = tokio::sync::watch::channel(false);
     let hb_pool = state.pool.clone();
+    let poll = Duration::from_secs_f64(state.cfg().await.map(|c| c.settings.num("jobs.pollSeconds")).unwrap_or(2.0).max(0.5));
     let watcher = tokio::spawn(async move {
-        let mut tick = tokio::time::interval(Duration::from_secs(2));
+        let mut tick = tokio::time::interval(poll);
         let mut n = 0u32;
         loop {
             tick.tick().await;
@@ -137,9 +138,7 @@ async fn run_job(state: AppState, job_id: Uuid) {
 
 /// Fail jobs whose owner instance vanished (no heartbeat), and purge old rows.
 pub async fn sweeper(state: AppState) {
-    let mut tick = tokio::time::interval(Duration::from_secs(30));
     loop {
-        tick.tick().await;
         if state.shutting_down.load(std::sync::atomic::Ordering::SeqCst) {
             return;
         }
@@ -156,18 +155,22 @@ pub async fn sweeper(state: AppState) {
                 tracing::warn!(count = r.rows_affected(), "marked stale AI jobs as failed");
             }
         }
+        // sweeps once at start (a crashed instance's jobs are failed at once), then every `jobs.sweepSeconds` – read again each round
+        let every = state.cfg().await.map(|c| c.settings.num("jobs.sweepSeconds")).unwrap_or(30.0).max(1.0);
+        tokio::time::sleep(Duration::from_secs_f64(every)).await;
     }
 }
 
 /// Retention: audit log, LLM call log, finished jobs, purged projects.
 pub async fn retention(state: AppState) {
-    let mut tick = tokio::time::interval(Duration::from_secs(3600));
     loop {
-        tick.tick().await;
         if state.shutting_down.load(std::sync::atomic::Ordering::SeqCst) {
             return;
         }
-        let Ok(cfg) = state.cfg().await else { continue };
+        let Ok(cfg) = state.cfg().await else {
+            tokio::time::sleep(Duration::from_secs(30)).await;
+            continue;
+        };
         let s = &cfg.settings;
         let q = |sql: &'static str, days: f64| {
             let pool = state.pool.clone();
@@ -178,6 +181,8 @@ pub async fn retention(state: AppState) {
         q("delete from audit_log where at < now() - ($1 || ' days')::interval", s.num("retention.auditDays")).await;
         q("delete from llm_calls where created_at < now() - ($1 || ' days')::interval", s.num("retention.llmCallsDays")).await;
         q("delete from ai_jobs where finished_at is not null and finished_at < now() - ($1 || ' days')::interval", s.num("retention.jobsDays")).await;
-        q("delete from projects where deleted_at is not null and deleted_at < now() - ($1 || ' days')::interval", 30.0).await;
+        q("delete from projects where deleted_at is not null and deleted_at < now() - ($1 || ' days')::interval", s.num("retention.deletedProjectsDays")).await;
+        // cleans once at start, then every `retention.sweepMinutes`
+        tokio::time::sleep(Duration::from_secs_f64(s.num("retention.sweepMinutes").max(1.0) * 60.0)).await;
     }
 }

@@ -168,6 +168,38 @@
   "max": 1440
  },
  {
+  "key": "auth.loginsPerMinutePerIp",
+  "group": "auth",
+  "type": "number",
+  "default": 30,
+  "label": {
+   "ru": "Попыток входа с одного IP в минуту",
+   "en": "Sign-in attempts per IP per minute"
+  },
+  "help": {
+   "ru": "Сверх лимита вход отвечает 429. Защита от перебора поверх блокировки аккаунта.",
+   "en": "Beyond the limit sign-in answers 429. Brute-force protection on top of the account lockout."
+  },
+  "min": 3,
+  "max": 10000
+ },
+ {
+  "key": "auth.userCacheSeconds",
+  "group": "auth",
+  "type": "number",
+  "default": 10,
+  "label": {
+   "ru": "Кэш пользователя в реплике, с",
+   "en": "Per-replica user cache, seconds"
+  },
+  "help": {
+   "ru": "Сколько реплика доверяет роли и блокировке пользователя, не заглядывая в БД. Блокировка и смена роли вступают в силу не позже чем через это время; 0 — проверять каждый запрос.",
+   "en": "How long a replica trusts a user’s role and lock state without asking the database. A block or a role change takes effect within this time; 0 checks on every request."
+  },
+  "min": 0,
+  "max": 300
+ },
+ {
   "key": "llm.enabled",
   "group": "llm",
   "type": "boolean",
@@ -592,6 +624,50 @@
   "max": 1440
  },
  {
+  "key": "llm.retryBaseMs",
+  "group": "llm",
+  "type": "number",
+  "default": 1000,
+  "label": {
+   "ru": "Пауза перед повтором запроса, мс",
+   "en": "Pause before a retry, ms"
+  },
+  "help": {
+   "ru": "Растёт вдвое с каждой попыткой (до ×8) и получает случайную добавку до 400 мс.",
+   "en": "Doubles with every attempt (up to ×8) plus up to 400 ms of jitter."
+  },
+  "min": 100,
+  "max": 30000
+ },
+ {
+  "key": "llm.catalogTimeoutSeconds",
+  "group": "llm",
+  "type": "number",
+  "default": 30,
+  "label": {
+   "ru": "Таймаут каталога моделей и проверки ключа, с",
+   "en": "Timeout of the model catalog and key check, seconds"
+  },
+  "min": 5,
+  "max": 300
+ },
+ {
+  "key": "llm.digestFindings",
+  "group": "llm",
+  "type": "number",
+  "default": 30,
+  "label": {
+   "ru": "Замечаний в подсказке при доработке",
+   "en": "Findings in the prompt when refining"
+  },
+  "help": {
+   "ru": "Сколько замечаний движка перечисляется модели при доработке ответа и автоисправлении.",
+   "en": "How many engine findings are listed to the model when refining an answer or auto-fixing."
+  },
+  "min": 5,
+  "max": 200
+ },
+ {
   "key": "jobs.maxConcurrent",
   "group": "jobs",
   "type": "number",
@@ -614,6 +690,34 @@
   },
   "min": 30,
   "max": 3600
+ },
+ {
+  "key": "jobs.pollSeconds",
+  "group": "jobs",
+  "type": "number",
+  "default": 2,
+  "label": {
+   "ru": "Опрос отмены и пульс задачи, с",
+   "en": "Job cancellation poll and heartbeat tick, seconds"
+  },
+  "help": {
+   "ru": "Как часто работающая задача проверяет отмену; пульс — каждый третий тик.",
+   "en": "How often a running job checks for cancellation; the heartbeat is every third tick."
+  },
+  "min": 1,
+  "max": 60
+ },
+ {
+  "key": "jobs.sweepSeconds",
+  "group": "jobs",
+  "type": "number",
+  "default": 30,
+  "label": {
+   "ru": "Проверка потерянных задач, с",
+   "en": "Lost-job sweep interval, seconds"
+  },
+  "min": 5,
+  "max": 600
  },
  {
   "key": "limits.maxNodes",
@@ -712,6 +816,178 @@
   "max": 3650
  },
  {
+  "key": "editor.autosaveMs",
+  "group": "editor",
+  "type": "number",
+  "default": 900,
+  "label": {
+   "ru": "Автосохранение: пауза после правки, мс",
+   "en": "Autosave: pause after an edit, ms"
+  },
+  "help": {
+   "ru": "Рабочая копия сохраняется на сервере, когда пользователь перестал править на это время.",
+   "en": "The working copy is stored when the user has stopped editing for this long."
+  },
+  "min": 200,
+  "max": 30000
+ },
+ {
+  "key": "editor.evaluateMs",
+  "group": "editor",
+  "type": "number",
+  "default": 350,
+  "label": {
+   "ru": "Пересчёт проверок: пауза после правки, мс",
+   "en": "Re-check: pause after an edit, ms"
+  },
+  "min": 100,
+  "max": 5000
+ },
+ {
+  "key": "editor.simulateMs",
+  "group": "editor",
+  "type": "number",
+  "default": 450,
+  "label": {
+   "ru": "Пересчёт открытого сценария: пауза после правки, мс",
+   "en": "Re-run of the open scenario: pause after an edit, ms"
+  },
+  "min": 100,
+  "max": 5000
+ },
+ {
+  "key": "editor.historySteps",
+  "group": "editor",
+  "type": "number",
+  "default": 100,
+  "label": {
+   "ru": "Шагов отмены в памяти",
+   "en": "Undo steps kept in memory"
+  },
+  "min": 10,
+  "max": 1000
+ },
+ {
+  "key": "editor.saveRetryMs",
+  "group": "editor",
+  "type": "number",
+  "default": 3000,
+  "label": {
+   "ru": "Повтор сохранения после сбоя сети: первая пауза, мс",
+   "en": "Retry after a failed save: first pause, ms"
+  },
+  "help": {
+   "ru": "Дальше пауза растёт вдвое до предела ниже.",
+   "en": "Then the pause doubles up to the limit below."
+  },
+  "min": 500,
+  "max": 60000
+ },
+ {
+  "key": "editor.saveRetryMaxMs",
+  "group": "editor",
+  "type": "number",
+  "default": 30000,
+  "label": {
+   "ru": "Повтор сохранения: предельная пауза, мс",
+   "en": "Retry after a failed save: longest pause, ms"
+  },
+  "min": 1000,
+  "max": 300000
+ },
+ {
+  "key": "editor.jobPollMs",
+  "group": "editor",
+  "type": "number",
+  "default": 1000,
+  "label": {
+   "ru": "Опрос задачи ИИ, мс",
+   "en": "AI job poll interval, ms"
+  },
+  "min": 300,
+  "max": 10000
+ },
+ {
+  "key": "editor.lodCompactBelow",
+  "group": "editor",
+  "type": "number",
+  "default": 0.62,
+  "label": {
+   "ru": "Семантический зум: компактные карточки ниже масштаба",
+   "en": "Semantic zoom: compact cards below zoom"
+  },
+  "help": {
+   "ru": "1 = 100 %. Ниже порога карточка прячет подзаголовок, а имя остаётся читаемым.",
+   "en": "1 = 100 %. Below it a card hides its subtitle and keeps a legible name."
+  },
+  "min": 0.1,
+  "max": 1
+ },
+ {
+  "key": "editor.lodMiniBelow",
+  "group": "editor",
+  "type": "number",
+  "default": 0.3,
+  "label": {
+   "ru": "Семантический зум: цветные плитки ниже масштаба",
+   "en": "Semantic zoom: coloured tiles below zoom"
+  },
+  "help": {
+   "ru": "Должен быть меньше порога компактных карточек.",
+   "en": "Must be smaller than the compact-card threshold."
+  },
+  "min": 0.05,
+  "max": 0.9
+ },
+ {
+  "key": "editor.toastMs",
+  "group": "editor",
+  "type": "number",
+  "default": 3500,
+  "label": {
+   "ru": "Уведомления: время показа, мс",
+   "en": "Notifications: display time, ms"
+  },
+  "min": 1000,
+  "max": 30000
+ },
+ {
+  "key": "editor.errorToastMs",
+  "group": "editor",
+  "type": "number",
+  "default": 7000,
+  "label": {
+   "ru": "Уведомления об ошибке: время показа, мс",
+   "en": "Error notifications: display time, ms"
+  },
+  "min": 1000,
+  "max": 60000
+ },
+ {
+  "key": "editor.highlightMs",
+  "group": "editor",
+  "type": "number",
+  "default": 5000,
+  "label": {
+   "ru": "Подсветка найденного на схеме, мс",
+   "en": "Highlight of what was found on the diagram, ms"
+  },
+  "min": 1000,
+  "max": 60000
+ },
+ {
+  "key": "editor.paletteMaxResults",
+  "group": "editor",
+  "type": "number",
+  "default": 60,
+  "label": {
+   "ru": "Палитра команд: максимум результатов",
+   "en": "Command palette: maximum results"
+  },
+  "min": 10,
+  "max": 300
+ },
+ {
   "key": "retention.auditDays",
   "group": "retention",
   "type": "number",
@@ -746,6 +1022,34 @@
   },
   "min": 1,
   "max": 36500
+ },
+ {
+  "key": "retention.deletedProjectsDays",
+  "group": "retention",
+  "type": "number",
+  "default": 30,
+  "label": {
+   "ru": "Хранить удалённые проекты, дней",
+   "en": "Keep deleted projects, days"
+  },
+  "help": {
+   "ru": "Потом проект удаляется окончательно, вместе с версиями.",
+   "en": "Then the project is removed for good, with its versions."
+  },
+  "min": 1,
+  "max": 3650
+ },
+ {
+  "key": "retention.sweepMinutes",
+  "group": "retention",
+  "type": "number",
+  "default": 60,
+  "label": {
+   "ru": "Как часто чистить устаревшее, мин",
+   "en": "Retention sweep interval, minutes"
+  },
+  "min": 5,
+  "max": 1440
  },
  {
   "key": "observability.metricsEnabled",

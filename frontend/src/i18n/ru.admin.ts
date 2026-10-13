@@ -40,6 +40,7 @@ const ru: Record<string, string> = {
   'admin.group.auth': 'Вход и пароли',
   'admin.group.llm': 'OpenRouter / ИИ',
   'admin.group.jobs': 'Фоновые задачи',
+  'admin.group.editor': 'Редактор',
   'admin.group.limits': 'Лимиты',
   'admin.group.retention': 'Хранение данных',
   'admin.group.observability': 'Наблюдаемость',
