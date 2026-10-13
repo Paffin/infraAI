@@ -13,7 +13,7 @@ use axum::http::{header, StatusCode};
 use axum::response::Response;
 use axum::Json;
 use engine::ops::{apply_ops, diff, Op};
-use engine::sim::{simulate, Scenario};
+use engine::sim::{simulate_timeline, Scenario};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::collections::HashSet;
@@ -79,7 +79,7 @@ pub async fn simulate_scenario(State(state): State<AppState>, _user: AuthUser, J
     let result = tokio::task::spawn_blocking(move || {
         let ec = cfg.engine_config("en");
         let ix = engine::graph::Index::build(&arch, &ec.catalog, &ec.settings);
-        simulate(&ix, &b.scenario)
+        simulate_timeline(&ix, &b.scenario)
     })
     .await
     .map_err(ApiError::internal)?;

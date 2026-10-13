@@ -49,6 +49,8 @@ pub async fn public_config(State(state): State<AppState>) -> ApiResult<Json<Valu
         "defaultLanguage": cfg.settings.str("app.defaultLanguage"),
         "languages": cfg.settings.list("app.languages"),
         "theme": cfg.settings.get("ui.theme"),
+        "motion": cfg.settings.str("ui.motion"),
+        "motionScale": cfg.settings.num("ui.motionScale"),
     })))
 }
 
@@ -78,6 +80,7 @@ pub async fn bootstrap(State(state): State<AppState>, user: AuthUser, headers: H
         "highlightMs",
         "paletteMaxResults",
         "layoutZonesPerRow",
+        "playbackStepMs",
     ]
     .iter()
     .map(|k| (k.to_string(), cfg.settings.get(&format!("editor.{k}"))))
@@ -92,6 +95,8 @@ pub async fn bootstrap(State(state): State<AppState>, user: AuthUser, headers: H
             "defaultLanguage": cfg.settings.str("app.defaultLanguage"),
             "languages": cfg.settings.list("app.languages"),
             "theme": cfg.settings.get("ui.theme"),
+            "motion": cfg.settings.str("ui.motion"),
+            "motionScale": cfg.settings.num("ui.motionScale"),
             "quickPrompts": cfg.settings.get("ui.quickPrompts"),
         },
         "catalog": cfg.catalog,

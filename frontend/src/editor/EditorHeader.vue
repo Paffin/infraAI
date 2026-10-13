@@ -2,8 +2,10 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { History, Search, Zap } from 'lucide-vue-next'
+import AnimatedNumber from '@/components/AnimatedNumber.vue'
 import BrandLogo from '@/components/BrandLogo.vue'
 import LangSwitch from '@/components/LangSwitch.vue'
+import MotionSwitch from '@/components/MotionSwitch.vue'
 import * as api from '@/api/endpoints'
 import { t } from '@/i18n'
 import { errorMessage } from '@/lib/format'
@@ -72,11 +74,12 @@ async function leave() {
     <span class="spacer" />
     <button class="cmdk" :title="t('palette.open')" :aria-label="t('palette.open')" @click="ui.palette = true"><Search :size="14" /><span class="lbl">{{ t('palette.open') }}</span><kbd>{{ shortcutText('palette') }}</kbd></button>
     <button class="score" :class="[tone, lowConfidence && 'weak']" :title="lowConfidence ? t('checks.confidence.hint') : t('editor.score.title')" @click="ui.modal = 'score'">
-      {{ t('editor.score') }}<b>{{ score === null ? '—' : Math.round(score) }}</b><span>/100</span><i v-if="lowConfidence" class="conf">{{ t('editor.score.confidence', { pct: confidence ?? 0 }) }}</i>
+      {{ t('editor.score') }}<b><AnimatedNumber :value="score" /></b><span>/100</span><i v-if="lowConfidence" class="conf">{{ t('editor.score.confidence', { pct: confidence ?? 0 }) }}</i>
     </button>
     <button class="btn btn-dark" @click="ui.modal = 'matrix'"><Zap :size="14" />{{ t('editor.sim') }}</button>
     <button class="btn btn-dark" @click="ui.modal = 'versions'"><History :size="14" />{{ t('editor.versions') }}</button>
     <button class="btn btn-white" @click="ui.modal = 'export'"><span class="long">{{ t('editor.export') }}</span><span class="short">{{ t('editor.export.short') }}</span></button>
+    <MotionSwitch />
     <LangSwitch />
   </header>
 </template>
@@ -97,7 +100,7 @@ async function leave() {
 .mode button { border: 0; background: transparent; color: var(--on-dark-muted); height: 28px; padding: 0 14px; border-radius: 7px; font-size: 13.5px; font-weight: 500; white-space: nowrap; }
 .mode button.on { background: var(--accent); color: #fff; }
 .mode button:not(.on):hover { color: #fff; }
-.score { display: inline-flex; align-items: baseline; gap: 8px; height: 38px; padding: 0 16px; align-self: center; border-radius: var(--radius); border: 1px solid; background: transparent; font-size: 13.5px; white-space: nowrap; align-items: center; }
+.score { display: inline-flex; align-items: baseline; gap: 8px; height: 38px; padding: 0 16px; align-self: center; border-radius: var(--radius); border: 1px solid; background: transparent; font-size: 13.5px; white-space: nowrap; align-items: center; transition: color var(--dur-base), border-color var(--dur-base), background-color var(--dur-base); }
 .score b { font-size: 19px; letter-spacing: -0.02em; }
 .score span { opacity: .75; font-size: 12.5px; margin-left: -4px; }
 .score.ok { color: #6fe39a; border-color: #1f6b3d; background: rgba(39, 194, 94, .1); }

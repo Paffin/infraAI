@@ -4,16 +4,20 @@ import { BaseEdge, EdgeLabelRenderer, getBezierPath, getStraightPath, Position, 
 import { lt, t } from '@/i18n'
 import { useApp } from '@/stores/app'
 import { useEditor } from '@/stores/editor'
+import { usePlayback } from '@/stores/playback'
 
 const props = defineProps<EdgeProps>()
 const app = useApp()
 const editor = useEditor()
+const playback = usePlayback()
 
 const id = computed(() => props.data.id as string)
 const edge = computed(() => editor.edgeById.get(id.value))
 const def = computed(() => (edge.value ? app.index?.edgeTypes.get(edge.value.type) : undefined))
 const selected = computed(() => editor.selection?.type === 'edge' && editor.selection.id === id.value)
-const simState = computed(() => editor.sim?.result?.edgeStates[id.value])
+const simState = computed(() => (editor.sim?.result ? playback.edgeStates[id.value] : undefined))
+/** While a failure is played back, the requests visibly keep flowing along the edges that still carry them. */
+const flowing = computed(() => playback.playing && simState.value === 'ok' && def.value?.semantics === 'dependency')
 const status = computed(() => editor.edgeStatus.get(id.value))
 const added = computed(() => !!editor.previewSets?.added.edges.has(id.value))
 const ghost = computed(() => !!editor.previewSets?.removed.edges.has(id.value))
@@ -76,7 +80,7 @@ const arrow = computed(() => def.value?.directed !== false)
     <BaseEdge
       :id="id" :path="path.d" :marker-end="arrow ? `url(#${markerId})` : undefined" :interaction-width="20"
       :style="{ stroke: color, strokeWidth: width, strokeDasharray: dash, opacity: ghost ? 0.5 : 1 }"
-      :class="{ 'edge-added': added, 'edge-risk': status === 'risk' || status === 'critical' }"
+      :class="{ 'edge-added': added, 'edge-risk': status === 'risk' || status === 'critical', 'edge-flow': flowing }"
     />
   </g>
   <EdgeLabelRenderer v-if="edge && showLabel">
@@ -97,7 +101,10 @@ const arrow = computed(() => def.value?.directed !== false)
 .edge-label.selected { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .edge-label.dim { opacity: .25; }
 .edge-label.added { border-style: dashed; }
-.vue-flow__edge-path { transition: stroke-width .1s; }
+.vue-flow__edge-path { transition: stroke-width var(--dur-instant), stroke var(--dur-base), opacity var(--dur-base); animation: edge-in var(--dur-slow) var(--ease-out) both; animation-delay: var(--dur-base); }
+@keyframes edge-in { from { opacity: 0; } }
+.vue-flow__edge-path.edge-flow { stroke-dasharray: 6 8 !important; animation: edge-flow .9s linear infinite; }
+@keyframes edge-flow { to { stroke-dashoffset: -28; } }
 .vue-flow__edge:hover .vue-flow__edge-path { stroke-width: 3; }
 g.dim { opacity: .18; }
 g.quiet { opacity: .55; }

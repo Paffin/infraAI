@@ -7,8 +7,9 @@ import { setLang, supportedLangs } from '@/i18n'
 import { indexCatalog, type CatalogIndex } from '@/lib/catalog'
 import { indexVersions, type VersionIndex } from '@/lib/lifecycle'
 import { editorSettings } from '@/lib/uiConfig'
+import { useMotion } from './motion'
 
-interface PublicConfig { appName: string; defaultLanguage: string; languages: string[]; theme: Record<string, string> }
+interface PublicConfig { appName: string; defaultLanguage: string; languages: string[]; theme: Record<string, string>; motion?: string; motionScale?: number }
 
 const themeKeys = new Set<string>()
 
@@ -53,6 +54,7 @@ export const useApp = defineStore('app', () => {
     rules.value = new Map(b.rules.map((r) => [r.id, r]))
     user.value = b.user
     applyTheme(b.app.theme)
+    useMotion().configure(b.app.motion, b.app.motionScale)
     document.title = b.app.name
   }
 
@@ -62,6 +64,7 @@ export const useApp = defineStore('app', () => {
       const c = await api.auth.publicConfig()
       publicConfig.value = c
       applyTheme(c.theme)
+      useMotion().configure(c.motion, c.motionScale)
       document.title = c.appName
       try { if (!localStorage.getItem('ia_lang') && supportedLangs.includes(c.defaultLanguage)) setLang(c.defaultLanguage) } catch { /* ignore */ }
     } catch { /* the login page works without it */ }

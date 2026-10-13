@@ -163,5 +163,4 @@ const staleText = computed(() => (view.value?.stale && view.value.ageDays !== nu
 .faint { color: var(--faint); }
 .flash { animation: flash 2.2s ease-out; border-radius: var(--radius-sm); }
 @keyframes flash { 0%, 55% { background: var(--accent-soft); box-shadow: 0 0 0 4px var(--accent-soft); } 100% { background: transparent; box-shadow: 0 0 0 4px transparent; } }
-@media (prefers-reduced-motion: reduce) { .flash { animation: none; background: var(--accent-soft); } }
 </style>

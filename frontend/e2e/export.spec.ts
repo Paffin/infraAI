@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs'
-import { expect, test } from '@playwright/test'
+import { expect } from '@playwright/test'
+import { test } from './fixtures'
 import { createProject, login, uniqueName } from './helpers'
 
 test.describe('export', () => {

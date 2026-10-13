@@ -6,6 +6,9 @@ import type { Edge as FlowEdge, Node as FlowNode } from '@vue-flow/core'
 import type { Architecture } from '@/api/types'
 import { CARD_H, CARD_W, DEFAULT_ZONE_H, DEFAULT_ZONE_W, zoneChain } from './layout'
 
+/** Height of a row of cards in the first-build animation (`ArchNode` delays a card by its row). */
+const WAVE_ROW = 150
+
 export const nodeFlowId = (id: string) => 'n:' + id
 export const zoneFlowId = (id: string) => 'z:' + id
 export const edgeFlowId = (id: string) => 'e:' + id
@@ -42,6 +45,8 @@ export function createFlowBuilder() {
       return { x: z?.ui?.x ?? 0, y: z?.ui?.y ?? 0 }
     }
     const nodes: FlowNode[] = []
+    // the first build of a diagram assembles from the top row down; a node added later has no queue to wait in
+    const firstBuild = cache.size === 0
 
     const ordered = arch.zones.map((z) => ({ z, depth: zoneChain(arch, z.id).length - 1 })).sort((a, b) => a.depth - b.depth)
     for (const { z, depth } of ordered) {
@@ -69,7 +74,7 @@ export function createFlowBuilder() {
       const sig = `${x}|${y}|${parent}|${draggable}`
       nodes.push(reuse<FlowNode>(id, sig, () => ({
         id, type: 'card', position: { x, y }, width: CARD_W, height: CARD_H, parentNode: parent ? zoneFlowId(parent) : undefined,
-        draggable, selectable: true, zIndex: 20, data: { id: n.id },
+        draggable, selectable: true, zIndex: 20, data: { id: n.id, wave: firstBuild ? Math.max(0, Math.round((n.ui?.y ?? 0) / WAVE_ROW)) : 0 },
       })))
     }
 

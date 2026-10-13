@@ -371,6 +371,15 @@ async fn simulate_and_ops_preview() {
     assert_ne!(r["state"], "down");
     assert_eq!(r["recovery"]["kind"], "auto");
     assert_eq!(r["nodeStates"]["pg-replica"], "promoted");
+    // the story of the recovery: the moment of the failure, then every step that takes time; the last frame is the settled picture
+    let frames = r["timeline"].as_array().expect("a timeline for a failure that recovers by itself");
+    assert!(frames.len() >= 2 && frames[0]["at"] == 0.0, "{r}");
+    assert!(frames[0]["nodes"].as_object().unwrap().len() >= 10, "the first frame holds every node");
+    let promoted_at = r["events"].as_array().unwrap().iter().find(|e| e["code"] == "promoted").and_then(|e| e["at"].as_f64()).expect("a promotion has a time");
+    assert!(frames.iter().any(|f| (f["at"].as_f64().unwrap() - promoted_at).abs() < 1e-9 && f["nodes"]["pg-replica"] == "promoted"), "the replica is promoted in the frame of its promotion");
+    // a request without waiting steps has no story
+    let (_, none) = app.post(&c, "/api/simulate", json!({"architecture": p["architecture"], "scenario": {"type": "none"}})).await;
+    assert!(none.get("timeline").is_none(), "{none}");
 
     let ops = json!([{"op": "update_node", "id": "app-dc1", "set": {"props.replicas": 10}}]);
     let (s, v) = app.post(&c, "/api/ops/apply", json!({"architecture": p["architecture"], "ops": ops, "preview": true})).await;

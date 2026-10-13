@@ -13,7 +13,11 @@ const app = useApp()
     <div class="banner banner-err">{{ t('error.generic', { message: app.bootError }) }}</div>
     <button class="btn" @click="app.init()">{{ t('common.retry') }}</button>
   </div>
-  <router-view v-else />
+  <router-view v-else v-slot="{ Component, route }">
+    <Transition name="page" mode="out-in">
+      <component :is="Component" :key="String(route.name)" />
+    </Transition>
+  </router-view>
   <ToastHost />
   <DialogHost />
 </template>

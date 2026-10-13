@@ -120,6 +120,42 @@
   }
  },
  {
+  "key": "ui.motion",
+  "group": "general",
+  "type": "enum",
+  "default": "system",
+  "label": {
+   "ru": "Анимации интерфейса по умолчанию",
+   "en": "Interface animations by default"
+  },
+  "help": {
+   "ru": "Что видят пользователи, пока сами не выбрали в меню «Вид». system — как в операционной системе («уменьшить движение»), full — все анимации, reduced — только плавные появления и цвета, без перемещений и повторов, off — без анимаций.",
+   "en": "What users see until they choose their own in the View menu. system — follow the operating system (\"reduce motion\"), full — every animation, reduced — fades and colour changes only, no travel or loops, off — no animation at all."
+  },
+  "options": [
+   "system",
+   "full",
+   "reduced",
+   "off"
+  ]
+ },
+ {
+  "key": "ui.motionScale",
+  "group": "general",
+  "type": "number",
+  "default": 100,
+  "min": 25,
+  "max": 300,
+  "label": {
+   "ru": "Длительность анимаций, % от обычной",
+   "en": "Animation duration, % of normal"
+  },
+  "help": {
+   "ru": "100 — как задумано; 50 — вдвое быстрее, 200 — вдвое медленнее. Действует на все переходы и воспроизведение отказа.",
+   "en": "100 — as designed; 50 — twice as fast, 200 — twice as slow. Applies to every transition and to the failure playback."
+  }
+ },
+ {
   "key": "auth.sessionTtlHours",
   "group": "auth",
   "type": "number",
@@ -1034,6 +1070,22 @@
   },
   "min": 1,
   "max": 20
+ },
+ {
+  "key": "editor.playbackStepMs",
+  "group": "editor",
+  "type": "number",
+  "default": 1600,
+  "min": 300,
+  "max": 15000,
+  "label": {
+   "ru": "Воспроизведение отказа: пауза на шаге, мс",
+   "en": "Failure playback: pause on a step, ms"
+  },
+  "help": {
+   "ru": "Сколько показывать каждый шаг восстановления при воспроизведении (при скорости ×1); переключатель скорости в карточке отказа ускоряет в 2 и 4 раза.",
+   "en": "How long each recovery step stays on screen while the failure is played back (at ×1); the speed switch in the failure card makes it 2 and 4 times faster."
+  }
  },
  {
   "key": "retention.auditDays",

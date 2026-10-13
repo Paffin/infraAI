@@ -99,6 +99,6 @@ function startResize(e: PointerEvent) {
 .role-none { color: var(--muted); background: var(--surface-sunken); }
 .zdot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
 .zfail { font-size: 10.5px; font-weight: 700; color: #fff; background: var(--crit); border-radius: 9px; padding: 1px 8px; }
-.zone-resize { position: absolute; right: 2px; bottom: 2px; width: 18px; height: 18px; cursor: nwse-resize; pointer-events: auto; opacity: 0; transition: opacity .12s; background: linear-gradient(135deg, transparent 50%, var(--faint) 50%, var(--faint) 58%, transparent 58%, transparent 72%, var(--faint) 72%, var(--faint) 80%, transparent 80%); border-bottom-right-radius: 12px; }
+.zone-resize { position: absolute; right: 2px; bottom: 2px; width: 18px; height: 18px; cursor: nwse-resize; pointer-events: auto; opacity: 0; transition: opacity var(--dur-fast); background: linear-gradient(135deg, transparent 50%, var(--faint) 50%, var(--faint) 58%, transparent 58%, transparent 72%, var(--faint) 72%, var(--faint) 80%, transparent 80%); border-bottom-right-radius: 12px; }
 .arch-zone:hover .zone-resize, .arch-zone.selected .zone-resize { opacity: .8; }
 </style>

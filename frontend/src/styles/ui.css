@@ -5,7 +5,7 @@
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   height: 34px; padding: 0 14px; border-radius: var(--radius-sm);
   border: 1px solid var(--line-strong); background: var(--surface); color: var(--text);
-  font-weight: 500; font-size: 13px; white-space: nowrap; transition: background .12s, border-color .12s, box-shadow .12s;
+  font-weight: 500; font-size: 13px; white-space: nowrap; transition: background var(--dur-fast), border-color var(--dur-fast), box-shadow var(--dur-fast), transform var(--dur-instant) var(--ease-out);
 }
 .btn:hover:not(:disabled) { background: var(--surface-2); border-color: #b8c2d4; }
 .btn:disabled { opacity: .5; cursor: not-allowed; }

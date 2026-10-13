@@ -112,7 +112,7 @@ function fillRps(v: CapacityView) {
 
           <template v-if="v.state !== 'unknown'">
             <div class="bar" role="img" :aria-label="t('cap.load', { load: rps(v.load), cap: rps(v.row.capacityRps ?? 0) })">
-              <i class="fill" :style="{ width: Math.min(100, (v.utilization ?? 0) * 100) + '%' }" />
+              <i class="fill bar-fill" :style="{ width: Math.min(100, (v.utilization ?? 0) * 100) + '%' }" />
               <i class="tick" :style="{ left: tick(v) * 100 + '%' }" :title="t('cap.tick', { h: headroomPct })" />
             </div>
             <div class="nums">

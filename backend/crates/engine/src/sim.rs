@@ -128,6 +128,24 @@ pub struct Event {
     pub node: Option<String>,
     #[serde(default, skip_serializing_if = "Map::is_empty")]
     pub vars: Map<String, Value>,
+    /// Seconds after the failure at which this step is complete (a promotion, the rerouting of traffic, a restore).
+    /// Absent: it happens with the failure itself.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub at: Option<f64>,
+}
+
+/// The world at one moment after the failure: what the automatic and manual recovery has done by then.
+/// The first frame (the moment of the failure) holds every node and edge, the next ones only what changed since the
+/// previous frame.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Frame {
+    /// Seconds after the failure.
+    pub at: f64,
+    pub state: ServiceState,
+    pub capacity_ratio: Option<f64>,
+    pub nodes: BTreeMap<String, NodeState>,
+    pub edges: BTreeMap<String, EdgeState>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -177,6 +195,9 @@ pub struct SimResult {
     pub edge_states: BTreeMap<String, EdgeState>,
     /// Names of the failed zones / nodes for display.
     pub failed: Vec<String>,
+    /// How the picture changes while the recovery runs (only from [`simulate_timeline`], and only when something changes).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub timeline: Vec<Frame>,
 }
 
 // -------------------------------------------------------------------------------------------
@@ -204,14 +225,26 @@ struct Sim<'a, 'b> {
     data_lost: Vec<String>,
     cut: Vec<(usize, usize)>,
     failed: Vec<String>,
+    /// The moment after the failure the picture is drawn for; `None` = once all recovery has run.
+    horizon: Option<f64>,
 }
 
 fn ev(code: &str, unit: Option<&str>, node: Option<&str>, vars: Value) -> Event {
-    Event { code: code.into(), unit: unit.map(|s| s.into()), node: node.map(|s| s.into()), vars: vars.as_object().cloned().unwrap_or_default() }
+    Event { code: code.into(), unit: unit.map(|s| s.into()), node: node.map(|s| s.into()), vars: vars.as_object().cloned().unwrap_or_default(), at: None }
+}
+
+/// A step that is complete `at` seconds after the failure.
+fn ev_at(code: &str, unit: Option<&str>, node: Option<&str>, vars: Value, at: f64) -> Event {
+    Event { at: Some(at), ..ev(code, unit, node, vars) }
+}
+
+/// Has a step that takes `secs` not happened yet at the moment `horizon` (`None`: the settled state, after everything)?
+fn pending(horizon: Option<f64>, secs: f64) -> bool {
+    horizon.map(|h| secs > h + 1e-9).unwrap_or(false)
 }
 
 impl<'a, 'b> Sim<'a, 'b> {
-    fn new(ix: &'b Index<'a>, sc: &Scenario) -> Self {
+    fn new(ix: &'b Index<'a>, sc: &Scenario, horizon: Option<f64>) -> Self {
         let n = ix.arch.nodes.len();
         let nz = ix.arch.zones.len();
         let mut down_zone = vec![false; nz];
@@ -304,8 +337,10 @@ impl<'a, 'b> Sim<'a, 'b> {
             if site_failure && !zone_down {
                 if let Some(fr) = ix.eff[i].num("failoverReplicas") {
                     if fr as u32 > base {
-                        base = fr as u32;
                         let secs = ix.eff[i].num("scaleUpSeconds").unwrap_or(ix.settings.assumptions.default_scale_up_seconds);
+                        if !pending(horizon, secs) {
+                            base = fr as u32;
+                        }
                         scale_out.push((i, secs));
                     }
                 }
@@ -360,11 +395,12 @@ impl<'a, 'b> Sim<'a, 'b> {
             if ix.on_path[ix.unit_of[*i]] {
                 pre_tracks.push(*secs);
             }
-            pre_events.push(ev(
+            pre_events.push(ev_at(
                 "scale_out",
                 Some(&ix.units[ix.unit_of[*i]].key),
                 Some(&ix.arch.nodes[*i].id),
                 json!({"node": ix.arch.nodes[*i].name, "seconds": secs, "to": ix.eff[*i].num("failoverReplicas")}),
+                *secs,
             ));
         }
         Sim {
@@ -389,6 +425,7 @@ impl<'a, 'b> Sim<'a, 'b> {
             data_lost: vec![],
             cut,
             failed,
+            horizon,
         }
     }
 
@@ -612,15 +649,17 @@ impl<'a, 'b> Sim<'a, 'b> {
             // promotes itself: two writers
             if authority == Authority::None {
                 if let Some(&(r, _, _, lag, assumed, linked)) = ranked.iter().find(|c| fmode(c.0) == "auto" && !self.reach(p, c.0)) {
-                    writers.push(r);
-                    self.promoted[r] = true;
-                    self.split_brain.push(unit.key.clone());
                     let secs = promote_secs(self, r);
+                    if !pending(self.horizon, secs) {
+                        writers.push(r);
+                        self.promoted[r] = true;
+                    }
+                    self.split_brain.push(unit.key.clone());
                     if ix.on_path[u] {
                         self.auto_tracks.push(secs);
                     }
                     self.note_rpo(u, linked, lag, assumed);
-                    self.events.push(ev("split_brain", Some(&unit.key), Some(&ix.arch.nodes[r].id), json!({"node": self.name(p), "other": self.name(r), "unit": unit.name})));
+                    self.events.push(ev_at("split_brain", Some(&unit.key), Some(&ix.arch.nodes[r].id), json!({"node": self.name(p), "other": self.name(r), "unit": unit.name}), secs));
                 }
             }
             let sync_all: Vec<&(usize, usize, String)> = reps.iter().filter(|r| r.2 == "sync").collect();
@@ -637,32 +676,36 @@ impl<'a, 'b> Sim<'a, 'b> {
         } else {
             match ranked.first() {
                 Some(&(r, auto, _, lag, assumed, linked)) => {
-                    writers.push(r);
-                    self.promoted[r] = true;
+                    // the replica becomes the writer when the promotion is done: until then the unit has none
+                    let secs = if auto { promote_secs(self, r) } else { ix.settings.assumptions.manual_failover_seconds };
+                    if !pending(self.horizon, secs) {
+                        writers.push(r);
+                        self.promoted[r] = true;
+                    }
                     self.note_rpo(u, linked, lag, assumed);
                     if auto {
-                        let secs = promote_secs(self, r);
                         if ix.on_path[u] {
                             self.auto_tracks.push(secs);
                         }
-                        self.events.push(ev(
+                        self.events.push(ev_at(
                             "promoted",
                             Some(&unit.key),
                             Some(&ix.arch.nodes[r].id),
                             json!({"node": self.name(r), "unit": unit.name, "seconds": secs, "rpo": if linked { json!(lag) } else { Value::Null }}),
+                            secs,
                         ));
                     } else {
                         // an operator promotes the replica (manual mode, or automatic mode
                         // without a reachable quorum)
-                        let secs = ix.settings.assumptions.manual_failover_seconds;
                         if ix.on_path[u] {
                             self.manual_tracks.push(secs);
                         }
-                        self.events.push(ev(
+                        self.events.push(ev_at(
                             "manual_failover",
                             Some(&unit.key),
                             Some(&ix.arch.nodes[r].id),
                             json!({"node": self.name(r), "unit": unit.name, "seconds": secs, "noQuorum": fmode(r) == "auto"}),
+                            secs,
                         ));
                     }
                 }
@@ -776,7 +819,7 @@ impl<'a, 'b> Sim<'a, 'b> {
         }
         if reroute > 0.0 {
             self.auto_tracks.push(reroute);
-            self.events.push(ev("reroute", None, None, json!({"seconds": reroute})));
+            self.events.push(ev_at("reroute", None, None, json!({"seconds": reroute}), reroute));
         }
 
         // --- data fate of destroyed stateful units
@@ -843,7 +886,7 @@ impl<'a, 'b> Sim<'a, 'b> {
                     if ix.on_path[u] {
                         self.restore_tracks.push(restore);
                     }
-                    self.events.push(ev("restore_from_backup", Some(&ix.units[u].key), None, json!({"unit": ix.units[u].name, "rpo": interval, "seconds": restore})));
+                    self.events.push(ev_at("restore_from_backup", Some(&ix.units[u].key), None, json!({"unit": ix.units[u].name, "rpo": interval, "seconds": restore}), restore));
                 } else {
                     self.data_lost.push(ix.units[u].key.clone());
                     self.events.push(ev("data_lost", Some(&ix.units[u].key), None, json!({"unit": ix.units[u].name})));
@@ -868,6 +911,10 @@ impl<'a, 'b> Sim<'a, 'b> {
         } else {
             ServiceState::Up
         };
+        // health checks have not noticed the loss yet: part of the requests still goes to members that are gone
+        if state == ServiceState::Up && reroute > 0.0 && pending(self.horizon, reroute) {
+            state = ServiceState::Degraded;
+        }
         if state == ServiceState::Up {
             let any_degraded = (0..ix.arch.nodes.len()).any(|m| self.degraded[m] && self.eff_ok[m] && self.serving[ix.unit_of[m]].contains(&m));
             if any_degraded {
@@ -986,13 +1033,13 @@ impl<'a, 'b> Sim<'a, 'b> {
             node_states,
             edge_states,
             failed: self.failed,
+            timeline: vec![],
         }
     }
 }
 
-/// Simulate one scenario.
-pub fn simulate(ix: &Index<'_>, sc: &Scenario) -> SimResult {
-    let mut sim = Sim::new(ix, sc);
+fn run(ix: &Index<'_>, sc: &Scenario, horizon: Option<f64>) -> SimResult {
+    let mut sim = Sim::new(ix, sc, horizon);
     for &u in &ix.unit_order {
         sim.eval_unit(u);
     }
@@ -1002,6 +1049,43 @@ pub fn simulate(ix: &Index<'_>, sc: &Scenario) -> SimResult {
         }
     }
     sim.finish(sc)
+}
+
+/// Simulate one scenario: the settled state after all automatic recovery.
+pub fn simulate(ix: &Index<'_>, sc: &Scenario) -> SimResult {
+    run(ix, sc, None)
+}
+
+/// What changed between two maps of states: the entries of `now` that differ from `before` (or are new).
+fn changed<T: Copy + PartialEq>(before: &BTreeMap<String, T>, now: &BTreeMap<String, T>) -> BTreeMap<String, T> {
+    now.iter().filter(|(k, v)| before.get(*k) != Some(*v)).map(|(k, v)| (k.clone(), *v)).collect()
+}
+
+/// [`simulate`] plus the story of the recovery: the picture at the moment of the failure and after every step that
+/// takes time (promotion, manual failover, rerouting, scale-out, restore). Each frame is the same simulation with
+/// the steps that are not done yet at that moment held back, so the frames agree with the settled result by
+/// construction. There is nothing to tell when no step takes time.
+pub fn simulate_timeline(ix: &Index<'_>, sc: &Scenario) -> SimResult {
+    let mut res = simulate(ix, sc);
+    let mut times: Vec<f64> = res.events.iter().filter_map(|e| e.at).filter(|t| *t > 0.0 && t.is_finite()).collect();
+    times.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    times.dedup_by(|a, b| (*a - *b).abs() < 1e-9);
+    if times.is_empty() {
+        return res;
+    }
+    let mut frames: Vec<Frame> = Vec::with_capacity(times.len() + 1);
+    let mut prev: Option<(BTreeMap<String, NodeState>, BTreeMap<String, EdgeState>)> = None;
+    for at in std::iter::once(0.0).chain(times) {
+        let f = run(ix, sc, Some(at));
+        let (nodes, edges) = match &prev {
+            None => (f.node_states.clone(), f.edge_states.clone()),
+            Some((pn, pe)) => (changed(pn, &f.node_states), changed(pe, &f.edge_states)),
+        };
+        frames.push(Frame { at, state: f.state, capacity_ratio: f.capacity_ratio, nodes, edges });
+        prev = Some((f.node_states, f.edge_states));
+    }
+    res.timeline = frames;
+    res
 }
 
 /// The scenarios the engine derives from an architecture, and whether the cap cut some of them.

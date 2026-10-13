@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, type Page } from '@playwright/test'
+import { test } from './fixtures'
 import { login, uniqueName } from './helpers'
 
 /** Opens the placement wizard from the new-project dialog and waits for the first preview. */

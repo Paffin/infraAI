@@ -8,11 +8,13 @@ import { isManaged } from '@/lib/product'
 import { statusColor } from '@/lib/findings'
 import { useApp } from '@/stores/app'
 import { useEditor } from '@/stores/editor'
+import { usePlayback } from '@/stores/playback'
 import { SIDES } from './flowModel'
 
 const props = defineProps<NodeProps>()
 const app = useApp()
 const editor = useEditor()
+const playback = usePlayback()
 
 const id = computed(() => props.data.id as string)
 const node = computed(() => editor.nodeById.get(id.value))
@@ -24,7 +26,9 @@ const managed = computed(() => isManaged(variant.value, kind.value))
 const tip = computed(() => (proposed.value ? t('inspector.proposed') : kind.value?.variants?.length && variant.value ? `${lt(kind.value.name)} · ${lt(variant.value.name)}` : undefined))
 const selected = computed(() => editor.selection?.type === 'node' && editor.selection.id === id.value)
 const status = computed(() => editor.nodeStatus.get(id.value))
-const simState = computed(() => editor.sim?.result?.nodeStates[id.value])
+const simState = computed(() => (editor.sim?.result ? playback.nodeStates[id.value] : undefined))
+/** The step on screen changed this card: it pulses once (two names, so the pulse restarts on the next step). */
+const stepPulse = computed(() => (playback.changed.has(id.value) ? (playback.index % 2 ? 'step-b' : 'step-a') : ''))
 const proposed = computed(() => !!editor.previewSets?.added.nodes.has(id.value))
 const ghost = computed(() => !!editor.previewSets?.removed.nodes.has(id.value))
 const changed = computed(() => !!editor.previewSets?.changed.nodes.has(id.value))
@@ -32,6 +36,8 @@ const lit = computed(() => !!editor.highlight?.nodes.includes(id.value))
 const dim = computed(() => !!editor.highlight && !lit.value)
 const connecting = computed(() => editor.connectFrom === id.value)
 const inMulti = computed(() => editor.multi.includes(id.value))
+/** The row of the first build this card belongs to: the cards of a freshly opened diagram appear row by row. */
+const wave = computed(() => (typeof props.data.wave === 'number' ? props.data.wave : 0))
 
 const dot = computed(() => {
   if (!editor.report || proposed.value) return proposed.value ? 'var(--info-dot)' : ''
@@ -53,9 +59,10 @@ function onClick(e: MouseEvent) {
     class="arch-node"
     :class="[
       selected && 'selected', inMulti && 'multi', status && !proposed && 'st-' + status, proposed && 'proposed', ghost && 'ghost', changed && 'changed', lit && 'lit', dim && 'dim', connecting && 'connecting',
-      simState && 'sim-' + simState, editor.pickingNode && 'pickable', editor.tool === 'connect' && 'connectable',
+      simState && 'sim-' + simState, stepPulse, editor.pickingNode && 'pickable', editor.tool === 'connect' && 'connectable',
     ]"
     :title="tip"
+    :style="{ '--i': wave }"
     @click="onClick"
   >
     <span class="badge-abbr badge" :style="{ background: kind?.color ?? '#4c596c' }">{{ kind?.abbr ?? '?' }}</span>
@@ -77,7 +84,8 @@ function onClick(e: MouseEvent) {
 .arch-node {
   position: relative; width: 212px; height: 64px; display: flex; align-items: center; gap: 11px; padding: 0 14px 0 12px;
   background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius); box-shadow: var(--shadow-1);
-  cursor: pointer; transition: box-shadow .12s, border-color .12s, opacity .15s;
+  cursor: pointer; transition: box-shadow var(--dur-fast), border-color var(--dur-fast), opacity var(--dur-fast), background-color var(--dur-base);
+  animation: pop-in var(--dur-base) var(--ease-spring) both; animation-delay: calc(min(var(--i, 0), 8) * var(--stagger) * 1.4);
 }
 .arch-node:hover { box-shadow: var(--shadow-2); }
 .badge { width: 34px; height: 34px; border-radius: 7px; font-size: 10px; flex: none; }
@@ -95,8 +103,14 @@ function onClick(e: MouseEvent) {
 .ghost { opacity: .5; border: 1.5px dashed var(--crit); background: var(--crit-bg); }
 .ghost .name { text-decoration: line-through; }
 .dim { opacity: .35; }
-.lit { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); animation: pulse 1.1s ease-in-out 3; }
-@keyframes pulse { 50% { box-shadow: 0 0 0 9px rgba(46, 91, 236, .12); } }
+.lit { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
+.step-a::before, .step-b::before { content: ''; position: absolute; inset: -1px; border-radius: var(--radius); pointer-events: none; }
+.step-a::before { animation: step-a var(--dur-slower) var(--ease-out) 1; }
+.step-b::before { animation: step-b var(--dur-slower) var(--ease-out) 1; }
+@keyframes step-a { from { box-shadow: 0 0 0 0 rgba(46, 91, 236, .5); } to { box-shadow: 0 0 0 16px rgba(46, 91, 236, 0); } }
+@keyframes step-b { from { box-shadow: 0 0 0 0 rgba(46, 91, 236, .5); } to { box-shadow: 0 0 0 16px rgba(46, 91, 236, 0); } }
+.lit::after { content: ''; position: absolute; inset: -1px; border-radius: var(--radius); pointer-events: none; animation: pulse-ring 1.1s ease-in-out 3; }
+@keyframes pulse-ring { 50% { box-shadow: 0 0 0 9px rgba(46, 91, 236, .14); } }
 .connecting { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .multi { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow-2); }
 .multi .h { opacity: 0 !important; }
@@ -113,6 +127,6 @@ function onClick(e: MouseEvent) {
 .sim-fenced .state-tag, .sim-isolated .state-tag { background: var(--nodata); }
 .sim-promoted { background: var(--ok-bg); border-color: var(--ok-dot); }
 .sim-promoted .state-tag { background: var(--ok); }
-.h { opacity: 0; width: 11px; height: 11px; background: var(--accent); border: 2px solid #fff; transition: opacity .12s; }
+.h { opacity: 0; width: 11px; height: 11px; background: var(--accent); border: 2px solid #fff; transition: opacity var(--dur-fast); }
 .arch-node:hover .h, .connectable .h, .connecting .h { opacity: 1; }
 </style>

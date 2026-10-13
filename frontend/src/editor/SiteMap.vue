@@ -53,7 +53,7 @@ const sitesCount = computed(() => map.value.domains.reduce((n, d) => n + d.sites
 .domain h5 span { font-family: var(--font); background: var(--surface-sunken); border-radius: 10px; padding: 0 7px; font-size: 11px; color: var(--faint); }
 .sites { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
 .dense .sites { grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); }
-.site { border: 1px solid var(--line-strong); border-radius: var(--radius); padding: 8px 9px 9px; background: var(--surface); display: flex; flex-direction: column; gap: 7px; min-width: 0; animation: site-in .32s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--i, 0) * 36ms); }
+.site { border: 1px solid var(--line-strong); border-radius: var(--radius); padding: 8px 9px 9px; background: var(--surface); display: flex; flex-direction: column; gap: 7px; min-width: 0; animation: site-in var(--dur-base) var(--ease-out) both; animation-delay: calc(var(--i, 0) * var(--stagger)); }
 .site.witness, .site.backup { border-style: dashed; background: var(--surface-2); }
 .site.standby { border-color: var(--risk-line); background: var(--risk-bg); }
 .site header { display: flex; align-items: center; gap: 6px; font-size: 12.5px; }
@@ -67,6 +67,5 @@ const sitesCount = computed(() => map.value.domains.reduce((n, d) => n + d.sites
 .chip-s.w { border-style: dashed; }
 .chip-s sup { font-size: 8.5px; margin-left: 2px; opacity: .85; }
 .chip-s em { font-style: normal; font-size: 9.5px; opacity: .75; margin-left: 2px; }
-@keyframes site-in { from { opacity: 0; transform: translateY(6px) scale(.97); } to { opacity: 1; transform: none; } }
-@media (prefers-reduced-motion: reduce) { .site { animation: none; } }
+@keyframes site-in { from { opacity: 0; transform: translateY(var(--move)) scale(.97); } to { opacity: 1; transform: none; } }
 </style>

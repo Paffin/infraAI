@@ -5,6 +5,7 @@ import { ApiError } from '@/api/client'
 import * as api from '@/api/endpoints'
 import BrandLogo from '@/components/BrandLogo.vue'
 import LangSwitch from '@/components/LangSwitch.vue'
+import MotionSwitch from '@/components/MotionSwitch.vue'
 import { t } from '@/i18n'
 import { useApp } from '@/stores/app'
 
@@ -66,7 +67,7 @@ async function change() {
 
 <template>
   <main class="login">
-    <div class="lang"><LangSwitch /></div>
+    <div class="lang"><MotionSwitch /><LangSwitch /></div>
     <section class="card login-card">
       <div class="brand"><BrandLogo :size="34" /><span>{{ app.appName }}</span></div>
       <p class="sub muted">{{ t('login.subtitle') }}</p>
@@ -104,7 +105,7 @@ async function change() {
 
 <style scoped>
 .login { min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 24px; background: var(--ink); position: relative; }
-.lang { position: absolute; top: 16px; right: 20px; }
+.lang { position: absolute; top: 16px; right: 20px; display: flex; gap: 8px; }
 .login-card { width: min(400px, 100%); padding: 28px; }
 .brand { display: flex; align-items: center; gap: 12px; font-size: 20px; font-weight: 650; letter-spacing: -0.01em; }
 .sub { margin: 6px 0 22px; }

@@ -241,7 +241,7 @@ onMounted(load)
 .search svg { position: absolute; left: 10px; top: 10px; color: var(--faint); }
 .search .input { padding-left: 32px; }
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
-.project { padding: 0; overflow: hidden; cursor: pointer; display: flex; flex-direction: column; transition: box-shadow .12s, border-color .12s; content-visibility: auto; contain-intrinsic-size: auto 330px; }
+.project { padding: 0; overflow: hidden; cursor: pointer; display: flex; flex-direction: column; transition: box-shadow var(--dur-fast), border-color var(--dur-fast); content-visibility: auto; contain-intrinsic-size: auto 330px; }
 .pbody { padding: 14px 18px 16px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
 .sort { width: 190px; }
 .chips { display: flex; gap: 8px; margin: -8px 0 16px; }
@@ -265,7 +265,7 @@ onMounted(load)
 .tpl:hover { border-color: #b8c2d4; }
 .tpl.on { border-color: var(--accent); background: var(--accent-soft); }
 .tpl input { position: absolute; opacity: 0; pointer-events: none; }
-.wizard-card { display: flex; align-items: center; gap: 12px; text-align: left; padding: 12px 14px; border: 1px solid var(--accent-line); border-radius: var(--radius); background: var(--accent-soft); transition: box-shadow .15s, transform .15s; }
+.wizard-card { display: flex; align-items: center; gap: 12px; text-align: left; padding: 12px 14px; border: 1px solid var(--accent-line); border-radius: var(--radius); background: var(--accent-soft); transition: box-shadow var(--dur-fast), transform var(--dur-fast); }
 .wizard-card:hover { box-shadow: var(--shadow-2); transform: translateY(-1px); }
 .wizard-card .wi { width: 38px; height: 38px; border-radius: 10px; background: var(--accent); color: #fff; display: grid; place-items: center; flex: none; }
 .wizard-card .wt { display: flex; flex-direction: column; gap: 2px; flex: 1; font-size: 13px; }

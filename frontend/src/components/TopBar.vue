@@ -5,6 +5,7 @@ import { t } from '@/i18n'
 import { useApp } from '@/stores/app'
 import BrandLogo from './BrandLogo.vue'
 import LangSwitch from './LangSwitch.vue'
+import MotionSwitch from './MotionSwitch.vue'
 
 const app = useApp()
 const router = useRouter()
@@ -24,6 +25,7 @@ async function logout() {
     </nav>
     <slot />
     <span class="spacer" />
+    <MotionSwitch />
     <LangSwitch />
     <div v-if="app.user" class="user" :title="app.user.email">
       <span class="avatar">{{ (app.user.name || app.user.email).slice(0, 1).toUpperCase() }}</span>

@@ -158,7 +158,6 @@ h3 { font-size: 16px; }
 .field { border-radius: var(--radius-sm); }
 .field.flash { animation: flash 2.2s ease-out; }
 @keyframes flash { 0%, 55% { background: var(--accent-soft); box-shadow: 0 0 0 6px var(--accent-soft); } 100% { background: transparent; box-shadow: 0 0 0 6px transparent; } }
-@media (prefers-reduced-motion: reduce) { .field.flash { animation: none; background: var(--accent-soft); } }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .x { border: 0; background: transparent; color: var(--muted); font-size: 15px; line-height: 1; padding: 0; }
 </style>

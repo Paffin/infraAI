@@ -1,0 +1,86 @@
+/* Motion: modes, presets for Vue <Transition>s and the keyframes the components share.
+   Durations and easings are tokens (tokens.css); components never write their own numbers.
+
+   full     everything moves
+   reduced  nothing travels, nothing staggers, nothing loops: fades and colour changes only
+   off      nothing is animated (spinners excepted: they are feedback, not decoration) */
+
+:root[data-motion='reduced'] { --move: 0px; --stagger: 0ms; }
+:root[data-motion='off'] { --move: 0px; --stagger: 0ms; --dur-instant: 0ms; --dur-fast: 0ms; --dur-base: 0ms; --dur-slow: 0ms; --dur-slower: 0ms; }
+
+:root[data-motion='reduced'] *, :root[data-motion='reduced'] *::before, :root[data-motion='reduced'] *::after {
+  animation-iteration-count: 1 !important;
+  scroll-behavior: auto !important;
+}
+:root[data-motion='off'] *, :root[data-motion='off'] *::before, :root[data-motion='off'] *::after {
+  animation-duration: 1ms !important; animation-delay: 0ms !important; animation-iteration-count: 1 !important;
+  transition-duration: 1ms !important; transition-delay: 0ms !important;
+  scroll-behavior: auto !important;
+}
+/* a loading indicator that stands still looks like a hung page */
+:root[data-motion='reduced'] .spinner, :root[data-motion='off'] .spinner, :root[data-motion='reduced'] .spin, :root[data-motion='off'] .spin { animation: spin .9s linear infinite !important; animation-duration: .9s !important; animation-iteration-count: infinite !important; }
+
+/* a highlight that used to flash stays lit instead (the field the user was sent to) */
+:root[data-motion='reduced'] .flash, :root[data-motion='off'] .flash { animation: none !important; background: var(--accent-soft); }
+
+/* ---- page change (router) ------------------------------------------------------------------ */
+.page-enter-active { transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out); }
+.page-leave-active { transition: opacity var(--dur-fast) var(--ease-in); }
+.page-enter-from { opacity: 0; transform: translateY(var(--move)); }
+.page-leave-to { opacity: 0; }
+
+/* ---- content that is replaced in place (tabs, steps) -------------------------------------- */
+.swap-enter-active { transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out); }
+.swap-leave-active { transition: opacity var(--dur-instant) var(--ease-in); }
+.swap-enter-from { opacity: 0; transform: translateX(calc(var(--move) * 1.5)); }
+.swap-leave-to { opacity: 0; }
+
+/* ---- fade and pop (menus, popovers, hints) ------------------------------------------------- */
+.fade-enter-active, .fade-leave-active { transition: opacity var(--dur-fast) var(--ease-out); }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+.pop-enter-active { transition: opacity var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out); transform-origin: top right; }
+.pop-leave-active { transition: opacity var(--dur-instant) var(--ease-in), transform var(--dur-instant) var(--ease-in); transform-origin: top right; }
+.pop-enter-from, .pop-leave-to { opacity: 0; transform: translateY(calc(var(--move) * -0.5)) scale(.97); }
+
+/* ---- toasts -------------------------------------------------------------------------------- */
+.toast-enter-active { transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-spring); }
+.toast-leave-active { transition: opacity var(--dur-fast) var(--ease-in), transform var(--dur-fast) var(--ease-in); position: absolute; right: 0; }
+.toast-move { transition: transform var(--dur-base) var(--ease-out); }
+.toast-enter-from { opacity: 0; transform: translateX(calc(var(--move) * 3)) scale(.98); }
+.toast-leave-to { opacity: 0; transform: translateX(calc(var(--move) * 2)); }
+
+/* ---- lists that gain, lose and reorder rows ------------------------------------------------ */
+.list-enter-active { transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out); }
+.list-leave-active { transition: opacity var(--dur-fast) var(--ease-in), transform var(--dur-fast) var(--ease-in); position: absolute; width: 100%; }
+.list-move { transition: transform var(--dur-slow) var(--ease-out); }
+.list-enter-from { opacity: 0; transform: translateY(var(--move)); }
+.list-leave-to { opacity: 0; transform: translateX(calc(var(--move) * -1)); }
+
+/* ---- dialogs ------------------------------------------------------------------------------- */
+.modal-backdrop { animation: backdrop-in var(--dur-base) var(--ease-out) both; }
+.modal { animation: modal-in var(--dur-base) var(--ease-out) both; }
+.modal-backdrop.closing { animation: backdrop-out var(--dur-fast) var(--ease-in) both; }
+.modal-backdrop.closing .modal { animation: modal-out var(--dur-fast) var(--ease-in) both; }
+@keyframes backdrop-in { from { opacity: 0; } }
+@keyframes backdrop-out { to { opacity: 0; } }
+@keyframes modal-in { from { opacity: 0; transform: translateY(calc(var(--move) * 1.5)) scale(.985); } }
+@keyframes modal-out { to { opacity: 0; transform: translateY(var(--move)) scale(.985); } }
+
+/* ---- shared keyframes ---------------------------------------------------------------------- */
+@keyframes rise-in { from { opacity: 0; transform: translateY(var(--move)); } }
+@keyframes pop-in { from { opacity: 0; transform: scale(.9); } }
+@keyframes shimmer { to { background-position: -200% 0; } }
+
+/* A row that appears in a list the user did not just ask for, one after another: `style="--i: n"`. */
+.rise { animation: rise-in var(--dur-base) var(--ease-out) both; animation-delay: calc(var(--i, 0) * var(--stagger)); }
+
+/* ---- bars that fill: they grow when they appear and slide when the value changes ---------- */
+.bar-fill { transform-origin: left center; animation: bar-in var(--dur-slower) var(--ease-out) both; transition: width var(--dur-slow) var(--ease-out), background-color var(--dur-base); }
+@keyframes bar-in { from { transform: scaleX(0); } }
+
+/* ---- skeletons: the shape of what is coming ------------------------------------------------ */
+.skel { border-radius: var(--radius-sm); background: linear-gradient(90deg, var(--surface-sunken) 25%, var(--surface-2) 37%, var(--surface-sunken) 63%); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; min-height: 12px; }
+:root[data-motion='reduced'] .skel, :root[data-motion='off'] .skel { animation: none; background: var(--surface-sunken); }
+
+/* ---- interaction feedback ------------------------------------------------------------------ */
+.btn:active:not(:disabled), .chip:active:not(:disabled), .tab:active { transform: translateY(0.5px) scale(.985); }

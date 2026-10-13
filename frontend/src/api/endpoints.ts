@@ -10,7 +10,7 @@ export const auth = {
   logout: () => http.post<{ ok: boolean }>('/auth/logout'),
   me: () => http.get<{ user: User }>('/auth/me'),
   changePassword: (current: string, next: string) => http.post<{ ok: boolean }>('/auth/password', { current, new: next }),
-  publicConfig: () => http.get<{ appName: string; defaultLanguage: string; languages: string[]; theme: Record<string, string> }>('/public/config'),
+  publicConfig: () => http.get<{ appName: string; defaultLanguage: string; languages: string[]; theme: Record<string, string>; motion?: string; motionScale?: number }>('/public/config'),
 }
 
 export const bootstrap = () => http.get<Bootstrap>('/bootstrap')

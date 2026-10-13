@@ -122,6 +122,5 @@ async function sync(ids: string[]) {
 .grow { flex: 1; }
 .spin { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
 @media (max-width: 900px) { .vstat { flex-wrap: wrap; gap: 12px; } }
 </style>

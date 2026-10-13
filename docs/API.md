@@ -146,14 +146,18 @@ so a client can answer "what if traffic doubles" by multiplying (the editor's *C
 ```
 { scenario, state: up|degraded|down, recovery:{kind: none|auto|manual|never, seconds},
   rpoSeconds|null, rpoAssumed, rpoItems, dataLost:[unit], splitBrain:[unit], capacityRatio|null, bottleneck,
-  unitLoads, downUnits:[name], events:[{code,unit?,node?,vars}], failed:[names],
+  unitLoads, downUnits:[name], events:[{code,unit?,node?,vars,at?}], failed:[names],
   nodeStates:{<nodeId>: up|partial|down|stalled|fenced|promoted|isolated},
-  edgeStates:{<edgeId>: ok|cut|dead} }
+  edgeStates:{<edgeId>: ok|cut|dead},
+  timeline?: [{at, state, capacityRatio, nodes:{<nodeId>: state}, edges:{<edgeId>: state}}] }
 ```
 
 `events[].code` values: `promoted manual_failover primary_lost fenced split_brain quorum_lost quorum_ok
 no_candidate no_failover writes_blocked async_fallback restore_from_backup data_lost replicated_elsewhere
 reroute scale_out capacity_overload soft_dependency_lost`.
+
+`events[].at` (seconds after the failure) and `timeline: [{at, state, capacityRatio, nodes, edges}]` tell how the picture changes while the recovery runs (only when some step takes time; the first
+frame holds every node and edge, the next ones only what changed, the last equals the settled `nodeStates` / `edgeStates`). See [SIMULATION.md](SIMULATION.md).
 
 ### Patch operations
 

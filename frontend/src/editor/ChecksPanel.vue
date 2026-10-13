@@ -12,6 +12,9 @@ import { useAi } from '@/stores/ai'
 import { useApp } from '@/stores/app'
 import { useEditor } from '@/stores/editor'
 import { useUi } from '@/stores/ui'
+import AnimatedNumber from '@/components/AnimatedNumber.vue'
+import { stagger } from '@/lib/motion'
+import { useMotion } from '@/stores/motion'
 import FindingCard from './FindingCard.vue'
 import ProposalCard from './ProposalCard.vue'
 
@@ -19,6 +22,16 @@ const app = useApp()
 const editor = useEditor()
 const ai = useAi()
 const ui = useUi()
+const motion = useMotion()
+
+/** Findings that appear together come one after another (and at once when nothing is animated). */
+function beforeEnter(el: Element) {
+  const i = Number((el as HTMLElement).dataset.i ?? 0)
+  if (motion.full) (el as HTMLElement).style.transitionDelay = `${stagger(i, 40, 320) * motion.factor}ms`
+}
+function afterEnter(el: Element) {
+  (el as HTMLElement).style.transitionDelay = ''
+}
 
 const report = computed(() => editor.report)
 const counts = computed(() => report.value?.counts)
@@ -104,10 +117,10 @@ const markIcon = (s: Status) => (s === 'ok' ? Check : s === 'critical' ? X : s =
     <div v-if="editor.isEmpty && !ai.proposal" class="empty none">{{ t('checks.emptyArch') }}</div>
     <template v-else-if="report && counts">
       <div class="tiles">
-        <button class="tile crit" :class="{ on: filter === 'critical' }" @click="pick('critical')"><b>{{ counts.critical }}</b><span>{{ t('checks.critical') }}</span></button>
-        <button class="tile risk" :class="{ on: filter === 'risk' }" @click="pick('risk')"><b>{{ counts.risk }}</b><span>{{ t('checks.risk') }}</span></button>
-        <button class="tile nodata" :class="{ on: filter === 'no_data' }" @click="pick('no_data')"><b>{{ counts.noData }}</b><span>{{ t('checks.nodata') }}</span></button>
-        <button class="tile ok" :class="{ on: showOk }" @click="showOk = !showOk"><b>{{ counts.ok }}</b><span>{{ t('checks.ok') }}</span></button>
+        <button class="tile crit" :class="{ on: filter === 'critical' }" @click="pick('critical')"><b><AnimatedNumber :value="counts.critical" /></b><span>{{ t('checks.critical') }}</span></button>
+        <button class="tile risk" :class="{ on: filter === 'risk' }" @click="pick('risk')"><b><AnimatedNumber :value="counts.risk" /></b><span>{{ t('checks.risk') }}</span></button>
+        <button class="tile nodata" :class="{ on: filter === 'no_data' }" @click="pick('no_data')"><b><AnimatedNumber :value="counts.noData" /></b><span>{{ t('checks.nodata') }}</span></button>
+        <button class="tile ok" :class="{ on: showOk }" @click="showOk = !showOk"><b><AnimatedNumber :value="counts.ok" /></b><span>{{ t('checks.ok') }}</span></button>
       </div>
 
       <div class="objectives">
@@ -126,7 +139,9 @@ const markIcon = (s: Status) => (s === 'ok' ? Check : s === 'critical' ? X : s =
 
     <div class="list">
       <ProposalCard v-if="ai.proposal" class="proposal" />
-      <FindingCard v-for="f in open" :key="f.id" :finding="f" />
+      <TransitionGroup name="list" tag="div" class="fgroup" @before-enter="beforeEnter" @after-enter="afterEnter">
+        <FindingCard v-for="(f, i) in open" :key="f.id" :finding="f" :data-i="i" />
+      </TransitionGroup>
       <div v-if="report && !open.length && filter === 'all' && !editor.isEmpty" class="empty none">{{ t('checks.none') }}</div>
       <div v-if="!report && editor.evaluating" class="empty"><span class="spinner" /> {{ t('editor.checking') }}</div>
 
@@ -146,7 +161,8 @@ const markIcon = (s: Status) => (s === 'ok' ? Check : s === 'critical' ? X : s =
 .head h3 { font-size: 16px; }
 .engine { font-size: 11.5px; color: var(--faint); }
 .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 0 20px; }
-.tile { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 10px 4px 9px; border-radius: var(--radius); border: 1px solid transparent; font-size: 13px; }
+.tile { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 10px 4px 9px; border-radius: var(--radius); border: 1px solid transparent; font-size: 13px; transition: border-color var(--dur-fast), transform var(--dur-instant) var(--ease-out); }
+.tile:hover { transform: translateY(-1px); }
 .tile b { font-size: 24px; line-height: 1.15; font-weight: 700; letter-spacing: -0.02em; }
 .tile.crit { background: var(--crit-bg); color: var(--crit); }
 .tile.risk { background: var(--risk-bg); color: var(--risk); }
@@ -154,8 +170,9 @@ const markIcon = (s: Status) => (s === 'ok' ? Check : s === 'critical' ? X : s =
 .tile.ok { background: var(--ok-bg); color: var(--ok); }
 .tile.on { border-color: currentColor; }
 .objectives { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 10px 20px 0; }
-.obj { display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 12px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius); font-size: 12.5px; min-width: 0; }
-.obj.act { cursor: pointer; text-align: left; transition: border-color .12s, box-shadow .12s; }
+.obj { display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 12px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius); font-size: 12.5px; min-width: 0; transition: border-color var(--dur-base), box-shadow var(--dur-fast); }
+.obj .ov, .obj .mark { transition: color var(--dur-base); }
+.obj.act { cursor: pointer; text-align: left; }
 .obj.act:hover { border-color: var(--accent); box-shadow: var(--shadow-1); }
 .obj:last-child:nth-child(odd) { grid-column: 1 / -1; }
 .ol { color: var(--muted); flex: 1; }
@@ -169,6 +186,7 @@ const markIcon = (s: Status) => (s === 'ok' ? Check : s === 'critical' ? X : s =
 .issues { margin: 10px 20px 0; }
 .issues ul { margin: 6px 0 0; padding-left: 18px; }
 .list { flex: 1; overflow: auto; padding: 14px 20px 20px; display: flex; flex-direction: column; gap: 12px; margin-top: 12px; border-top: 1px solid var(--line); background: var(--surface-2); }
+.fgroup { display: flex; flex-direction: column; gap: 12px; position: relative; }
 .none { color: var(--ok); }
 .empty { display: flex; gap: 8px; align-items: center; justify-content: center; }
 .fold { display: inline-flex; align-items: center; gap: 4px; border: 0; background: transparent; color: var(--muted); font-size: 12.5px; padding: 2px 0; align-self: flex-start; }

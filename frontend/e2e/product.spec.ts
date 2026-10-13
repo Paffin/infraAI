@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, type Page } from '@playwright/test'
+import { test } from './fixtures'
 import { createProject, login, uniqueName } from './helpers'
 
 const node = (page: Page, text: string | RegExp) => page.locator('.arch-node', { hasText: text }).first()

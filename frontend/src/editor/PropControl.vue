@@ -82,6 +82,5 @@ select.in { text-align-last: right; padding-right: 2px; }
 .assumed .in:not(:focus) { color: var(--faint); }
 .flash { animation: flash 2.2s ease-out; border-radius: var(--radius-sm); }
 @keyframes flash { 0%, 55% { background: var(--accent-soft); box-shadow: 0 0 0 4px var(--accent-soft); } 100% { background: transparent; box-shadow: 0 0 0 4px transparent; } }
-@media (prefers-reduced-motion: reduce) { .flash { animation: none; background: var(--accent-soft); } }
 .in:disabled { cursor: default; opacity: 1; -webkit-text-fill-color: currentColor; }
 </style>

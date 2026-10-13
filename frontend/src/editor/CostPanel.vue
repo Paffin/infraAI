@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { lt, t } from '@/i18n'
+import AnimatedNumber from '@/components/AnimatedNumber.vue'
 import { fmtMoney } from '@/lib/format'
 import { useApp } from '@/stores/app'
 import { useEditor } from '@/stores/editor'
@@ -29,10 +30,10 @@ const top = computed(() => [...(cost.value?.nodes ?? [])].filter((n) => n.amount
     <div v-if="!cost" class="empty"><span class="spinner" /></div>
     <template v-else>
       <div class="total card card-pad">
-        <div class="big mono">{{ fmtMoney(cost.total, sym) }}</div>
+        <div class="big mono"><AnimatedNumber :value="cost.total" :format="(n) => fmtMoney(n, sym)" /></div>
         <div class="muted">{{ t('cost.total') }}</div>
         <template v-if="budget">
-          <div class="bar"><i :class="{ over: (pct ?? 0) > 100 }" :style="{ width: Math.min(100, pct ?? 0) + '%' }" /></div>
+          <div class="bar"><i class="bar-fill" :class="{ over: (pct ?? 0) > 100 }" :style="{ width: Math.min(100, pct ?? 0) + '%' }" /></div>
           <div class="row small"><span class="muted">{{ t('cost.budget', { v: fmtMoney(budget, sym) }) }}</span><span class="spacer" /><b :class="{ crit: over > 0 }">{{ over > 0 ? t('cost.over', { v: fmtMoney(over, sym) }) : t('cost.used', { pct: Math.round(pct ?? 0) }) }}</b></div>
         </template>
       </div>
@@ -40,11 +41,11 @@ const top = computed(() => [...(cost.value?.nodes ?? [])].filter((n) => n.amount
 
       <section v-if="byCategory.length">
         <h5>{{ t('cost.byCategory') }}</h5>
-        <div v-for="b in byCategory" :key="b.key" class="brow"><span class="bl truncate">{{ b.label }}</span><span class="bt"><i :style="{ width: b.width + '%' }" /></span><span class="bv mono">{{ fmtMoney(b.value, sym) }}</span></div>
+        <div v-for="b in byCategory" :key="b.key" class="brow"><span class="bl truncate">{{ b.label }}</span><span class="bt"><i class="bar-fill" :style="{ width: b.width + '%' }" /></span><span class="bv mono">{{ fmtMoney(b.value, sym) }}</span></div>
       </section>
       <section v-if="byZone.length">
         <h5>{{ t('cost.byZone') }}</h5>
-        <div v-for="b in byZone" :key="b.key" class="brow"><span class="bl truncate">{{ b.label }}</span><span class="bt"><i :style="{ width: b.width + '%' }" /></span><span class="bv mono">{{ fmtMoney(b.value, sym) }}</span></div>
+        <div v-for="b in byZone" :key="b.key" class="brow"><span class="bl truncate">{{ b.label }}</span><span class="bt"><i class="bar-fill" :style="{ width: b.width + '%' }" /></span><span class="bv mono">{{ fmtMoney(b.value, sym) }}</span></div>
       </section>
       <section v-if="top.length">
         <h5>{{ t('cost.topNodes') }}</h5>

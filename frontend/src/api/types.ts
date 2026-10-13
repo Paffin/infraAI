@@ -327,7 +327,17 @@ export interface Report {
   units: Record<string, string>
 }
 
-export interface SimEvent { code: string; unit?: string; node?: string; vars?: Record<string, unknown> }
+/** `at`: seconds after the failure at which the step is complete (a promotion, a reroute, a restore); absent: with the failure itself. */
+export interface SimEvent { code: string; unit?: string; node?: string; vars?: Record<string, unknown>; at?: number }
+
+/** The world at one moment after the failure. The first frame holds every node and edge, the next ones only what changed. */
+export interface SimFrame {
+  at: number
+  state: ServiceState
+  capacityRatio: number | null
+  nodes: Record<string, NodeState>
+  edges: Record<string, EdgeState>
+}
 export type NodeState = 'up' | 'partial' | 'down' | 'stalled' | 'fenced' | 'promoted' | 'isolated'
 export type EdgeState = 'ok' | 'cut' | 'dead'
 
@@ -348,6 +358,8 @@ export interface SimResult {
   failed: string[]
   nodeStates: Record<string, NodeState>
   edgeStates: Record<string, EdgeState>
+  /** How the picture changes while the recovery runs; absent when nothing takes time. */
+  timeline?: SimFrame[]
 }
 
 export interface ReportSummary {
@@ -392,6 +404,7 @@ export interface EditorSettings {
   highlightMs: number
   paletteMaxResults: number
   layoutZonesPerRow: number
+  playbackStepMs: number
 }
 
 export interface Bootstrap {
@@ -399,7 +412,7 @@ export interface Bootstrap {
   rev: number
   version: string
   engineVersion: number
-  app: { name: string; defaultLanguage: string; languages: string[]; theme: Record<string, string>; quickPrompts: { label: LText; prompt: LText }[] }
+  app: { name: string; defaultLanguage: string; languages: string[]; theme: Record<string, string>; motion?: string; motionScale?: number; quickPrompts: { label: LText; prompt: LText }[] }
   catalog: Catalog
   rules: Rule[]
   templates: TemplateMeta[]
