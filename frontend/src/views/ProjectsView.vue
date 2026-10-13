@@ -142,12 +142,17 @@ onMounted(load)
             <option v-for="x in SORTS" :key="x" :value="x">{{ t('projects.sort.' + x) }}</option>
           </select>
         </label>
-        <button v-if="app.canEdit" class="btn btn-primary" @click="openCreate"><Plus :size="16" />{{ t('projects.new') }}</button>
+        <button v-if="app.canEdit" class="btn btn-primary" data-tour="new-project" @click="openCreate"><Plus :size="16" />{{ t('projects.new') }}</button>
       </div>
 
       <div v-if="error" class="banner banner-err">{{ error }} <button class="btn btn-sm" style="margin-left: 8px" @click="load">{{ t('common.retry') }}</button></div>
-      <div v-else-if="loading" class="empty"><span class="spinner" /></div>
-      <div v-else-if="!items.length" class="empty card card-pad">
+      <div v-else-if="loading" class="grid" aria-busy="true" :aria-label="t('app.loading')" data-testid="projects-skeleton">
+        <div v-for="n in 6" :key="n" class="card sk-card">
+          <div class="skel sk-thumb" />
+          <div class="sk-body"><div class="skel" style="width: 58%; height: 16px" /><div class="skel" style="width: 92%" /><div class="skel" style="width: 40%; height: 26px" /></div>
+        </div>
+      </div>
+      <div v-else-if="!items.length" class="empty card card-pad" data-tour="project-list">
         <Boxes :size="32" style="color: var(--faint)" />
         <p>{{ t('projects.empty') }}</p>
         <button v-if="app.canEdit" class="btn btn-primary" @click="openCreate"><Plus :size="16" />{{ t('projects.new') }}</button>
@@ -157,8 +162,8 @@ onMounted(load)
         <button class="chip" :class="{ on: attention }" :aria-pressed="attention" @click="attention = !attention">{{ t('projects.attention', { n: attentionCount }) }}</button>
       </div>
 
-      <div v-if="items.length" class="grid">
-        <article v-for="p in filtered" :key="p.id" class="card project" @click="router.push({ name: 'editor', params: { id: p.id } })">
+      <div v-if="items.length" class="grid" data-tour="project-list">
+        <article v-for="(p, i) in filtered" :key="p.id" class="card project rise" :style="{ '--i': Math.min(i, 10) }" @click="router.push({ name: 'editor', params: { id: p.id } })">
           <DiagramThumb :id="p.id" :thumb="p.thumb" :node-count="p.nodeCount" />
           <div class="pbody">
           <div class="top">
@@ -260,6 +265,9 @@ onMounted(load)
 .counts { display: flex; gap: 6px; flex-wrap: wrap; }
 .foot { display: flex; gap: 6px; font-size: 12px; margin-top: auto; padding-top: 4px; }
 .empty { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.sk-card { overflow: hidden; display: flex; flex-direction: column; }
+.sk-thumb { height: 128px; border-radius: 0; }
+.sk-body { padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 12px; }
 .templates { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .tpl { display: flex; flex-direction: column; gap: 4px; border: 1px solid var(--line-strong); border-radius: var(--radius); padding: 10px 12px; cursor: pointer; font-size: 13px; }
 .tpl:hover { border-color: #b8c2d4; }

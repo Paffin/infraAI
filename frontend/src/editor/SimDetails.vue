@@ -93,22 +93,22 @@ ul { margin: 0; padding-left: 16px; display: flex; flex-direction: column; gap: 
 
 .player { background: var(--ink); color: var(--on-dark); border-radius: 10px; padding: 8px 10px 12px; margin: 2px 0 4px; }
 .ctl { display: flex; align-items: center; gap: 4px; }
-.pbtn { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #343b50; border-radius: 7px; background: transparent; color: var(--on-dark); }
-.pbtn:hover:not(:disabled) { background: var(--ink-3); border-color: #4a5470; }
+.pbtn { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--line-on-dark-faint); border-radius: 7px; background: transparent; color: var(--on-dark); }
+.pbtn:hover:not(:disabled) { background: var(--ink-3); border-color: var(--line-on-dark-strong); }
 .pbtn:disabled { opacity: .4; }
 .pbtn.main { background: var(--accent); border-color: var(--accent); color: #fff; }
 .pbtn.main:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
 .clock { margin-left: 8px; font-size: 13px; min-width: 64px; color: #fff; font-variant-numeric: tabular-nums; }
-.speeds { display: inline-flex; border: 1px solid #343b50; border-radius: 7px; overflow: hidden; }
+.speeds { display: inline-flex; border: 1px solid var(--line-on-dark-faint); border-radius: 7px; overflow: hidden; }
 .sp { border: 0; background: transparent; color: var(--on-dark-muted); font-size: 11.5px; font-weight: 600; height: 26px; padding: 0 8px; }
 .sp:hover { color: #fff; }
 .sp.on { background: var(--ink-3); color: #fff; }
 .track { position: relative; height: 22px; margin: 10px 8px 0; cursor: pointer; border-radius: 4px; }
 .track:focus-visible { outline: 2px solid var(--accent-line); outline-offset: 4px; }
 .rail, .fill { position: absolute; left: 0; top: 10px; height: 3px; border-radius: 2px; }
-.rail { right: 0; background: #343b50; }
+.rail { right: 0; background: var(--line-on-dark-faint); }
 .fill { background: var(--accent); transition: width var(--dur-slow) var(--ease-out); }
-.tick { position: absolute; top: 5px; width: 13px; height: 13px; margin-left: -6.5px; border-radius: 50%; border: 2px solid #343b50; background: var(--ink); padding: 0; transition: background-color var(--dur-base), border-color var(--dur-base), transform var(--dur-fast) var(--ease-spring); }
+.tick { position: absolute; top: 5px; width: 13px; height: 13px; margin-left: -6.5px; border-radius: 50%; border: 2px solid var(--line-on-dark-faint); background: var(--ink); padding: 0; transition: background-color var(--dur-base), border-color var(--dur-base), transform var(--dur-fast) var(--ease-spring); }
 .tick.on { border-color: var(--accent); background: var(--accent); }
 .tick.on.down { border-color: var(--crit); background: var(--crit); }
 .tick.on.degraded { border-color: var(--risk-dot); background: var(--risk-dot); }

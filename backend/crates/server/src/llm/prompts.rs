@@ -264,7 +264,7 @@ pub fn patch_schema() -> Value {
 /// property keys, coerce numeric/boolean strings, drop non-scalar values. Returns a list of
 /// human-readable notes about what was dropped.
 pub fn sanitize(arch: &mut Architecture, cat: &Catalog) -> Vec<String> {
-    use engine::model::{as_bool, as_f64};
+    use engine::model::{as_bool, as_f64, as_string};
     let mut notes = vec![];
     let coerce = |defs: &[&engine::catalog::PropDef], props: &mut engine::model::Props, owner: &str, notes: &mut Vec<String>| {
         let keys: Vec<String> = props.keys().cloned().collect();
@@ -311,10 +311,23 @@ pub fn sanitize(arch: &mut Architecture, cat: &Catalog) -> Vec<String> {
     }
     for n in arch.nodes.iter_mut() {
         let mut defs: Vec<&engine::catalog::PropDef> = cat.common_props.iter().collect();
-        if let Some(k) = cat.kind(&n.kind) {
+        let kind = cat.kind(&n.kind);
+        if let Some(k) = kind {
             defs.extend(k.props.iter());
         }
+        // The way a product is deployed is not one of the kind's properties but a choice among its variants (`props.variant`):
+        // it is kept when the kind has that variant, whatever the case the model wrote it in.
+        let variant = n.props.remove("variant");
         coerce(&defs, &mut n.props, &n.id.clone(), &mut notes);
+        if let Some(wanted) = variant.as_ref().and_then(as_string).map(|s| s.trim().to_string()).filter(|s| !s.is_empty()) {
+            let known = kind.map(|k| k.variants.as_slice()).unwrap_or_default();
+            match known.iter().find(|x| x.id == wanted).or_else(|| known.iter().find(|x| x.id.eq_ignore_ascii_case(&wanted))) {
+                Some(x) => {
+                    n.props.insert("variant".into(), json!(x.id));
+                }
+                None => notes.push(format!("{}: '{wanted}' is not a variant of {}, dropped", n.id, n.kind)),
+            }
+        }
         n.ui = None;
         n.proposed = true;
     }
@@ -356,6 +369,37 @@ mod tests {
             }
             assert!(ops_enum.contains(&back["op"].as_str().unwrap()), "op {} missing in the enum", back["op"]);
         }
+    }
+}
+
+#[cfg(test)]
+mod sanitize_tests {
+    use super::*;
+
+    fn arch(nodes: Value) -> Architecture {
+        Architecture { nodes: serde_json::from_value(nodes).unwrap(), ..Default::default() }
+    }
+
+    #[test]
+    fn the_variant_a_model_names_survives_when_the_kind_has_it_and_is_noted_when_it_does_not() {
+        let cat = engine::defaults::catalog();
+        let mut a = arch(json!([
+            {"id": "db", "kind": "postgresql", "name": "DB", "props": {"variant": "rds", "replicas": 2}},
+            {"id": "db2", "kind": "postgresql", "name": "DB", "props": {"variant": " RDS "}},
+            {"id": "ghost", "kind": "postgresql", "name": "DB", "props": {"variant": "exadata"}},
+            {"id": "cache", "kind": "redis", "name": "C", "props": {"variant": ""}},
+            {"id": "lb", "kind": "l7", "name": "LB", "props": {"variant": 7}}
+        ]));
+        let notes = sanitize(&mut a, &cat);
+        let variant = |id: &str| a.node(id).unwrap().props.get("variant").cloned();
+        assert_eq!(variant("db"), Some(json!("rds")));
+        assert_eq!(variant("db2"), Some(json!("rds")), "case and padding are forgiven, the id kept is the catalog's");
+        assert_eq!(variant("ghost"), None, "a variant the kind does not have is not invented for it");
+        assert_eq!(variant("cache"), None);
+        assert_eq!(variant("lb"), None);
+        assert_eq!(a.node("db").unwrap().props["replicas"], json!(2), "the other properties are handled as before");
+        assert!(notes.iter().any(|n| n.starts_with("ghost:") && n.contains("exadata")), "{notes:?}");
+        assert!(!notes.iter().any(|n| n.contains("unknown prop 'variant'")), "{notes:?}");
     }
 }
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # End-to-end smoke test of a running stack:  deploy/smoke.sh http://localhost:8080 admin@example.com 'password'
-# Signs in, loads the editor bootstrap, creates a project from a reference architecture, evaluates it and
-# simulates the loss of a site. Exits non-zero on the first failed expectation.
+# Signs in, loads the editor bootstrap, creates a project from a reference architecture, evaluates it,
+# simulates the loss of a site (with the steps of the recovery), reads the release tables and previews a placement. Exits non-zero on the first failed expectation.
 set -euo pipefail
 BASE=${1:-http://localhost:8080}
 EMAIL=${2:-admin@example.com}
@@ -33,7 +33,9 @@ rules=$(echo "$BOOT" | json "len(d['rules'])")
 [ "$rules" -ge 40 ] || fail "only $rules rules"
 echo "bootstrap: $kinds kinds, $rules rules"
 
-TEMPLATE=$(echo "$BOOT" | json "d['templates'][0]['id']")
+# a reference architecture that is meant to survive the loss of a site (not the single-data-center one, which survives a rack)
+WANT=${SMOKE_TEMPLATE:-two-dc-witness}
+TEMPLATE=$(echo "$BOOT" | json "next((t['id'] for t in d['templates'] if t['id'] == '$WANT'), d['templates'][0]['id'])")
 PID=$(api -d "{\"name\":\"smoke\",\"templateId\":\"$TEMPLATE\"}" "$BASE/api/projects" | json "d['id']")
 ARCH=$(api "$BASE/api/projects/$PID" | json "json.dumps(d['architecture'])")
 SCORE=$(echo "{\"architecture\":$ARCH}" | api -d @- "$BASE/api/evaluate" | json "d['score']['value']")
@@ -44,6 +46,18 @@ ZONE=$(echo "$ARCH" | json "d['zones'][0]['id']")
 STATE=$(echo "{\"architecture\":$ARCH,\"scenario\":{\"type\":\"zone\",\"zoneId\":\"$ZONE\"}}" | api -d @- "$BASE/api/simulate" | json "d['state']")
 echo "losing site $ZONE: service is $STATE"
 [ "$STATE" != "down" ] || fail "the reference architecture does not survive the loss of a site"
+
+# the story of a recovery: a failure that heals by itself comes with the steps it takes
+TIMELINE=$(echo "{\"architecture\":$ARCH,\"scenario\":{\"type\":\"zone\",\"zoneId\":\"$ZONE\"}}" | api -d @- "$BASE/api/simulate" | json "len(d.get('timeline', []))")
+echo "recovery timeline: $TIMELINE frames"
+
+# product versions and the placement wizard
+TABLES=$(api "$BASE/api/versions" | json "len(d['tables'])")
+[ "$TABLES" -ge 50 ] || fail "only $TABLES release tables"
+echo "release tables: $TABLES"
+SITES=$(echo '{"pattern":"n-sites","sites":5}' | api -d @- "$BASE/api/placement/preview" | json "len(d['sites'])")
+[ "$SITES" -ge 5 ] || fail "the placement preview for 5 sites has $SITES sites"
+echo "placement for 5 sites: $SITES sites"
 
 api -X DELETE "$BASE/api/projects/$PID" >/dev/null
 curl -fsS "$BASE/healthz" >/dev/null || fail "healthz"

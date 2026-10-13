@@ -156,6 +156,34 @@
   }
  },
  {
+  "key": "ui.onboarding",
+  "group": "general",
+  "type": "boolean",
+  "default": true,
+  "label": {
+   "ru": "Показывать новым пользователям тур по интерфейсу",
+   "en": "Show new users a tour of the interface"
+  },
+  "help": {
+   "ru": "Тур открывается сам при первом заходе на экран проектов и в редактор; его можно пропустить, отключить для себя и повторить из меню «Помощь».",
+   "en": "The tour opens by itself the first time a user visits the project list and the editor; it can be skipped, switched off for oneself and repeated from the Help menu."
+  }
+ },
+ {
+  "key": "ui.helpUrl",
+  "group": "general",
+  "type": "string",
+  "default": "",
+  "label": {
+   "ru": "Ссылка на документацию в меню «Помощь»",
+   "en": "Documentation link in the Help menu"
+  },
+  "help": {
+   "ru": "Пусто — пункта нет. Укажите адрес внутренней вики или документации продукта (http:// или https://).",
+   "en": "Empty — no item. Give the address of an internal wiki or the product documentation (http:// or https://)."
+  }
+ },
+ {
   "key": "auth.sessionTtlHours",
   "group": "auth",
   "type": "number",
@@ -1030,6 +1058,22 @@
   },
   "min": 1000,
   "max": 60000
+ },
+ {
+  "key": "editor.undoToastMs",
+  "group": "editor",
+  "type": "number",
+  "default": 7000,
+  "min": 2000,
+  "max": 30000,
+  "label": {
+   "ru": "Уведомление с «Отменить»: время показа, мс",
+   "en": "Notification with Undo: display time, ms"
+  },
+  "help": {
+   "ru": "Сколько после удаления остаётся кнопка «Отменить». Любая следующая правка убирает её: отменять можно только последнее действие.",
+   "en": "How long the Undo button stays after a deletion. Any further edit removes it: only the last action can be undone."
+  }
  },
  {
   "key": "editor.highlightMs",

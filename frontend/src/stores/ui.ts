@@ -16,6 +16,8 @@ export const useUi = defineStore('ui', () => {
   const tab = ref<RightTab>('checks')
   const modal = ref<ModalKind>(null)
   const palette = ref(false)
+  /** Bumped to ask the prompt bar for the keyboard focus (the empty canvas offers "describe it"). */
+  const promptFocus = ref(0)
   /** A field the user was sent to ("fill in the RTO"): the inspector / requirements form opens, focuses and flashes it once. */
   const focusRequest = ref<{ need: Need; token: number } | null>(null)
   const showSimDetails = ref(true)
@@ -28,5 +30,5 @@ export const useUi = defineStore('ui', () => {
   /** AI features are usable: the server has a key, the user did not switch to manual mode. */
   const aiOn = computed(() => aiMode.value === 'ai' && ai.enabled)
 
-  return { aiMode, tab, modal, palette, focusRequest, showSimDetails, libraryOpen, aiOn }
+  return { aiMode, tab, modal, palette, promptFocus, focusRequest, showSimDetails, libraryOpen, aiOn }
 })

@@ -167,6 +167,51 @@ async fn live_generate_produces_a_valid_architecture_the_engine_has_checked() {
     app.cleanup().await;
 }
 
+/// The catalog the model sees is a hundred products with variants: a request for managed cloud services must come back
+/// with products and variants that exist, the managed ones without a quorum store of their own to keep.
+#[tokio::test]
+#[ignore = "calls the real OpenRouter (see the module docs)"]
+async fn live_generate_picks_products_and_variants_from_the_catalog() {
+    let app = TestApp::new().await;
+    let c = app.login_admin().await;
+    configure(&app, &c).await;
+    let (s, p) = app.post(&c, "/api/projects", json!({"name": "managed"})).await;
+    assert_eq!(s, StatusCode::OK);
+    let pid = p["id"].as_str().unwrap().to_string();
+    let prompt = "A web service on AWS in two availability zones: Amazon EKS for the application, a managed Amazon RDS Multi-AZ PostgreSQL database and Amazon ElastiCache for Redis. 500 rps, RTO 15 minutes, RPO 5 minutes.";
+    let job = run_job(&app, &c, &pid, "generate", prompt).await;
+    assert_eq!(job["status"], "succeeded", "{job}");
+    record("generate-managed", "generate", prompt, &job);
+    let proposal = job["result"]["proposalId"].as_str().unwrap();
+    let (_, pr) = app.get(&c, &format!("/api/proposals/{proposal}")).await;
+    let nodes = pr["architecture"]["nodes"].as_array().unwrap();
+
+    let (_, boot) = app.get(&c, "/api/bootstrap").await;
+    let kinds = boot["catalog"]["kinds"].as_array().unwrap();
+    let kind_of = |id: &str| kinds.iter().find(|k| k["id"] == id).unwrap_or_else(|| panic!("kind {id} is not in the catalog"));
+    for n in nodes {
+        let k = kind_of(n["kind"].as_str().unwrap());
+        if let Some(v) = n["props"]["variant"].as_str().filter(|v| !v.is_empty()) {
+            assert!(k["variants"].as_array().map(|vs| vs.iter().any(|x| x["id"] == v)).unwrap_or(false), "{} has no variant {v}", k["id"]);
+        }
+    }
+    // the database is a managed offering of PostgreSQL, and the engine does not ask it for a quorum store
+    let managed = |n: &&Value| {
+        let k = kind_of(n["kind"].as_str().unwrap());
+        let v = n["props"]["variant"].as_str().unwrap_or("");
+        k["variants"].as_array().and_then(|vs| vs.iter().find(|x| x["id"] == v)).map(|x| x["addTraits"].as_array().map(|t| t.iter().any(|y| y == "managed")).unwrap_or(false)).unwrap_or(false)
+    };
+    let db: Vec<&Value> = nodes.iter().filter(|n| n["kind"] == "postgresql").collect();
+    assert!(!db.is_empty(), "a PostgreSQL node");
+    assert!(db.iter().any(managed), "the model chose a managed PostgreSQL variant: {:?}", db.iter().map(|n| n["props"]["variant"].clone()).collect::<Vec<_>>());
+    let (_, rep) = app.post(&c, "/api/evaluate", json!({"architecture": pr["architecture"]})).await;
+    let db02_critical = rep["findings"].as_array().unwrap().iter().any(|f| {
+        f["ruleId"] == "HA-DB-02" && f["status"] == "critical" && f["subjects"]["nodes"].as_array().map(|ns| ns.iter().any(|n| db.iter().any(|d| d["id"] == *n && managed(d)))).unwrap_or(false)
+    });
+    assert!(!db02_critical, "a managed database keeps its own quorum: {rep}");
+    app.cleanup().await;
+}
+
 /// The release tables refreshed from the real endoflife.date (no key needed, only a network):
 /// `cargo test -p server --test live -- --ignored release_tables`
 #[tokio::test]

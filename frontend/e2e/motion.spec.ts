@@ -24,7 +24,7 @@ test.describe('motion: full, reduced, off', () => {
 
   test('the choice is made in the menu, applies at once and is kept', async ({ page }) => {
     await login(page)
-    await page.locator('[data-motion-menu]').click()
+    await page.locator('.motion-switch .trigger').click()
     await expect(page.locator('.motion-switch .menu')).toBeVisible()
     await page.locator('.motion-switch [data-pref="off"]').click()
     expect(await mode(page)).toBe('off')
@@ -34,7 +34,7 @@ test.describe('motion: full, reduced, off', () => {
     await page.reload()
     await expect(page.locator('.brand')).toBeVisible()
     expect(await mode(page)).toBe('off')
-    await page.locator('[data-motion-menu]').click()
+    await page.locator('.motion-switch .trigger').click()
     await expect(page.locator('.motion-switch [data-pref="off"]')).toHaveClass(/cur/)
     await page.locator('.motion-switch [data-pref="full"]').click()
     expect(await mode(page)).toBe('full')
@@ -73,7 +73,7 @@ test.describe('motion: full, reduced, off', () => {
     await expect(modal).toHaveClass(/closing/)
     await expect(modal).toHaveCount(0)
 
-    await page.locator('[data-motion-menu]').click()
+    await page.locator('.motion-switch .trigger').click()
     await page.locator('.motion-switch [data-pref="off"]').click()
     await page.locator('.canvas').click({ position: { x: 5, y: 400 } })
     await page.keyboard.press('Shift+?')

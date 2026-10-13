@@ -108,7 +108,11 @@ const conflict = computed(() => editor.saveState === 'conflict')
     <div class="body">
       <Library ref="library" />
       <main class="center">
-        <div v-if="editor.loading" class="state"><span class="spinner" /> {{ t('app.loading') }}</div>
+        <div v-if="editor.loading" class="state skel-canvas" aria-busy="true" :aria-label="t('app.loading')" data-testid="editor-skeleton">
+          <div class="skel sk-zone" style="left: 12%; top: 22%; width: 34%; height: 58%" />
+          <div class="skel sk-zone" style="left: 52%; top: 22%; width: 34%; height: 58%" />
+          <div v-for="n in 6" :key="n" class="skel sk-node" :style="{ left: 16 + (n % 2) * 40 + '%', top: 28 + Math.floor((n - 1) / 2) * 17 + '%' }" />
+        </div>
         <div v-else-if="editor.loadError" class="state"><div class="banner banner-err">{{ editor.loadError }}</div><router-link class="btn" to="/">{{ t('editor.crumb.projects') }}</router-link></div>
         <template v-else>
           <Canvas />
@@ -146,6 +150,9 @@ const conflict = computed(() => editor.saveState === 'conflict')
 .body { flex: 1; display: flex; min-height: 0; }
 .center { flex: 1; position: relative; min-width: 0; container-type: inline-size; }
 .state { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 12px; align-items: center; justify-content: center; }
+.skel-canvas { display: block; background: var(--bg); }
+.sk-zone { position: absolute; border-radius: var(--radius-lg); opacity: .6; }
+.sk-node { position: absolute; width: 212px; height: 64px; max-width: 30%; border-radius: var(--radius); }
 .conflict { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 80; max-width: 520px; box-shadow: var(--shadow-2); }
 .conflict p { margin: 4px 0 8px; }
 .previewbar { position: absolute; top: 56px; left: 50%; transform: translateX(-50%); z-index: 58; background: var(--accent); color: #fff; font-size: 12.5px; font-weight: 600; padding: 5px 14px; border-radius: 14px; box-shadow: var(--shadow-2); display: flex; align-items: center; gap: 10px; }

@@ -107,10 +107,10 @@ function onClick(e: MouseEvent) {
 .step-a::before, .step-b::before { content: ''; position: absolute; inset: -1px; border-radius: var(--radius); pointer-events: none; }
 .step-a::before { animation: step-a var(--dur-slower) var(--ease-out) 1; }
 .step-b::before { animation: step-b var(--dur-slower) var(--ease-out) 1; }
-@keyframes step-a { from { box-shadow: 0 0 0 0 rgba(46, 91, 236, .5); } to { box-shadow: 0 0 0 16px rgba(46, 91, 236, 0); } }
-@keyframes step-b { from { box-shadow: 0 0 0 0 rgba(46, 91, 236, .5); } to { box-shadow: 0 0 0 16px rgba(46, 91, 236, 0); } }
+@keyframes step-a { from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 50%, transparent); } to { box-shadow: 0 0 0 16px color-mix(in srgb, var(--accent) 0%, transparent); } }
+@keyframes step-b { from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 50%, transparent); } to { box-shadow: 0 0 0 16px color-mix(in srgb, var(--accent) 0%, transparent); } }
 .lit::after { content: ''; position: absolute; inset: -1px; border-radius: var(--radius); pointer-events: none; animation: pulse-ring 1.1s ease-in-out 3; }
-@keyframes pulse-ring { 50% { box-shadow: 0 0 0 9px rgba(46, 91, 236, .14); } }
+@keyframes pulse-ring { 50% { box-shadow: 0 0 0 9px color-mix(in srgb, var(--accent) 14%, transparent); } }
 .connecting { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .multi { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow-2); }
 .multi .h { opacity: 0 !important; }

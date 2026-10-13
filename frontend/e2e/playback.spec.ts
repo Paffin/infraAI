@@ -43,7 +43,7 @@ test.describe('playback of a failure', () => {
   })
 
   test('without animations the steps still turn, and the track is keyboard-operable', async ({ page }) => {
-    await page.locator('[data-motion-menu]').click()
+    await page.locator('.motion-switch .trigger').click()
     await page.locator('.motion-switch [data-pref="off"]').click()
     await page.locator('.whatif button', { hasText: 'ЦОД-1' }).click()
     const card = page.locator('[data-testid="simcard"]')

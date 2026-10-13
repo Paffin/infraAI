@@ -3,7 +3,7 @@ import { computed, markRaw, nextTick, onMounted, ref, watch } from 'vue'
 import { ConnectionMode, VueFlow, useVueFlow, type GraphNode, type NodeDragEvent } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { MiniMap } from '@vue-flow/minimap'
-import { LayoutDashboard, Minus, MousePointer2, PanelLeftOpen, Plus, Redo2, Spline, Square, Undo2 } from 'lucide-vue-next'
+import { LayoutDashboard, LayoutTemplate, Minus, MousePointer2, Network, PanelLeftOpen, Plus, Redo2, Sparkles, Spline, Square, Undo2 } from 'lucide-vue-next'
 import '@vue-flow/core/dist/style.css'
 import '@vue-flow/minimap/dist/style.css'
 import { lt, t } from '@/i18n'
@@ -241,9 +241,14 @@ function nodeColor(n: { id: string; type?: string }) {
       <button class="fit" @click="fit()">{{ t('canvas.fit') }}</button>
     </div>
 
-    <div v-if="editor.isEmpty && !editor.loading && !editor.preview" class="empty-state">
+    <div v-if="editor.isEmpty && !editor.loading && !editor.preview" class="empty-state" data-testid="canvas-empty">
       <h3>{{ t('canvas.empty.title') }}</h3>
       <p>{{ t('canvas.empty.text') }}</p>
+      <div v-if="app.canEdit && !editor.readonly" class="starts">
+        <button v-if="ui.aiOn" class="start rise" style="--i: 0" @click="ui.promptFocus++"><Sparkles :size="18" /><b>{{ t('canvas.empty.ai') }}</b><span>{{ t('canvas.empty.ai.hint') }}</span></button>
+        <button class="start rise" style="--i: 1" @click="ui.modal = 'placement'"><Network :size="18" /><b>{{ t('canvas.empty.wizard') }}</b><span>{{ t('canvas.empty.wizard.hint') }}</span></button>
+        <button class="start rise" style="--i: 2" @click="ui.libraryOpen = true"><LayoutTemplate :size="18" /><b>{{ t('canvas.empty.template') }}</b><span>{{ t('canvas.empty.template.hint') }}</span></button>
+      </div>
     </div>
   </div>
 </template>
@@ -303,7 +308,13 @@ function nodeColor(n: { id: string; type?: string }) {
 .zoom .fit { border-left: 1px solid var(--line); }
 .zoom .pct { display: inline-flex; align-items: center; min-width: 52px; justify-content: center; font-size: 13px; color: var(--text-2); border-left: 1px solid var(--line); border-right: 1px solid var(--line); }
 
-.empty-state { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); text-align: center; max-width: 420px; color: var(--muted); pointer-events: none; }
+.empty-state { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); text-align: center; max-width: 640px; color: var(--muted); pointer-events: none; }
+.empty-state .starts { display: flex; gap: 12px; margin-top: 22px; pointer-events: auto; }
+.start { flex: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left; padding: 14px 16px; border-radius: var(--radius-lg); border: 1px solid var(--line-strong); background: var(--surface); color: var(--text-2); box-shadow: var(--shadow-1); transition: border-color var(--dur-fast), box-shadow var(--dur-fast), transform var(--dur-instant) var(--ease-out); }
+.start:hover { border-color: var(--accent); box-shadow: var(--shadow-2); transform: translateY(-1px); }
+.start svg { color: var(--accent); margin-bottom: 4px; }
+.start b { color: var(--text); font-size: 13.5px; }
+.start span { font-size: 12.5px; line-height: 1.45; color: var(--muted); }
 .empty-state h3 { font-size: 18px; color: var(--text); margin-bottom: 8px; }
 .empty-state p { margin: 0; line-height: 1.55; }
 </style>

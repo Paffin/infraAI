@@ -143,7 +143,9 @@ const markIcon = (s: Status) => (s === 'ok' ? Check : s === 'critical' ? X : s =
         <FindingCard v-for="(f, i) in open" :key="f.id" :finding="f" :data-i="i" />
       </TransitionGroup>
       <div v-if="report && !open.length && filter === 'all' && !editor.isEmpty" class="empty none">{{ t('checks.none') }}</div>
-      <div v-if="!report && editor.evaluating" class="empty"><span class="spinner" /> {{ t('editor.checking') }}</div>
+      <div v-if="!report && editor.evaluating" class="sk-list" aria-busy="true" :aria-label="t('editor.checking')">
+        <div v-for="n in 3" :key="n" class="skel sk-finding" />
+      </div>
 
       <button v-if="accepted.length" class="fold" @click="showAccepted = !showAccepted"><component :is="showAccepted ? ChevronDown : ChevronRight" :size="14" />{{ t('checks.acceptedList', { n: accepted.length }) }}</button>
       <FindingCard v-for="f in (showAccepted ? accepted : [])" :key="f.id" :finding="f" />
@@ -187,6 +189,8 @@ const markIcon = (s: Status) => (s === 'ok' ? Check : s === 'critical' ? X : s =
 .issues ul { margin: 6px 0 0; padding-left: 18px; }
 .list { flex: 1; overflow: auto; padding: 14px 20px 20px; display: flex; flex-direction: column; gap: 12px; margin-top: 12px; border-top: 1px solid var(--line); background: var(--surface-2); }
 .fgroup { display: flex; flex-direction: column; gap: 12px; position: relative; }
+.sk-list { display: flex; flex-direction: column; gap: 12px; }
+.sk-finding { height: 92px; border-radius: var(--radius); }
 .none { color: var(--ok); }
 .empty { display: flex; gap: 8px; align-items: center; justify-content: center; }
 .fold { display: inline-flex; align-items: center; gap: 4px; border: 0; background: transparent; color: var(--muted); font-size: 12.5px; padding: 2px 0; align-self: flex-start; }

@@ -3,6 +3,7 @@ import { useApp } from '@/stores/app'
 import { t } from '@/i18n'
 import ToastHost from '@/components/ToastHost.vue'
 import DialogHost from '@/components/DialogHost.vue'
+import TourHost from '@/components/TourHost.vue'
 
 const app = useApp()
 </script>
@@ -20,6 +21,7 @@ const app = useApp()
   </router-view>
   <ToastHost />
   <DialogHost />
+  <TourHost v-if="app.ready && app.user" />
 </template>
 
 <style>

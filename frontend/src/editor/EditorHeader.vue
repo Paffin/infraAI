@@ -5,6 +5,7 @@ import { History, Search, Zap } from 'lucide-vue-next'
 import AnimatedNumber from '@/components/AnimatedNumber.vue'
 import BrandLogo from '@/components/BrandLogo.vue'
 import LangSwitch from '@/components/LangSwitch.vue'
+import HelpMenu from '@/components/HelpMenu.vue'
 import MotionSwitch from '@/components/MotionSwitch.vue'
 import * as api from '@/api/endpoints'
 import { t } from '@/i18n'
@@ -65,20 +66,21 @@ async function leave() {
       <a href="/" class="muted" @click.prevent="leave">{{ t('editor.crumb.projects') }}</a>
       <span class="sl">/</span>
       <button class="pname" :disabled="!app.canEdit" :title="t('projects.rename')" @click="rename">{{ name }}</button>
-      <span class="meta">· v{{ editor.project?.headVersion ?? 0 }} · <span :class="'st-' + editor.saveState" :title="editor.saveError">{{ saveText }}</span></span>
+      <span class="meta">· v{{ editor.project?.headVersion ?? 0 }} · <span class="st" :class="'st-' + editor.saveState" :title="editor.saveError"><i class="sd" />{{ saveText }}</span></span>
     </div>
     <div class="mode" role="group">
       <button :class="{ on: ui.aiMode === 'ai' }" :title="app.boot?.ai.enabled ? '' : t('editor.mode.ai.off')" @click="ui.aiMode = 'ai'">{{ t('editor.mode.ai') }}</button>
       <button :class="{ on: ui.aiMode === 'manual' }" @click="ui.aiMode = 'manual'">{{ t('editor.mode.manual') }}</button>
     </div>
     <span class="spacer" />
-    <button class="cmdk" :title="t('palette.open')" :aria-label="t('palette.open')" @click="ui.palette = true"><Search :size="14" /><span class="lbl">{{ t('palette.open') }}</span><kbd>{{ shortcutText('palette') }}</kbd></button>
-    <button class="score" :class="[tone, lowConfidence && 'weak']" :title="lowConfidence ? t('checks.confidence.hint') : t('editor.score.title')" @click="ui.modal = 'score'">
+    <button class="cmdk" data-tour="palette" :title="t('palette.open')" :aria-label="t('palette.open')" @click="ui.palette = true"><Search :size="14" /><span class="lbl">{{ t('palette.open') }}</span><kbd>{{ shortcutText('palette') }}</kbd></button>
+    <button class="score" data-tour="score" :class="[tone, lowConfidence && 'weak']" :title="lowConfidence ? t('checks.confidence.hint') : t('editor.score.title')" @click="ui.modal = 'score'">
       {{ t('editor.score') }}<b><AnimatedNumber :value="score" /></b><span>/100</span><i v-if="lowConfidence" class="conf">{{ t('editor.score.confidence', { pct: confidence ?? 0 }) }}</i>
     </button>
     <button class="btn btn-dark" @click="ui.modal = 'matrix'"><Zap :size="14" />{{ t('editor.sim') }}</button>
     <button class="btn btn-dark" @click="ui.modal = 'versions'"><History :size="14" />{{ t('editor.versions') }}</button>
-    <button class="btn btn-white" @click="ui.modal = 'export'"><span class="long">{{ t('editor.export') }}</span><span class="short">{{ t('editor.export.short') }}</span></button>
+    <button class="btn btn-white" data-tour="export" @click="ui.modal = 'export'"><span class="long">{{ t('editor.export') }}</span><span class="short">{{ t('editor.export.short') }}</span></button>
+    <HelpMenu data-tour="help" />
     <MotionSwitch />
     <LangSwitch />
   </header>
@@ -95,6 +97,12 @@ async function leave() {
 .pname:hover:not(:disabled) { background: var(--ink-3); }
 .pname:disabled { cursor: default; }
 .meta { color: var(--on-dark-muted); }
+.st { display: inline-flex; align-items: center; gap: 6px; transition: color var(--dur-base); }
+.sd { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex: none; transition: background-color var(--dur-base), opacity var(--dur-base); }
+.st-saving .sd { animation: save-pulse 1s ease-in-out infinite; }
+.st-dirty .sd { opacity: .45; }
+.st-saved .sd { background: var(--ok-dot); animation: pop-in var(--dur-base) var(--ease-spring) both; }
+@keyframes save-pulse { 50% { opacity: .25; transform: scale(.7); } }
 .st-saved { color: var(--on-dark-muted); } .st-dirty, .st-saving { color: #c4cbe0; } .st-conflict, .st-error { color: #ff8a8f; font-weight: 600; } .st-readonly { color: var(--on-dark-muted); }
 .mode { display: inline-flex; padding: 3px; background: var(--ink-2); border: 1px solid #262c3d; border-radius: 9px; }
 .mode button { border: 0; background: transparent; color: var(--on-dark-muted); height: 28px; padding: 0 14px; border-radius: 7px; font-size: 13.5px; font-weight: 500; white-space: nowrap; }

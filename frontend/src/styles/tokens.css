@@ -20,6 +20,11 @@
   --faint: #8b93a1;
   --on-dark: #e8ebf2;
   --on-dark-muted: #9aa3b5;
+  --on-dark-accent: #9db8ff;
+  --line-on-dark: #3a4256;
+  --line-on-dark-strong: #4a5470;
+  --line-on-dark-faint: #343b50;
+  --veil: color-mix(in srgb, var(--ink) 62%, transparent);
 
   /* accent */
   --accent: #2e5bec;

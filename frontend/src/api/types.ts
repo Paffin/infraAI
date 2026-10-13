@@ -401,6 +401,7 @@ export interface EditorSettings {
   lodMiniBelow: number
   toastMs: number
   errorToastMs: number
+  undoToastMs: number
   highlightMs: number
   paletteMaxResults: number
   layoutZonesPerRow: number
@@ -412,7 +413,7 @@ export interface Bootstrap {
   rev: number
   version: string
   engineVersion: number
-  app: { name: string; defaultLanguage: string; languages: string[]; theme: Record<string, string>; motion?: string; motionScale?: number; quickPrompts: { label: LText; prompt: LText }[] }
+  app: { name: string; defaultLanguage: string; languages: string[]; theme: Record<string, string>; motion?: string; motionScale?: number; onboarding?: boolean; helpUrl?: string; quickPrompts: { label: LText; prompt: LText }[] }
   catalog: Catalog
   rules: Rule[]
   templates: TemplateMeta[]

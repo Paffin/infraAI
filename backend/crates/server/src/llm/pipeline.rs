@@ -583,6 +583,7 @@ mod tests {
     /// Real answers of the model (recorded by `tests/live.rs`): the input of everything the pipeline does after the call.
     const PATCH_ANSWER: &str = include_str!("../../tests/fixtures/llm/patch_answer.json");
     const GENERATE_ANSWER: &str = include_str!("../../tests/fixtures/llm/generate_answer.json");
+    const GENERATE_MANAGED_ANSWER: &str = include_str!("../../tests/fixtures/llm/generate_managed_answer.json");
 
     fn answer(fixture: &str) -> String {
         serde_json::from_str::<Value>(fixture).unwrap()["answers"][0].as_str().unwrap().to_string()
@@ -619,6 +620,22 @@ mod tests {
         assert!(c.arch.nodes.iter().any(|n| !n.props.is_empty()), "properties are kept");
         let report = evaluate(&c.arch, &cfg.engine_config("en"), &[]);
         assert!(report.score.value > 0.0);
+    }
+
+    #[test]
+    fn a_real_answer_for_managed_cloud_services_keeps_the_variants_the_model_chose() {
+        let cfg = Loaded::embedded_defaults();
+        let c = parse_generate(&cfg, &answer(GENERATE_MANAGED_ANSWER), &Architecture::default()).expect("the recorded answer is valid");
+        let variant = |id: &str| c.arch.node(id).and_then(|n| n.props.get("variant")).and_then(Value::as_str).map(String::from);
+        assert_eq!(variant("pg-primary").as_deref(), Some("rds"));
+        assert_eq!(variant("pg-standby").as_deref(), Some("rds"));
+        assert_eq!(variant("redis-primary").as_deref(), Some("elasticache"));
+        assert_eq!(variant("eks-a").as_deref(), Some("eks"));
+        assert_eq!(c.arch.nodes.iter().filter(|n| n.props.contains_key("variant")).count(), 14, "every product the model named by variant keeps it");
+        // the engine takes it from there: a managed database keeps its own quorum, so no store for one is asked of it
+        let report = evaluate(&c.arch, &cfg.engine_config("en"), &[]);
+        let asked = report.findings.iter().any(|f| f.rule_id == "HA-DB-02" && f.status == Status::Critical && f.subjects.nodes.iter().any(|n| n.starts_with("pg-")));
+        assert!(!asked, "{:?}", report.findings.iter().filter(|f| f.rule_id == "HA-DB-02").map(|f| (&f.status, &f.subjects.nodes)).collect::<Vec<_>>());
     }
 
     #[test]

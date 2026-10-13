@@ -32,7 +32,7 @@ watch(() => ui.tab, () => nextTick(place))
 </script>
 
 <template>
-  <aside class="right">
+  <aside class="right" data-tour="checks">
     <div ref="bar" class="tabs" role="tablist">
       <button v-for="x in tabs" :key="x" class="tab" :class="{ active: ui.tab === x }" role="tab" :aria-selected="ui.tab === x" @click="ui.tab = x">
         {{ t('tab.' + x) }}<span v-if="x === 'chat' && ai.busy" class="spinner pip" />

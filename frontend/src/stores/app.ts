@@ -26,6 +26,15 @@ export function applyTheme(theme: Record<string, string> | null | undefined) {
   }
 }
 
+/** An address the Help menu may link to: only http(s), never `javascript:` or the like. */
+export function safeHttpUrl(v: unknown): string {
+  if (typeof v !== 'string') return ''
+  try {
+    const u = new URL(v.trim())
+    return u.protocol === 'http:' || u.protocol === 'https:' ? u.toString() : ''
+  } catch { return '' }
+}
+
 export const useApp = defineStore('app', () => {
   const user = ref<User | null>(null)
   const publicConfig = ref<PublicConfig | null>(null)
@@ -41,6 +50,10 @@ export const useApp = defineStore('app', () => {
   const canEdit = computed(() => user.value?.role === 'admin' || user.value?.role === 'editor')
   /** Timings and thresholds of the editor (`editor.*` settings). */
   const editorCfg = computed(() => editorSettings(boot.value?.editor))
+  /** Does the tour open by itself for a newcomer? (`ui.onboarding`) */
+  const onboarding = computed(() => boot.value?.app.onboarding !== false)
+  /** The documentation link of the Help menu, only if it is an http(s) address. */
+  const helpUrl = computed(() => safeHttpUrl(boot.value?.app.helpUrl))
   const appName = computed(() => boot.value?.app.name ?? publicConfig.value?.appName ?? 'Infra Architect')
   const languages = computed(() => {
     const l = boot.value?.app.languages ?? publicConfig.value?.languages ?? supportedLangs
@@ -120,5 +133,5 @@ export const useApp = defineStore('app', () => {
     await loadPublic()
   }
 
-  return { user, publicConfig, boot, index, rules, versions, ready, bootError, isAdmin, canEdit, editorCfg, appName, languages, init, loadPublic, loadBootstrap, loadVersions, login, logout }
+  return { user, publicConfig, boot, index, rules, versions, ready, bootError, isAdmin, canEdit, editorCfg, onboarding, helpUrl, appName, languages, init, loadPublic, loadBootstrap, loadVersions, login, logout }
 })

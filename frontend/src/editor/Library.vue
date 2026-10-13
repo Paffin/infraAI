@@ -104,7 +104,7 @@ defineExpose({ focus: () => { ui.libraryOpen = true; setTimeout(() => input.valu
 </script>
 
 <template>
-  <aside v-show="ui.libraryOpen" class="library">
+  <aside v-show="ui.libraryOpen" class="library" data-tour="library">
     <div class="search">
       <Search :size="15" />
       <input ref="input" v-model="q" class="input" :placeholder="t('library.search') + ' ( / )'" @keydown.esc="q = ''; input?.blur()" />

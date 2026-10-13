@@ -5,6 +5,7 @@ import { t } from '@/i18n'
 import { useApp } from '@/stores/app'
 import BrandLogo from './BrandLogo.vue'
 import LangSwitch from './LangSwitch.vue'
+import HelpMenu from './HelpMenu.vue'
 import MotionSwitch from './MotionSwitch.vue'
 
 const app = useApp()
@@ -21,10 +22,11 @@ async function logout() {
     <router-link to="/" class="brand"><BrandLogo /><span>{{ app.appName }}</span></router-link>
     <nav class="nav">
       <router-link to="/" class="navlink" active-class="" exact-active-class="on"><FolderKanban :size="15" />{{ t('nav.projects') }}</router-link>
-      <router-link v-if="app.isAdmin" to="/admin" class="navlink" active-class="on"><Settings :size="15" />{{ t('nav.admin') }}</router-link>
+      <router-link v-if="app.isAdmin" to="/admin" class="navlink" active-class="on" data-tour="admin"><Settings :size="15" />{{ t('nav.admin') }}</router-link>
     </nav>
     <slot />
     <span class="spacer" />
+    <HelpMenu data-tour="help" />
     <MotionSwitch />
     <LangSwitch />
     <div v-if="app.user" class="user" :title="app.user.email">

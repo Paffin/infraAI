@@ -17,6 +17,7 @@ export const FALLBACK_EDITOR_SETTINGS: EditorSettings = {
   lodMiniBelow: 0.3,
   toastMs: 3500,
   errorToastMs: 7000,
+  undoToastMs: 7000,
   highlightMs: 5000,
   paletteMaxResults: 60,
   layoutZonesPerRow: 5,

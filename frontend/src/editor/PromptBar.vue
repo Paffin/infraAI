@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { RotateCcw, Sparkles, X } from 'lucide-vue-next'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { Check, RotateCcw, Sparkles, X } from 'lucide-vue-next'
 import { lt, t } from '@/i18n'
+import { stagesOf } from '@/lib/aiSteps'
 import { aiErrorText, useAi } from '@/stores/ai'
 import { useApp } from '@/stores/app'
 import { useEditor } from '@/stores/editor'
@@ -18,13 +19,20 @@ const max = computed(() => app.boot?.ai.maxPromptChars ?? 4000)
 const disabled = computed(() => !ui.aiOn || !app.canEdit || editor.readonly)
 const empty = computed(() => editor.isEmpty)
 const quick = computed(() => app.boot?.app.quickPrompts ?? [])
-const stepLabel = computed(() => {
-  const s = ai.step
-  if (!s) return t('prompt.running')
-  const label = t('job.' + s.code)
-  const round = (s.detail as { round?: number } | undefined)?.round
-  return round ? `${label} · ${round}` : label
-})
+const stages = computed(() => stagesOf(ai.job?.steps ?? []))
+const stageText = (s: { code: string; round?: number }) => (s.round ? `${t('job.' + s.code)} · ${s.round}` : t('job.' + s.code))
+
+// how long the request has been going: the wait is shorter when it is counted
+const elapsed = ref(0)
+let clock: ReturnType<typeof setInterval> | undefined
+watch(() => ai.busy, (b) => {
+  clearInterval(clock)
+  if (!b) return
+  const from = Date.now()
+  elapsed.value = 0
+  clock = setInterval(() => { elapsed.value = Math.floor((Date.now() - from) / 1000) }, 500)
+}, { immediate: true })
+onBeforeUnmount(() => clearInterval(clock))
 const placeholder = computed(() => (!ui.aiOn ? (ui.aiMode === 'manual' ? t('prompt.hint.manual') : t('editor.mode.ai.off')) : empty.value ? t('prompt.placeholder.empty') : t('prompt.placeholder.edit')))
 
 async function run(kind: 'generate' | 'patch') {
@@ -42,11 +50,12 @@ function chip(p: { label: unknown; prompt: unknown }) {
   input.value?.focus()
 }
 
+watch(() => ui.promptFocus, () => input.value?.focus())
 defineExpose({ focus: () => input.value?.focus() })
 </script>
 
 <template>
-  <div class="promptbar">
+  <div class="promptbar" data-tour="prompt">
     <div class="row main">
       <div class="field-wrap" :class="{ off: disabled }">
         <Sparkles :size="16" class="spark" />
@@ -60,7 +69,15 @@ defineExpose({ focus: () => input.value?.focus() })
       </template>
     </div>
     <div v-if="ai.busy" class="status">
-      <span class="spinner" /><span>{{ stepLabel }}</span><span class="grow" />
+      <ol class="stages" :aria-label="t('prompt.running')" data-testid="ai-stages">
+        <li v-for="s in stages" :key="s.code" :class="s.state">
+          <Check v-if="s.state === 'done'" :size="13" class="ic" />
+          <span v-else-if="s.state === 'current'" class="spinner ic" />
+          <i v-else class="ic dot" />
+          <span class="lb">{{ stageText(s) }}</span>
+        </li>
+      </ol>
+      <span class="grow" /><span class="secs mono">{{ t('common.seconds', { n: elapsed }) }}</span>
       <button class="btn btn-sm" @click="ai.cancel()">{{ t('prompt.cancel') }}</button>
     </div>
     <div v-else-if="ai.error" class="status err" role="alert">
@@ -85,6 +102,17 @@ defineExpose({ focus: () => input.value?.focus() })
 .q { flex: none; height: 32px; background: var(--surface); }
 .q:disabled { opacity: .5; }
 .status { display: flex; align-items: center; gap: 10px; margin-top: 8px; font-size: 13px; color: var(--text-2); }
+.stages { list-style: none; margin: 0; padding: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; }
+.stages li { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px 3px 8px; border-radius: 999px; border: 1px solid transparent; font-size: 12.5px; transition: color var(--dur-base), background-color var(--dur-base), border-color var(--dur-base); animation: rise-in var(--dur-base) var(--ease-out) both; }
+.stages li.done { color: var(--muted); }
+.stages li.done .ic { color: var(--ok); }
+.stages li.current { color: var(--accent); background: var(--accent-soft); border-color: var(--accent-line); font-weight: 600; }
+.stages li.todo { color: var(--faint); }
+.stages .ic { flex: none; }
+.stages .spinner.ic { width: 12px; height: 12px; }
+.stages .dot { width: 5px; height: 5px; margin: 0 4px; border-radius: 50%; background: var(--line-strong); }
+.stages li + li::before { content: ''; width: 10px; height: 1px; background: var(--line-strong); margin-right: 2px; }
+.secs { font-size: 12px; color: var(--faint); font-variant-numeric: tabular-nums; }
 .status.err { color: #7d1a1f; background: var(--crit-bg); border: 1px solid var(--crit-line); border-radius: var(--radius); padding: 4px 6px 4px 12px; }
 @media (max-width: 1280px) { .q { display: none; } }
 </style>

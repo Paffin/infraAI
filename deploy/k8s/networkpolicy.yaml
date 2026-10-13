@@ -1,5 +1,7 @@
 # The application only accepts traffic from the ingress controller and only talks to DNS, PostgreSQL and
-# HTTPS (OpenRouter). Adjust the selectors to your cluster.
+# HTTPS: OpenRouter (the AI) and endoflife.date (the support dates of the products; setting versions.sourceBases,
+# `versions.autoSyncDays = 0` switches the refresh off, an internal mirror replaces it in a closed network).
+# Adjust the selectors to your cluster.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:

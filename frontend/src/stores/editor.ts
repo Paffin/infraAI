@@ -312,6 +312,7 @@ export const useEditor = defineStore('editor', () => {
 
   // ------------------------------------------------------------------------------------- history
   function commit(next: Architecture, o: { coalesce?: string } = {}) {
+    toasts.clearActions() // "Undo" of the previous action is stale now
     const now = Date.now()
     const merge = !!o.coalesce && o.coalesce === lastKey && now - lastAt < 1200
     if (!merge) {
@@ -343,6 +344,7 @@ export const useEditor = defineStore('editor', () => {
   function undo() {
     const prev = past.pop()
     if (!prev || readonly.value) return
+    toasts.clearActions()
     future.push(arch.value)
     arch.value = prev
     lastKey = ''
@@ -354,6 +356,7 @@ export const useEditor = defineStore('editor', () => {
   function redo() {
     const next = future.pop()
     if (!next || readonly.value) return
+    toasts.clearActions()
     past.push(arch.value)
     arch.value = next
     lastKey = ''
@@ -540,29 +543,37 @@ export const useEditor = defineStore('editor', () => {
     return id
   }
 
+  /** A deletion says what went and offers the way back (the toast is gone with the next edit). */
+  const announceRemoval = (text: string) => toasts.undoable(text, () => undo())
+
   function removeNode(id: string) {
-    edit((a) => {
+    const name = arch.value.nodes.find((n) => n.id === id)?.name
+    if (!edit((a) => {
       a.nodes = a.nodes.filter((n) => n.id !== id)
       a.edges = a.edges.filter((e) => e.source !== id && e.target !== id)
-    })
+    })) return
     if (selection.value?.id === id) selection.value = null
+    if (name) announceRemoval(t('toast.removed.node', { name }))
   }
 
   function removeEdge(id: string) {
-    edit((a) => { a.edges = a.edges.filter((e) => e.id !== id) })
+    if (!edit((a) => { a.edges = a.edges.filter((e) => e.id !== id) })) return
     if (selection.value?.id === id) selection.value = null
+    announceRemoval(t('toast.removed.edge'))
   }
 
   /** Remove a zone; its nodes and child zones move to the parent zone (or become global). */
   function removeZone(id: string) {
-    edit((a) => {
+    const name = arch.value.zones.find((z) => z.id === id)?.name
+    if (!edit((a) => {
       const z = a.zones.find((x) => x.id === id)
       if (!z) return
       for (const n of a.nodes) if (n.zoneId === id) n.zoneId = z.parentId
       for (const c of a.zones) if (c.parentId === id) c.parentId = z.parentId
       a.zones = a.zones.filter((x) => x.id !== id)
-    })
+    })) return
     if (selection.value?.id === id) selection.value = null
+    if (name) announceRemoval(t('toast.removed.zone', { name }))
   }
 
   function removeSelection() {
@@ -600,12 +611,14 @@ export const useEditor = defineStore('editor', () => {
   function removeNodes(ids: string[]) {
     const set = new Set(ids)
     if (!set.size || readonly.value) return
+    const n = arch.value.nodes.filter((x) => set.has(x.id)).length
     edit((a) => {
       a.nodes = a.nodes.filter((n) => !set.has(n.id))
       a.edges = a.edges.filter((e) => !set.has(e.source) && !set.has(e.target))
     })
     multi.value = []
     if (selection.value && set.has(selection.value.id)) selection.value = null
+    if (n) announceRemoval(t('toast.removed.nodes', { n }))
   }
 
   /** Copies of the nodes and of the edges between them. A group that is copied as a whole becomes a new group. */
