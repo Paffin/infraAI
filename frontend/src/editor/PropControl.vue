@@ -12,6 +12,8 @@ const props = defineProps<{
   disabled?: boolean
   /** choices for `unit_ref` properties: [value, label] */
   refs?: [string, string][]
+  /** briefly highlight the row (the user was sent here to fill it in) */
+  flash?: boolean
 }>()
 const emit = defineEmits<{ change: [value: Scalar | undefined] }>()
 
@@ -40,7 +42,7 @@ function onBool(e: Event) {
 </script>
 
 <template>
-  <label class="prop" :class="{ assumed: !declared }" :title="def.help ? lt(def.help) : undefined">
+  <label class="prop" :class="{ assumed: !declared, flash }" :data-prop="def.key" :title="def.help ? lt(def.help) : undefined">
     <span class="lbl">{{ lt(def.label) }}<span v-if="def.unit && def.type === 'number'" class="unit"> · {{ def.unit }}</span></span>
     <span class="ctl">
       <input
@@ -78,5 +80,8 @@ select.in { text-align-last: right; padding-right: 2px; }
 .in:focus { outline: none; border-color: var(--accent); background: var(--surface); box-shadow: 0 0 0 3px var(--accent-soft); }
 .in::placeholder { color: var(--faint); }
 .assumed .in:not(:focus) { color: var(--faint); }
+.flash { animation: flash 2.2s ease-out; border-radius: var(--radius-sm); }
+@keyframes flash { 0%, 55% { background: var(--accent-soft); box-shadow: 0 0 0 4px var(--accent-soft); } 100% { background: transparent; box-shadow: 0 0 0 4px transparent; } }
+@media (prefers-reduced-motion: reduce) { .flash { animation: none; background: var(--accent-soft); } }
 .in:disabled { cursor: default; opacity: 1; -webkit-text-fill-color: currentColor; }
 </style>

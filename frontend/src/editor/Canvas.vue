@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, markRaw, nextTick, onMounted, ref, watch } from 'vue'
-import { ConnectionMode, VueFlow, useVueFlow, type NodeDragEvent } from '@vue-flow/core'
+import { ConnectionMode, VueFlow, useVueFlow, type GraphNode, type NodeDragEvent } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { MiniMap } from '@vue-flow/minimap'
 import { LayoutDashboard, Minus, MousePointer2, PanelLeftOpen, Plus, Redo2, Spline, Square, Undo2 } from 'lucide-vue-next'
@@ -14,6 +14,7 @@ import ArchEdge from './ArchEdge.vue'
 import ArchNode from './ArchNode.vue'
 import ArchZone from './ArchZone.vue'
 import { createFlowBuilder, nodeFlowId, zoneFlowId } from './flowModel'
+import { lodOf } from '@/lib/lod'
 import { MIN_ZONE_H, MIN_ZONE_W } from './layout'
 
 const app = useApp()
@@ -22,7 +23,7 @@ const ui = useUi()
 const nodeTypes = { card: markRaw(ArchNode), zone: markRaw(ArchZone) } as any
 const edgeTypes = { arch: markRaw(ArchEdge) } as any
 
-const { screenToFlowCoordinate, fitView, zoomIn, zoomOut, viewport, panBy, onNodesInitialized } = useVueFlow()
+const { screenToFlowCoordinate, fitView, zoomIn, zoomOut, viewport, panBy, onNodesInitialized, addSelectedNodes, removeSelectedElements, findNode, getSelectedNodes } = useVueFlow()
 const wrap = ref<HTMLElement | null>(null)
 
 const build = createFlowBuilder()
@@ -60,7 +61,26 @@ watch(() => editor.highlight, (h) => {
   if (ids.size) void fitView({ nodes: [...ids], padding: 0.45, maxZoom: 1.1, duration: 400 })
 })
 
+watch(() => editor.reveal, (r) => {
+  if (!r) return
+  const ids = [...r.nodes.map(nodeFlowId), ...r.zones.map(zoneFlowId)]
+  void fitView({ nodes: ids, padding: 0.7, maxZoom: 1, duration: 350 })
+})
+
+// ----------------------------------------------------------------------------------- selection
+// Shift+click and Shift+drag (a rectangle) select several cards; dragging one of them moves them all.
+const selectedCards = computed(() => getSelectedNodes.value.filter((n) => n.type === 'card').map((n) => (n.data as { id: string }).id))
+watch(selectedCards, (ids) => editor.setMulti(ids))
+watch(() => editor.selectRequest, (r) => {
+  if (!r) return
+  removeSelectedElements()
+  const found = r.ids.map((id) => findNode(nodeFlowId(id))).filter((n): n is GraphNode => !!n)
+  if (found.length) addSelectedNodes(found)
+})
+watch(() => editor.multi.length, (n) => { if (!n && getSelectedNodes.value.length > 1) removeSelectedElements() })
+
 const zoomPct = computed(() => Math.round((viewport.value.zoom || 1) * 100))
+const lod = computed(() => lodOf(viewport.value.zoom || 1))
 
 // ------------------------------------------------------------------------------------ interaction
 function onDragStop(ev: NodeDragEvent) {
@@ -170,12 +190,12 @@ function nodeColor(n: { id: string; type?: string }) {
 </script>
 
 <template>
-  <div ref="wrap" class="canvas" :class="['tool-' + editor.tool, editor.pickingNode && 'picking']" @dragover="onDragOver" @drop="onDrop">
+  <div ref="wrap" class="canvas" :class="['tool-' + editor.tool, editor.pickingNode && 'picking']" :data-lod="lod" :style="{ '--zoom': viewport.zoom || 1 }" @dragover="onDragOver" @drop="onDrop">
     <VueFlow
       :nodes="flow.nodes" :edges="flow.edges" :node-types="nodeTypes" :edge-types="edgeTypes"
       :min-zoom="0.15" :max-zoom="1.8" :default-viewport="{ x: 40, y: 40, zoom: 0.8 }"
-      :nodes-draggable="!editor.readonly" :nodes-connectable="!editor.readonly" :elements-selectable="false"
-      :connection-mode="ConnectionMode.Loose" :connection-radius="30" :delete-key-code="null" :selection-key-code="null" :multi-selection-key-code="null"
+      :nodes-draggable="!editor.readonly" :nodes-connectable="!editor.readonly" :elements-selectable="true"
+      :connection-mode="ConnectionMode.Loose" :connection-radius="30" :delete-key-code="null" :selection-key-code="'Shift'" :multi-selection-key-code="'Shift'"
       :pan-on-drag="editor.tool !== 'zone'" :zoom-on-double-click="false" :prevent-scrolling="true" :snap-to-grid="false" :auto-pan-on-node-drag="true"
       @node-drag-stop="onDragStop" @pane-click="onPaneClick" @connect="onConnect" @edge-click="onEdgeClick" @move-end="updateCenter"
     >
@@ -239,6 +259,14 @@ function nodeColor(n: { id: string; type?: string }) {
 .canvas .vue-flow__edge-path { stroke-linecap: round; }
 .canvas .vue-flow__connection-path { stroke: var(--accent); stroke-width: 2; stroke-dasharray: 5 4; }
 .canvas .vue-flow__node { font-family: var(--font); }
+/* semantic zoom (see lib/lod.ts): what stays legible when the diagram is zoomed out */
+.canvas[data-lod='compact'] .arch-node .sub, .canvas[data-lod='mini'] .arch-node .sub { display: none; }
+.canvas[data-lod='compact'] .arch-node .name { font-size: clamp(14px, calc(10.5px / var(--zoom, 1)), 26px); white-space: normal; line-height: 1.12; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: clip; }
+.canvas[data-lod='compact'] .zone-head .zname, .canvas[data-lod='mini'] .zone-head .zname { font-size: clamp(14px, calc(11.5px / var(--zoom, 1)), 30px); }
+.canvas[data-lod='compact'] .zone-head .ztag, .canvas[data-lod='mini'] .zone-head .ztag, .canvas[data-lod='compact'] .edge-label, .canvas[data-lod='mini'] .edge-label { display: none; }
+.canvas[data-lod='mini'] .arch-node .txt { display: none; }
+.canvas[data-lod='mini'] .arch-node .badge { position: absolute; inset: 0; width: auto; height: auto; border-radius: inherit; font-size: 26px; }
+.canvas[data-lod='mini'] .arch-node .dot { width: 18px; height: 18px; top: -8px; right: -8px; z-index: 2; }
 .canvas.tool-zone .vue-flow__pane { cursor: crosshair; }
 .canvas.picking .vue-flow__pane { cursor: crosshair; }
 .minimap.vue-flow__minimap { right: 18px; bottom: 18px; width: 170px; height: 118px; border: 1px solid var(--line-strong); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow-1); margin: 0; overflow: hidden; }

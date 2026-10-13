@@ -2,7 +2,9 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import { t } from '@/i18n'
+import BulkCard from '@/editor/BulkCard.vue'
 import Canvas from '@/editor/Canvas.vue'
+import CommandPalette from '@/editor/CommandPalette.vue'
 import EditorHeader from '@/editor/EditorHeader.vue'
 import ExportModal from '@/editor/ExportModal.vue'
 import FailureMatrix from '@/editor/FailureMatrix.vue'
@@ -11,6 +13,7 @@ import Library from '@/editor/Library.vue'
 import PromptBar from '@/editor/PromptBar.vue'
 import RightPanel from '@/editor/RightPanel.vue'
 import ScoreModal from '@/editor/ScoreModal.vue'
+import ShortcutsModal from '@/editor/ShortcutsModal.vue'
 import SimDetails from '@/editor/SimDetails.vue'
 import VersionsModal from '@/editor/VersionsModal.vue'
 import WhatIfBar from '@/editor/WhatIfBar.vue'
@@ -61,21 +64,30 @@ function typing(el: EventTarget | null): boolean {
 
 function onKey(e: KeyboardEvent) {
   const mod = e.ctrlKey || e.metaKey
+  if (mod && e.key.toLowerCase() === 'k') { e.preventDefault(); ui.palette = !ui.palette; return }
   if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); void editor.flushSave(); return }
-  if (typing(e.target) || ui.modal) return
+  if (ui.palette || typing(e.target) || ui.modal) return
   if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? editor.redo() : editor.undo(); return }
   if (mod && e.key.toLowerCase() === 'y') { e.preventDefault(); editor.redo(); return }
+  if (mod && e.key.toLowerCase() === 'a') { e.preventDefault(); editor.selectNodes(editor.shown.nodes.map((n) => n.id)); return }
   if (mod && e.key.toLowerCase() === 'd') {
     e.preventDefault()
-    if (editor.selection?.type === 'node') editor.duplicateNode(editor.selection.id)
+    if (editor.multi.length) editor.duplicateNodes(editor.multi)
+    else if (editor.selection?.type === 'node') editor.duplicateNode(editor.selection.id)
     return
   }
   if (mod || e.altKey) return
-  if (e.key === 'Delete' || e.key === 'Backspace') { if (editor.selection) { e.preventDefault(); editor.removeSelection() } return }
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    if (editor.multi.length) { e.preventDefault(); editor.removeNodes(editor.multi) }
+    else if (editor.selection) { e.preventDefault(); editor.removeSelection() }
+    return
+  }
+  if (e.key === '?') { e.preventDefault(); ui.modal = 'shortcuts'; return }
   if (e.key === 'Escape') {
     if (editor.pickingNode || editor.connectFrom || editor.tool !== 'select') editor.setTool('select')
     else if (editor.highlight) editor.highlight = null
     else if (editor.sim) editor.exitSim()
+    else if (editor.multi.length) editor.setMulti([])
     else editor.select(null)
     return
   }
@@ -100,6 +112,7 @@ const conflict = computed(() => editor.saveState === 'conflict')
         <template v-else>
           <Canvas />
           <Inspector />
+          <BulkCard v-if="editor.multi.length > 1" />
           <SimDetails />
           <WhatIfBar />
           <div v-if="conflict" class="conflict banner banner-err" role="alert">
@@ -121,6 +134,8 @@ const conflict = computed(() => editor.saveState === 'conflict')
     <ExportModal v-if="ui.modal === 'export'" />
     <FailureMatrix v-if="ui.modal === 'matrix'" />
     <ScoreModal v-if="ui.modal === 'score'" />
+    <ShortcutsModal v-if="ui.modal === 'shortcuts'" />
+    <CommandPalette v-if="ui.palette" />
   </div>
 </template>
 

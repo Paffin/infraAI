@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { ArrowLeftRight, ChevronDown, ChevronRight, Copy, Trash2, X } from 'lucide-vue-next'
 import type { PropDef, Scalar } from '@/api/types'
 import { lt, t } from '@/i18n'
@@ -7,10 +7,12 @@ import { edgeEffectiveProps, effectiveProps, kindPropDefs } from '@/lib/catalog'
 import { findingTitle, statusTagClass, statusLabel } from '@/lib/findings'
 import { useApp } from '@/stores/app'
 import { useEditor } from '@/stores/editor'
+import { useUi } from '@/stores/ui'
 import PropControl from './PropControl.vue'
 
 const app = useApp()
 const editor = useEditor()
+const ui = useUi()
 const advanced = ref(false)
 /** Property groups beyond the first two start collapsed so that the card stays compact. */
 const groupState = ref<Record<string, boolean>>({})
@@ -78,10 +80,38 @@ function hasGroupTitle(g: string) { return !!g && t('propgroup.' + g) !== 'propg
 function remove() {
   editor.removeSelection()
 }
+
+// ------------------------------------------------------------------------- "fill this in" requests
+const root = ref<HTMLElement | null>(null)
+const flashKey = ref('')
+let flashTimer: ReturnType<typeof setTimeout> | undefined
+
+/** The user was sent to a field (a "no data" finding names it): open its group, scroll to it, focus it, flash it. */
+async function applyFocus() {
+  const r = ui.focusRequest
+  const s = sel.value
+  if (!r || r.need.target === 'requirements' || !s || s.type !== r.need.target || s.id !== r.need.id) return
+  ui.focusRequest = null
+  const key = r.need.prop
+  if (node.value) {
+    const gi = nodeSplit.value.groups.findIndex((g) => g.defs.some((d) => d.key === key))
+    if (gi >= 0) { const g = nodeSplit.value.groups[gi]; if (!isOpen(g.id, gi)) toggleGroup(g.id, gi) }
+    else if (nodeSplit.value.adv.some((d) => d.key === key)) advanced.value = true
+  } else if (edge.value && edgeSplit.value.adv.some((d) => d.key === key)) advanced.value = true
+  await nextTick()
+  const row = root.value?.querySelector<HTMLElement>(`[data-prop="${CSS.escape(key)}"]`)
+  if (!row) return
+  row.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  row.querySelector<HTMLElement>('input, select')?.focus({ preventScroll: true })
+  flashKey.value = key
+  clearTimeout(flashTimer)
+  flashTimer = setTimeout(() => { flashKey.value = '' }, 2300)
+}
+watch(() => ui.focusRequest, () => void nextTick(applyFocus), { immediate: true })
 </script>
 
 <template>
-  <div v-if="sel && (node || edge || zone)" class="inspector card" role="region" :aria-label="t('inspector.selected', { name: title })">
+  <div v-if="sel && (node || edge || zone)" ref="root" class="inspector card" role="region" :aria-label="t('inspector.selected', { name: title })">
     <header>
       <span class="dot" :class="edge ? 'edge' : zone ? 'zone' : ''" />
       <b class="grow truncate">{{ t('inspector.selected', { name: title }) }}</b>
@@ -122,13 +152,13 @@ function remove() {
         <template v-for="(g, gi) in nodeSplit.groups" :key="g.id">
           <button v-if="hasGroupTitle(g.id)" class="gh" :aria-expanded="isOpen(g.id, gi)" @click="toggleGroup(g.id, gi)"><component :is="isOpen(g.id, gi) ? ChevronDown : ChevronRight" :size="13" />{{ groupTitle(g.id) }}<span class="cnt">{{ g.defs.length }}</span></button>
           <template v-if="!hasGroupTitle(g.id) || isOpen(g.id, gi)">
-            <PropControl v-for="d in g.defs" :key="d.key" :def="d" :value="node.props[d.key]" :fallback="nodeEff[d.key]" :disabled="dis" :refs="d.type === 'unit_ref' ? refsFor(d) : undefined" @change="setNodeProp(d.key, $event)" />
+            <PropControl v-for="d in g.defs" :key="d.key" :def="d" :value="node.props[d.key]" :fallback="nodeEff[d.key]" :disabled="dis" :flash="flashKey === d.key" :refs="d.type === 'unit_ref' ? refsFor(d) : undefined" @change="setNodeProp(d.key, $event)" />
           </template>
         </template>
         <template v-if="nodeSplit.adv.length">
           <button class="more" @click="advanced = !advanced"><component :is="advanced ? ChevronDown : ChevronRight" :size="14" />{{ t('inspector.advanced') }}</button>
           <template v-if="advanced">
-            <PropControl v-for="d in nodeSplit.adv" :key="d.key" :def="d" :value="node.props[d.key]" :fallback="nodeEff[d.key]" :disabled="dis" :refs="d.type === 'unit_ref' ? refsFor(d) : undefined" @change="setNodeProp(d.key, $event)" />
+            <PropControl v-for="d in nodeSplit.adv" :key="d.key" :def="d" :value="node.props[d.key]" :fallback="nodeEff[d.key]" :disabled="dis" :flash="flashKey === d.key" :refs="d.type === 'unit_ref' ? refsFor(d) : undefined" @change="setNodeProp(d.key, $event)" />
           </template>
         </template>
       </template>
@@ -156,12 +186,12 @@ function remove() {
         </label>
         <button class="more" :disabled="dis" @click="editor.reverseEdge(edge!.id)"><ArrowLeftRight :size="14" />{{ t('inspector.reverse') }}</button>
         <template v-for="g in edgeSplit.groups" :key="g.id">
-          <PropControl v-for="d in g.defs" :key="d.key" :def="d" :value="edge.props[d.key]" :fallback="edgeEff[d.key]" :disabled="dis" @change="setEdgeProp(d.key, $event)" />
+          <PropControl v-for="d in g.defs" :key="d.key" :def="d" :value="edge.props[d.key]" :fallback="edgeEff[d.key]" :disabled="dis" :flash="flashKey === d.key" @change="setEdgeProp(d.key, $event)" />
         </template>
         <template v-if="edgeSplit.adv.length">
           <button class="more" @click="advanced = !advanced"><component :is="advanced ? ChevronDown : ChevronRight" :size="14" />{{ t('inspector.advanced') }}</button>
           <template v-if="advanced">
-            <PropControl v-for="d in edgeSplit.adv" :key="d.key" :def="d" :value="edge.props[d.key]" :fallback="edgeEff[d.key]" :disabled="dis" @change="setEdgeProp(d.key, $event)" />
+            <PropControl v-for="d in edgeSplit.adv" :key="d.key" :def="d" :value="edge.props[d.key]" :fallback="edgeEff[d.key]" :disabled="dis" :flash="flashKey === d.key" @change="setEdgeProp(d.key, $event)" />
           </template>
         </template>
       </template>
@@ -190,7 +220,7 @@ function remove() {
             <option v-for="z in zoneOptions.filter((x) => x.id !== zone!.id)" :key="z.id" :value="z.id">{{ z.name }}</option>
           </select>
         </label>
-        <PropControl v-for="d in zoneDef?.props ?? []" :key="d.key" :def="d" :value="zone.props[d.key]" :disabled="dis" @change="setZoneProp(d.key, $event)" />
+        <PropControl v-for="d in zoneDef?.props ?? []" :key="d.key" :def="d" :value="zone.props[d.key]" :disabled="dis" :flash="flashKey === d.key" @change="setZoneProp(d.key, $event)" />
         <p class="note">{{ t('inspector.zone.contains', { n: containedNodes }) }}</p>
       </template>
 

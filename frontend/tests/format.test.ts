@@ -83,3 +83,15 @@ describe('diff lines', () => {
     expect(diffIsEmpty({ requirements: [], zones: empty, nodes: empty, edges: empty })).toBe(true)
   })
 })
+
+describe('semantic zoom', () => {
+  it('switches the level of detail at the configured zoom levels', async () => {
+    const { lodOf, LOD_COMPACT_BELOW, LOD_MINI_BELOW } = await import('../src/lib/lod')
+    expect(lodOf(1)).toBe('full')
+    expect(lodOf(LOD_COMPACT_BELOW)).toBe('full')
+    expect(lodOf(LOD_COMPACT_BELOW - 0.01)).toBe('compact')
+    expect(lodOf(LOD_MINI_BELOW)).toBe('compact')
+    expect(lodOf(LOD_MINI_BELOW - 0.01)).toBe('mini')
+    expect(LOD_MINI_BELOW).toBeLessThan(LOD_COMPACT_BELOW)
+  })
+})

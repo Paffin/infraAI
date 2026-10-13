@@ -1,13 +1,15 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import type { Requirements } from '@/api/types'
 import { t } from '@/i18n'
 import { splitSeconds, toSeconds } from '@/lib/format'
 import { useApp } from '@/stores/app'
 import { useEditor } from '@/stores/editor'
+import { useUi } from '@/stores/ui'
 
 const app = useApp()
 const editor = useEditor()
+const ui = useUi()
 const req = computed(() => editor.arch.requirements)
 const dis = computed(() => editor.readonly)
 const tolerance = computed(() => app.boot?.engine.defaultFailureTolerance ?? 'site')
@@ -43,6 +45,29 @@ function setTolerance(e: Event) {
   editor.setRequirement('failureTolerance', (v || undefined) as Requirements['failureTolerance'])
 }
 
+// ------------------------------------------------------------------------- "fill this in" requests
+const root = ref<HTMLElement | null>(null)
+const flashKey = ref('')
+let flashTimer: ReturnType<typeof setTimeout> | undefined
+const attrs = (key: string) => ({ 'data-req': key, class: flashKey.value === key ? 'flash' : undefined })
+
+/** A "no data" finding named a requirement: scroll to the field, focus it and flash it once. */
+async function applyFocus() {
+  const r = ui.focusRequest
+  if (!r || r.need.target !== 'requirements') return
+  ui.focusRequest = null
+  await nextTick()
+  const row = root.value?.querySelector<HTMLElement>(`[data-req="${CSS.escape(r.need.prop)}"]`)
+  if (!row) return
+  row.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  row.querySelector<HTMLElement>('input, select, textarea')?.focus({ preventScroll: true })
+  flashKey.value = r.need.prop
+  clearTimeout(flashTimer)
+  flashTimer = setTimeout(() => { flashKey.value = '' }, 2300)
+}
+watch(() => ui.focusRequest, () => void applyFocus())
+onMounted(() => void nextTick(applyFocus))
+
 function addCompliance() {
   const items = compliance.value.split(/[,;\n]/).map((s) => s.trim()).filter(Boolean)
   if (!items.length) return
@@ -55,20 +80,20 @@ function removeCompliance(x: string) {
 </script>
 
 <template>
-  <div class="reqs">
+  <div ref="root" class="reqs">
     <h3>{{ t('req.title') }}</h3>
     <p class="muted intro">{{ t('req.intro') }}</p>
 
-    <div class="field">
+    <div class="field" v-bind="attrs('rpsPeak')">
       <label>{{ t('req.rpsPeak') }}</label>
       <input class="input mono" type="number" min="0" :disabled="dis" :value="req.rpsPeak ?? ''" @input="setNum('rpsPeak', $event)" />
     </div>
-    <div class="field">
+    <div class="field" v-bind="attrs('growthPercent')">
       <label>{{ t('req.growthPercent') }}</label>
       <input class="input mono" type="number" min="0" :disabled="dis" :value="req.growthPercent ?? ''" @input="setNum('growthPercent', $event)" />
     </div>
 
-    <div v-for="k in (['rtoSeconds', 'rpoSeconds'] as const)" :key="k" class="field">
+    <div v-for="k in (['rtoSeconds', 'rpoSeconds'] as const)" :key="k" class="field" v-bind="attrs(k)">
       <label>{{ t('req.' + k) }}</label>
       <div class="row">
         <input class="input mono" type="number" min="0" step="any" :disabled="dis" :value="durValue(k)" @input="setDur(k, $event)" />
@@ -81,15 +106,15 @@ function removeCompliance(x: string) {
       <span v-if="k === 'rpoSeconds'" class="hint">{{ t('req.rpoSeconds.hint') }}</span>
     </div>
 
-    <div class="field">
+    <div class="field" v-bind="attrs('availabilitySlo')">
       <label>{{ t('req.availabilitySlo') }}</label>
       <input class="input mono" type="number" min="0" max="100" step="0.001" :disabled="dis" :value="req.availabilitySlo ?? ''" @input="setNum('availabilitySlo', $event)" />
     </div>
-    <div class="field">
+    <div class="field" v-bind="attrs('budgetMonthly')">
       <label>{{ t('req.budgetMonthly') }}, {{ symbol }}</label>
       <input class="input mono" type="number" min="0" :disabled="dis" :value="req.budgetMonthly ?? ''" @input="setNum('budgetMonthly', $event)" />
     </div>
-    <div class="field">
+    <div class="field" v-bind="attrs('failureTolerance')">
       <label>{{ t('req.failureTolerance') }}</label>
       <select class="select" :disabled="dis" :value="req.failureTolerance ?? ''" @change="setTolerance">
         <option value="">{{ t('inspector.default', { v: t('req.failureTolerance.' + tolerance) }) }}</option>
@@ -98,14 +123,14 @@ function removeCompliance(x: string) {
         <option value="geo">{{ t('req.failureTolerance.geo') }}</option>
       </select>
     </div>
-    <div class="field">
+    <div class="field" v-bind="attrs('compliance')">
       <label>{{ t('req.compliance') }}</label>
       <div class="chips">
         <span v-for="c in req.compliance ?? []" :key="c" class="chip">{{ c }}<button v-if="!dis" class="x" :aria-label="t('common.delete')" @click="removeCompliance(c)">×</button></span>
       </div>
       <input v-if="!dis" v-model="compliance" class="input" :placeholder="t('req.compliance.add')" @keydown.enter.prevent="addCompliance" @blur="addCompliance" />
     </div>
-    <div class="field">
+    <div class="field" v-bind="attrs('notes')">
       <label>{{ t('req.notes') }}</label>
       <textarea class="textarea" rows="3" :disabled="dis" :value="req.notes ?? ''" @input="editor.setRequirement('notes', ($event.target as HTMLTextAreaElement).value)" />
     </div>
@@ -116,6 +141,10 @@ function removeCompliance(x: string) {
 .reqs { padding: 16px 20px 28px; display: flex; flex-direction: column; gap: 14px; overflow: auto; }
 h3 { font-size: 16px; }
 .intro { margin: -6px 0 0; font-size: 12.5px; }
+.field { border-radius: var(--radius-sm); }
+.field.flash { animation: flash 2.2s ease-out; }
+@keyframes flash { 0%, 55% { background: var(--accent-soft); box-shadow: 0 0 0 6px var(--accent-soft); } 100% { background: transparent; box-shadow: 0 0 0 6px transparent; } }
+@media (prefers-reduced-motion: reduce) { .field.flash { animation: none; background: var(--accent-soft); } }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .x { border: 0; background: transparent; color: var(--muted); font-size: 15px; line-height: 1; padding: 0; }
 </style>

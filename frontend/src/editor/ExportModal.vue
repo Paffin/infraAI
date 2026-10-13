@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
-import { Anchor, Braces, CircleCheck, Container, Copy, Crosshair, Download, FileText, Info, KeyRound, Layers, ListChecks, TriangleAlert, Workflow } from 'lucide-vue-next'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { Anchor, Braces, CircleCheck, Container, Copy, Crosshair, Download, FileText, Image, Info, KeyRound, Layers, ListChecks, TriangleAlert, Workflow } from 'lucide-vue-next'
 import * as api from '@/api/endpoints'
 import type { ExportFile, ExportFormatInfo, IacReport, IacSkipped } from '@/api/types'
 import Modal from '@/components/Modal.vue'
-import { has, lang, t } from '@/i18n'
+import { has, lang, lt, t } from '@/i18n'
+import { buildScene, sceneToSvg, themePalette, type LegendItem } from '@/lib/diagram'
 import { errorMessage } from '@/lib/format'
+import { focusNeed } from '@/lib/navigate'
 import { useApp } from '@/stores/app'
 import { useEditor } from '@/stores/editor'
 import { useToasts } from '@/stores/toasts'
@@ -18,10 +20,12 @@ const editor = useEditor()
 const ui = useUi()
 const toasts = useToasts()
 
-const ICONS: Record<string, unknown> = { kubernetes: Container, helm: Anchor, terraform: Layers, adr: FileText, runbook: ListChecks, mermaid: Workflow, json: Braces }
+const ICONS: Record<string, unknown> = { kubernetes: Container, helm: Anchor, terraform: Layers, adr: FileText, runbook: ListChecks, mermaid: Workflow, json: Braces, svg: Image }
 const GROUP_ORDER = ['iac', 'docs', 'data']
 
-const formats = computed<ExportFormatInfo[]>(() => app.boot?.exportFormats ?? [])
+/** Formats the browser makes itself (the server has no renderer for the layout): listed after the server's. */
+const LOCAL_FORMATS: ExportFormatInfo[] = [{ id: 'svg', group: 'docs' }]
+const formats = computed<ExportFormatInfo[]>(() => [...(app.boot?.exportFormats ?? []), ...LOCAL_FORMATS])
 const groups = computed(() =>
   GROUP_ORDER.map((g) => ({ id: g, items: formats.value.filter((f) => f.group === g) })).filter((g) => g.items.length),
 )
@@ -34,22 +38,52 @@ const loading = ref(false)
 const error = ref('')
 const copied = ref(false)
 
+const slug = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-+|-+$/g, '') || 'architecture'
+
+/** The diagram of the working copy as an SVG file (what the canvas shows, drawn by `lib/diagram.ts`). */
+function svgFile(): ExportFile {
+  const ix = app.index!
+  const arch = editor.arch
+  const palette = themePalette()
+  const scene = buildScene(arch, ix, { detail: 'full', statuses: editor.nodeStatus, palette })
+  const used = new Set(arch.edges.map((e) => e.type))
+  const legend: LegendItem[] = [...used].flatMap((id) => {
+    const d = ix.edgeTypes.get(id)
+    return d ? [{ label: lt(d.short ?? d.name), color: d.style.color, dash: d.style.dash ?? undefined }] : []
+  })
+  const title = editor.project?.name ?? arch.meta.name ?? 'Architecture'
+  return { path: `${slug(title)}.svg`, content: sceneToSvg(scene, { title, palette, legend }) }
+}
+
+/** Switching formats quickly must not let a slow answer for the format left behind overwrite the one on screen. */
+let loadSeq = 0
+
 async function load() {
+  const mine = ++loadSeq
   loading.value = true
   error.value = ''
   try {
+    if (format.value === 'svg') {
+      files.value = [svgFile()]
+      report.value = null
+      current.value = 0
+      tab.value = 'files'
+      return
+    }
     await editor.flushSave()
     const r = await api.projects.export(editor.projectId, format.value, lang.value)
+    if (mine !== loadSeq) return
     files.value = r.files
     report.value = r.report
     current.value = 0
     tab.value = r.report ? 'coverage' : 'files'
   } catch (e) {
+    if (mine !== loadSeq) return
     files.value = []
     report.value = null
     error.value = errorMessage(e)
   } finally {
-    loading.value = false
+    if (mine === loadSeq) loading.value = false
   }
 }
 
@@ -65,8 +99,17 @@ async function copy() {
   }
 }
 
-const href = computed(() => api.projects.exportUrl(editor.projectId, format.value, lang.value))
+const isSvg = computed(() => format.value === 'svg')
 const content = computed(() => files.value[current.value]?.content ?? '')
+/** A file made in the browser is downloaded from a Blob; the others from the server. */
+const blobUrl = ref('')
+watch([isSvg, content], () => {
+  if (blobUrl.value) URL.revokeObjectURL(blobUrl.value)
+  blobUrl.value = isSvg.value && content.value ? URL.createObjectURL(new Blob([content.value], { type: 'image/svg+xml' })) : ''
+}, { immediate: true })
+onBeforeUnmount(() => { if (blobUrl.value) URL.revokeObjectURL(blobUrl.value) })
+const href = computed(() => (isSvg.value ? blobUrl.value : api.projects.exportUrl(editor.projectId, format.value, lang.value)))
+const downloadName = computed(() => (isSvg.value ? files.value[current.value]?.path ?? 'architecture.svg' : ''))
 
 // ------------------------------------------------------------------------------- IaC report
 const stats = computed(() => {
@@ -92,11 +135,17 @@ const actionable = (s: IacSkipped) => ['needs_input', 'no_cluster', 'hosting', '
 const skipLabel = (code: string) => (has('export.skip.' + code) ? t('export.skip.' + code) : code)
 const skipTone = (code: string) => (code === 'template_error' ? 'tag-crit' : actionable({ code } as IacSkipped) ? 'tag-risk' : 'tag-nodata')
 
+/** The property that closes the gap, when the report names one (`hosting` has a fixed place in the catalog). */
+const gapProp = (s: IacSkipped) => s.props[0] ?? (s.code === 'hosting' ? 'hosting' : undefined)
+
+/** Leave the dialog for the element: the inspector opens at the field that has to be filled in. */
 function show(s: IacSkipped) {
   const id = s.nodes[0]
   if (!id) return
   ui.modal = null
-  editor.select({ type: 'node', id })
+  const prop = gapProp(s)
+  if (prop) focusNeed({ target: 'node', id, prop })
+  else { editor.select({ type: 'node', id }); editor.revealSelection() }
 }
 
 const setupCount = computed(() => (report.value ? report.value.prerequisites.length + report.value.secrets.length : 0))
@@ -175,7 +224,7 @@ watch(format, load, { immediate: true })
                   </div>
                   <p class="why">{{ s.message }}</p>
                 </div>
-                <button v-if="s.nodes.length && actionable(s)" class="btn btn-sm" @click="show(s)"><Crosshair :size="13" />{{ t('export.show') }}</button>
+                <button v-if="s.nodes.length && actionable(s)" class="btn btn-sm" @click="show(s)"><Crosshair :size="13" />{{ gapProp(s) ? t('export.fill') : t('export.show') }}</button>
               </li>
             </ul>
             <p v-if="!skipped.length && report.generated.length" class="muted">{{ t('export.all.done') }}</p>
@@ -228,9 +277,10 @@ watch(format, load, { immediate: true })
                 <button v-for="(f, i) in files" :key="f.path" :class="{ on: i === current }" :title="f.path" @click="current = i">{{ f.path }}</button>
               </div>
               <button class="btn btn-sm" @click="copy"><Copy :size="13" />{{ copied ? t('export.copied') : t('export.copy') }}</button>
-              <a class="btn btn-sm btn-primary" :href="href" download><Download :size="13" />{{ t('export.download') }}</a>
+              <a class="btn btn-sm btn-primary" :href="href" :download="downloadName || ''"><Download :size="13" />{{ t('export.download') }}</a>
             </div>
-            <pre class="code mono">{{ content }}</pre>
+            <div v-if="isSvg && blobUrl" class="svgprev"><img :src="blobUrl" :alt="t('export.svg')" /></div>
+            <pre v-else class="code mono">{{ content }}</pre>
           </template>
 
           <div v-if="tab !== 'files'" class="foot-actions">
@@ -297,6 +347,8 @@ code.key { margin-right: 4px; }
 .tabs2 button { border: 1px solid transparent; background: transparent; padding: 4px 10px; border-radius: 6px; font-family: var(--mono); font-size: 12px; white-space: nowrap; color: var(--muted); }
 .tabs2 button.on { background: var(--surface-sunken); color: var(--text); border-color: var(--line); }
 .code { margin: 0; padding: 14px 16px; background: var(--ink); color: var(--on-dark); border-radius: var(--radius); font-size: 12px; line-height: 1.55; overflow: auto; max-height: 50vh; white-space: pre; }
+.svgprev { border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg); padding: 10px; max-height: 50vh; overflow: auto; display: flex; justify-content: center; }
+.svgprev img { max-width: 100%; height: auto; display: block; }
 .foot-actions { display: flex; justify-content: flex-end; }
 @media (max-width: 900px) { .exp { grid-template-columns: 1fr; } .summary { grid-template-columns: 1fr 1fr; } }
 </style>

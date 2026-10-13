@@ -179,6 +179,15 @@ export type Scenario =
 
 export interface Fix { id: string; kind: string; vars: Record<string, unknown>; ops: Op[] }
 
+/** A value the user can supply to turn a "no data" finding into a verified one: the UI opens exactly that field. */
+export interface Need {
+  target: 'requirements' | 'node' | 'edge' | 'zone'
+  /** entity id (absent for requirements) */
+  id?: string
+  /** property key; for requirements the field name (`rtoSeconds`, `rpsPeak`…) */
+  prop: string
+}
+
 export interface Finding {
   id: string
   ruleId: string
@@ -187,6 +196,8 @@ export interface Finding {
   subjects: { nodes: string[]; edges: string[]; zones: string[] }
   vars: Record<string, unknown>
   fixes: Fix[]
+  /** what to fill in to verify a `no_data` finding */
+  needs?: Need[]
   scenario?: Scenario
   accepted?: { reason: string; by?: string | null; at?: string | null } | null
 }
@@ -221,6 +232,27 @@ export interface ScenarioSummary {
 
 export interface UnitLoad { unit: string; loadRps: number; capacityRps: number | null; ratio: number | null }
 
+export interface CapacityWorst { scenario: Scenario; failed: string[]; loadRps: number; capacityRps: number }
+
+/** Capacity plan of one logical service (`Report.capacity`); load scales linearly with the peak RPS. */
+export interface CapacityRow {
+  unit: string
+  name: string
+  kind: string
+  nodes: string[]
+  /** instances that serve load (arbiters excluded) */
+  instances: number
+  perReplicaRps: number | null
+  loadRps: number
+  /** `null` = no capacity model (set vCPU or RPS per instance) */
+  capacityRps: number | null
+  /** capacity needed to keep the configured headroom at peak plus growth */
+  targetRps: number
+  instancesNeeded: number | null
+  /** the failure scenario that leaves the service the least capacity relative to its load */
+  worst: CapacityWorst | null
+}
+
 export interface CostReport {
   currency: string
   symbol: string
@@ -244,6 +276,7 @@ export interface Report {
   objectives: Objective[]
   scenarios: ScenarioSummary[]
   baselineLoads: UnitLoad[]
+  capacity: CapacityRow[]
   score: { value: number; penalty: number; coverage: number; breakdown: { ruleId: string; status: Status; penalty: number }[] }
   cost: CostReport
   units: Record<string, string>
@@ -313,6 +346,14 @@ export interface Bootstrap {
   engine: { currency: string; symbol: string; minCapacityDuringFailure: number; headroomPercent: number; defaultFailureTolerance: string }
 }
 
+/** What the project list ships to draw a thumbnail (coordinates are `null` until the editor has laid the diagram out). */
+export interface ProjectThumb {
+  zones: { i: string; x: number | null; y: number | null; w: number | null; h: number | null; t: string; p: string | null }[]
+  nodes: { i: string; x: number | null; y: number | null; k: string; z: string | null }[]
+  /** `[source, target, type]` */
+  edges: [string, string, string][]
+}
+
 export interface ProjectListItem {
   id: string
   name: string
@@ -324,6 +365,7 @@ export interface ProjectListItem {
   draftRev: number
   nodeCount: number
   summary: ReportSummary | null
+  thumb: ProjectThumb | null
 }
 
 export interface Waiver { id: string; fingerprint: string; ruleId: string; reason: string; createdBy: string; createdAt: string; expiresAt: string | null }

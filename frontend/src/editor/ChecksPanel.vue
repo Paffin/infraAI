@@ -5,15 +5,20 @@ import type { Objective, Status } from '@/api/types'
 import { lt, t } from '@/i18n'
 import { fmtDuration, fmtPct } from '@/lib/format'
 import { statusRank } from '@/lib/findings'
+import { focusNeed } from '@/lib/navigate'
+import { objectiveAction, type ObjectiveAction } from '@/lib/objectives'
+import { scenarioLabel } from '@/lib/sim'
 import { useAi } from '@/stores/ai'
 import { useApp } from '@/stores/app'
 import { useEditor } from '@/stores/editor'
+import { useUi } from '@/stores/ui'
 import FindingCard from './FindingCard.vue'
 import ProposalCard from './ProposalCard.vue'
 
 const app = useApp()
 const editor = useEditor()
 const ai = useAi()
+const ui = useUi()
 
 const report = computed(() => editor.report)
 const counts = computed(() => report.value?.counts)
@@ -54,6 +59,34 @@ function objValue(o: Objective): string {
   }
 }
 
+/** A pill is a doorway to the evidence behind its value: the worst scenario, the field to fill in, the capacity plan. */
+function actionOf(o: Objective): ObjectiveAction | null {
+  const r = report.value
+  return r ? objectiveAction(o, r, { rpsPeak: editor.arch.requirements.rpsPeak, ruleCheck: (id) => app.rules.get(id)?.check }) : null
+}
+
+function objHint(o: Objective): string {
+  const a = actionOf(o)
+  if (!a) return o.assumed ? t('obj.assumed') : ''
+  switch (a.kind) {
+    case 'scenario': return t('obj.open.scenario', { name: scenarioLabel(a.scenario, editor.shown, report.value?.units) })
+    case 'fill': return t('obj.open.fill')
+    case 'tab': return t('obj.open.capacity')
+    case 'subjects': return t('obj.open.spof')
+  }
+}
+
+function openObjective(o: Objective) {
+  const a = actionOf(o)
+  if (!a) return
+  switch (a.kind) {
+    case 'scenario': void editor.runScenario(a.scenario); break
+    case 'fill': focusNeed(a.need); break
+    case 'tab': ui.tab = a.tab; break
+    case 'subjects': editor.showSubjects({ subjects: a.subjects }); break
+  }
+}
+
 const markIcon = (s: Status) => (s === 'ok' ? Check : s === 'critical' ? X : s === 'risk' ? TriangleAlert : CircleHelp)
 </script>
 
@@ -76,10 +109,10 @@ const markIcon = (s: Status) => (s === 'ok' ? Check : s === 'critical' ? X : s =
       </div>
 
       <div class="objectives">
-        <div v-for="o in report.objectives" :key="o.id" class="obj" :class="o.status" :title="o.assumed ? t('obj.assumed') : undefined">
+        <component :is="actionOf(o) ? 'button' : 'div'" v-for="o in report.objectives" :key="o.id" class="obj" :class="[o.status, actionOf(o) && 'act']" :title="objHint(o) || undefined" @click="openObjective(o)">
           <span class="ol truncate">{{ objLabel(o) }}</span>
           <span class="ov mono">{{ objValue(o) }}<component :is="markIcon(o.status)" :size="12" class="mark" /></span>
-        </div>
+        </component>
       </div>
       <p class="conf" :title="t('checks.confidence.hint')">{{ t('checks.confidence', { pct: Math.round(report.score.coverage * 100) }) }}</p>
     </template>
@@ -120,6 +153,8 @@ const markIcon = (s: Status) => (s === 'ok' ? Check : s === 'critical' ? X : s =
 .tile.on { border-color: currentColor; }
 .objectives { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 10px 20px 0; }
 .obj { display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 12px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius); font-size: 12.5px; min-width: 0; }
+.obj.act { cursor: pointer; text-align: left; transition: border-color .12s, box-shadow .12s; }
+.obj.act:hover { border-color: var(--accent); box-shadow: var(--shadow-1); }
 .obj:last-child:nth-child(odd) { grid-column: 1 / -1; }
 .ol { color: var(--muted); flex: 1; }
 .ov { font-size: 12.5px; color: var(--text); white-space: nowrap; display: inline-flex; align-items: center; gap: 5px; }

@@ -5,6 +5,8 @@ import en from '../src/i18n/en'
 import enAdmin from '../src/i18n/en.admin'
 import ru from '../src/i18n/ru'
 import ruAdmin from '../src/i18n/ru.admin'
+import { GROUP_ORDER } from '../src/editor/paletteCommands'
+import { GROUPS, SHORTCUTS } from '../src/lib/shortcuts'
 
 function sources(dir: string): string[] {
   return readdirSync(dir).flatMap((f) => {
@@ -41,10 +43,11 @@ describe('translations', () => {
 
   it('cover the code families the UI builds keys from', () => {
     const families: Record<string, string[]> = {
-      'tab.': ['checks', 'requirements', 'cost', 'chat'],
+      'tab.': ['checks', 'requirements', 'capacity', 'cost', 'chat'],
+      'cap.state.': ['ok', 'tight', 'over', 'unknown'],
       'sim.result.': ['up', 'degraded', 'down'],
       'checks.statuses.': ['critical', 'risk', 'no_data', 'ok', 'na'],
-      'export.': ['json', 'terraform', 'helm', 'adr', 'runbook', 'mermaid'],
+      'export.': ['json', 'terraform', 'helm', 'adr', 'runbook', 'mermaid', 'svg'],
       'layer.': ['network', 'data', 'dr', 'all'],
       'req.failureTolerance.': ['instance', 'site', 'geo'],
       'node.state.': ['up', 'partial', 'down', 'stalled', 'fenced', 'promoted', 'isolated'],
@@ -54,6 +57,10 @@ describe('translations', () => {
       'fix.': ['add_backup', 'add_member', 'add_required', 'add_witness', 'group', 'make_sync', 'remove_edge', 'scale', 'set_dcs', 'set_prop', 'set_replicas', 'set_role'],
       'chat.proposal.': ['applied', 'rejected', 'stale'],
     }
+    // families that come from data: the shortcut table and the palette sections
+    families['kb.'] = SHORTCUTS.map((x) => x.id)
+    families['shortcuts.group.'] = [...GROUPS]
+    families['palette.group.'] = [...GROUP_ORDER]
     const missing: string[] = []
     for (const [prefix, codes] of Object.entries(families)) for (const c of codes) if (!(prefix + c in RU) || !(prefix + c in EN)) missing.push(prefix + c)
     expect(missing).toEqual([])

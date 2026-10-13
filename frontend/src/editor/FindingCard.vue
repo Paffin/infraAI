@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { ChevronDown, ChevronRight, Sparkles } from 'lucide-vue-next'
+import { ArrowRight, ChevronDown, ChevronRight, Sparkles } from 'lucide-vue-next'
 import type { Finding } from '@/api/types'
 import { lt, t } from '@/i18n'
 import { findingText, findingTitle, fixLabel, statusLabel, statusTagClass } from '@/lib/findings'
+import { focusNeed } from '@/lib/navigate'
+import { needExists, needView, uniqueNeeds } from '@/lib/needs'
 import { useAi } from '@/stores/ai'
 import { useApp } from '@/stores/app'
 import { useEditor } from '@/stores/editor'
@@ -20,6 +22,12 @@ const hasSubjects = computed(() => props.finding.subjects.nodes.length + props.f
 const canAccept = computed(() => app.canEdit && !editor.readonly && (props.finding.status === 'risk' || props.finding.status === 'critical') && !props.finding.accepted)
 const canFix = computed(() => app.canEdit && !editor.readonly)
 const canAi = computed(() => canFix.value && ai.enabled && !ai.busy)
+/** "No data" findings name the fields that would answer them; each button opens its field. */
+const MAX_NEEDS = 3
+const needList = computed(() => uniqueNeeds(props.finding.needs ?? []).filter((n) => needExists(n, editor.shown)))
+const needItems = computed(() => needList.value.slice(0, MAX_NEEDS).map((need) => ({ need, view: needView(need, editor.shown, app.index!) })))
+const needMore = computed(() => Math.max(0, needList.value.length - MAX_NEEDS))
+const showNeeds = computed(() => needItems.value.length > 0 && app.canEdit && !editor.readonly && !props.finding.accepted)
 const accepting = ref(false)
 const why = ref(false)
 const busy = ref(false)
@@ -44,6 +52,13 @@ async function revoke() {
     </div>
     <h4>{{ findingTitle(rule, finding) }}</h4>
     <p class="text">{{ findingText(rule, finding) }}</p>
+    <div v-if="showNeeds" class="needs">
+      <span class="needs-h">{{ t('checks.needs') }}</span>
+      <button v-for="x in needItems" :key="`${x.need.target}:${x.need.id ?? ''}:${x.need.prop}`" class="need" :title="t('checks.needs.open', { prop: x.view.prop, where: x.view.where })" @click="focusNeed(x.need)">
+        <b>{{ x.view.prop }}</b><span v-if="x.need.target !== 'requirements'" class="where truncate">{{ x.view.where }}</span><ArrowRight :size="12" />
+      </button>
+      <span v-if="needMore" class="faint more">{{ t('checks.needs.more', { n: needMore }) }}</span>
+    </div>
     <p v-if="finding.accepted" class="reason">{{ t('checks.accepted.by', { reason: finding.accepted.reason }) }}</p>
 
     <div v-if="why && rule" class="why">
@@ -77,6 +92,13 @@ async function revoke() {
 .rid { font-size: 12px; color: var(--faint); letter-spacing: .02em; }
 h4 { font-size: 14.5px; margin: 0 0 4px; }
 .text { margin: 0 0 10px; color: var(--text-2); font-size: 13.5px; line-height: 1.5; }
+.needs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 10px; }
+.needs-h { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); margin-right: 2px; }
+.need { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; height: 26px; padding: 0 10px; border-radius: 13px; border: 1px solid var(--accent-line); background: var(--accent-soft); color: var(--accent); font-size: 12.5px; }
+.need:hover { border-color: var(--accent); }
+.need b { font-weight: 600; white-space: nowrap; }
+.need .where { max-width: 130px; color: var(--muted); }
+.needs .more { font-size: 12px; }
 .reason { margin: -4px 0 10px; font-size: 12.5px; color: var(--muted); font-style: italic; }
 .actions .btn { height: auto; min-height: 28px; padding-top: 4px; padding-bottom: 4px; white-space: normal; text-align: left; line-height: 1.3; }
 .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }

@@ -69,7 +69,7 @@ export function createFlowBuilder() {
       const sig = `${x}|${y}|${parent}|${draggable}`
       nodes.push(reuse<FlowNode>(id, sig, () => ({
         id, type: 'card', position: { x, y }, width: CARD_W, height: CARD_H, parentNode: parent ? zoneFlowId(parent) : undefined,
-        draggable, selectable: false, zIndex: 20, data: { id: n.id },
+        draggable, selectable: true, zIndex: 20, data: { id: n.id },
       })))
     }
 

@@ -25,6 +25,7 @@ const changed = computed(() => !!editor.previewSets?.changed.nodes.has(id.value)
 const lit = computed(() => !!editor.highlight?.nodes.includes(id.value))
 const dim = computed(() => !!editor.highlight && !lit.value)
 const connecting = computed(() => editor.connectFrom === id.value)
+const inMulti = computed(() => editor.multi.includes(id.value))
 
 const dot = computed(() => {
   if (!editor.report || proposed.value) return proposed.value ? 'var(--info-dot)' : ''
@@ -34,8 +35,8 @@ const dot = computed(() => {
 const stateLabel = computed(() => (simState.value && simState.value !== 'up' ? t('node.state.' + simState.value) : ''))
 const sides = { t: Position.Top, b: Position.Bottom, l: Position.Left, r: Position.Right }
 
+// the click must reach the flow's node wrapper: that is what selects a card (Shift+click extends the selection)
 function onClick(e: MouseEvent) {
-  e.stopPropagation()
   editor.clickNode(id.value, e)
 }
 </script>
@@ -45,7 +46,7 @@ function onClick(e: MouseEvent) {
     v-if="node"
     class="arch-node"
     :class="[
-      selected && 'selected', status && !proposed && 'st-' + status, proposed && 'proposed', ghost && 'ghost', changed && 'changed', lit && 'lit', dim && 'dim', connecting && 'connecting',
+      selected && 'selected', inMulti && 'multi', status && !proposed && 'st-' + status, proposed && 'proposed', ghost && 'ghost', changed && 'changed', lit && 'lit', dim && 'dim', connecting && 'connecting',
       simState && 'sim-' + simState, editor.pickingNode && 'pickable', editor.tool === 'connect' && 'connectable',
     ]"
     :title="proposed ? t('inspector.proposed') : undefined"
@@ -89,6 +90,8 @@ function onClick(e: MouseEvent) {
 .lit { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); animation: pulse 1.1s ease-in-out 3; }
 @keyframes pulse { 50% { box-shadow: 0 0 0 9px rgba(46, 91, 236, .12); } }
 .connecting { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.multi { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow-2); }
+.multi .h { opacity: 0 !important; }
 .pickable { cursor: crosshair; }
 .pickable:hover { border-color: var(--crit); box-shadow: 0 0 0 3px var(--crit-bg); }
 .connectable { cursor: crosshair; }

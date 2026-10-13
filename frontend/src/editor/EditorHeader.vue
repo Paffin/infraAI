@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { History, Zap } from 'lucide-vue-next'
+import { History, Search, Zap } from 'lucide-vue-next'
 import BrandLogo from '@/components/BrandLogo.vue'
 import LangSwitch from '@/components/LangSwitch.vue'
 import * as api from '@/api/endpoints'
 import { t } from '@/i18n'
 import { errorMessage } from '@/lib/format'
+import { shortcutText } from '@/lib/shortcuts'
 import { scoreTone } from '@/lib/score'
 import { useApp } from '@/stores/app'
 import { useDialogs } from '@/stores/dialogs'
@@ -69,6 +70,7 @@ async function leave() {
       <button :class="{ on: ui.aiMode === 'manual' }" @click="ui.aiMode = 'manual'">{{ t('editor.mode.manual') }}</button>
     </div>
     <span class="spacer" />
+    <button class="cmdk" :title="t('palette.open')" :aria-label="t('palette.open')" @click="ui.palette = true"><Search :size="14" /><span class="lbl">{{ t('palette.open') }}</span><kbd>{{ shortcutText('palette') }}</kbd></button>
     <button class="score" :class="[tone, lowConfidence && 'weak']" :title="lowConfidence ? t('checks.confidence.hint') : t('editor.score.title')" @click="ui.modal = 'score'">
       {{ t('editor.score') }}<b>{{ score === null ? '—' : Math.round(score) }}</b><span>/100</span><i v-if="lowConfidence" class="conf">{{ t('editor.score.confidence', { pct: confidence ?? 0 }) }}</i>
     </button>
@@ -104,7 +106,10 @@ async function leave() {
 .score.weak { border-style: dashed; }
 .score .conf { font-style: normal; font-size: 11.5px; opacity: .85; margin-left: 2px; }
 .score.none { color: var(--on-dark-muted); border-color: #3a4256; }
+.cmdk { display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 8px 0 11px; border-radius: var(--radius-sm); border: 1px solid #3a4256; background: transparent; color: var(--on-dark-muted); font-size: 13px; white-space: nowrap; }
+.cmdk:hover { background: var(--ink-3); color: #fff; border-color: #4a5470; }
+.cmdk kbd { font-family: var(--mono); font-size: 11px; padding: 1px 6px; border: 1px solid #3a4256; border-radius: 4px; color: var(--on-dark-muted); }
 .long { display: inline; } .short { display: none; }
-@media (max-width: 1600px) { .long { display: none; } .short { display: inline; } .crumbs .meta { display: none; } }
+@media (max-width: 1600px) { .long { display: none; } .short { display: inline; } .crumbs .meta { display: none; } .cmdk .lbl { display: none; } }
 @media (max-width: 1360px) { .btn-dark { font-size: 0; gap: 0; padding: 0 10px; } .mode button { padding: 0 10px; } }
 </style>

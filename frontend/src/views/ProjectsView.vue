@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { Plus, Search, Pencil, Trash2, Boxes } from 'lucide-vue-next'
+import { Plus, Search, Pencil, Trash2, Boxes, Copy } from 'lucide-vue-next'
 import * as api from '@/api/endpoints'
 import type { ProjectListItem } from '@/api/types'
+import DiagramThumb from '@/components/DiagramThumb.vue'
 import Modal from '@/components/Modal.vue'
 import TopBar from '@/components/TopBar.vue'
 import { lang, lt, t } from '@/i18n'
@@ -27,10 +28,28 @@ const creating = ref(false)
 const form = ref({ name: '', templateId: '' })
 const busy = ref(false)
 
+type Sort = 'updated' | 'name' | 'worst' | 'best'
+const SORTS: Sort[] = ['updated', 'name', 'worst', 'best']
+const readSort = (): Sort => { try { const v = localStorage.getItem('ia_projects_sort') as Sort | null; return v && SORTS.includes(v) ? v : 'updated' } catch { return 'updated' } }
+const sort = ref<Sort>(readSort())
+watch(sort, (v) => { try { localStorage.setItem('ia_projects_sort', v) } catch { /* ignore */ } })
+/** Show only projects with open critical findings or risks. */
+const attention = ref(false)
+const needsAttention = (p: ProjectListItem) => !!p.summary && p.summary.counts.critical + p.summary.counts.risk > 0
+
 const filtered = computed(() => {
   const q = query.value.trim().toLowerCase()
-  return q ? items.value.filter((p) => (p.name + ' ' + p.description).toLowerCase().includes(q)) : items.value
+  let list = items.value.filter((p) => (!q || (p.name + ' ' + p.description).toLowerCase().includes(q)) && (!attention.value || needsAttention(p)))
+  // projects without a score sort last in both score orders
+  const score = (p: ProjectListItem) => p.summary?.score ?? null
+  const byScore = (dir: 1 | -1) => (a: ProjectListItem, b: ProjectListItem) => (score(a) === null ? 1 : score(b) === null ? -1 : (score(a)! - score(b)!) * dir)
+  if (sort.value === 'name') list = [...list].sort((a, b) => a.name.localeCompare(b.name, lang.value, { numeric: true }))
+  else if (sort.value === 'worst') list = [...list].sort(byScore(1))
+  else if (sort.value === 'best') list = [...list].sort(byScore(-1))
+  else list = [...list].sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
+  return list
 })
+const attentionCount = computed(() => items.value.filter(needsAttention).length)
 const templates = computed(() => [...(app.boot?.templates ?? [])].sort((a, b) => a.order - b.order))
 
 async function load() {
@@ -74,6 +93,20 @@ async function rename(p: ProjectListItem) {
   }
 }
 
+/** A copy of the working diagram under a new name (versions and accepted risks stay with the original). */
+async function duplicate(p: ProjectListItem) {
+  const name = await dialogs.prompt({ title: t('projects.duplicate'), label: t('projects.duplicate.prompt'), value: t('projects.duplicate.name', { name: p.name }) })
+  if (!name?.trim()) return
+  try {
+    const src = await api.projects.get(p.id)
+    await api.projects.create({ name: name.trim(), description: p.description, architecture: src.architecture, lang: lang.value })
+    toasts.ok(t('projects.duplicate.done', { name: name.trim() }))
+    await load()
+  } catch (e) {
+    toasts.error(errorMessage(e))
+  }
+}
+
 async function remove(p: ProjectListItem) {
   if (!(await dialogs.confirm({ title: t('projects.delete.confirm', { name: p.name }), danger: true, confirmLabel: t('common.delete') }))) return
   try {
@@ -97,6 +130,11 @@ onMounted(load)
           <Search :size="15" />
           <input v-model="query" class="input" :placeholder="t('common.search')" />
         </div>
+        <label v-if="items.length > 1" class="sort"><span class="sr-only">{{ t('projects.sort') }}</span>
+          <select v-model="sort" class="select" :aria-label="t('projects.sort')">
+            <option v-for="x in SORTS" :key="x" :value="x">{{ t('projects.sort.' + x) }}</option>
+          </select>
+        </label>
         <button v-if="app.canEdit" class="btn btn-primary" @click="openCreate"><Plus :size="16" />{{ t('projects.new') }}</button>
       </div>
 
@@ -108,13 +146,20 @@ onMounted(load)
         <button v-if="app.canEdit" class="btn btn-primary" @click="openCreate"><Plus :size="16" />{{ t('projects.new') }}</button>
       </div>
 
-      <div v-else class="grid">
+      <div v-if="items.length && attentionCount" class="chips">
+        <button class="chip" :class="{ on: attention }" :aria-pressed="attention" @click="attention = !attention">{{ t('projects.attention', { n: attentionCount }) }}</button>
+      </div>
+
+      <div v-if="items.length" class="grid">
         <article v-for="p in filtered" :key="p.id" class="card project" @click="router.push({ name: 'editor', params: { id: p.id } })">
+          <DiagramThumb :thumb="p.thumb" />
+          <div class="pbody">
           <div class="top">
             <h3 class="grow truncate">{{ p.name }}</h3>
             <template v-if="app.canEdit">
-              <button class="btn btn-ghost btn-icon" :title="t('projects.rename')" @click.stop="rename(p)"><Pencil :size="15" /></button>
-              <button class="btn btn-ghost btn-icon" :title="t('common.delete')" @click.stop="remove(p)"><Trash2 :size="15" /></button>
+              <button class="btn btn-ghost btn-icon" :title="t('projects.rename')" :aria-label="t('projects.rename')" @click.stop="rename(p)"><Pencil :size="15" /></button>
+              <button class="btn btn-ghost btn-icon" :title="t('projects.duplicate')" :aria-label="t('projects.duplicate')" @click.stop="duplicate(p)"><Copy :size="15" /></button>
+              <button class="btn btn-ghost btn-icon" :title="t('common.delete')" :aria-label="t('common.delete')" @click.stop="remove(p)"><Trash2 :size="15" /></button>
             </template>
           </div>
           <p class="desc muted">{{ p.description || ' ' }}</p>
@@ -136,6 +181,7 @@ onMounted(load)
             <span>·</span>
             <span>{{ t('projects.updated', { when: fmtRelative(p.updatedAt) }) }}</span>
             <span v-if="p.owner" class="truncate">· {{ p.owner }}</span>
+          </div>
           </div>
         </article>
         <div v-if="!filtered.length" class="empty" style="grid-column: 1 / -1">{{ t('library.nothing') }}</div>
@@ -176,17 +222,21 @@ onMounted(load)
 <style scoped>
 .page { height: 100%; display: flex; flex-direction: column; }
 .content { flex: 1; overflow: auto; padding: 28px 32px 48px; max-width: 1280px; width: 100%; margin: 0 auto; }
-.head { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; }
+.head { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; flex-wrap: wrap; }
 .head h1 { font-size: 24px; flex: 1; }
 .search { position: relative; width: 260px; }
 .search svg { position: absolute; left: 10px; top: 10px; color: var(--faint); }
 .search .input { padding-left: 32px; }
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
-.project { padding: 16px 18px; cursor: pointer; display: flex; flex-direction: column; gap: 8px; transition: box-shadow .12s, border-color .12s; }
+.project { padding: 0; overflow: hidden; cursor: pointer; display: flex; flex-direction: column; transition: box-shadow .12s, border-color .12s; content-visibility: auto; contain-intrinsic-size: auto 330px; }
+.pbody { padding: 14px 18px 16px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.sort { width: 190px; }
+.chips { display: flex; gap: 8px; margin: -8px 0 16px; }
+.chip.on { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent); font-weight: 600; }
 .project:hover { box-shadow: var(--shadow-2); border-color: var(--line-strong); }
 .top { display: flex; align-items: center; gap: 4px; }
 .top h3 { font-size: 16px; }
-.desc { margin: 0; min-height: 2.9em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 13px; }
+.desc { margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 13px; }
 .meta { display: flex; align-items: center; gap: 12px; margin-top: 4px; }
 .score { display: flex; align-items: baseline; gap: 3px; padding: 4px 10px; border-radius: var(--radius-sm); border: 1px solid var(--line); background: var(--surface-2); }
 .score b { font-size: 20px; letter-spacing: -0.02em; }

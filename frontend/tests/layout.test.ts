@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import type { Architecture, Catalog } from '../src/api/types'
 import { indexCatalog } from '../src/lib/catalog'
-import { CARD_H, CARD_W, computeDepths, hasPos, hasRect, layoutAll, mergeArchitecture, nodeRect, placeMissing, zoneAt, zoneRect } from '../src/editor/layout'
+import { CARD_H, CARD_W, computeDepths, hasPos, hasRect, layoutAll, mergeArchitecture, nodeRect, placeInZone, placeMissing, zoneAt, zoneRect } from '../src/editor/layout'
 
 const defaults = join(process.cwd(), '../backend/crates/engine/defaults')
 const catalog = JSON.parse(readFileSync(join(defaults, 'catalog.json'), 'utf8')) as Catalog
@@ -139,5 +139,56 @@ describe('queries and merge', () => {
     expect(merged.nodes.every((n) => !n.zoneId || merged.zones.some((z) => z.id === n.zoneId))).toBe(true)
     const maxBase = Math.max(...base.nodes.map((n) => n.ui!.x! + CARD_W))
     expect(Math.min(...merged.nodes.slice(base.nodes.length).map((n) => n.ui!.x!))).toBeGreaterThan(maxBase)
+  })
+})
+
+describe('placeInZone (move nodes to another zone)', () => {
+  const t = templates.find((x) => x.id === 'three-az-region')!
+  const laid = layoutAll(t.architecture, ix)
+  const inZone = (a: Architecture, zid: string) => a.nodes.filter((n) => n.zoneId === zid)
+
+  it('puts the nodes inside the target zone, on free slots, without touching the others', () => {
+    const [from, to] = laid.zones.filter((z) => z.parentId).slice(0, 2)
+    const moving = inZone(laid, from.id).slice(0, 3).map((n) => n.id)
+    expect(moving).toHaveLength(3)
+    const out = placeInZone(laid, moving, to.id)
+    const zr = zoneRect(out.zones.find((z) => z.id === to.id)!)!
+    for (const id of moving) {
+      const n = out.nodes.find((x) => x.id === id)!
+      expect(n.zoneId).toBe(to.id)
+      const r = nodeRect(n)!
+      expect(r.x).toBeGreaterThanOrEqual(zr.x)
+      expect(r.y).toBeGreaterThanOrEqual(zr.y)
+      expect(r.x + r.w).toBeLessThanOrEqual(zr.x + zr.w)
+      expect(r.y + r.h).toBeLessThanOrEqual(zr.y + zr.h)
+    }
+    // no card on top of another one anywhere
+    const rects = out.nodes.map((n) => nodeRect(n)!)
+    for (let i = 0; i < rects.length; i++) for (let j = i + 1; j < rects.length; j++) expect(overlap(rects[i], rects[j])).toBe(false)
+    // the rest of the diagram is where it was
+    for (const n of laid.nodes.filter((x) => !moving.includes(x.id))) expect(out.nodes.find((x) => x.id === n.id)!.ui).toEqual(n.ui)
+    // pure: the input is untouched
+    expect(laid.nodes.find((n) => n.id === moving[0])!.zoneId).toBe(from.id)
+  })
+
+  it('grows the zone when its grid is full', () => {
+    const [, to] = laid.zones.filter((z) => z.parentId)
+    const before = zoneRect(to)!
+    const crowd = laid.nodes.filter((n) => n.zoneId !== to.id).slice(0, 14).map((n) => n.id)
+    const out = placeInZone(laid, crowd, to.id)
+    const after = zoneRect(out.zones.find((z) => z.id === to.id)!)!
+    expect(after.h).toBeGreaterThan(before.h)
+    for (const id of crowd) {
+      const r = nodeRect(out.nodes.find((n) => n.id === id)!)!
+      expect(r.y + r.h).toBeLessThanOrEqual(after.y + after.h)
+    }
+    const rects = out.nodes.map((n) => nodeRect(n)!)
+    for (let i = 0; i < rects.length; i++) for (let j = i + 1; j < rects.length; j++) expect(overlap(rects[i], rects[j])).toBe(false)
+  })
+
+  it('leaves the architecture alone when the zone has no rectangle', () => {
+    const bare = { ...laid, zones: laid.zones.map((z) => ({ ...z, ui: undefined })) }
+    const id = laid.nodes[0].id
+    expect(placeInZone(bare, [id], laid.zones[0].id).nodes.find((n) => n.id === id)!.zoneId).toBe(laid.nodes[0].zoneId)
   })
 })

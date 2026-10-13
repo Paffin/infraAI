@@ -401,3 +401,32 @@ export function mergeArchitecture(base: Architecture, add: Architecture, ix: Cat
   for (const e of laid.edges) merged.edges.push({ ...e, id: e.id + tag, source: e.source + tag, target: e.target + tag })
   return merged
 }
+
+/**
+ * Move nodes into a zone: they take free slots of the zone's grid (the cards that stay are left alone) and the
+ * zone grows downwards when its grid is full. Pure: returns a new architecture.
+ */
+export function placeInZone(input: Architecture, nodeIds: string[], zoneId: string): Architecture {
+  const arch = clone(input)
+  const zone = arch.zones.find((z) => z.id === zoneId)
+  const zr = zone && zoneRect(zone)
+  if (!zone || !zr) return arch
+  const moving = new Set(nodeIds)
+  const taken: Rect[] = arch.nodes.filter((n) => !moving.has(n.id)).map(nodeRect).filter((r): r is Rect => !!r)
+  const cols = Math.max(1, Math.floor((zr.w - 2 * PAD_X + H_GAP) / (CARD_W + H_GAP)))
+  const slot = (i: number): Rect => ({ x: zr.x + PAD_X + (i % cols) * (CARD_W + H_GAP), y: zr.y + PAD_TOP + Math.floor(i / cols) * (CARD_H + V_GAP), w: CARD_W, h: CARD_H })
+  let i = 0
+  let bottom = zr.y + zr.h
+  for (const n of arch.nodes) {
+    if (!moving.has(n.id)) continue
+    let r = slot(i)
+    while (taken.some((t) => overlaps(t, r))) r = slot(++i)
+    n.zoneId = zoneId
+    n.ui = { ...n.ui, x: r.x, y: r.y }
+    taken.push(r)
+    i++
+    bottom = Math.max(bottom, r.y + r.h + PAD_BOTTOM)
+  }
+  if (bottom > zr.y + zr.h && zone.ui) zone.ui = { ...zone.ui, h: bottom - zr.y }
+  return arch
+}

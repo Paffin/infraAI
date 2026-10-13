@@ -52,7 +52,7 @@ answers `403 password_change_required`.
 
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/projects` | `{projects:[{id,name,description,owner,updatedAt,createdAt,headVersion,draftRev,nodeCount,summary}]}`; `summary` = `ReportSummary` of the latest version |
+| GET | `/projects` | `{projects:[{id,name,description,owner,updatedAt,createdAt,headVersion,draftRev,nodeCount,summary,thumb}]}`; `summary` = `ReportSummary` of the latest version; `thumb` = what a thumbnail needs, see below |
 | POST | `/projects` | `{name, description?, templateId? \| architecture?, lang?}` → `{id}` (editor) |
 | GET | `/projects/{id}` | `{project, architecture, rev, waivers}` |
 | PATCH | `/projects/{id}` | `{name?, description?}` |
@@ -66,6 +66,12 @@ answers `403 password_change_required`.
 | POST | `/projects/{id}/waivers` | `{fingerprint, reason, expiresInDays?, lang?}` → `{id}` (accept a risk) |
 | DELETE | `/projects/{id}/waivers/{wid}` | revoke |
 | GET | `/projects/{id}/export/{format}?lang=&version=&download=1` | JSON `{format, files:[{path,content}], report}`; `report` (only for `kubernetes`/`helm`/`terraform`, see [IAC.md](IAC.md)) = `{clusters, generated, skipped:[{unit,name,kind,nodes,code,message,props}], notes, prerequisites, secrets}`; with `download=1` a file or a zip |
+
+`thumb` is the working copy boiled down to a layout: `{zones:[{i,x,y,w,h,t,p}], nodes:[{i,x,y,k,z}], edges:[[source,target,type]]}`
+(`i` id, `t` zone type, `p` parent zone, `k` kind, `z` zone). It carries no names or properties, so the list does not grow
+with the document. Coordinates are `null` until the editor has laid the project out (a project made from a template or
+through the API is laid out the first time somebody opens it); the web UI then lays the thumbnail out itself with the same
+algorithm.
 
 Saving the draft is *not* a version. Versions are explicit snapshots (and are created automatically
 around applied AI proposals).
@@ -93,9 +99,11 @@ around applied AI proposals).
   counts: {critical, risk, noData, ok, na, accepted},          // per rule
   rules: [{ruleId, category, status, findings, accepted}],
   findings: [{ id, ruleId, category, status, subjects:{nodes,edges,zones}, vars, fixes:[{id,kind,vars,ops}],
+               needs?:[{target: requirements|node|edge|zone, id?, prop}],
                scenario?, accepted?:{reason,by,at} }],         // id = stable fingerprint (waivers)
   objectives: [{id: rto|rpo|site_loss|spof|capacity, status, required, actual, assumed}],
   scenarios: [ScenarioSummary], baselineLoads: [UnitLoad],
+  capacity: [CapacityRow],                                     // empty without a declared peak load
   score: {value, penalty, coverage, breakdown:[{ruleId,status,penalty}]},
   cost: {currency, symbol, total, nodes:[{nodeId,amount,missing,model}], byCategory, byZone, byKind, incomplete, budget},
   units: {<groupKey>: <display name>} }
@@ -105,6 +113,19 @@ around applied AI proposals).
 (or `noDataMessage` / `requirementMessage` when `status = no_data`; `requirementMessage` when the
 fingerprint ends with `:req`) and `finding.vars`; fix button labels come from `rule.fixLabels[fix.kind]`
 rendered with `{...finding.vars, ...fix.vars}`. A fix is a list of patch operations (`ops`).
+
+`needs` (only on `no_data` findings) names the values that would turn the question into an answer: `target`
+`requirements` + `prop` = a field of the requirements (`rtoSeconds`, `rpoSeconds`, `rpsPeak`, `budgetMonthly`…), or
+`node` / `edge` / `zone` + `id` + `prop` = a property of that element (`rpsPerReplica`, `lagSeconds`, `geo`…). The UI
+turns each into a button that opens exactly that field; every `prop` of an element is a property the catalog defines for
+it (a test of the frontend checks this against the shipped catalog).
+
+`capacity[]` is the capacity plan of each logical service (unit): `{unit, name, kind, nodes, instances,
+perReplicaRps, loadRps, capacityRps|null, targetRps, instancesNeeded|null, worst:{scenario, failed, loadRps,
+capacityRps}|null}`. `capacityRps = null` means there is no capacity model (set vCPU or RPS per instance);
+`targetRps` is the capacity that keeps the configured headroom at peak plus growth; `worst` is the failure that leaves
+the service the least capacity relative to its load. Load and the capacity it needs scale linearly with `rpsPeak`,
+so a client can answer "what if traffic doubles" by multiplying (the editor's *Capacity* tab does).
 
 ### SimResult
 

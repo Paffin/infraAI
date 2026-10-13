@@ -1,0 +1,1884 @@
+{
+ "architecture": {
+  "schemaVersion": 1,
+  "meta": {
+   "name": "2 ЦОД + witness",
+   "description": "Active/active в двух ЦОД, арбитр кворума в третьей площадке"
+  },
+  "requirements": {
+   "rpsPeak": 5000,
+   "growthPercent": 30,
+   "rtoSeconds": 900,
+   "rpoSeconds": 0,
+   "budgetMonthly": 1200000,
+   "failureTolerance": "site",
+   "availabilitySlo": 99.95
+  },
+  "zones": [
+   {
+    "id": "dc1",
+    "name": "ЦОД-1 · Москва",
+    "type": "dc",
+    "parentId": null,
+    "role": "active",
+    "props": {
+     "tier": "III",
+     "geo": "moscow",
+     "costModel": "onprem"
+    }
+   },
+   {
+    "id": "dc2",
+    "name": "ЦОД-2 · Москва",
+    "type": "dc",
+    "parentId": null,
+    "role": "active",
+    "props": {
+     "tier": "III",
+     "geo": "moscow",
+     "costModel": "onprem"
+    }
+   },
+   {
+    "id": "site3",
+    "name": "Площадка 3 · облако",
+    "type": "cloud",
+    "parentId": null,
+    "role": "witness",
+    "props": {
+     "geo": "cloud-north",
+     "costModel": "cloud"
+    }
+   }
+  ],
+  "nodes": [
+   {
+    "id": "users",
+    "kind": "users",
+    "name": "Пользователи",
+    "zoneId": null,
+    "group": null,
+    "role": null,
+    "props": {
+     "rpsLabel": "5k RPS пик"
+    }
+   },
+   {
+    "id": "gslb",
+    "kind": "gslb",
+    "name": "GSLB + CDN",
+    "zoneId": null,
+    "group": "gslb",
+    "role": null,
+    "props": {
+     "replicas": 1,
+     "healthCheckSeconds": 5,
+     "failThreshold": 1,
+     "dnsTtlSeconds": 30
+    }
+   },
+   {
+    "id": "waf",
+    "kind": "waf",
+    "name": "WAF",
+    "zoneId": null,
+    "group": "waf",
+    "role": null,
+    "props": {
+     "replicas": 1
+    }
+   },
+   {
+    "id": "ingress-dc1",
+    "kind": "l7",
+    "name": "WAF + Ingress",
+    "zoneId": "dc1",
+    "group": "ingress",
+    "role": null,
+    "props": {
+     "replicas": 2,
+     "healthCheckSeconds": 3,
+     "failThreshold": 2
+    }
+   },
+   {
+    "id": "app-dc1",
+    "kind": "kubernetes",
+    "name": "Kubernetes · app",
+    "zoneId": "dc1",
+    "group": "app",
+    "role": null,
+    "props": {
+     "replicas": 32,
+     "vcpu": 1,
+     "ramGb": 2,
+     "hpaMin": 24,
+     "hpaMax": 64
+    }
+   },
+   {
+    "id": "kafka-dc1",
+    "kind": "kafka",
+    "name": "Kafka",
+    "zoneId": "dc1",
+    "group": "kafka-dc1",
+    "role": null,
+    "props": {
+     "replicas": 3,
+     "replicationFactor": 3,
+     "minInsync": 2,
+     "vcpu": 4,
+     "ramGb": 16,
+     "diskGb": 500,
+     "storageClass": "nvme",
+     "encryptionAtRest": true
+    }
+   },
+   {
+    "id": "mon-dc1",
+    "kind": "monitoring",
+    "name": "Мониторинг",
+    "zoneId": "dc1",
+    "group": "monitoring",
+    "role": null,
+    "props": {
+     "replicas": 2,
+     "vcpu": 2,
+     "ramGb": 8,
+     "diskGb": 200
+    }
+   },
+   {
+    "id": "ingress-dc2",
+    "kind": "l7",
+    "name": "WAF + Ingress",
+    "zoneId": "dc2",
+    "group": "ingress",
+    "role": null,
+    "props": {
+     "replicas": 2,
+     "healthCheckSeconds": 3,
+     "failThreshold": 2
+    }
+   },
+   {
+    "id": "app-dc2",
+    "kind": "kubernetes",
+    "name": "Kubernetes · app",
+    "zoneId": "dc2",
+    "group": "app",
+    "role": null,
+    "props": {
+     "replicas": 32,
+     "vcpu": 1,
+     "ramGb": 2,
+     "hpaMin": 24,
+     "hpaMax": 64
+    }
+   },
+   {
+    "id": "kafka-dc2",
+    "kind": "kafka",
+    "name": "Kafka",
+    "zoneId": "dc2",
+    "group": "kafka-dc2",
+    "role": null,
+    "props": {
+     "replicas": 3,
+     "replicationFactor": 3,
+     "minInsync": 2,
+     "vcpu": 4,
+     "ramGb": 16,
+     "diskGb": 500,
+     "storageClass": "nvme",
+     "encryptionAtRest": true
+    }
+   },
+   {
+    "id": "mon-dc2",
+    "kind": "monitoring",
+    "name": "Мониторинг",
+    "zoneId": "dc2",
+    "group": "monitoring",
+    "role": null,
+    "props": {
+     "replicas": 2,
+     "vcpu": 2,
+     "ramGb": 8,
+     "diskGb": 200
+    }
+   },
+   {
+    "id": "pg-primary",
+    "kind": "postgresql",
+    "name": "PostgreSQL primary",
+    "zoneId": "dc1",
+    "group": "pg",
+    "role": "primary",
+    "props": {
+     "version": "16",
+     "vcpu": 16,
+     "ramGb": 64,
+     "diskGb": 1000,
+     "storageClass": "nvme",
+     "failover": "auto",
+     "failoverSeconds": 30,
+     "dcs": "etcd",
+     "connectionPooler": true,
+     "encryptionAtRest": true
+    }
+   },
+   {
+    "id": "pg-replica",
+    "kind": "postgresql",
+    "name": "PostgreSQL replica",
+    "zoneId": "dc2",
+    "group": "pg",
+    "role": "replica",
+    "props": {
+     "version": "16",
+     "vcpu": 16,
+     "ramGb": 64,
+     "diskGb": 1000,
+     "storageClass": "nvme",
+     "failover": "auto",
+     "failoverSeconds": 30,
+     "dcs": "etcd",
+     "connectionPooler": true,
+     "encryptionAtRest": true
+    }
+   },
+   {
+    "id": "redis-primary",
+    "kind": "redis",
+    "name": "Redis (master)",
+    "zoneId": "dc1",
+    "group": "redis",
+    "role": "primary",
+    "props": {
+     "mode": "sentinel",
+     "vcpu": 4,
+     "ramGb": 32
+    }
+   },
+   {
+    "id": "redis-replica",
+    "kind": "redis",
+    "name": "Redis (replica)",
+    "zoneId": "dc2",
+    "group": "redis",
+    "role": "replica",
+    "props": {
+     "mode": "sentinel",
+     "vcpu": 4,
+     "ramGb": 32
+    }
+   },
+   {
+    "id": "redis-sentinel",
+    "kind": "redis",
+    "name": "Redis Sentinel",
+    "zoneId": "site3",
+    "group": "redis",
+    "role": "witness",
+    "props": {
+     "mode": "sentinel",
+     "vcpu": 1,
+     "ramGb": 1
+    }
+   },
+   {
+    "id": "etcd-dc1",
+    "kind": "etcd",
+    "name": "etcd",
+    "zoneId": "dc1",
+    "group": "etcd",
+    "role": "voter",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 4,
+     "diskGb": 50
+    }
+   },
+   {
+    "id": "etcd-dc2",
+    "kind": "etcd",
+    "name": "etcd",
+    "zoneId": "dc2",
+    "group": "etcd",
+    "role": "voter",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 4,
+     "diskGb": 50
+    }
+   },
+   {
+    "id": "etcd-site3",
+    "kind": "etcd",
+    "name": "etcd witness",
+    "zoneId": "site3",
+    "group": "etcd",
+    "role": "witness",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 4,
+     "diskGb": 50
+    }
+   },
+   {
+    "id": "vault-dc1",
+    "kind": "vault",
+    "name": "Vault",
+    "zoneId": "dc1",
+    "group": "vault",
+    "role": "primary",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 4,
+     "diskGb": 50
+    }
+   },
+   {
+    "id": "vault-site3",
+    "kind": "vault",
+    "name": "Vault DR",
+    "zoneId": "site3",
+    "group": "vault",
+    "role": "replica",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 4,
+     "diskGb": 50
+    }
+   },
+   {
+    "id": "gitops",
+    "kind": "gitops",
+    "name": "GitOps · Argo CD",
+    "zoneId": "site3",
+    "group": "gitops",
+    "role": null,
+    "props": {
+     "replicas": 2,
+     "vcpu": 2,
+     "ramGb": 4
+    }
+   },
+   {
+    "id": "backup",
+    "kind": "backup_storage",
+    "name": "Бэкапы offsite",
+    "zoneId": "site3",
+    "group": null,
+    "role": null,
+    "props": {
+     "immutable": true,
+     "retentionDays": 30,
+     "backupIntervalSeconds": 300,
+     "restoreSeconds": 7200,
+     "restoreTestedDays": 30,
+     "encryptionAtRest": true,
+     "diskGb": 20000
+    }
+   }
+  ],
+  "edges": [
+   {
+    "id": "e-users--gslb",
+    "source": "users",
+    "target": "gslb",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-gslb--waf",
+    "source": "gslb",
+    "target": "waf",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-waf--ingress-dc1",
+    "source": "waf",
+    "target": "ingress-dc1",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-ingress-dc1--app-dc1",
+    "source": "ingress-dc1",
+    "target": "app-dc1",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-app-dc1--kafka-dc1",
+    "source": "app-dc1",
+    "target": "kafka-dc1",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "fanout": 0.2,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-mon-dc1--app-dc1",
+    "source": "mon-dc1",
+    "target": "app-dc1",
+    "type": "control",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-gitops--app-dc1",
+    "source": "gitops",
+    "target": "app-dc1",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-app-dc1--vault-dc1",
+    "source": "app-dc1",
+    "target": "vault-dc1",
+    "type": "control",
+    "label": "secrets",
+    "props": {}
+   },
+   {
+    "id": "e-waf--ingress-dc2",
+    "source": "waf",
+    "target": "ingress-dc2",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-ingress-dc2--app-dc2",
+    "source": "ingress-dc2",
+    "target": "app-dc2",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-app-dc2--kafka-dc2",
+    "source": "app-dc2",
+    "target": "kafka-dc2",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "fanout": 0.2,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-mon-dc2--app-dc2",
+    "source": "mon-dc2",
+    "target": "app-dc2",
+    "type": "control",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-gitops--app-dc2",
+    "source": "gitops",
+    "target": "app-dc2",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-app-dc2--vault-dc1",
+    "source": "app-dc2",
+    "target": "vault-dc1",
+    "type": "control",
+    "label": "secrets",
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-app-dc1--pg-primary",
+    "source": "app-dc1",
+    "target": "pg-primary",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "fanout": 0.3,
+     "fanoutColdCache": 0.8,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-app-dc2--pg-replica",
+    "source": "app-dc2",
+    "target": "pg-replica",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "fanout": 0.3,
+     "fanoutColdCache": 0.8,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-app-dc1--redis-primary",
+    "source": "app-dc1",
+    "target": "redis-primary",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "fanout": 1
+    }
+   },
+   {
+    "id": "e-app-dc2--redis-replica",
+    "source": "app-dc2",
+    "target": "redis-replica",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "fanout": 1
+    }
+   },
+   {
+    "id": "e-redis-primary--redis-replica",
+    "source": "redis-primary",
+    "target": "redis-replica",
+    "type": "async",
+    "label": "async",
+    "props": {
+     "lagSeconds": 1,
+     "latencyMs": 1.2,
+     "latencyMeasured": true,
+     "tls": true,
+     "paths": 2,
+     "bandwidthMbps": 10000
+    }
+   },
+   {
+    "id": "e-redis-sentinel--redis-primary",
+    "source": "redis-sentinel",
+    "target": "redis-primary",
+    "type": "quorum",
+    "label": "кворум Sentinel",
+    "props": {
+     "tls": true,
+     "paths": 2
+    }
+   },
+   {
+    "id": "e-redis-sentinel--redis-replica",
+    "source": "redis-sentinel",
+    "target": "redis-replica",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "tls": true,
+     "paths": 2
+    }
+   },
+   {
+    "id": "e-pg-primary--pg-replica",
+    "source": "pg-primary",
+    "target": "pg-replica",
+    "type": "sync",
+    "label": "sync · RTT 1.2 мс",
+    "props": {
+     "latencyMs": 1.2,
+     "latencyMeasured": true,
+     "tls": true,
+     "bandwidthMbps": 10000,
+     "paths": 2
+    }
+   },
+   {
+    "id": "e-kafka-dc1--kafka-dc2",
+    "source": "kafka-dc1",
+    "target": "kafka-dc2",
+    "type": "async",
+    "label": "MirrorMaker · async",
+    "props": {
+     "lagSeconds": 2,
+     "latencyMs": 1.2,
+     "latencyMeasured": true,
+     "tls": true,
+     "paths": 2,
+     "bandwidthMbps": 10000,
+     "mitigation": "Заказы защищены transactional outbox в PostgreSQL: события в полёте (≈2 с) публикуются повторно после переключения."
+    }
+   },
+   {
+    "id": "e-etcd-dc1--etcd-dc2",
+    "source": "etcd-dc1",
+    "target": "etcd-dc2",
+    "type": "quorum",
+    "label": "кворум etcd 1+1+1",
+    "props": {
+     "latencyMs": 1.2,
+     "tls": true,
+     "paths": 2
+    }
+   },
+   {
+    "id": "e-etcd-dc2--etcd-site3",
+    "source": "etcd-dc2",
+    "target": "etcd-site3",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 12,
+     "tls": true,
+     "paths": 2
+    }
+   },
+   {
+    "id": "e-etcd-dc1--etcd-site3",
+    "source": "etcd-dc1",
+    "target": "etcd-site3",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 12,
+     "tls": true,
+     "paths": 2
+    }
+   },
+   {
+    "id": "e-pg-replica--backup",
+    "source": "pg-replica",
+    "target": "backup",
+    "type": "backup",
+    "label": "WAL + full / сутки",
+    "props": {
+     "intervalSeconds": 300,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-vault-dc1--backup",
+    "source": "vault-dc1",
+    "target": "backup",
+    "type": "backup",
+    "label": null,
+    "props": {
+     "intervalSeconds": 3600,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-vault-dc1--vault-site3",
+    "source": "vault-dc1",
+    "target": "vault-site3",
+    "type": "async",
+    "label": "DR replication",
+    "props": {
+     "lagSeconds": 5,
+     "latencyMs": 12,
+     "latencyMeasured": true,
+     "tls": true,
+     "paths": 2,
+     "bandwidthMbps": 1000
+    }
+   }
+  ]
+ },
+ "report": {
+  "engineVersion": 1,
+  "issues": [],
+  "counts": {
+   "critical": 1,
+   "risk": 0,
+   "noData": 0,
+   "ok": 48,
+   "na": 2,
+   "accepted": 0
+  },
+  "rules": [
+   {
+    "ruleId": "HA-SPOF-01",
+    "category": "ha",
+    "status": "critical",
+    "findings": 2,
+    "accepted": 0
+   },
+   {
+    "ruleId": "HA-SITE-01",
+    "category": "ha",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "HA-RTO-01",
+    "category": "dr",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "DR-RPO-01",
+    "category": "dr",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "DR-GEO-01",
+    "category": "dr",
+    "status": "na",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "DR-GEO-02",
+    "category": "dr",
+    "status": "na",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "DR-NET-01",
+    "category": "dr",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "DR-NET-02",
+    "category": "dr",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "HA-LB-01",
+    "category": "ha",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "HA-APP-01",
+    "category": "ha",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "HA-ZONE-01",
+    "category": "ha",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "HA-ZONE-02",
+    "category": "ha",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "HA-QRM-01",
+    "category": "ha",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "HA-QRM-02",
+    "category": "ha",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "HA-WIT-01",
+    "category": "ha",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "HA-DB-01",
+    "category": "ha",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "HA-DB-02",
+    "category": "ha",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "HA-DB-03",
+    "category": "dr",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "DR-KFK-01",
+    "category": "dr",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "HA-DB-04",
+    "category": "ha",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "HA-DB-05",
+    "category": "ha",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "HA-CACHE-01",
+    "category": "ha",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "HA-CACHE-02",
+    "category": "cap",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "HA-K8S-01",
+    "category": "ha",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "HA-GSLB-01",
+    "category": "ha",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "HA-DEP-01",
+    "category": "ha",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "HA-GRP-01",
+    "category": "ha",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "HA-OBS-01",
+    "category": "obs",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "HA-OBS-02",
+    "category": "obs",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "GOV-GIT-01",
+    "category": "gov",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "SEC-VLT-01",
+    "category": "sec",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "DR-BKP-01",
+    "category": "dr",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "DR-BKP-02",
+    "category": "dr",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "DR-BKP-03",
+    "category": "dr",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "DR-BKP-04",
+    "category": "dr",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "DR-BKP-05",
+    "category": "dr",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "NET-LAT-01",
+    "category": "net",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "NET-LAT-02",
+    "category": "net",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "NET-LINK-01",
+    "category": "net",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "NET-TLS-01",
+    "category": "sec",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "NET-BW-01",
+    "category": "net",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "NET-SEG-01",
+    "category": "sec",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "NET-WAF-01",
+    "category": "sec",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "SEC-ENC-01",
+    "category": "sec",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "SEC-ENC-02",
+    "category": "sec",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "CAP-01",
+    "category": "cap",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "CAP-02",
+    "category": "cap",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "CAP-03",
+    "category": "cap",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "COST-01",
+    "category": "cost",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "GOV-ZONE-01",
+    "category": "gov",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "GOV-ZONE-02",
+    "category": "gov",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   }
+  ],
+  "findings": [
+   {
+    "id": "HA-SPOF-01:gslb",
+    "ruleId": "HA-SPOF-01",
+    "category": "ha",
+    "status": "critical",
+    "subjects": {
+     "nodes": [
+      "gslb"
+     ],
+     "edges": [],
+     "zones": []
+    },
+    "vars": {
+     "node": "GSLB + CDN",
+     "reason": "GSLB + CDN"
+    },
+    "fixes": [
+     {
+      "id": "set_replicas:gslb:replicas",
+      "kind": "set_replicas",
+      "vars": {
+       "replicas": 2,
+       "node": "GSLB + CDN",
+       "key": "replicas",
+       "value": 2
+      },
+      "ops": [
+       {
+        "op": "update_node",
+        "id": "gslb",
+        "set": {
+         "props.replicas": 2
+        }
+       }
+      ]
+     }
+    ],
+    "scenario": {
+     "type": "instance",
+     "nodeId": "gslb",
+     "count": 1
+    }
+   },
+   {
+    "id": "HA-SPOF-01:waf",
+    "ruleId": "HA-SPOF-01",
+    "category": "ha",
+    "status": "critical",
+    "subjects": {
+     "nodes": [
+      "waf"
+     ],
+     "edges": [],
+     "zones": []
+    },
+    "vars": {
+     "node": "WAF",
+     "reason": "WAF, GSLB + CDN"
+    },
+    "fixes": [
+     {
+      "id": "set_replicas:waf:replicas",
+      "kind": "set_replicas",
+      "vars": {
+       "replicas": 2,
+       "node": "WAF",
+       "key": "replicas",
+       "value": 2
+      },
+      "ops": [
+       {
+        "op": "update_node",
+        "id": "waf",
+        "set": {
+         "props.replicas": 2
+        }
+       }
+      ]
+     }
+    ],
+    "scenario": {
+     "type": "instance",
+     "nodeId": "waf",
+     "count": 1
+    }
+   }
+  ],
+  "objectives": [
+   {
+    "id": "rto",
+    "status": "ok",
+    "required": 900.0,
+    "actual": 35.0,
+    "assumed": false
+   },
+   {
+    "id": "rpo",
+    "status": "ok",
+    "required": 0.0,
+    "actual": 0.0,
+    "assumed": false
+   },
+   {
+    "id": "site_loss",
+    "status": "ok",
+    "required": "site",
+    "actual": true,
+    "assumed": false
+   },
+   {
+    "id": "spof",
+    "status": "critical",
+    "required": 0,
+    "actual": 2,
+    "assumed": false
+   },
+   {
+    "id": "capacity",
+    "status": "ok",
+    "required": 0.8,
+    "actual": 0.96,
+    "assumed": false
+   }
+  ],
+  "scenarios": [
+   {
+    "scenario": {
+     "type": "zone",
+     "zoneId": "dc1"
+    },
+    "failed": [
+     "ЦОД-1 · Москва"
+    ],
+    "state": "degraded",
+    "recoveryKind": "auto",
+    "recoverySeconds": 35.0,
+    "rpoSeconds": 5.0,
+    "rpoAssumed": false,
+    "capacityRatio": 0.96,
+    "splitBrain": false,
+    "dataLost": false,
+    "downUnits": [
+     "Kafka"
+    ]
+   },
+   {
+    "scenario": {
+     "type": "zone",
+     "zoneId": "dc2"
+    },
+    "failed": [
+     "ЦОД-2 · Москва"
+    ],
+    "state": "degraded",
+    "recoveryKind": "none",
+    "recoverySeconds": 0.0,
+    "rpoSeconds": 0.0,
+    "rpoAssumed": false,
+    "capacityRatio": 0.96,
+    "splitBrain": false,
+    "dataLost": false,
+    "downUnits": [
+     "Kafka"
+    ]
+   },
+   {
+    "scenario": {
+     "type": "zone",
+     "zoneId": "site3"
+    },
+    "failed": [
+     "Площадка 3 · облако"
+    ],
+    "state": "up",
+    "recoveryKind": "none",
+    "recoverySeconds": 0.0,
+    "rpoSeconds": 0.0,
+    "rpoAssumed": false,
+    "capacityRatio": 1.92,
+    "splitBrain": false,
+    "dataLost": false,
+    "downUnits": [
+     "GitOps · Argo CD",
+     "Бэкапы offsite"
+    ]
+   },
+   {
+    "scenario": {
+     "type": "link",
+     "a": "dc1",
+     "b": "dc2"
+    },
+    "failed": [
+     "ЦОД-1 · Москва ↔ ЦОД-2 · Москва"
+    ],
+    "state": "degraded",
+    "recoveryKind": "auto",
+    "recoverySeconds": 6.0,
+    "rpoSeconds": 0.0,
+    "rpoAssumed": false,
+    "capacityRatio": 0.96,
+    "splitBrain": false,
+    "dataLost": false,
+    "downUnits": []
+   },
+   {
+    "scenario": {
+     "type": "link",
+     "a": "dc1",
+     "b": "site3"
+    },
+    "failed": [
+     "ЦОД-1 · Москва ↔ Площадка 3 · облако"
+    ],
+    "state": "up",
+    "recoveryKind": "none",
+    "recoverySeconds": 0.0,
+    "rpoSeconds": 0.0,
+    "rpoAssumed": false,
+    "capacityRatio": 1.92,
+    "splitBrain": false,
+    "dataLost": false,
+    "downUnits": []
+   },
+   {
+    "scenario": {
+     "type": "link",
+     "a": "dc2",
+     "b": "site3"
+    },
+    "failed": [
+     "ЦОД-2 · Москва ↔ Площадка 3 · облако"
+    ],
+    "state": "up",
+    "recoveryKind": "none",
+    "recoverySeconds": 0.0,
+    "rpoSeconds": 0.0,
+    "rpoAssumed": false,
+    "capacityRatio": 1.92,
+    "splitBrain": false,
+    "dataLost": false,
+    "downUnits": []
+   },
+   {
+    "scenario": {
+     "type": "geo",
+     "geo": "moscow"
+    },
+    "failed": [
+     "ЦОД-1 · Москва",
+     "ЦОД-2 · Москва"
+    ],
+    "state": "down",
+    "recoveryKind": "manual",
+    "recoverySeconds": 7200.0,
+    "rpoSeconds": 300.0,
+    "rpoAssumed": false,
+    "capacityRatio": 0.0,
+    "splitBrain": false,
+    "dataLost": true,
+    "downUnits": [
+     "Kafka",
+     "etcd",
+     "PostgreSQL",
+     "Redis",
+     "Kafka",
+     "Kubernetes · app",
+     "WAF + Ingress",
+     "WAF",
+     "GSLB + CDN",
+     "Мониторинг"
+    ]
+   },
+   {
+    "scenario": {
+     "type": "sites",
+     "zoneIds": [
+      "dc1",
+      "site3"
+     ]
+    },
+    "failed": [
+     "ЦОД-1 · Москва",
+     "Площадка 3 · облако"
+    ],
+    "state": "degraded",
+    "recoveryKind": "manual",
+    "recoverySeconds": 1800.0,
+    "rpoSeconds": 1.0,
+    "rpoAssumed": false,
+    "capacityRatio": 0.96,
+    "splitBrain": false,
+    "dataLost": true,
+    "downUnits": [
+     "Kafka",
+     "etcd",
+     "Vault",
+     "GitOps · Argo CD",
+     "Бэкапы offsite"
+    ]
+   },
+   {
+    "scenario": {
+     "type": "sites",
+     "zoneIds": [
+      "dc2",
+      "site3"
+     ]
+    },
+    "failed": [
+     "ЦОД-2 · Москва",
+     "Площадка 3 · облако"
+    ],
+    "state": "down",
+    "recoveryKind": "never",
+    "recoverySeconds": null,
+    "rpoSeconds": 0.0,
+    "rpoAssumed": false,
+    "capacityRatio": 0.0,
+    "splitBrain": false,
+    "dataLost": false,
+    "downUnits": [
+     "etcd",
+     "PostgreSQL",
+     "Redis",
+     "Kafka",
+     "Kubernetes · app",
+     "WAF + Ingress",
+     "WAF",
+     "GSLB + CDN",
+     "GitOps · Argo CD",
+     "Бэкапы offsite"
+    ]
+   }
+  ],
+  "baselineLoads": [
+   {
+    "unit": "users",
+    "loadRps": 5000.0,
+    "capacityRps": null,
+    "ratio": null
+   },
+   {
+    "unit": "gslb",
+    "loadRps": 5000.0,
+    "capacityRps": 100000.0,
+    "ratio": 20.0
+   },
+   {
+    "unit": "waf",
+    "loadRps": 5000.0,
+    "capacityRps": 20000.0,
+    "ratio": 4.0
+   },
+   {
+    "unit": "ingress",
+    "loadRps": 5000.0,
+    "capacityRps": 32000.0,
+    "ratio": 6.4
+   },
+   {
+    "unit": "app",
+    "loadRps": 5000.0,
+    "capacityRps": 9600.0,
+    "ratio": 1.92
+   },
+   {
+    "unit": "kafka-dc1",
+    "loadRps": 500.0,
+    "capacityRps": 60000.0,
+    "ratio": 120.0
+   },
+   {
+    "unit": "kafka-dc2",
+    "loadRps": 500.0,
+    "capacityRps": 60000.0,
+    "ratio": 120.0
+   },
+   {
+    "unit": "pg",
+    "loadRps": 1500.0,
+    "capacityRps": 4000.0,
+    "ratio": 2.6666666666666665
+   },
+   {
+    "unit": "redis",
+    "loadRps": 5000.0,
+    "capacityRps": 50000.0,
+    "ratio": 10.0
+   }
+  ],
+  "capacity": [
+   {
+    "unit": "users",
+    "name": "Пользователи",
+    "kind": "users",
+    "nodes": [
+     "users"
+    ],
+    "instances": 1,
+    "perReplicaRps": null,
+    "loadRps": 5000.0,
+    "capacityRps": null,
+    "targetRps": 9285.714285714286,
+    "instancesNeeded": null,
+    "worst": null
+   },
+   {
+    "unit": "gslb",
+    "name": "GSLB + CDN",
+    "kind": "gslb",
+    "nodes": [
+     "gslb"
+    ],
+    "instances": 1,
+    "perReplicaRps": 100000.0,
+    "loadRps": 5000.0,
+    "capacityRps": 100000.0,
+    "targetRps": 9285.714285714286,
+    "instancesNeeded": 1,
+    "worst": {
+     "scenario": {
+      "type": "zone",
+      "zoneId": "dc1"
+     },
+     "failed": [
+      "ЦОД-1 · Москва"
+     ],
+     "loadRps": 5000.0,
+     "capacityRps": 100000.0
+    }
+   },
+   {
+    "unit": "waf",
+    "name": "WAF",
+    "kind": "waf",
+    "nodes": [
+     "waf"
+    ],
+    "instances": 1,
+    "perReplicaRps": 20000.0,
+    "loadRps": 5000.0,
+    "capacityRps": 20000.0,
+    "targetRps": 9285.714285714286,
+    "instancesNeeded": 1,
+    "worst": {
+     "scenario": {
+      "type": "zone",
+      "zoneId": "dc1"
+     },
+     "failed": [
+      "ЦОД-1 · Москва"
+     ],
+     "loadRps": 5000.0,
+     "capacityRps": 20000.0
+    }
+   },
+   {
+    "unit": "ingress",
+    "name": "WAF + Ingress",
+    "kind": "l7",
+    "nodes": [
+     "ingress-dc1",
+     "ingress-dc2"
+    ],
+    "instances": 4,
+    "perReplicaRps": 8000.0,
+    "loadRps": 5000.0,
+    "capacityRps": 32000.0,
+    "targetRps": 9285.714285714286,
+    "instancesNeeded": 2,
+    "worst": {
+     "scenario": {
+      "type": "zone",
+      "zoneId": "dc1"
+     },
+     "failed": [
+      "ЦОД-1 · Москва"
+     ],
+     "loadRps": 5000.0,
+     "capacityRps": 16000.0
+    }
+   },
+   {
+    "unit": "app",
+    "name": "Kubernetes · app",
+    "kind": "kubernetes",
+    "nodes": [
+     "app-dc1",
+     "app-dc2"
+    ],
+    "instances": 64,
+    "perReplicaRps": 150.0,
+    "loadRps": 5000.0,
+    "capacityRps": 9600.0,
+    "targetRps": 9285.714285714286,
+    "instancesNeeded": 62,
+    "worst": {
+     "scenario": {
+      "type": "zone",
+      "zoneId": "dc1"
+     },
+     "failed": [
+      "ЦОД-1 · Москва"
+     ],
+     "loadRps": 5000.0,
+     "capacityRps": 4800.0
+    }
+   },
+   {
+    "unit": "kafka-dc1",
+    "name": "Kafka",
+    "kind": "kafka",
+    "nodes": [
+     "kafka-dc1"
+    ],
+    "instances": 3,
+    "perReplicaRps": 20000.0,
+    "loadRps": 500.0,
+    "capacityRps": 60000.0,
+    "targetRps": 928.5714285714287,
+    "instancesNeeded": 1,
+    "worst": {
+     "scenario": {
+      "type": "zone",
+      "zoneId": "dc2"
+     },
+     "failed": [
+      "ЦОД-2 · Москва"
+     ],
+     "loadRps": 1000.0,
+     "capacityRps": 60000.0
+    }
+   },
+   {
+    "unit": "kafka-dc2",
+    "name": "Kafka",
+    "kind": "kafka",
+    "nodes": [
+     "kafka-dc2"
+    ],
+    "instances": 3,
+    "perReplicaRps": 20000.0,
+    "loadRps": 500.0,
+    "capacityRps": 60000.0,
+    "targetRps": 928.5714285714287,
+    "instancesNeeded": 1,
+    "worst": {
+     "scenario": {
+      "type": "zone",
+      "zoneId": "dc1"
+     },
+     "failed": [
+      "ЦОД-1 · Москва"
+     ],
+     "loadRps": 1000.0,
+     "capacityRps": 60000.0
+    }
+   },
+   {
+    "unit": "pg",
+    "name": "PostgreSQL",
+    "kind": "postgresql",
+    "nodes": [
+     "pg-primary",
+     "pg-replica"
+    ],
+    "instances": 2,
+    "perReplicaRps": 2000.0,
+    "loadRps": 1500.0,
+    "capacityRps": 4000.0,
+    "targetRps": 2785.714285714286,
+    "instancesNeeded": 2,
+    "worst": {
+     "scenario": {
+      "type": "zone",
+      "zoneId": "dc1"
+     },
+     "failed": [
+      "ЦОД-1 · Москва"
+     ],
+     "loadRps": 1500.0,
+     "capacityRps": 4000.0
+    }
+   },
+   {
+    "unit": "redis",
+    "name": "Redis",
+    "kind": "redis",
+    "nodes": [
+     "redis-primary",
+     "redis-replica",
+     "redis-sentinel"
+    ],
+    "instances": 2,
+    "perReplicaRps": 25000.0,
+    "loadRps": 5000.0,
+    "capacityRps": 50000.0,
+    "targetRps": 9285.714285714286,
+    "instancesNeeded": 1,
+    "worst": {
+     "scenario": {
+      "type": "zone",
+      "zoneId": "dc1"
+     },
+     "failed": [
+      "ЦОД-1 · Москва"
+     ],
+     "loadRps": 5000.0,
+     "capacityRps": 50000.0
+    }
+   }
+  ],
+  "score": {
+   "value": 85.0,
+   "penalty": 15.0,
+   "coverage": 1.0,
+   "breakdown": [
+    {
+     "ruleId": "HA-SPOF-01",
+     "status": "critical",
+     "penalty": 15.0
+    }
+   ]
+  },
+  "cost": {
+   "currency": "RUB",
+   "symbol": "₽",
+   "total": 727900.0,
+   "nodes": [
+    {
+     "nodeId": "users",
+     "amount": 0.0,
+     "missing": [],
+     "model": "onprem"
+    },
+    {
+     "nodeId": "gslb",
+     "amount": 1800.0,
+     "missing": [],
+     "model": "onprem"
+    },
+    {
+     "nodeId": "waf",
+     "amount": 4200.0,
+     "missing": [],
+     "model": "onprem"
+    },
+    {
+     "nodeId": "ingress-dc1",
+     "amount": 8400.0,
+     "missing": [],
+     "model": "onprem"
+    },
+    {
+     "nodeId": "app-dc1",
+     "amount": 67200.0,
+     "missing": [],
+     "model": "onprem"
+    },
+    {
+     "nodeId": "kafka-dc1",
+     "amount": 53400.0,
+     "missing": [],
+     "model": "onprem"
+    },
+    {
+     "nodeId": "mon-dc1",
+     "amount": 14400.0,
+     "missing": [],
+     "model": "onprem"
+    },
+    {
+     "nodeId": "ingress-dc2",
+     "amount": 8400.0,
+     "missing": [],
+     "model": "onprem"
+    },
+    {
+     "nodeId": "app-dc2",
+     "amount": 67200.0,
+     "missing": [],
+     "model": "onprem"
+    },
+    {
+     "nodeId": "kafka-dc2",
+     "amount": 53400.0,
+     "missing": [],
+     "model": "onprem"
+    },
+    {
+     "nodeId": "mon-dc2",
+     "amount": 14400.0,
+     "missing": [],
+     "model": "onprem"
+    },
+    {
+     "nodeId": "pg-primary",
+     "amount": 57200.0,
+     "missing": [],
+     "model": "onprem"
+    },
+    {
+     "nodeId": "pg-replica",
+     "amount": 57200.0,
+     "missing": [],
+     "model": "onprem"
+    },
+    {
+     "nodeId": "redis-primary",
+     "amount": 15780.0,
+     "missing": [],
+     "model": "onprem"
+    },
+    {
+     "nodeId": "redis-replica",
+     "amount": 15780.0,
+     "missing": [],
+     "model": "onprem"
+    },
+    {
+     "nodeId": "redis-sentinel",
+     "amount": 3090.0,
+     "missing": [],
+     "model": "cloud"
+    },
+    {
+     "nodeId": "etcd-dc1",
+     "amount": 4650.0,
+     "missing": [],
+     "model": "onprem"
+    },
+    {
+     "nodeId": "etcd-dc2",
+     "amount": 4650.0,
+     "missing": [],
+     "model": "onprem"
+    },
+    {
+     "nodeId": "etcd-site3",
+     "amount": 7200.0,
+     "missing": [],
+     "model": "cloud"
+    },
+    {
+     "nodeId": "vault-dc1",
+     "amount": 4650.0,
+     "missing": [],
+     "model": "onprem"
+    },
+    {
+     "nodeId": "vault-site3",
+     "amount": 7200.0,
+     "missing": [],
+     "model": "cloud"
+    },
+    {
+     "nodeId": "gitops",
+     "amount": 14400.0,
+     "missing": [],
+     "model": "cloud"
+    },
+    {
+     "nodeId": "backup",
+     "amount": 243300.0,
+     "missing": [],
+     "model": "cloud"
+    }
+   ],
+   "byCategory": {
+    "compute": 134400.0,
+    "data": 499150.0,
+    "edge": 22800.0,
+    "platform": 71550.0
+   },
+   "byZone": {
+    "_global": 6000.0,
+    "dc1": 225680.0,
+    "dc2": 221030.0,
+    "site3": 275190.0
+   },
+   "byKind": {
+    "backup_storage": 243300.0,
+    "etcd": 16500.0,
+    "gitops": 14400.0,
+    "gslb": 1800.0,
+    "kafka": 106800.0,
+    "kubernetes": 134400.0,
+    "l7": 16800.0,
+    "monitoring": 28800.0,
+    "postgresql": 114400.0,
+    "redis": 34650.0,
+    "users": 0.0,
+    "vault": 11850.0,
+    "waf": 4200.0
+   },
+   "incomplete": 0,
+   "budget": 1200000.0
+  },
+  "units": {
+   "app": "Kubernetes · app",
+   "backup": "Бэкапы offsite",
+   "etcd": "etcd",
+   "gitops": "GitOps · Argo CD",
+   "gslb": "GSLB + CDN",
+   "ingress": "WAF + Ingress",
+   "kafka-dc1": "Kafka",
+   "kafka-dc2": "Kafka",
+   "monitoring": "Мониторинг",
+   "pg": "PostgreSQL",
+   "redis": "Redis",
+   "users": "Пользователи",
+   "vault": "Vault",
+   "waf": "WAF"
+  }
+ }
+}

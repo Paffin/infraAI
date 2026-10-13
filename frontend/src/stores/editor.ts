@@ -1,11 +1,11 @@
 import { defineStore } from 'pinia'
-import { computed, ref, shallowRef } from 'vue'
+import { computed, ref, shallowRef, watch } from 'vue'
 import { ApiError } from '@/api/client'
 import * as api from '@/api/endpoints'
 import type {
   ArchDiff, ArchNode, Architecture, Edge, Finding, Op, ProjectDetail, Props, Report, Requirements, Scalar, Scenario, SimResult, Status, Waiver, Zone,
 } from '@/api/types'
-import { CARD_H, CARD_W, DEFAULT_ZONE_H, DEFAULT_ZONE_W, boundsOf, layoutAll, mergeArchitecture, nodeRect, placeMissing, zoneAt, zoneChain, zoneDescendants, zoneRect } from '@/editor/layout'
+import { CARD_H, CARD_W, DEFAULT_ZONE_H, DEFAULT_ZONE_W, boundsOf, layoutAll, mergeArchitecture, nodeRect, placeInZone, placeMissing, zoneAt, zoneChain, zoneDescendants, zoneRect } from '@/editor/layout'
 import { lang, lt, t } from '@/i18n'
 import { effectiveProps } from '@/lib/catalog'
 import { errorMessage, newId } from '@/lib/format'
@@ -55,12 +55,18 @@ export const useEditor = defineStore('editor', () => {
   const evalError = ref('')
 
   const selection = ref<Selection>(null)
+  /** Nodes selected together on the canvas (Shift+click, Shift+drag): two or more get the bulk-actions card. */
+  const multi = ref<string[]>([])
+  /** Ask the canvas to select these nodes (it owns the selection state of the flow). */
+  const selectRequest = ref<{ ids: string[]; token: number } | null>(null)
   const tool = ref<Tool>('select')
   const layer = ref<Layer>('all')
   const highlight = ref<{ nodes: string[]; edges: string[]; zones: string[]; token: number } | null>(null)
   const preview = shallowRef<Preview | null>(null)
   const viewCenter = ref<{ x: number; y: number }>({ x: 400, y: 300 })
   const fitToken = ref(0)
+  /** Ask the canvas to pan/zoom to elements (without dimming the rest, unlike `highlight`). */
+  const reveal = ref<{ nodes: string[]; zones: string[]; token: number } | null>(null)
 
   const sim = ref<{ scenario: Scenario; result: SimResult | null; loading: boolean; error: string } | null>(null)
   const pickingNode = ref(false)
@@ -71,6 +77,8 @@ export const useEditor = defineStore('editor', () => {
   const historyVersion = ref(0)
   let lastKey = ''
   let lastAt = 0
+
+  watch(selection, (s) => { if (s && multi.value.length) multi.value = [] })
 
   // ------------------------------------------------------------------------------------ derived
   const readonly = computed(() => !app.canEdit || preview.value !== null)
@@ -156,12 +164,15 @@ export const useEditor = defineStore('editor', () => {
     waivers.value = []
     report.value = null
     selection.value = null
+    multi.value = []
+    selectRequest.value = null
     tool.value = 'select'
     preview.value = null
     sim.value = null
     pickingNode.value = false
     connectFrom.value = null
     highlight.value = null
+    reveal.value = null
     loadError.value = ''
     saveState.value = 'saved'
     saveError.value = ''
@@ -541,6 +552,84 @@ export const useEditor = defineStore('editor', () => {
     selection.value = { type: 'node', id: copy.id }
   }
 
+  // ------------------------------------------------------------------------------------ bulk actions
+  /** Followers of the canvas selection: only existing nodes count, one node is just a selection. */
+  function setMulti(ids: string[]) {
+    const have = new Set(arch.value.nodes.map((n) => n.id))
+    const valid = [...new Set(ids)].filter((id) => have.has(id))
+    multi.value = valid.length >= 2 ? valid : []
+    if (multi.value.length) selection.value = null
+  }
+
+  /** Select nodes (the canvas shows them as selected); one node opens its inspector. */
+  function selectNodes(ids: string[]) {
+    selectRequest.value = { ids, token: Date.now() }
+    if (ids.length === 1) select({ type: 'node', id: ids[0] })
+    else setMulti(ids)
+  }
+
+  function removeNodes(ids: string[]) {
+    const set = new Set(ids)
+    if (!set.size || readonly.value) return
+    edit((a) => {
+      a.nodes = a.nodes.filter((n) => !set.has(n.id))
+      a.edges = a.edges.filter((e) => !set.has(e.source) && !set.has(e.target))
+    })
+    multi.value = []
+    if (selection.value && set.has(selection.value.id)) selection.value = null
+  }
+
+  /** Copies of the nodes and of the edges between them. A group that is copied as a whole becomes a new group. */
+  function duplicateNodes(ids: string[]): string[] {
+    const set = new Set(ids)
+    const src = arch.value.nodes.filter((n) => set.has(n.id))
+    if (!src.length || readonly.value) return []
+    const max = app.boot?.limits.maxNodes
+    if (max && arch.value.nodes.length + src.length > max) { toasts.error(t('editor.limit', { n: max })); return [] }
+    const names = new Set(arch.value.nodes.map((n) => n.name))
+    const groups = new Set(arch.value.nodes.map((n) => n.group).filter((g): g is string => !!g))
+    const fresh = (base: string, taken: Set<string>) => { let i = 2; let c = `${base} ${i}`; while (taken.has(c)) c = `${base} ${++i}`; return c }
+    const groupCopy = new Map<string, string>()
+    for (const g of new Set(src.map((n) => n.group).filter((x): x is string => !!x))) {
+      if (src.filter((n) => n.group === g).length < 2) continue
+      let c = `${g}-copy`
+      for (let i = 2; groups.has(c); i++) c = `${g}-copy${i}`
+      groups.add(c)
+      groupCopy.set(g, c)
+    }
+    const idMap = new Map<string, string>()
+    const copies = src.map((n): ArchNode => {
+      const id = newId(n.kind.replace(/_/g, '-'))
+      idMap.set(n.id, id)
+      const name = names.has(n.name) ? fresh(n.name, names) : n.name
+      names.add(name)
+      return { ...clone(n), id, name, group: (n.group && groupCopy.get(n.group)) || null, proposed: undefined, ui: { ...n.ui, x: (n.ui?.x ?? 0) + 28, y: (n.ui?.y ?? 0) + 28 } }
+    })
+    const edges = arch.value.edges.filter((e) => idMap.has(e.source) && idMap.has(e.target)).map((e): Edge => ({ ...clone(e), id: `e-${idMap.get(e.source)}--${idMap.get(e.target)}-${e.type}`, source: idMap.get(e.source)!, target: idMap.get(e.target)! }))
+    edit((a) => { a.nodes.push(...copies); a.edges.push(...edges) })
+    const created = copies.map((c) => c.id)
+    selectNodes(created)
+    return created
+  }
+
+  /** Put the nodes into one group (service / cluster); an empty name dissolves the group. */
+  function groupNodes(ids: string[], name: string) {
+    const set = new Set(ids)
+    const g = name.trim()
+    edit((a) => { for (const n of a.nodes) if (set.has(n.id)) n.group = g || null })
+  }
+
+  /** Move the nodes into a zone (or out of every zone): they are placed on free slots inside it. */
+  function moveNodesToZone(ids: string[], zoneId: string | null) {
+    if (readonly.value || !ids.length) return
+    if (zoneId === null) {
+      const set = new Set(ids)
+      edit((a) => { for (const n of a.nodes) if (set.has(n.id)) n.zoneId = null })
+      return
+    }
+    commit(placeInZone(arch.value, ids, zoneId))
+  }
+
   /** After a drag: new absolute positions for nodes/zones (canvas coordinates). */
   function commitMoves(moves: { nodes: Record<string, { x: number; y: number }>; zones: Record<string, { x: number; y: number }> }) {
     if (readonly.value) return
@@ -677,12 +766,31 @@ export const useEditor = defineStore('editor', () => {
   function select(s: Selection) {
     selection.value = s
     highlight.value = null
+    // the canvas keeps the flow's own selection (what a drag moves) in step: one node, or none
+    selectRequest.value = { ids: s?.type === 'node' ? [s.id] : [], token: Date.now() }
   }
 
   function showSubjects(f: { subjects: { nodes: string[]; edges: string[]; zones: string[] } }) {
     highlight.value = { ...f.subjects, token: Date.now() }
     selection.value = null
     setTimeout(() => { if (highlight.value && Date.now() - highlight.value.token >= 5000) highlight.value = null }, 5100)
+  }
+
+  /** Pan/zoom the canvas to the given elements. */
+  function revealElements(nodes: string[], zones: string[] = []) {
+    if (nodes.length || zones.length) reveal.value = { nodes, zones, token: Date.now() }
+  }
+
+  /** Bring the selected element into view (an edge: both of its ends). */
+  function revealSelection() {
+    const s = selection.value
+    if (!s) return
+    if (s.type === 'node') revealElements([s.id])
+    else if (s.type === 'zone') revealElements([], [s.id])
+    else {
+      const e = edgeById.value.get(s.id)
+      if (e) revealElements([e.source, e.target])
+    }
   }
 
   function setTool(next: Tool) {
@@ -692,7 +800,8 @@ export const useEditor = defineStore('editor', () => {
   }
 
   /** Click on a card: pick a failure target, finish a connection, or just select. */
-  function clickNode(id: string, _e?: MouseEvent) {
+  function clickNode(id: string, e?: MouseEvent) {
+    if (e?.shiftKey) return // Shift+click extends the canvas selection (see `setMulti`)
     if (pickingNode.value) { void runScenario({ type: 'node', nodeId: id }); return }
     if (tool.value === 'connect' && !readonly.value) {
       if (!connectFrom.value) { connectFrom.value = id; selection.value = { type: 'node', id }; return }
@@ -719,12 +828,12 @@ export const useEditor = defineStore('editor', () => {
 
   return {
     projectId, project, arch, rev, waivers, loading, loadError, saveState, saveError, serverRev, report, evaluating, evalError,
-    selection, tool, layer, highlight, preview, viewCenter, fitToken, sim, pickingNode, connectFrom,
+    selection, multi, selectRequest, tool, layer, highlight, preview, viewCenter, fitToken, reveal, sim, pickingNode, connectFrom,
     readonly, canUndo, canRedo, isEmpty, shown, previewSets, nodeById, edgeById, zoneById, openFindings, nodeStatus, edgeStatus, zoneStatus, findingsOf, groups, siteZones,
     load, reset, flushSave, touchSave, reloadFromServer, evaluateNow, scheduleEvaluate,
     runScenario, exitSim, undo, redo, edit, commit,
     addNode, addZone, updateNode, setProp, updateEdge, reverseEdge, updateZone, connect, removeNode, removeEdge, removeZone, removeSelection, duplicateNode,
-    commitMoves, resizeZone, setRequirement, setMeta, autoLayout, replaceArchitecture, addTemplate, applyFix, applyOps,
-    acceptRisk, revokeWaiver, select, setTool, clickNode, showSubjects, setPreview, boundsOfShown, effective,
+    setMulti, selectNodes, removeNodes, duplicateNodes, groupNodes, moveNodesToZone, commitMoves, resizeZone, setRequirement, setMeta, autoLayout, replaceArchitecture, addTemplate, applyFix, applyOps,
+    acceptRisk, revokeWaiver, select, setTool, clickNode, showSubjects, revealElements, revealSelection, setPreview, boundsOfShown, effective,
   }
 })
