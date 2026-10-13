@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, useId, watch } from 'vue'
 import { lt, t } from '@/i18n'
 import { splitSeconds, toSeconds } from '@/lib/format'
 import { useApp } from '@/stores/app'
 import { useEditor } from '@/stores/editor'
 import { useUi } from '@/stores/ui'
 
+const uid = useId()
 const app = useApp()
 const editor = useEditor()
 const ui = useUi()
@@ -91,23 +92,23 @@ function removeCompliance(x: string) {
 
 <template>
   <div ref="root" class="reqs">
-    <h3>{{ t('req.title') }}</h3>
+    <h2>{{ t('req.title') }}</h2>
     <p class="muted intro">{{ t('req.intro') }}</p>
 
     <div class="field" v-bind="attrs('rpsPeak')">
-      <label>{{ t('req.rpsPeak') }}</label>
-      <input class="input mono" type="number" min="0" :disabled="dis" :value="req.rpsPeak ?? ''" @input="setNum('rpsPeak', $event)" />
+      <label :for="`${uid}-rpsPeak`">{{ t('req.rpsPeak') }}</label>
+      <input :id="`${uid}-rpsPeak`" class="input mono" type="number" min="0" :disabled="dis" :value="req.rpsPeak ?? ''" @input="setNum('rpsPeak', $event)" />
     </div>
     <div class="field" v-bind="attrs('growthPercent')">
-      <label>{{ t('req.growthPercent') }}</label>
-      <input class="input mono" type="number" min="0" :disabled="dis" :value="req.growthPercent ?? ''" @input="setNum('growthPercent', $event)" />
+      <label :for="`${uid}-growthPercent`">{{ t('req.growthPercent') }}</label>
+      <input :id="`${uid}-growthPercent`" class="input mono" type="number" min="0" :disabled="dis" :value="req.growthPercent ?? ''" @input="setNum('growthPercent', $event)" />
     </div>
 
     <div v-for="k in (['rtoSeconds', 'rpoSeconds'] as const)" :key="k" class="field" v-bind="attrs(k)">
-      <label>{{ t('req.' + k) }}</label>
+      <label :for="`${uid}-${k}`">{{ t('req.' + k) }}</label>
       <div class="row">
-        <input class="input mono" type="number" min="0" step="any" :disabled="dis" :value="durValue(k)" @input="setDur(k, $event)" />
-        <select class="select" style="width: 110px" :disabled="dis" :value="unit[k]" @change="setUnit(k, ($event.target as HTMLSelectElement).value as 'seconds' | 'minutes' | 'hours')">
+        <input :id="`${uid}-${k}`" class="input mono" type="number" min="0" step="any" :disabled="dis" :value="durValue(k)" @input="setDur(k, $event)" />
+        <select class="select" style="width: 110px" :aria-label="`${t('req.' + k)}: ${t('req.unit')}`" :disabled="dis" :value="unit[k]" @change="setUnit(k, ($event.target as HTMLSelectElement).value as 'seconds' | 'minutes' | 'hours')">
           <option value="seconds">{{ t('req.unit.seconds') }}</option>
           <option value="minutes">{{ t('req.unit.minutes') }}</option>
           <option value="hours">{{ t('req.unit.hours') }}</option>
@@ -117,43 +118,43 @@ function removeCompliance(x: string) {
     </div>
 
     <div class="field" v-bind="attrs('availabilitySlo')">
-      <label>{{ t('req.availabilitySlo') }}</label>
-      <input class="input mono" type="number" min="0" max="100" step="0.001" :disabled="dis" :value="req.availabilitySlo ?? ''" @input="setNum('availabilitySlo', $event)" />
+      <label :for="`${uid}-availabilitySlo`">{{ t('req.availabilitySlo') }}</label>
+      <input :id="`${uid}-availabilitySlo`" class="input mono" type="number" min="0" max="100" step="0.001" :disabled="dis" :value="req.availabilitySlo ?? ''" @input="setNum('availabilitySlo', $event)" />
     </div>
     <div class="field" v-bind="attrs('budgetMonthly')">
-      <label>{{ t('req.budgetMonthly') }}, {{ symbol }}</label>
-      <input class="input mono" type="number" min="0" :disabled="dis" :value="req.budgetMonthly ?? ''" @input="setNum('budgetMonthly', $event)" />
+      <label :for="`${uid}-budgetMonthly`">{{ t('req.budgetMonthly') }}, {{ symbol }}</label>
+      <input :id="`${uid}-budgetMonthly`" class="input mono" type="number" min="0" :disabled="dis" :value="req.budgetMonthly ?? ''" @input="setNum('budgetMonthly', $event)" />
     </div>
     <div class="field" v-bind="attrs('failureTolerance')">
-      <label>{{ t('req.failureTolerance') }}</label>
-      <select class="select" :disabled="dis" :value="req.failureTolerance ?? ''" @change="setTolerance">
+      <label :for="`${uid}-failureTolerance`">{{ t('req.failureTolerance') }}</label>
+      <select :id="`${uid}-failureTolerance`" class="select" :disabled="dis" :value="req.failureTolerance ?? ''" @change="setTolerance">
         <option value="">{{ t('inspector.default', { v: levelName(tolerance) }) }}</option>
         <option v-for="l in levels" :key="l.id" :value="l.id">{{ levelName(l.id) }}</option>
       </select>
       <span v-if="levelHelp" class="hint">{{ levelHelp }}</span>
     </div>
     <div v-if="asksSites" class="field" v-bind="attrs('siteFailures')">
-      <label>{{ t('req.siteFailures') }}</label>
-      <input class="input mono" type="number" min="1" :max="maxSiteFailures" step="1" :disabled="dis" :value="req.siteFailures ?? ''" placeholder="1" @input="setSiteFailures" />
+      <label :for="`${uid}-siteFailures`">{{ t('req.siteFailures') }}</label>
+      <input :id="`${uid}-siteFailures`" class="input mono" type="number" min="1" :max="maxSiteFailures" step="1" :disabled="dis" :value="req.siteFailures ?? ''" placeholder="1" @input="setSiteFailures" />
       <span class="hint">{{ t('req.siteFailures.hint') }}</span>
     </div>
     <div class="field" v-bind="attrs('compliance')">
-      <label>{{ t('req.compliance') }}</label>
+      <label :for="`${uid}-compliance`">{{ t('req.compliance') }}</label>
       <div class="chips">
         <span v-for="c in req.compliance ?? []" :key="c" class="chip">{{ c }}<button v-if="!dis" class="x" :aria-label="t('common.delete')" @click="removeCompliance(c)">×</button></span>
       </div>
-      <input v-if="!dis" v-model="compliance" class="input" :placeholder="t('req.compliance.add')" @keydown.enter.prevent="addCompliance" @blur="addCompliance" />
+      <input v-if="!dis" :id="`${uid}-compliance`" v-model="compliance" class="input" :placeholder="t('req.compliance.add')" @keydown.enter.prevent="addCompliance" @blur="addCompliance" />
     </div>
     <div class="field" v-bind="attrs('notes')">
-      <label>{{ t('req.notes') }}</label>
-      <textarea class="textarea" rows="3" :disabled="dis" :value="req.notes ?? ''" @input="editor.setRequirement('notes', ($event.target as HTMLTextAreaElement).value)" />
+      <label :for="`${uid}-notes`">{{ t('req.notes') }}</label>
+      <textarea :id="`${uid}-notes`" class="textarea" rows="3" :disabled="dis" :value="req.notes ?? ''" @input="editor.setRequirement('notes', ($event.target as HTMLTextAreaElement).value)" />
     </div>
   </div>
 </template>
 
 <style scoped>
 .reqs { padding: 16px 20px 28px; display: flex; flex-direction: column; gap: 14px; overflow: auto; }
-h3 { font-size: 16px; }
+h2 { font-size: 16px; }
 .intro { margin: -6px 0 0; font-size: 12.5px; }
 .field { border-radius: var(--radius-sm); }
 .field.flash { animation: flash 2.2s ease-out; }

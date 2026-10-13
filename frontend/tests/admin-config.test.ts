@@ -90,7 +90,7 @@ describe('placement items', () => {
     const sk = skeleton('placement.pattern', 'p', { stacks: pc.stacks.map((s) => s.id) }) as Record<string, unknown>
     expect(pc.stacks.map((s) => s.id)).toContain(sk.stack)
     expect(sk.id).toBe('p')
-    expect(Object.keys(orderedForEditor('placement.settings', pc.settings) as object).slice(0, 3)).toEqual(['intraSite', 'intraGeo', 'interGeo'])
+    expect(Object.keys(orderedForEditor('placement.settings', pc.settings) as object).slice(0, 3)).toEqual(['defaultPattern', 'intraSite', 'intraGeo'])
   })
 })
 

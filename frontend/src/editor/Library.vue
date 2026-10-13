@@ -104,7 +104,7 @@ defineExpose({ focus: () => { ui.libraryOpen = true; setTimeout(() => input.valu
 </script>
 
 <template>
-  <aside v-show="ui.libraryOpen" class="library" data-tour="library">
+  <aside v-show="ui.libraryOpen" class="library" data-tour="library" :aria-label="t('library.title')">
     <div class="search">
       <Search :size="15" />
       <input ref="input" v-model="q" class="input" :placeholder="t('library.search') + ' ( / )'" @keydown.esc="q = ''; input?.blur()" />
@@ -119,7 +119,7 @@ defineExpose({ focus: () => { ui.libraryOpen = true; setTimeout(() => input.valu
 
     <div class="scroll">
       <section v-if="templates.length">
-        <h4>{{ t('library.templates') }}</h4>
+        <h2>{{ t('library.templates') }}</h2>
         <button v-for="tpl in templates" :key="tpl.id" class="tpl" :disabled="editor.readonly" :title="lt(tpl.description)" @click="pickTemplate(tpl)">
           <span class="grow truncate">{{ lt(tpl.name) }}</span>
           <span v-if="tpl.badge" class="badge">{{ tpl.badge }} ✓</span>
@@ -127,7 +127,7 @@ defineExpose({ focus: () => { ui.libraryOpen = true; setTimeout(() => input.valu
       </section>
 
       <section v-for="c in categories" :key="c.id">
-        <h4>{{ c.name }}<span v-if="query" class="found">{{ c.count }}</span></h4>
+        <h2>{{ c.name }}<span v-if="query" class="found">{{ c.count }}</span></h2>
         <!-- products that are alone in their job need no heading: they share one grid -->
         <div v-if="singles(c).length" class="grid">
           <button
@@ -165,7 +165,7 @@ defineExpose({ focus: () => { ui.libraryOpen = true; setTimeout(() => input.valu
       </section>
 
       <section v-if="zoneTypes.length">
-        <h4>{{ t('library.zones') }}</h4>
+        <h2>{{ t('library.zones') }}</h2>
         <div class="grid">
           <button v-for="z in zoneTypes" :key="z.id" class="kind" :disabled="editor.readonly" draggable="true" :title="t('library.hint')" @dragstart="dragKind($event, 'zone', z.id)" @click="editor.addZone(z.id)">
             <span class="zsw" :style="{ borderColor: z.color }" />
@@ -197,7 +197,7 @@ defineExpose({ focus: () => { ui.libraryOpen = true; setTimeout(() => input.valu
 .search .input { padding-left: 34px; height: 36px; background: var(--surface-2); flex: 1; min-width: 0; }
 .scroll { flex: 1; overflow: auto; padding: 0 14px 18px; }
 section { margin-top: 14px; }
-h4 { font-size: 11.5px; letter-spacing: .09em; text-transform: uppercase; color: #6e7fa8; font-weight: 600; margin: 0 0 8px 2px; }
+h2 { font-size: 11.5px; letter-spacing: .09em; text-transform: uppercase; color: var(--label); font-weight: 600; margin: 0 0 8px 2px; }
 .tpl { width: 100%; display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 12px; margin-bottom: 8px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius); font-size: 13.5px; text-align: left; }
 .tpl:hover:not(:disabled) { background: var(--surface-2); border-color: #b8c2d4; }
 .tpl:disabled { opacity: .55; cursor: not-allowed; }
@@ -208,7 +208,7 @@ h4 { font-size: 11.5px; letter-spacing: .09em; text-transform: uppercase; color:
 .faint { color: var(--faint); }
 .found { margin-left: 8px; font-weight: 500; letter-spacing: 0; color: var(--faint); }
 .fn { margin-bottom: 4px; }
-h4 + .grid { margin-top: 0; }
+h2 + .grid { margin-top: 0; }
 .fh { width: 100%; display: flex; align-items: center; gap: 5px; height: 28px; padding: 0 4px 0 2px; border: 0; background: transparent; border-radius: var(--radius-sm); font-size: 12.5px; color: var(--text-2); text-align: left; }
 .fh:hover { background: var(--surface-sunken); }
 .fh .cnt { flex: none; min-width: 18px; text-align: right; font-size: 11px; color: var(--faint); }

@@ -29,6 +29,7 @@ export default {
   'placement.name': 'Project name',
   'placement.preview': 'Preview',
   'placement.map': 'Site map',
+  'placement.result': 'Verdict on the scheme',
   'placement.map.empty': 'The layout will appear here.',
   'placement.role.working': 'working',
   'placement.role.standby': 'standby',

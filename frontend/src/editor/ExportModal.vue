@@ -168,7 +168,7 @@ watch(format, load, { immediate: true })
     <div class="exp">
       <nav class="formats" :aria-label="t('export.title')">
         <section v-for="g in groups" :key="g.id" class="grp">
-          <h4>{{ t('export.group.' + g.id) }}</h4>
+          <h3>{{ t('export.group.' + g.id) }}</h3>
           <button v-for="f in g.items" :key="f.id" :class="{ on: format === f.id }" :aria-pressed="format === f.id" @click="format = f.id">
             <component :is="ICONS[f.id] ?? FileText" :size="16" class="ico" />
             <span class="txt">
@@ -204,7 +204,7 @@ watch(format, load, { immediate: true })
           <!-- coverage -->
           <div v-if="tab === 'coverage' && report" class="pane">
             <div v-if="!report.clusters.length" class="banner banner-warn">{{ t('export.clusters.none') }}</div>
-            <h5 v-if="report.generated.length">{{ t('export.generated.title') }}</h5>
+            <h4 v-if="report.generated.length">{{ t('export.generated.title') }}</h4>
             <ul class="rows">
               <li v-for="(g, i) in report.generated" :key="g.unit + g.cluster + i" class="row-g">
                 <CircleCheck :size="16" class="okc" />
@@ -214,7 +214,7 @@ watch(format, load, { immediate: true })
                 </div>
               </li>
             </ul>
-            <h5 v-if="skipped.length">{{ t('export.skipped.title') }}</h5>
+            <h4 v-if="skipped.length">{{ t('export.skipped.title') }}</h4>
             <ul class="rows">
               <li v-for="(s, i) in skipped" :key="s.unit + s.code + i" class="row-s" :data-test="'export-skipped-' + s.code">
                 <div class="body">
@@ -232,7 +232,7 @@ watch(format, load, { immediate: true })
 
           <!-- prerequisites and secrets -->
           <div v-else-if="tab === 'setup' && report" class="pane">
-            <h5>{{ t('export.prereq.title') }}</h5>
+            <h4>{{ t('export.prereq.title') }}</h4>
             <p class="muted small">{{ t('export.prereq.text') }}</p>
             <table v-if="report.prerequisites.length" class="table">
               <thead><tr><th>{{ t('export.cluster') }}</th><th>{{ t('export.component') }}</th><th>{{ t('export.chart') }}</th><th>{{ t('export.version') }}</th></tr></thead>
@@ -243,7 +243,7 @@ watch(format, load, { immediate: true })
               </tbody>
             </table>
             <p v-else class="muted">{{ t('export.none') }}</p>
-            <h5><KeyRound :size="14" /> {{ t('export.secrets.title') }}</h5>
+            <h4><KeyRound :size="14" /> {{ t('export.secrets.title') }}</h4>
             <p class="muted small">{{ t('export.secrets.text') }}</p>
             <table v-if="report.secrets.length" class="table">
               <thead><tr><th>{{ t('export.cluster') }}</th><th>{{ t('export.namespace') }}</th><th>{{ t('export.secret') }}</th><th>{{ t('export.keys') }}</th></tr></thead>
@@ -296,7 +296,7 @@ watch(format, load, { immediate: true })
 .exp { display: grid; grid-template-columns: 270px minmax(0, 1fr); gap: 20px; min-height: 460px; }
 .formats { display: flex; flex-direction: column; gap: 14px; }
 .grp { display: flex; flex-direction: column; gap: 6px; }
-.grp h4 { margin: 0 0 2px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); font-weight: 600; }
+.grp h3 { margin: 0 0 2px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); font-weight: 600; }
 .formats button { display: flex; gap: 10px; align-items: flex-start; text-align: left; padding: 9px 11px; border: 1px solid var(--line-strong); border-radius: var(--radius); background: var(--surface); }
 .formats button:hover { background: var(--surface-2); }
 .formats button.on { border-color: var(--accent); background: var(--accent-soft); }
@@ -328,7 +328,7 @@ watch(format, load, { immediate: true })
 .tabsbar button.on .bdg { background: var(--accent-soft); color: var(--accent); }
 
 .pane { display: flex; flex-direction: column; gap: 10px; max-height: 50vh; overflow: auto; padding-right: 4px; }
-.pane h5 { margin: 8px 0 0; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.pane h4 { margin: 8px 0 0; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 6px; }
 .rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .rows li { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
 .row-g .okc { color: var(--ok); flex: none; margin-top: 1px; }

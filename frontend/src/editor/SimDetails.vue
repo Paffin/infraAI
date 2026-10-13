@@ -59,11 +59,11 @@ function onKey(e: KeyboardEvent) {
       </div>
       <div class="track" role="slider" tabindex="0" :aria-label="t('play.title')" :aria-valuemin="1" :aria-valuemax="count" :aria-valuenow="playback.index + 1" :aria-valuetext="t('play.step', { i: playback.index + 1, n: count })" @click="onTrack" @keydown="onKey">
         <i class="rail" /><i class="fill" :style="{ width: progress + '%' }" />
-        <button v-for="s in steps" :key="s.index" class="tick" :class="[s.state, { on: s.index <= playback.index, cur: s.index === playback.index }]" :style="{ left: trackPosition(s.index, count) + '%' }" :aria-label="atText(s.at)" :title="atText(s.at)" tabindex="-1" @click.stop="playback.seek(s.index)" />
+        <span v-for="s in steps" :key="s.index" class="tick" :class="[s.state, { on: s.index <= playback.index, cur: s.index === playback.index }]" :style="{ left: trackPosition(s.index, count) + '%' }" :title="atText(s.at)" aria-hidden="true" />
       </div>
     </section>
 
-    <h5>{{ t('sim.details') }}</h5>
+    <h3>{{ t('sim.details') }}</h3>
     <ol v-if="playback.available" class="steps">
       <li v-for="s in steps" :key="s.index" :class="{ cur: s.index === playback.index, past: s.index < playback.index, future: s.index > playback.index }" :data-step="s.index" @click="playback.seek(s.index)">
         <span class="at mono">{{ atText(s.at) }}</span>
@@ -87,7 +87,7 @@ header { display: flex; align-items: center; gap: 8px; margin: -4px -8px 2px 0; 
 .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--crit); flex: none; }
 .state { margin: 0 0 8px; font-weight: 600; font-size: 13px; transition: color var(--dur-base); }
 .state.up { color: var(--ok); } .state.degraded { color: var(--risk); } .state.down { color: var(--crit); }
-h5 { margin: 10px 0 6px; font-size: 10.5px; letter-spacing: .09em; text-transform: uppercase; color: #6e7fa8; font-weight: 600; }
+h3 { margin: 10px 0 6px; font-size: 10.5px; letter-spacing: .09em; text-transform: uppercase; color: var(--label); font-weight: 600; }
 ul { margin: 0; padding-left: 16px; display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; line-height: 1.45; color: var(--text-2); }
 .small { font-size: 12px; margin: 8px 0 0; }
 

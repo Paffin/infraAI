@@ -34,11 +34,17 @@ test.describe('guidance: what to fill in, objectives, capacity', () => {
     const id = page.url().split('/p/')[1]
     // remove the replication lag from every async connection: the engine can no longer verify the RPO
     await page.evaluate(async (pid) => {
-      const p = await (await fetch('/api/projects/' + pid)).json()
-      const arch = p.architecture
-      for (const e of arch.edges) if (e.type === 'async') delete e.props.lagSeconds
-      const r = await fetch('/api/projects/' + pid + '/draft', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ architecture: arch, expectedRev: p.rev }) })
-      if (!r.ok) throw new Error(await r.text())
+      // the editor may be saving its own layout at that very moment: read, change and write again until the revision still matches
+      for (let attempt = 0; attempt < 8; attempt++) {
+        const p = await (await fetch('/api/projects/' + pid)).json()
+        const arch = p.architecture
+        for (const e of arch.edges) if (e.type === 'async') delete e.props.lagSeconds
+        const r = await fetch('/api/projects/' + pid + '/draft', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ architecture: arch, expectedRev: p.rev }) })
+        if (r.ok) return
+        if (r.status !== 409) throw new Error(await r.text())
+        await new Promise((resolve) => setTimeout(resolve, 300))
+      }
+      throw new Error('the draft kept changing under the test')
     }, id)
     await page.reload()
     const need = page.locator('.finding .need', { hasText: 'Задержка репликации' }).first()
@@ -259,7 +265,7 @@ test.describe('projects', () => {
     // sort by name: aaa… before zzz…
     await page.locator('select[aria-label="Сортировка"]').selectOption('name')
     // textContent: cards below the fold skip their rendering (content-visibility) and have no innerText
-    const names = await page.locator('article.project h3').evaluateAll((els) => els.map((e) => (e.textContent ?? '').trim()))
+    const names = await page.locator('article.project h2').evaluateAll((els) => els.map((e) => (e.textContent ?? '').trim()))
     expect(names.indexOf(a)).toBeGreaterThanOrEqual(0)
     expect(names.indexOf(a)).toBeLessThan(names.indexOf(z))
     await page.reload()

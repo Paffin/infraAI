@@ -61,12 +61,12 @@ async function leave() {
 
 <template>
   <header class="eh">
-    <router-link to="/" class="brand" @click.prevent="leave"><BrandLogo /><span>{{ app.appName }}</span></router-link>
+    <router-link to="/" class="brand" @click.prevent="leave"><BrandLogo /><span class="bn">{{ app.appName }}</span></router-link>
     <div class="crumbs">
       <a href="/" class="muted" @click.prevent="leave">{{ t('editor.crumb.projects') }}</a>
       <span class="sl">/</span>
-      <button class="pname" :disabled="!app.canEdit" :title="t('projects.rename')" @click="rename">{{ name }}</button>
-      <span class="meta">· v{{ editor.project?.headVersion ?? 0 }} · <span class="st" :class="'st-' + editor.saveState" :title="editor.saveError"><i class="sd" />{{ saveText }}</span></span>
+      <h1 class="pn"><button class="pname" :disabled="!app.canEdit" :title="t('projects.rename')" @click="rename">{{ name }}</button></h1>
+      <span class="meta"><span class="vn">· v{{ editor.project?.headVersion ?? 0 }} · </span><span class="st" :class="'st-' + editor.saveState" :title="editor.saveError || saveText"><i class="sd" /><span class="stt">{{ saveText }}</span></span></span>
     </div>
     <div class="mode" role="group">
       <button :class="{ on: ui.aiMode === 'ai' }" :title="app.boot?.ai.enabled ? '' : t('editor.mode.ai.off')" @click="ui.aiMode = 'ai'">{{ t('editor.mode.ai') }}</button>
@@ -77,8 +77,8 @@ async function leave() {
     <button class="score" data-tour="score" :class="[tone, lowConfidence && 'weak']" :title="lowConfidence ? t('checks.confidence.hint') : t('editor.score.title')" @click="ui.modal = 'score'">
       {{ t('editor.score') }}<b><AnimatedNumber :value="score" /></b><span>/100</span><i v-if="lowConfidence" class="conf">{{ t('editor.score.confidence', { pct: confidence ?? 0 }) }}</i>
     </button>
-    <button class="btn btn-dark" @click="ui.modal = 'matrix'"><Zap :size="14" />{{ t('editor.sim') }}</button>
-    <button class="btn btn-dark" @click="ui.modal = 'versions'"><History :size="14" />{{ t('editor.versions') }}</button>
+    <button class="btn btn-dark" :title="t('editor.sim')" @click="ui.modal = 'matrix'"><Zap :size="14" />{{ t('editor.sim') }}</button>
+    <button class="btn btn-dark" :title="t('editor.versions')" @click="ui.modal = 'versions'"><History :size="14" />{{ t('editor.versions') }}</button>
     <button class="btn btn-white" data-tour="export" @click="ui.modal = 'export'"><span class="long">{{ t('editor.export') }}</span><span class="short">{{ t('editor.export.short') }}</span></button>
     <HelpMenu data-tour="help" />
     <MotionSwitch />
@@ -88,12 +88,17 @@ async function leave() {
 
 <style scoped>
 .eh { height: var(--header-h); background: var(--ink); color: var(--on-dark); display: flex; align-items: center; gap: 14px; padding: 0 20px; flex: none; }
+/* nothing here shrinks except the project name (it gives way with an ellipsis); the rest gives up its words as the window narrows */
+.eh > * { flex: none; }
+.eh > .crumbs { flex: 0 1 auto; }
+.eh > .spacer { flex: 1 1 0; min-width: 0; }
 .brand { display: flex; align-items: center; gap: 12px; color: #fff; font-weight: 650; font-size: 17px; letter-spacing: -0.01em; white-space: nowrap; }
 .brand:hover { text-decoration: none; }
-.crumbs { display: flex; align-items: baseline; gap: 6px; font-size: 14px; color: var(--on-dark-muted); min-width: 0; white-space: nowrap; }
+.crumbs { display: flex; align-items: baseline; gap: 6px; font-size: 14px; color: var(--on-dark-muted); min-width: 0; white-space: nowrap; overflow: hidden; }
 .crumbs a { color: var(--on-dark-muted); }
 .sl { color: #596176; }
-.pname { background: transparent; border: 0; color: #fff; font-weight: 650; font-size: 14px; padding: 0 2px; max-width: 220px; overflow: hidden; text-overflow: ellipsis; border-radius: 4px; }
+.pn { display: flex; min-width: 0; margin: 0; font: inherit; }
+.pname { background: transparent; border: 0; color: #fff; font-weight: 650; font-size: 14px; padding: 0 2px; min-width: 0; max-width: 220px; overflow: hidden; text-overflow: ellipsis; border-radius: 4px; }
 .pname:hover:not(:disabled) { background: var(--ink-3); }
 .pname:disabled { cursor: default; }
 .meta { color: var(--on-dark-muted); }
@@ -121,6 +126,11 @@ async function leave() {
 .cmdk:hover { background: var(--ink-3); color: #fff; border-color: #4a5470; }
 .cmdk kbd { font-family: var(--mono); font-size: 11px; padding: 1px 6px; border: 1px solid #3a4256; border-radius: 4px; color: var(--on-dark-muted); }
 .long { display: inline; } .short { display: none; }
-@media (max-width: 1600px) { .long { display: none; } .short { display: inline; } .crumbs .meta { display: none; } .cmdk .lbl { display: none; } }
-@media (max-width: 1360px) { .btn-dark { font-size: 0; gap: 0; padding: 0 10px; } .mode button { padding: 0 10px; } }
+/* the header is as wide as the window; the widths below are what everything needs when it is all spelled out (measured, see e2e/header.spec.ts) */
+@media (max-width: 2100px) { .long { display: none; } .short { display: inline; } }
+@media (max-width: 1940px) { .cmdk .lbl { display: none; } }
+@media (max-width: 1800px) { .stt { display: none; } }
+@media (max-width: 1720px) { .vn { display: none; } }
+@media (max-width: 1680px) { .btn-dark { font-size: 0; gap: 0; padding: 0 10px; } }
+@media (max-width: 1450px) { .eh { gap: 10px; padding: 0 14px; } .bn { display: none; } .mode button { padding: 0 10px; } }
 </style>

@@ -178,7 +178,7 @@ The wizard that builds a complete design for any number of sites ([PLACEMENT.md]
 
 | Method | Path | Body → Response |
 |---|---|---|
-| GET | `/placement/options` | `{patterns, stacks:[{id,name,layers:[{id,name,kind,alternatives,function,scope,optional,default,dcs,products:[{kind,variants:[{id,default,managed}]}]}]}], siteTypes, maxSiteFailures, maxNodes}` |
+| GET | `/placement/options` | `{patterns, defaultPattern, stacks:[{id,name,layers:[{id,name,kind,alternatives,function,scope,optional,default,dcs,products:[{kind,variants:[{id,default,managed}]}]}]}], siteTypes, maxSiteFailures, maxNodes}` |
 | POST | `/placement/preview` | `PlacementRequest` → `{architecture, sites:[{id,name,role,geo,racks}], siteFailures, notes:[{code,level,vars}], report, nodes, edges}`; `report` = `{score, coverage, counts, objectives, cost, scenarioStats, worstCapacity, findings}` |
 | POST | `/placement/compare` | `{base, variants:[…]}` → `{variants:[{ok:true, pattern, sites, siteFailures, nodes, zones, workingSites, arbiterSites, notes, report} \| {ok:false, pattern, sites, error:{code,message}}]}`; `400 invalid_variants` beyond `limits.placementCompareMax` |
 

@@ -268,7 +268,7 @@ watch(() => ui.focusRequest, () => void nextTick(applyFocus), { immediate: true 
       </template>
 
       <template v-if="findings.length">
-        <h5>{{ t('inspector.findings') }}</h5>
+        <h3>{{ t('inspector.findings') }}</h3>
         <ul class="finds">
           <li v-for="f in findings" :key="f.id"><span class="tag" :class="statusTagClass(f.status)">{{ statusLabel(f.status) }}</span><span class="grow">{{ findingTitle(app.rules.get(f.ruleId), f) }}</span></li>
         </ul>
@@ -290,10 +290,10 @@ header { display: flex; align-items: center; gap: 8px; padding: 10px 8px 6px 16p
 .dot.edge { background: var(--edge-sync); }
 .dot.zone { background: var(--edge-quorum); }
 .body { overflow: auto; padding: 0 14px 10px 16px; display: flex; flex-direction: column; gap: 2px; }
-.gh { flex: none; display: flex; align-items: center; gap: 5px; width: 100%; margin-top: 8px; padding: 4px 0; border: 0; background: transparent; text-align: left; font-size: 10.5px; letter-spacing: .09em; text-transform: uppercase; color: #6e7fa8; font-weight: 600; }
+.gh { flex: none; display: flex; align-items: center; gap: 5px; width: 100%; margin-top: 8px; padding: 4px 0; border: 0; background: transparent; text-align: left; font-size: 10.5px; letter-spacing: .09em; text-transform: uppercase; color: var(--label); font-weight: 600; }
 .gh:hover { color: var(--accent); }
 .gh .cnt { margin-left: auto; font-weight: 500; letter-spacing: 0; color: var(--faint); }
-h5 { flex: none; margin: 10px 0 2px; font-size: 10.5px; letter-spacing: .09em; text-transform: uppercase; color: #6e7fa8; font-weight: 600; }
+h3 { flex: none; margin: 10px 0 2px; font-size: 10.5px; letter-spacing: .09em; text-transform: uppercase; color: var(--label); font-weight: 600; }
 .prop { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 10px; align-items: center; min-height: 30px; font-size: 12.5px; flex: none; }
 .lbl { color: var(--muted); }
 .in { width: 100%; height: 28px; padding: 0 8px; border: 1px solid transparent; border-radius: var(--radius-sm); background: transparent; text-align: right; font-size: 12.5px; color: var(--text); }

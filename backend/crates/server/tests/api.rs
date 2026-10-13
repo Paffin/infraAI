@@ -405,6 +405,29 @@ async fn placement_options_preview_compare_and_project_creation() {
     assert!(layers.iter().any(|l| l["id"] == "db" && l["optional"] == true), "{o}");
     assert_eq!(o["maxNodes"], 500);
 
+    // the pattern the wizard offers first is data: the administrator's choice, the first one when that is not on offer
+    assert_eq!(o["defaultPattern"], "n-sites", "{o}");
+    let (_, listed) = app.get(&c, "/api/admin/config/placement.settings").await;
+    let mut settings = listed["items"][0]["data"].clone();
+    assert_eq!(settings["defaultPattern"], "n-sites");
+    settings["defaultPattern"] = json!("single-dc");
+    let (s, v) = app.put(&c, "/api/admin/config/placement.settings/placement", json!({"data": settings.clone()})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    let (_, chosen) = app.get(&c, "/api/placement/options").await;
+    assert_eq!(chosen["defaultPattern"], "single-dc", "{chosen}");
+    settings["defaultPattern"] = json!("no-such-pattern");
+    let (s, v) = app.put(&c, "/api/admin/config/placement.settings/placement", json!({"data": settings})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    let (_, fallback) = app.get(&c, "/api/placement/options").await;
+    assert_eq!(fallback["defaultPattern"], fallback["patterns"][0]["id"], "an unknown choice falls back to the first pattern: {fallback}");
+    let (_, kinds) = app.get(&c, "/api/admin/config").await;
+    assert!(
+        kinds["errors"].as_array().unwrap().iter().any(|e| e["kind"] == "placement.settings" && e["error"].as_str().unwrap_or("").contains("no-such-pattern")),
+        "the administrator is told why: {kinds}"
+    );
+    let (s, _) = app.post(&c, "/api/admin/config/placement.settings/placement/reset", json!({})).await;
+    assert_eq!(s, StatusCode::OK);
+
     // five sites: the engine judges the generated design, the response says what it survives
     let (s, p) = app.post(&c, "/api/placement/preview", json!({"pattern": "n-sites", "sites": 5})).await;
     assert_eq!(s, StatusCode::OK, "{p}");

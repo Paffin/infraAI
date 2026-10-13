@@ -49,7 +49,7 @@ const en: Record<string, string> = {
   'admin.group.limits': 'Limits',
   'admin.group.retention': 'Data retention',
   'admin.group.observability': 'Observability',
-  'admin.group.lifecycle': 'Versions and lifecycle',
+  'admin.group.lifecycle': 'Lifecycle',
   'admin.settings.title': 'Settings',
   'admin.settings.subtitle': 'How the service behaves. Changes apply right after saving, no restart needed.',
   'admin.settings.search': 'Search settings',
@@ -130,6 +130,9 @@ const en: Record<string, string> = {
   'admin.model.ctx': 'context {n}',
   'admin.model.price': '{input} / {output} per 1M tokens',
   'admin.model.notFound': 'This model is not in the OpenRouter catalog',
+  'admin.notFound.title': 'No such section',
+  'admin.notFound.text': 'The link may be out of date or the section renamed. Pick a section in the menu on the left.',
+  'admin.notFound.back': 'To the settings',
 
   // openrouter page
   'admin.llm.title': 'OpenRouter / AI',
@@ -219,7 +222,7 @@ const en: Record<string, string> = {
   'admin.kind.catalog.category.title': 'Categories',
   'admin.kind.catalog.category.desc': 'Groups of components in the library and their order.',
   'admin.kind.catalog.versions.title': 'Versions and lifecycle',
-  'admin.kind.catalog.versions.desc': 'Release tables of the products (endoflife.date): the editor shows support dates from them and the VER-01 rule finds versions without security fixes. They are refreshed with a button, on a schedule (Settings → Versions and lifecycle) or by hand.',
+  'admin.kind.catalog.versions.desc': 'Release tables of the products (endoflife.date): the editor shows support dates from them and the VER-01 rule finds versions without security fixes. They are refreshed with a button, on a schedule (Settings → Lifecycle) or by hand.',
   'admin.versions.tables': 'Release tables: {n}',
   'admin.versions.oldest': 'the oldest is {n} days old',
   'admin.versions.fresh': 'All tables are fresh',

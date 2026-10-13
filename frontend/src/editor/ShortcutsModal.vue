@@ -11,7 +11,7 @@ const ui = useUi()
   <Modal :title="t('shortcuts.title')" size="lg" @close="ui.modal = null">
     <div class="cols">
       <section v-for="g in GROUPS" :key="g">
-        <h4>{{ t('shortcuts.group.' + g) }}</h4>
+        <h3>{{ t('shortcuts.group.' + g) }}</h3>
         <dl>
           <div v-for="s in SHORTCUTS.filter((x) => x.group === g)" :key="s.id" class="line">
             <dt>{{ t('kb.' + s.id) }}</dt>
@@ -31,7 +31,7 @@ const ui = useUi()
 
 <style scoped>
 .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 36px; }
-h4 { margin: 4px 0 8px; font-size: 10.5px; letter-spacing: .09em; text-transform: uppercase; color: #6e7fa8; font-weight: 600; }
+h3 { margin: 4px 0 8px; font-size: 10.5px; letter-spacing: .09em; text-transform: uppercase; color: var(--label); font-weight: 600; }
 dl { margin: 0 0 14px; display: flex; flex-direction: column; }
 .line { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; }
 dt { color: var(--text-2); }

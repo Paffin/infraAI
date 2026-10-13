@@ -24,7 +24,7 @@ export interface Palette {
 }
 
 /** The shipped design tokens (`styles/tokens.css`); `themePalette` overrides them with what the page actually uses. */
-export const DEFAULT_PALETTE: Palette = { bg: '#f5f7fb', surface: '#ffffff', line: '#cbd3e0', text: '#161a24', muted: '#5b6270', faint: '#8b93a1', accent: '#2e5bec', crit: '#c0262d', risk: '#f3a00c', ok: '#27c25e' }
+export const DEFAULT_PALETTE: Palette = { bg: '#f5f7fb', surface: '#ffffff', line: '#cbd3e0', text: '#161a24', muted: '#5b6270', faint: '#646d80', accent: '#2e5bec', crit: '#c0262d', risk: '#f3a00c', ok: '#27c25e' }
 
 const TOKENS: Record<keyof Palette, string> = { bg: '--bg', surface: '--surface', line: '--line-strong', text: '--text', muted: '--muted', faint: '--faint', accent: '--accent', crit: '--crit', risk: '--risk-dot', ok: '--ok-dot' }
 

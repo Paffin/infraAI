@@ -21,12 +21,18 @@ function bars(map: Record<string, number> | undefined, label: (k: string) => str
 }
 const byCategory = computed(() => bars(cost.value?.byCategory, (k) => lt(app.boot?.catalog.categories.find((c) => c.id === k)?.name) || k))
 const byZone = computed(() => bars(cost.value?.byZone, (k) => (k === '_global' ? t('cost.global') : editor.arch.zones.find((z) => z.id === k)?.name ?? k)))
-const top = computed(() => [...(cost.value?.nodes ?? [])].filter((n) => n.amount > 0).sort((a, b) => b.amount - a.amount).slice(0, 8).map((n) => ({ ...n, name: editor.arch.nodes.find((x) => x.id === n.nodeId)?.name ?? n.nodeId })))
+/** The costliest nodes, each with where it stands: the same service in two sites has the same name twice. */
+const top = computed(() =>
+  [...(cost.value?.nodes ?? [])].filter((n) => n.amount > 0).sort((a, b) => b.amount - a.amount).slice(0, 8).map((n) => {
+    const node = editor.arch.nodes.find((x) => x.id === n.nodeId)
+    return { ...n, name: node?.name ?? n.nodeId, zone: editor.arch.zones.find((z) => z.id === node?.zoneId)?.name ?? '' }
+  }),
+)
 </script>
 
 <template>
   <div class="cost">
-    <h3>{{ t('cost.title') }}</h3>
+    <h2>{{ t('cost.title') }}</h2>
     <div v-if="!cost" class="empty"><span class="spinner" /></div>
     <template v-else>
       <div class="total card card-pad">
@@ -40,17 +46,17 @@ const top = computed(() => [...(cost.value?.nodes ?? [])].filter((n) => n.amount
       <p v-if="cost.incomplete" class="banner banner-warn">{{ t('cost.incomplete', { n: cost.incomplete }) }}</p>
 
       <section v-if="byCategory.length">
-        <h5>{{ t('cost.byCategory') }}</h5>
+        <h3>{{ t('cost.byCategory') }}</h3>
         <div v-for="b in byCategory" :key="b.key" class="brow"><span class="bl truncate">{{ b.label }}</span><span class="bt"><i class="bar-fill" :style="{ width: b.width + '%' }" /></span><span class="bv mono">{{ fmtMoney(b.value, sym) }}</span></div>
       </section>
       <section v-if="byZone.length">
-        <h5>{{ t('cost.byZone') }}</h5>
+        <h3>{{ t('cost.byZone') }}</h3>
         <div v-for="b in byZone" :key="b.key" class="brow"><span class="bl truncate">{{ b.label }}</span><span class="bt"><i class="bar-fill" :style="{ width: b.width + '%' }" /></span><span class="bv mono">{{ fmtMoney(b.value, sym) }}</span></div>
       </section>
       <section v-if="top.length">
-        <h5>{{ t('cost.topNodes') }}</h5>
+        <h3>{{ t('cost.topNodes') }}</h3>
         <div v-for="n in top" :key="n.nodeId" class="brow plain">
-          <button class="link truncate bl" @click="editor.select({ type: 'node', id: n.nodeId })">{{ n.name }}</button><span class="bv mono">{{ fmtMoney(n.amount, sym) }}</span>
+          <button class="link truncate bl" @click="editor.select({ type: 'node', id: n.nodeId })">{{ n.name }}<span v-if="n.zone" class="where"> · {{ n.zone }}</span></button><span class="bv mono">{{ fmtMoney(n.amount, sym) }}</span>
         </div>
       </section>
       <p class="muted note">{{ t('cost.estimate') }}</p>
@@ -60,14 +66,15 @@ const top = computed(() => [...(cost.value?.nodes ?? [])].filter((n) => n.amount
 
 <style scoped>
 .cost { padding: 16px 20px 28px; display: flex; flex-direction: column; gap: 14px; overflow: auto; }
-h3 { font-size: 16px; }
-h5 { margin: 0 0 8px; font-size: 11px; letter-spacing: .09em; text-transform: uppercase; color: #6e7fa8; font-weight: 600; }
+h2 { font-size: 16px; }
+h3 { margin: 0 0 8px; font-size: 11px; letter-spacing: .09em; text-transform: uppercase; color: var(--label); font-weight: 600; }
 .big { font-size: 26px; font-weight: 600; letter-spacing: -0.02em; }
 .bar { height: 8px; background: var(--surface-sunken); border-radius: 4px; overflow: hidden; margin: 12px 0 8px; }
 .bar i { display: block; height: 100%; background: var(--accent); border-radius: 4px; }
 .bar i.over { background: var(--crit); }
 .small { font-size: 12.5px; }
 .crit { color: var(--crit); }
+.where { color: var(--faint); font-weight: 400; }
 .brow { display: grid; grid-template-columns: minmax(80px, 1fr) 1.1fr auto; align-items: center; gap: 10px; font-size: 12.5px; padding: 3px 0; }
 .brow.plain { grid-template-columns: 1fr auto; }
 .bt { height: 8px; background: var(--surface-sunken); border-radius: 4px; overflow: hidden; }

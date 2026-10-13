@@ -67,6 +67,45 @@ test.describe('admin panel', () => {
     await expect(page.locator('.items-table tbody tr', { hasText: 'two-sites' }).locator('.tag', { hasText: 'изменён' })).toHaveCount(0)
   })
 
+  test('the administrator chooses which scheme the wizard offers first, and an unknown choice is reported', async ({ page }) => {
+    await login(page)
+    const current = async () => (await (await page.request.get('/api/admin/config/placement.settings')).json()).items[0].data
+    const put = (data: unknown) => page.request.put('/api/admin/config/placement.settings/placement', { data: { data } })
+    const settings = await current()
+    const firstPattern = async () => {
+      await page.goto('/')
+      await page.getByRole('button', { name: 'Новый проект' }).first().click()
+      await page.locator('.wizard-card').click()
+      await expect(page.locator('.wiz .site').first()).toBeVisible({ timeout: 20_000 })
+      const text = await page.locator('.wiz .pat.on b').first().innerText()
+      await page.keyboard.press('Escape')
+      return text
+    }
+    try {
+      expect(await firstPattern()).toContain('N площадок')
+      expect((await put({ ...settings, defaultPattern: 'single-dc' })).ok()).toBeTruthy()
+      expect(await firstPattern()).toContain('Один ЦОД')
+      // a scheme that does not exist: the wizard still opens (on the first scheme) and the administrator is told why
+      expect((await put({ ...settings, defaultPattern: 'no-such-pattern' })).ok()).toBeTruthy()
+      expect(await firstPattern()).toContain('Один ЦОД')
+      await page.goto('/admin/placement/settings')
+      await expect(page.locator('.cfg-errors').first()).toContainText('no-such-pattern')
+    } finally {
+      await page.request.post('/api/admin/config/placement.settings/placement/reset')
+    }
+    expect(await firstPattern()).toContain('N площадок')
+  })
+
+  test('an unknown section says so and leads back to the panel', async ({ page }) => {
+    await login(page)
+    await page.goto('/admin/catalog/no-such-kind')
+    const notFound = page.getByTestId('admin-notfound')
+    await expect(notFound).toBeVisible()
+    await notFound.getByRole('link').click()
+    await expect(page.getByTestId('admin-notfound')).toHaveCount(0)
+    await expect(page.locator('#adm-main')).toBeVisible()
+  })
+
   test('viewers cannot open the admin panel', async ({ page, request }) => {
     await login(page)
     const stamp = Date.now().toString(36)

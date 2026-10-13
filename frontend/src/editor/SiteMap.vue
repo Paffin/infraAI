@@ -20,7 +20,7 @@ const sitesCount = computed(() => map.value.domains.reduce((n, d) => n + d.sites
       <span class="gl faint">{{ t('placement.map.global') }}</span>
     </div>
     <section v-for="d in map.domains" :key="d.geo" class="domain">
-      <h5 class="mono">{{ d.geo }}<span>{{ d.sites.length }}</span></h5>
+      <h4 class="mono">{{ d.geo }}<span>{{ d.sites.length }}</span></h4>
       <div class="sites">
         <article v-for="(s, i) in d.sites" :key="s.id" class="site" :class="s.role" :style="{ '--i': i }">
           <header>
@@ -49,8 +49,8 @@ const sitesCount = computed(() => map.value.domains.reduce((n, d) => n + d.sites
 .global { display: flex; align-items: center; gap: 6px; padding: 8px 10px; border: 1px dashed var(--line-strong); border-radius: var(--radius); background: var(--surface-2); }
 .gl { font-size: 11.5px; margin-left: 4px; }
 .domain { border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 8px 10px 10px; background: var(--surface); }
-.domain h5 { margin: 0 0 8px; font-size: 11.5px; font-weight: 600; color: var(--muted); display: flex; align-items: center; gap: 8px; letter-spacing: .02em; }
-.domain h5 span { font-family: var(--font); background: var(--surface-sunken); border-radius: 10px; padding: 0 7px; font-size: 11px; color: var(--faint); }
+.domain h4 { margin: 0 0 8px; font-size: 11.5px; font-weight: 600; color: var(--muted); display: flex; align-items: center; gap: 8px; letter-spacing: .02em; }
+.domain h4 span { font-family: var(--font); background: var(--surface-sunken); border-radius: 10px; padding: 0 7px; font-size: 11px; color: var(--faint); }
 .sites { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
 .dense .sites { grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); }
 .site { border: 1px solid var(--line-strong); border-radius: var(--radius); padding: 8px 9px 9px; background: var(--surface); display: flex; flex-direction: column; gap: 7px; min-width: 0; animation: site-in var(--dur-base) var(--ease-out) both; animation-delay: calc(var(--i, 0) * var(--stagger)); }
@@ -63,7 +63,7 @@ const sitesCount = computed(() => map.value.domains.reduce((n, d) => n + d.sites
 .chips, .rack { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
 .rack { padding-top: 5px; border-top: 1px dashed var(--line); }
 .rn { font-size: 10px; color: var(--faint); width: 100%; }
-.chip-s { --c: #8b93a1; display: inline-flex; align-items: baseline; gap: 1px; height: 22px; padding: 0 6px; align-items: center; border-radius: 5px; font: 600 10.5px/1 var(--mono); letter-spacing: .02em; color: var(--c); background: color-mix(in srgb, var(--c) 13%, #fff); border: 1px solid color-mix(in srgb, var(--c) 45%, #fff); }
+.chip-s { --c: #8b93a1; display: inline-flex; align-items: baseline; gap: 1px; height: 22px; padding: 0 6px; align-items: center; border-radius: 5px; font: 600 10.5px/1 var(--mono); letter-spacing: .02em; color: color-mix(in srgb, var(--c) 72%, #000); background: color-mix(in srgb, var(--c) 13%, #fff); border: 1px solid color-mix(in srgb, var(--c) 45%, #fff); }
 .chip-s.w { border-style: dashed; }
 .chip-s sup { font-size: 8.5px; margin-left: 2px; opacity: .85; }
 .chip-s em { font-style: normal; font-size: 9.5px; opacity: .75; margin-left: 2px; }

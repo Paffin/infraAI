@@ -51,7 +51,7 @@ function fillRps(v: CapacityView) {
 <template>
   <div class="cap">
     <div class="head">
-      <h3 class="grow">{{ t('cap.title') }}</h3>
+      <h2 class="grow">{{ t('cap.title') }}</h2>
     </div>
 
     <div v-if="editor.isEmpty" class="empty">{{ t('checks.emptyArch') }}</div>
@@ -142,7 +142,7 @@ function fillRps(v: CapacityView) {
 <style scoped>
 .cap { display: flex; flex-direction: column; min-height: 0; flex: 1; overflow: auto; padding-bottom: 20px; }
 .head { display: flex; align-items: baseline; padding: 16px 20px 4px; }
-.head h3 { font-size: 16px; }
+.head h2 { font-size: 16px; }
 .intro { margin: 0; padding: 0 20px 10px; font-size: 12.5px; color: var(--muted); line-height: 1.5; }
 .empty { padding: 24px 20px; color: var(--muted); display: flex; gap: 8px; align-items: center; justify-content: center; text-align: center; }
 .empty.col { flex-direction: column; }
@@ -159,9 +159,9 @@ function fillRps(v: CapacityView) {
 
 .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 10px 20px 0; }
 .tile { display: flex; flex-direction: column; gap: 1px; padding: 9px 12px; border-radius: var(--radius); border: 1px solid transparent; min-width: 0; }
-.tile .tl { font-size: 11.5px; opacity: .85; }
+.tile .tl { font-size: 11.5px; }
 .tile b { font-size: 22px; line-height: 1.2; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-.tile .tn { font-size: 12px; opacity: .85; }
+.tile .tn { font-size: 12px; }
 .tile.ok { background: var(--ok-bg); color: var(--ok); }
 .tile.risk { background: var(--risk-bg); color: var(--risk); }
 .tile.crit { background: var(--crit-bg); color: var(--crit); }

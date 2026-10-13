@@ -95,7 +95,7 @@
 
 | Метод | Путь | Что |
 |---|---|---|
-| GET | `/placement/options` | схемы, платформы (слои, **продукты функции слоя и их варианты**, признак «управляемый»), типы площадок, пределы |
+| GET | `/placement/options` | схемы и та, что мастер предлагает первой (`defaultPattern`), платформы (слои, **продукты функции слоя и их варианты**, признак «управляемый»), типы площадок, пределы |
 | POST | `/placement/preview` | `PlacementRequest` → `{architecture, sites, siteFailures, notes, report, nodes, edges}`; `report` — вердикт движка (оценка, счётчики, цели, стоимость, сценарии, худший запас ёмкости, главные замечания) |
 | POST | `/placement/compare` | `{base, variants:[…]}` → `{variants:[{ok, pattern, sites, siteFailures, nodes, workingSites, arbiterSites, notes, report} \| {ok:false, error}]}` — до `limits.placementCompareMax` вариантов |
 | POST | `/projects` | `{name, placement: PlacementRequest}` — проект создаётся по запросу размещения |
@@ -112,7 +112,7 @@
 |---|---|
 | **Схемы размещения** (`placement.pattern`) | допустимое число площадок, регионы, стойки, уровень отказа (`tolerance`), `siteFailures`, арбитры, резервные площадки, требования по умолчанию, платформа, плюсы и минусы для карточки |
 | **Платформы** (`placement.stack`) | слои: продукт по умолчанию, функция, область, размер, число копий, связи, DCS |
-| **Параметры генератора** (`placement.settings`) | задержки и пропускная способность связей (`intraSite`, `intraGeo`, `interGeo`), имена зон, число голосов (`minVoters` / `maxVoters`), параметры арбитра и резервной площадки, предел узлов (`maxNodes`), `tlsBetweenSites` |
+| **Параметры генератора** (`placement.settings`) | схема, которую мастер предлагает первой (`defaultPattern`; неизвестная или выключенная — просто первая в списке, а в админке появится предупреждение), задержки и пропускная способность связей (`intraSite`, `intraGeo`, `interGeo`), имена зон, число голосов (`minVoters` / `maxVoters`), параметры арбитра и резервной площадки, предел узлов (`maxNodes`), `tlsBetweenSites` |
 
 Кроме того: настройка `limits.placementCompareMax` (сколько вариантов сравнивать), `engine.scenarios` (`maxSiteFailures`, `maxCombinations`, `includeIsolation`, `isolationMaxSites`, `includeRacks`), `engine.tolerance`
 (уровни отказа: экземпляр → стойка → площадка → регион).

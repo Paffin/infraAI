@@ -18,7 +18,7 @@ SERVER = ROOT / "backend/crates/server/defaults"
 CATEGORIES = {"ha": "Отказоустойчивость", "dr": "Катастрофоустойчивость", "net": "Сеть", "sec": "Безопасность", "cap": "Ёмкость",
               "cost": "Стоимость", "gov": "Управление и согласованность", "obs": "Наблюдаемость", "lifecycle": "Жизненный цикл продуктов"}
 GROUPS = {"general": "Общие", "auth": "Аутентификация", "llm": "ИИ / OpenRouter", "jobs": "Задачи ИИ", "limits": "Лимиты схемы",
-          "retention": "Хранение данных", "observability": "Наблюдаемость", "lifecycle": "Версии и жизненный цикл"}
+          "retention": "Хранение данных", "observability": "Наблюдаемость", "lifecycle": "Жизненный цикл"}
 SEVERITY = {"critical": "критично", "risk": "риск"}
 
 

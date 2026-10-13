@@ -23,6 +23,8 @@ const versions = ref<VersionItem[]>([])
 const loading = ref(true)
 const message = ref('')
 const from = ref<string>('draft')
+/** The version saved just before this one: what "what changed in it" is compared with. */
+const previousOf = (v: VersionItem) => versions.value.filter((x) => x.n < v.n).sort((a, b) => b.n - a.n)[0]
 const to = ref<string>('draft')
 const diff = ref<ArchDiff | null>(null)
 const diffBusy = ref(false)
@@ -151,18 +153,18 @@ watch(versions, compare)
         <div v-if="loading" class="empty"><span class="spinner" /></div>
         <p v-else-if="!versions.length" class="muted">{{ t('versions.empty') }}</p>
         <ul v-else class="list">
-          <li v-for="v in versions" :key="v.n">
+          <li v-for="v in versions" :key="v.n" :class="{ cmp: String(v.n) === from || String(v.n) === to }">
             <div class="top"><b>v{{ v.n }}</b><span class="grow truncate">{{ v.message }}</span><span class="tag tag-mono tag-accent">{{ t('versions.score', { v: Math.round(v.summary.score) }) }}</span></div>
             <div class="meta faint">{{ v.author }} · {{ fmtDateTime(v.createdAt) }}</div>
             <div class="acts">
-              <button class="btn btn-sm" @click="from = String(v.n)">{{ t('versions.from') }}</button>
-              <button class="btn btn-sm" @click="to = String(v.n)">{{ t('versions.to') }}</button>
+              <button class="btn btn-sm" @click="from = String(v.n); to = 'draft'">{{ t('versions.vsCurrent') }}</button>
+              <button v-if="previousOf(v)" class="btn btn-sm" @click="from = String(previousOf(v)!.n); to = String(v.n)">{{ t('versions.vsPrevious') }}</button>
               <button v-if="canWrite" class="btn btn-sm btn-ghost" :disabled="busy" @click="restore(v)">{{ t('versions.restore') }}</button>
             </div>
           </li>
         </ul>
         <div class="drift">
-          <h5>{{ t('versions.drift.title') }}</h5>
+          <h3>{{ t('versions.drift.title') }}</h3>
           <p class="muted small">{{ t('versions.drift.hint') }}</p>
           <input ref="file" type="file" accept="application/json,.json" class="sr-only" @change="loadFile" />
           <button class="btn btn-sm" @click="file?.click()"><Upload :size="13" />{{ t('versions.drift.load') }}</button>
@@ -196,13 +198,14 @@ watch(versions, compare)
 .vers { display: grid; grid-template-columns: minmax(320px, 1fr) minmax(0, 1.3fr); gap: 24px; min-height: 360px; }
 .save { margin-bottom: 14px; }
 .list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; max-height: 52vh; overflow: auto; }
-.list li { border: 1px solid var(--line-strong); border-radius: var(--radius); padding: 10px 12px; }
+.list li { border: 1px solid var(--line-strong); border-radius: var(--radius); padding: 10px 12px; transition: border-color var(--dur-fast), background-color var(--dur-fast); }
+.list li.cmp { border-color: var(--accent-line); background: var(--accent-soft); }
 .top { display: flex; align-items: center; gap: 8px; }
 .meta { font-size: 12px; margin: 2px 0 8px; }
 .acts { display: flex; gap: 6px; }
 .pick { margin-bottom: 14px; }
 .drift { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
-.drift h5 { margin: 0; font-size: 11px; letter-spacing: .09em; text-transform: uppercase; color: #6e7fa8; font-weight: 600; }
+.drift h3 { margin: 0; font-size: 11px; letter-spacing: .09em; text-transform: uppercase; color: var(--label); font-weight: 600; }
 .small { font-size: 12.5px; margin: 0; }
 .diffact { margin-top: 12px; }
 .pick .select { width: 190px; }

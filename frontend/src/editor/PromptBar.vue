@@ -55,7 +55,7 @@ defineExpose({ focus: () => input.value?.focus() })
 </script>
 
 <template>
-  <div class="promptbar" data-tour="prompt">
+  <section class="promptbar" data-tour="prompt" :aria-label="t('prompt.region')">
     <div class="row main">
       <div class="field-wrap" :class="{ off: disabled }">
         <Sparkles :size="16" class="spark" />
@@ -84,7 +84,7 @@ defineExpose({ focus: () => input.value?.focus() })
       <span class="grow">{{ aiErrorText(ai.error.code, ai.error.message) }}</span>
       <button class="btn btn-ghost btn-icon" :aria-label="t('common.close')" @click="ai.dismissError()"><X :size="15" /></button>
     </div>
-  </div>
+  </section>
 </template>
 
 <style scoped>

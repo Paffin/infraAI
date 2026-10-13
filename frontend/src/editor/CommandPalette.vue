@@ -109,7 +109,7 @@ onMounted(() => input.value?.focus())
 .q { flex: 1; min-width: 0; height: 100%; border: 0; outline: none; background: transparent; font-size: 15.5px; color: var(--text); }
 .q::placeholder { color: var(--faint); }
 .results { overflow: auto; padding: 6px 8px 8px; flex: 1; min-height: 80px; }
-.gh { padding: 10px 10px 4px; font-size: 10.5px; letter-spacing: .09em; text-transform: uppercase; color: #6e7fa8; font-weight: 600; }
+.gh { padding: 10px 10px 4px; font-size: 10.5px; letter-spacing: .09em; text-transform: uppercase; color: var(--label); font-weight: 600; }
 .item { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 44px; padding: 6px 10px; border: 0; border-radius: var(--radius); background: transparent; text-align: left; color: var(--text); }
 .item.on { background: var(--accent-soft); }
 .tile { width: 30px; height: 30px; border-radius: 7px; flex: none; font-size: 9.5px; }

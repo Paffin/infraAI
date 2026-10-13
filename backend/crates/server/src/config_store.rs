@@ -283,6 +283,10 @@ impl Loaded {
         templates.sort_by_key(|t| t.order);
         placement.patterns.sort_by_key(|p| p.order);
         placement.stacks.sort_by_key(|p| p.order);
+        let wanted = &placement.settings.default_pattern;
+        if !wanted.is_empty() && !placement.patterns.iter().any(|p| p.enabled && &p.id == wanted) {
+            errors.push((K_PLACEMENT_SETTINGS.to_string(), "placement".to_string(), format!("defaultPattern '{wanted}' is not an enabled placement pattern; the wizard offers the first one")));
+        }
         let mut langs = settings.list("app.languages");
         if langs.is_empty() {
             langs.push(settings.str("app.defaultLanguage"));

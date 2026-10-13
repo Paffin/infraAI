@@ -43,7 +43,7 @@ watch(() => [ai.messages.length, ai.busy], async () => {
 <template>
   <div class="chat">
     <div class="head">
-      <h3 class="grow">{{ t('chat.title') }}</h3>
+      <h2 class="grow">{{ t('chat.title') }}</h2>
       <button v-if="ai.messages.length" class="btn btn-ghost btn-sm" :title="t('chat.clear')" @click="ai.clearChat()"><Trash2 :size="14" /></button>
     </div>
     <div ref="list" class="msgs">
@@ -76,7 +76,7 @@ watch(() => [ai.messages.length, ai.busy], async () => {
 <style scoped>
 .chat { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 .head { display: flex; align-items: center; padding: 16px 20px 8px; }
-.head h3 { font-size: 16px; }
+.head h2 { font-size: 16px; }
 .msgs { flex: 1; overflow: auto; padding: 8px 20px 12px; display: flex; flex-direction: column; gap: 12px; background: var(--surface-2); border-top: 1px solid var(--line); }
 .msg { display: flex; flex-direction: column; gap: 6px; max-width: 92%; }
 .msg.user { align-self: flex-end; align-items: flex-end; }

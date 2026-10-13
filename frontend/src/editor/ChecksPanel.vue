@@ -108,7 +108,7 @@ const markIcon = (s: Status) => (s === 'ok' ? Check : s === 'critical' ? X : s =
 <template>
   <div class="checks">
     <div class="head">
-      <h3 class="grow">{{ t('checks.title', { n: total }) }}</h3>
+      <h2 class="grow">{{ t('checks.title', { n: total }) }}</h2>
       <span class="engine mono">{{ t('checks.engine') }}</span>
     </div>
 
@@ -160,7 +160,7 @@ const markIcon = (s: Status) => (s === 'ok' ? Check : s === 'critical' ? X : s =
 <style scoped>
 .checks { display: flex; flex-direction: column; min-height: 0; flex: 1; }
 .head { display: flex; align-items: baseline; padding: 16px 20px 10px; }
-.head h3 { font-size: 16px; }
+.head h2 { font-size: 16px; }
 .engine { font-size: 11.5px; color: var(--faint); }
 .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 0 20px; }
 .tile { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 10px 4px 9px; border-radius: var(--radius); border: 1px solid transparent; font-size: 13px; transition: border-color var(--dur-fast), transform var(--dur-instant) var(--ease-out); }

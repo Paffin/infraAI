@@ -24,18 +24,17 @@ test.describe('editor', () => {
   test('manual editing: add, connect, rename, delete, undo, persist', async ({ page }) => {
     await createProject(page, uniqueName('manual'))
     await expect(page.locator('.empty-state')).toBeVisible()
-    for (const kind of ['Kubernetes', 'PostgreSQL', 'Redis']) {
+    // a card is added in the middle of the view, on top of the ones added before: move each one aside as it comes,
+    // so that every click afterwards hits the card it means
+    const sideways = [-300, 0, 300]
+    for (const [i, kind] of ['Kubernetes', 'PostgreSQL', 'Redis'].entries()) {
       await page.locator('.library .kind', { hasText: kind }).first().click()
-      await page.waitForTimeout(200)
-    }
-    await expect(page.locator('.arch-node')).toHaveCount(3)
-
-    // nodes are added at the same spot; spread them so that clicks hit the intended card
-    for (let i = 0; i < 3; i++) {
-      const box = await page.locator('.arch-node').nth(i).boundingBox()
-      await page.mouse.move(box!.x + 60, box!.y + 30)
+      await expect(page.locator('.arch-node')).toHaveCount(i + 1)
+      if (!sideways[i]) continue
+      const box = (await page.locator('.arch-node').last().boundingBox())!
+      await page.mouse.move(box.x + 60, box.y + 30)
       await page.mouse.down()
-      await page.mouse.move(box!.x + 60 + i * 260 - 200, box!.y + 30 + i * 30, { steps: 6 })
+      await page.mouse.move(box.x + 60 + sideways[i], box.y + 30 + i * 20, { steps: 6 })
       await page.mouse.up()
     }
 
@@ -89,6 +88,13 @@ test.describe('editor', () => {
     await page.fill('.modal input.input', 'снимок')
     await page.locator('.modal .btn-primary').first().click()
     await expect(page.locator('.vers .list li')).toHaveCount(2)
+    // what to compare is said in words, and the versions being compared are marked
+    const rows = page.locator('.vers .list li')
+    await rows.first().getByRole('button', { name: 'С предыдущей' }).click()
+    await expect(page.locator('.vers .list li.cmp')).toHaveCount(2)
+    await rows.last().getByRole('button', { name: 'Сравнить с текущей' }).click()
+    await expect(page.locator('.vers .list li.cmp')).toHaveCount(1)
+    await expect(rows.last().getByRole('button', { name: 'С предыдущей' })).toHaveCount(0) // the oldest has no previous version
     await page.keyboard.press('Escape')
 
     const other = await context.newPage()

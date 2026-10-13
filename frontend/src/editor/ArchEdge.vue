@@ -96,7 +96,7 @@ const arrow = computed(() => def.value?.directed !== false)
 <style>
 .edge-label {
   position: absolute; pointer-events: all; cursor: pointer; font-family: var(--mono); font-size: 11px; line-height: 1; padding: 4px 8px; border-radius: 5px;
-  background: color-mix(in srgb, var(--ec) 7%, #fff); border: 1px solid color-mix(in srgb, var(--ec) 55%, #fff); color: color-mix(in srgb, var(--ec) 80%, #000); white-space: nowrap; z-index: 30;
+  background: color-mix(in srgb, var(--ec) 7%, #fff); border: 1px solid color-mix(in srgb, var(--ec) 55%, #fff); color: color-mix(in srgb, var(--ec) 60%, #000); white-space: nowrap; z-index: 30;
 }
 .edge-label.selected { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .edge-label.dim { opacity: .25; }

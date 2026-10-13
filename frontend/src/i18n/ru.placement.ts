@@ -29,6 +29,7 @@ export default {
   'placement.name': 'Название проекта',
   'placement.preview': 'Предпросмотр',
   'placement.map': 'Карта площадок',
+  'placement.result': 'Результат проверки схемы',
   'placement.map.empty': 'Здесь появится схема размещения.',
   'placement.role.working': 'рабочая',
   'placement.role.standby': 'резервная',

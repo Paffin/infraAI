@@ -267,6 +267,8 @@ pub struct LinkProfile {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct PlacementSettings {
+    /// The pattern the wizard offers first (the id of an enabled pattern); empty or unknown: the first one.
+    pub default_pattern: String,
     /// Between racks of one site, between sites of one disaster domain, between domains.
     pub intra_site: LinkProfile,
     pub intra_geo: LinkProfile,
@@ -301,6 +303,7 @@ pub struct PlacementSettings {
 impl Default for PlacementSettings {
     fn default() -> Self {
         Self {
+            default_pattern: String::new(),
             intra_site: LinkProfile { latency_ms: 0.3, bandwidth_mbps: 25000.0, paths: 2, lag_seconds: 1.0 },
             intra_geo: LinkProfile { latency_ms: 1.2, bandwidth_mbps: 25000.0, paths: 2, lag_seconds: 1.0 },
             inter_geo: LinkProfile { latency_ms: 28.0, bandwidth_mbps: 2000.0, paths: 2, lag_seconds: 5.0 },

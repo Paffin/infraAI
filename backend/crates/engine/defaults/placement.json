@@ -1,5 +1,6 @@
 {
  "settings": {
+  "defaultPattern": "n-sites",
   "intraSite": {
    "latencyMs": 0.3,
    "bandwidthMbps": 25000,

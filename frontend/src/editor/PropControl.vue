@@ -42,8 +42,8 @@ function onBool(e: Event) {
 </script>
 
 <template>
-  <label class="prop" :class="{ assumed: !declared, flash }" :data-prop="def.key" :title="def.help ? lt(def.help) : undefined">
-    <span class="lbl">{{ lt(def.label) }}<span v-if="def.unit && def.type === 'number'" class="unit"> · {{ def.unit }}</span></span>
+  <label class="prop" :class="{ assumed: !declared, flash, num: def.type === 'number' }" :data-prop="def.key" :title="def.help ? lt(def.help) : undefined">
+    <span class="lbl">{{ lt(def.label) }}<span v-if="def.unit && def.type === 'number'" class="unit">&nbsp;·&nbsp;{{ def.unit }}</span></span>
     <span class="ctl">
       <input
         v-if="def.type === 'number'" class="in mono" type="number" :min="def.min ?? undefined" :max="def.max ?? undefined" step="any" :disabled="disabled"
@@ -70,6 +70,8 @@ function onBool(e: Event) {
 
 <style scoped>
 .prop { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 10px; align-items: center; min-height: 30px; font-size: 12.5px; cursor: default; flex: none; }
+/* a number is short: the label gets the room, and its unit stays with its last word */
+.prop.num { grid-template-columns: minmax(0, 1fr) 92px; }
 .lbl { color: var(--muted); line-height: 1.25; }
 .unit { color: var(--faint); }
 .ctl { display: block; }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { Check, Info, Minus, Plus, TriangleAlert } from 'lucide-vue-next'
 import * as api from '@/api/endpoints'
@@ -27,6 +27,7 @@ const dialogs = useDialogs()
 const editor = useEditor()
 
 const options = ref<PlacementOptions | null>(null)
+const uid = useId()
 const loadError = ref('')
 const patternId = ref('')
 const sites = ref(3)
@@ -213,7 +214,7 @@ watch(request, (r) => {
 onMounted(async () => {
   try {
     options.value = await api.placement.options()
-    const first = options.value.patterns.find((p) => p.id === 'n-sites') ?? options.value.patterns[0]
+    const first = options.value.patterns.find((p) => p.id === options.value?.defaultPattern) ?? options.value.patterns[0]
     if (first) pickPattern(first.id)
     // starting from a project: its requirements are the starting point
     if (props.mode === 'replace') {
@@ -315,12 +316,12 @@ const patternReq = (key: 'rpsPeak' | 'rtoSeconds' | 'rpoSeconds' | 'budgetMonthl
         <p class="sub muted">{{ t('placement.subtitle') }}</p>
 
         <div v-if="mode === 'new'" class="field">
-          <label>{{ t('placement.name') }}</label>
-          <input v-model="name" class="input" maxlength="120" required @input="nameTouched = true" />
+          <label :for="`${uid}-name`">{{ t('placement.name') }}</label>
+          <input :id="`${uid}-name`" v-model="name" class="input" maxlength="120" required @input="nameTouched = true" />
         </div>
 
         <section>
-          <h4>{{ t('placement.pattern') }}</h4>
+          <h3>{{ t('placement.pattern') }}</h3>
           <div class="patterns" role="radiogroup" :aria-label="t('placement.pattern')">
             <button v-for="p in options.patterns" :key="p.id" type="button" class="pat" :class="{ on: p.id === patternId }" role="radio" :aria-checked="p.id === patternId" @click="pickPattern(p.id)">
               <span class="row"><b class="grow">{{ lt(p.name) }}</b><span v-if="p.badge" class="tag tag-accent tag-mono">{{ p.badge }}</span></span>
@@ -334,12 +335,12 @@ const patternReq = (key: 'rpsPeak' | 'rtoSeconds' | 'rpoSeconds' | 'budgetMonthl
         </section>
 
         <section v-if="pattern">
-          <h4>{{ t('placement.params') }}</h4>
+          <h3>{{ t('placement.params') }}</h3>
           <div class="field">
-            <label>{{ t('placement.sites') }}</label>
+            <label :for="`${uid}-sites`">{{ t('placement.sites') }}</label>
             <div class="stepper">
               <button type="button" class="btn btn-icon" :disabled="sites <= siteRange.min" :aria-label="'−'" @click="step(-1)"><Minus :size="14" /></button>
-              <input class="input mono num" type="number" :min="siteRange.min" :max="siteRange.max" :value="sites" :disabled="siteRange.min === siteRange.max" @change="setSites(Number(($event.target as HTMLInputElement).value))" />
+              <input :id="`${uid}-sites`" class="input mono num" type="number" :min="siteRange.min" :max="siteRange.max" :value="sites" :disabled="siteRange.min === siteRange.max" @change="setSites(Number(($event.target as HTMLInputElement).value))" />
               <button type="button" class="btn btn-icon" :disabled="sites >= siteRange.max" :aria-label="'+'" @click="step(1)"><Plus :size="14" /></button>
               <div class="quick">
                 <button v-for="n in quickSites" :key="n" type="button" class="chip" :class="{ on: n === sites }" @click="setSites(n)">{{ n }}</button>
@@ -348,31 +349,31 @@ const patternReq = (key: 'rpsPeak' | 'rtoSeconds' | 'rpoSeconds' | 'budgetMonthl
             <span class="hint">{{ t('placement.sites.hint') }}</span>
           </div>
           <div v-if="regionsOn" class="field">
-            <label>{{ t('placement.regions') }}</label>
-            <input v-model.number="regions" class="input mono num" type="number" :min="pattern.regions.min" :max="Math.min(pattern.regions.max, sites)" />
+            <label :for="`${uid}-regions`">{{ t('placement.regions') }}</label>
+            <input :id="`${uid}-regions`" v-model.number="regions" class="input mono num" type="number" :min="pattern.regions.min" :max="Math.min(pattern.regions.max, sites)" />
             <span class="hint">{{ t('placement.regions.hint') }}</span>
           </div>
           <div v-if="racksOn" class="field">
-            <label>{{ t('placement.racks') }}</label>
-            <input v-model.number="racks" class="input mono num" type="number" :min="pattern.racks.min" :max="pattern.racks.max" />
+            <label :for="`${uid}-racks`">{{ t('placement.racks') }}</label>
+            <input :id="`${uid}-racks`" v-model.number="racks" class="input mono num" type="number" :min="pattern.racks.min" :max="pattern.racks.max" />
             <span class="hint">{{ t('placement.racks.hint') }}</span>
           </div>
           <div v-if="asksSites" class="field">
-            <label>{{ t('placement.failures') }}</label>
-            <div class="seg">
+            <label :id="`${uid}-failures`">{{ t('placement.failures') }}</label>
+            <div class="seg" role="group" :aria-labelledby="`${uid}-failures`">
               <button type="button" class="chip" :class="{ on: failures === null }" @click="failures = null">{{ t('placement.failures.auto') }}{{ preview ? ` · ${preview.siteFailures}` : '' }}</button>
               <button v-for="k in maxFailures" :key="k" type="button" class="chip" :class="{ on: failures === k }" @click="failures = k">{{ k }}</button>
             </div>
             <span class="hint">{{ t('placement.failures.hint') }}</span>
           </div>
           <div v-if="options.siteTypes.length > 1" class="field">
-            <label>{{ t('placement.siteType') }}</label>
-            <select v-model="siteType" class="select"><option v-for="id in options.siteTypes" :key="id" :value="id">{{ siteTypeName(id) }}</option></select>
+            <label :for="`${uid}-siteType`">{{ t('placement.siteType') }}</label>
+            <select :id="`${uid}-siteType`" v-model="siteType" class="select"><option v-for="id in options.siteTypes" :key="id" :value="id">{{ siteTypeName(id) }}</option></select>
           </div>
         </section>
 
         <section v-if="stack">
-          <h4>{{ t('placement.layers') }}</h4>
+          <h3>{{ t('placement.layers') }}</h3>
           <p class="hint">{{ t('placement.layers.hint') }}</p>
           <div v-for="l in optionalLayers" :key="l.id" class="layer" :class="{ stack: layerOn[l.id] && l.products.length > 1 }">
             <label class="sw"><input v-model="layerOn[l.id]" type="checkbox" /><span class="knob" /><span class="grow">{{ lt(l.name) }}</span></label>
@@ -402,7 +403,7 @@ const patternReq = (key: 'rpsPeak' | 'rtoSeconds' | 'rpoSeconds' | 'budgetMonthl
         </section>
 
         <section v-if="pattern">
-          <h4>{{ t('placement.requirements') }}</h4>
+          <h3>{{ t('placement.requirements') }}</h3>
           <p class="hint">{{ t('placement.requirements.hint') }}</p>
           <div class="reqs">
             <label v-for="k in (['rpsPeak', 'rtoSeconds', 'rpoSeconds', 'budgetMonthly'] as const)" :key="k" class="field">
@@ -413,7 +414,7 @@ const patternReq = (key: 'rpsPeak' | 'rtoSeconds' | 'rpoSeconds' | 'budgetMonthl
         </section>
       </aside>
 
-      <section class="out" :class="{ busy: computing }" :aria-busy="computing">
+      <section class="out" :class="{ busy: computing }" :aria-busy="computing" tabindex="0" :aria-label="t('placement.result')">
         <div v-if="previewError" class="banner banner-err">{{ previewError }}</div>
         <template v-if="preview && report">
           <div class="verdict">
@@ -435,16 +436,16 @@ const patternReq = (key: 'rpsPeak' | 'rtoSeconds' | 'rpoSeconds' | 'budgetMonthl
           </div>
           <p v-if="report.worstCapacity !== null" class="cap muted">{{ t('placement.verdict.capacity', { pct: fmtPct(report.worstCapacity) }) }}</p>
 
-          <h4>{{ t('placement.map') }}</h4>
+          <h3>{{ t('placement.map') }}</h3>
           <SiteMap :architecture="preview.architecture" :sites="preview.sites" />
           <p class="legend faint">{{ t('placement.map.legend') }}</p>
 
           <div v-if="preview.notes.length" class="notes">
-            <h4>{{ t('placement.notes') }}</h4>
+            <h3>{{ t('placement.notes') }}</h3>
             <p v-for="(n, i) in preview.notes" :key="i" class="note" :class="n.level"><Info v-if="n.level === 'info'" :size="13" /><TriangleAlert v-else :size="13" />{{ noteText(n) }}</p>
           </div>
 
-          <h4>{{ t('placement.findings') }}</h4>
+          <h3>{{ t('placement.findings') }}</h3>
           <p v-if="!problems.length" class="ok-line"><Check :size="14" />{{ t('placement.findings.none') }}</p>
           <ul v-else class="finds">
             <li v-for="f in problems.slice(0, 6)" :key="f.id" :class="f.status">
@@ -454,7 +455,7 @@ const patternReq = (key: 'rpsPeak' | 'rtoSeconds' | 'rpoSeconds' | 'budgetMonthl
           </ul>
           <p v-if="noData" class="muted nd">{{ t('placement.nodata') }}</p>
 
-          <h4>{{ t('placement.compare.title') }}</h4>
+          <h3>{{ t('placement.compare.title') }}</h3>
           <p class="hint">{{ t('placement.compare.hint') }}</p>
           <table class="cmp">
             <thead><tr><th>{{ t('placement.compare.sites') }}</th><th>{{ t('placement.compare.survives') }}</th><th>{{ t('placement.compare.score') }}</th><th>{{ t('placement.compare.cost') }}</th><th>{{ t('placement.compare.nodes') }}</th><th>{{ t('placement.compare.problems') }}</th></tr></thead>
@@ -491,8 +492,8 @@ const patternReq = (key: 'rpsPeak' | 'rtoSeconds' | 'rpoSeconds' | 'budgetMonthl
 .cfg, .out { height: 100%; overflow-y: auto; padding-right: 6px; scrollbar-width: thin; }
 .cfg { display: flex; flex-direction: column; gap: 16px; }
 .sub { margin: -4px 0 0; font-size: 13px; }
-h4 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 650; }
-.out h4 { margin-top: 18px; }
+h3 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 650; }
+.out h3 { margin-top: 18px; }
 section { display: flex; flex-direction: column; gap: 10px; }
 .patterns { display: flex; flex-direction: column; gap: 8px; }
 .pat { text-align: left; display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border: 1px solid var(--line-strong); border-radius: var(--radius); background: var(--surface); transition: border-color var(--dur-fast), background var(--dur-fast), box-shadow var(--dur-fast); }
@@ -526,7 +527,7 @@ section { display: flex; flex-direction: column; gap: 10px; }
 .sw input:focus-visible + .knob { outline: 2px solid var(--accent); outline-offset: 2px; }
 .reqs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; }
 .out { min-width: 0; transition: opacity var(--dur-base); }
-.out > h4:first-child { margin-top: 0; }
+.out > h3:first-child { margin-top: 0; }
 .out.busy { opacity: .72; }
 .verdict { display: flex; gap: 14px; align-items: stretch; flex-wrap: wrap; }
 .score { display: flex; flex-wrap: wrap; align-items: baseline; align-content: center; gap: 2px 4px; padding: 10px 16px; min-width: 136px; border-radius: var(--radius); border: 1px solid var(--line); background: var(--surface-2); }

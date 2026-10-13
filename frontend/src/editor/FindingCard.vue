@@ -50,7 +50,7 @@ async function revoke() {
       <span class="grow" />
       <span class="rid mono">{{ finding.ruleId }}</span>
     </div>
-    <h4>{{ findingTitle(rule, finding) }}</h4>
+    <h3>{{ findingTitle(rule, finding) }}</h3>
     <p class="text">{{ findingText(rule, finding) }}</p>
     <div v-if="showNeeds" class="needs">
       <span class="needs-h">{{ t('checks.needs') }}</span>
@@ -90,7 +90,7 @@ async function revoke() {
 .top .tag { height: 24px; padding: 0 11px; border-radius: 12px; font-size: 11px; }
 .tag.tag-nodata { background: var(--nodata-bg); border: 1px solid var(--nodata-line); }
 .rid { font-size: 12px; color: var(--faint); letter-spacing: .02em; }
-h4 { font-size: 14.5px; margin: 0 0 4px; }
+h3 { font-size: 14.5px; margin: 0 0 4px; }
 .text { margin: 0 0 10px; color: var(--text-2); font-size: 13.5px; line-height: 1.5; }
 .needs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 10px; }
 .needs-h { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); margin-right: 2px; }

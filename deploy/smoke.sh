@@ -55,6 +55,9 @@ echo "recovery timeline: $TIMELINE frames"
 TABLES=$(api "$BASE/api/versions" | json "len(d['tables'])")
 [ "$TABLES" -ge 50 ] || fail "only $TABLES release tables"
 echo "release tables: $TABLES"
+FIRST=$(api "$BASE/api/placement/options" | json "d['defaultPattern'] if d['defaultPattern'] in [p['id'] for p in d['patterns']] else ''")
+[ -n "$FIRST" ] || fail "the wizard has no pattern to offer first"
+echo "the wizard offers '$FIRST' first"
 SITES=$(echo '{"pattern":"n-sites","sites":5}' | api -d @- "$BASE/api/placement/preview" | json "len(d['sites'])")
 [ "$SITES" -ge 5 ] || fail "the placement preview for 5 sites has $SITES sites"
 echo "placement for 5 sites: $SITES sites"

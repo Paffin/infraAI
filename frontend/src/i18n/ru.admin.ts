@@ -49,7 +49,7 @@ const ru: Record<string, string> = {
   'admin.group.limits': 'Лимиты',
   'admin.group.retention': 'Хранение данных',
   'admin.group.observability': 'Наблюдаемость',
-  'admin.group.lifecycle': 'Версии и жизненный цикл',
+  'admin.group.lifecycle': 'Жизненный цикл',
   'admin.settings.title': 'Настройки',
   'admin.settings.subtitle': 'Параметры работы сервиса. Изменения применяются сразу после сохранения, перезапуск не нужен.',
   'admin.settings.search': 'Поиск по настройкам',
@@ -130,6 +130,9 @@ const ru: Record<string, string> = {
   'admin.model.ctx': 'контекст {n}',
   'admin.model.price': '{input} / {output} за 1 млн токенов',
   'admin.model.notFound': 'Такой модели нет в каталоге OpenRouter',
+  'admin.notFound.title': 'Такого раздела нет',
+  'admin.notFound.text': 'Возможно, ссылка устарела или раздел переименован. Выберите раздел в меню слева.',
+  'admin.notFound.back': 'К настройкам',
 
   // openrouter page
   'admin.llm.title': 'OpenRouter / ИИ',
@@ -219,7 +222,7 @@ const ru: Record<string, string> = {
   'admin.kind.catalog.category.title': 'Категории',
   'admin.kind.catalog.category.desc': 'Группы компонентов в библиотеке и их порядок.',
   'admin.kind.catalog.versions.title': 'Версии и жизненный цикл',
-  'admin.kind.catalog.versions.desc': 'Таблицы выпусков продуктов (endoflife.date): по ним редактор показывает сроки поддержки, а правило VER-01 находит версии без исправлений безопасности. Обновляются кнопкой, по расписанию (Настройки → Версии и жизненный цикл) или вручную.',
+  'admin.kind.catalog.versions.desc': 'Таблицы выпусков продуктов (endoflife.date): по ним редактор показывает сроки поддержки, а правило VER-01 находит версии без исправлений безопасности. Обновляются кнопкой, по расписанию (Настройки → Жизненный цикл) или вручную.',
   'admin.versions.tables': 'Таблиц выпусков: {n}',
   'admin.versions.oldest': 'самая старая — {n} дн.',
   'admin.versions.fresh': 'Все таблицы свежие',

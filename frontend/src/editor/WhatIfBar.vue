@@ -74,7 +74,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', outside))
 </script>
 
 <template>
-  <div ref="bar" class="whatif" data-tour="whatif" role="toolbar" :aria-label="t('sim.whatif')" @keydown.esc="menu = null">
+  <div ref="bar" class="whatif" data-overlay="bottom" data-tour="whatif" role="toolbar" :aria-label="t('sim.whatif')" @keydown.esc="menu = null">
     <span class="lbl">{{ t('sim.whatif') }}</span>
     <button class="w" :class="{ on: isNodeActive, pick: editor.pickingNode }" @click="pickNode"><Crosshair :size="13" />{{ t('sim.node') }}</button>
 

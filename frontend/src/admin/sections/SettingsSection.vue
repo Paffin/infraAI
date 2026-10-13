@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { RefreshCw, Search } from 'lucide-vue-next'
 import { has, lt, t } from '@/i18n'
@@ -61,6 +61,21 @@ async function save() {
 }
 
 watch(() => route.params.sub, () => { query.value = '' })
+
+// the strip of groups scrolls when they do not fit: the active one is brought into view and a fade says there is more on that side
+const strip = ref<HTMLElement | null>(null)
+const edge = ref({ left: false, right: false })
+function measureStrip() {
+  const el = strip.value
+  if (el) edge.value = { left: el.scrollLeft > 2, right: el.scrollLeft + el.clientWidth < el.scrollWidth - 2 }
+}
+watch([active, () => ed.groups.value.length], async () => {
+  await nextTick()
+  strip.value?.querySelector<HTMLElement>('.tab.active')?.scrollIntoView({ inline: 'nearest', block: 'nearest' })
+  measureStrip()
+})
+onMounted(() => window.addEventListener('resize', measureStrip))
+onBeforeUnmount(() => window.removeEventListener('resize', measureStrip))
 </script>
 
 <template>
@@ -78,7 +93,8 @@ watch(() => route.params.sub, () => { query.value = '' })
     </header>
 
     <StateBlock :loading="ed.loading.value && !ed.defs.value.length" :error="ed.loadError.value" @retry="ed.load()">
-      <nav v-if="!query.trim()" class="tabs adm-tabs" :aria-label="t('admin.settings.groups')">
+      <div v-if="!query.trim()" class="adm-tabs-wrap" :class="{ 'more-left': edge.left, 'more-right': edge.right }">
+      <nav ref="strip" class="tabs adm-tabs" :aria-label="t('admin.settings.groups')" @scroll.passive="measureStrip">
         <router-link
           v-for="g in ed.groups.value" :key="g.group" :to="`/admin/settings/${g.group}`" class="tab" :class="{ active: g.group === active }"
           :aria-current="g.group === active ? 'page' : undefined"
@@ -88,6 +104,7 @@ watch(() => route.params.sub, () => { query.value = '' })
           <span v-if="dirtyByGroup.get(g.group)" class="unsaved-dot" :title="t('admin.settings.unsaved')" />
         </router-link>
       </nav>
+      </div>
 
       <div v-if="!sections.length" class="empty">{{ t('admin.settings.noMatch') }}</div>
       <div v-for="s in sections" :key="s.group" class="card srows">

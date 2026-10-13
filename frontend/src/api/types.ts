@@ -725,6 +725,8 @@ export interface PlacementLayer {
 
 export interface PlacementOptions {
   patterns: PlacementPattern[]
+  /** The pattern to offer first (the administrator's choice, else the first enabled one). */
+  defaultPattern: string | null
   stacks: { id: string; name: LText; description?: LText | null; layers: PlacementLayer[] }[]
   siteTypes: string[]
   maxSiteFailures: number

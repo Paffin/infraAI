@@ -167,7 +167,7 @@ onMounted(load)
           <DiagramThumb :id="p.id" :thumb="p.thumb" :node-count="p.nodeCount" />
           <div class="pbody">
           <div class="top">
-            <h3 class="grow truncate">{{ p.name }}</h3>
+            <h2 class="grow truncate">{{ p.name }}</h2>
             <template v-if="app.canEdit">
               <button class="btn btn-ghost btn-icon" :title="t('projects.rename')" :aria-label="t('projects.rename')" @click.stop="rename(p)"><Pencil :size="15" /></button>
               <button class="btn btn-ghost btn-icon" :title="t('projects.duplicate')" :aria-label="t('projects.duplicate')" @click.stop="duplicate(p)"><Copy :size="15" /></button>
@@ -253,7 +253,7 @@ onMounted(load)
 .chip.on { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent); font-weight: 600; }
 .project:hover { box-shadow: var(--shadow-2); border-color: var(--line-strong); }
 .top { display: flex; align-items: center; gap: 4px; }
-.top h3 { font-size: 16px; }
+.top h2 { font-size: 16px; }
 .desc { margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 13px; }
 .meta { display: flex; align-items: center; gap: 12px; margin-top: 4px; }
 .score { display: flex; align-items: baseline; gap: 3px; padding: 4px 10px; border-radius: var(--radius-sm); border: 1px solid var(--line); background: var(--surface-2); }

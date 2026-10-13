@@ -1,5 +1,6 @@
 /* Design tokens sampled from the product mockup. Every colour and size used in the UI comes from
-   here; administrators can override any of them through the `ui.theme` setting. */
+   here; administrators can override any of them through the `ui.theme` setting.
+   Text colours (--muted, --faint, --label, --ok …) keep at least 4.5:1 on the surfaces they are used on (WCAG AA). */
 :root {
   /* surfaces */
   --ink: #14171f;
@@ -17,7 +18,8 @@
   --text: #161a24;
   --text-2: #3d4454;
   --muted: #5b6270;
-  --faint: #8b93a1;
+  --faint: #646d80;
+  --label: #5a6b96;
   --on-dark: #e8ebf2;
   --on-dark-muted: #9aa3b5;
   --on-dark-accent: #9db8ff;
@@ -36,13 +38,13 @@
   --crit: #c0262d;
   --crit-bg: #fdedee;
   --crit-line: #f3c4c6;
-  --risk: #a85d00;
+  --risk: #9c5600;
   --risk-bg: #fff4e4;
   --risk-line: #f6d9a8;
   --nodata: #5b6270;
   --nodata-bg: #eef0f4;
   --nodata-line: #d9dde6;
-  --ok: #1a8d4a;
+  --ok: #16793f;
   --ok-bg: #e9f6ed;
   --ok-line: #bfe3cb;
   --ok-dot: #27c25e;

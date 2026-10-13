@@ -166,7 +166,7 @@ const KEY_ORDER: Record<string, string[]> = {
   engine: ['assumptions', 'scoring', 'scenarios', 'tolerance', 'authority', 'lifecycle', 'cost', 'export'],
   'placement.pattern': ['id', 'name', 'description', 'badge', 'enabled', 'order', 'minSites', 'maxSites', 'defaultSites', 'siteType', 'regions', 'racks', 'tolerance', 'siteFailures', 'witness', 'standbySites', 'syncWithinGeo', 'offsiteBackupSite', 'requirements', 'stack', 'pros', 'cons'],
   'placement.stack': ['id', 'name', 'description', 'order', 'layers'],
-  'placement.settings': ['intraSite', 'intraGeo', 'interGeo', 'siteNames', 'regionName', 'witnessName', 'rackName', 'rackShortName', 'backupSiteName', 'geoPrefix', 'witnessSiteType', 'regionZoneType', 'rackZoneType', 'minVoters', 'maxVoters', 'witnessProps', 'standbyScaleUpSeconds', 'standbyMinReplicas', 'maxNodes', 'tlsBetweenSites'],
+  'placement.settings': ['defaultPattern', 'intraSite', 'intraGeo', 'interGeo', 'siteNames', 'regionName', 'witnessName', 'rackName', 'rackShortName', 'backupSiteName', 'geoPrefix', 'witnessSiteType', 'regionZoneType', 'rackZoneType', 'minVoters', 'maxVoters', 'witnessProps', 'standbyScaleUpSeconds', 'standbyMinReplicas', 'maxNodes', 'tlsBetweenSites'],
 }
 const LAYER_ORDER = ['id', 'name', 'kind', 'alternatives', 'function', 'scope', 'optional', 'default', 'needs', 'props', 'sizing', 'copies', 'place', 'from', 'dcs']
 const PROP_ORDER = ['key', 'type', 'label', 'unit', 'min', 'max', 'options', 'default', 'group', 'help', 'refBehavior', 'refTrait', 'advanced', 'variants', 'lifecycle']

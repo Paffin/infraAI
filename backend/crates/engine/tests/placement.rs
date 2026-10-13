@@ -55,6 +55,14 @@ fn every_pattern_gives_a_clean_design_for_one_to_ten_sites() {
 }
 
 #[test]
+fn the_pattern_the_wizard_offers_first_is_one_the_defaults_have_enabled() {
+    let c = cfg();
+    let first = &c.placement.settings.default_pattern;
+    assert!(!first.is_empty(), "the shipped configuration names its default");
+    assert!(c.placement.patterns.iter().any(|p| p.enabled && &p.id == first), "'{first}' is not an enabled pattern");
+}
+
+#[test]
 fn generation_is_deterministic() {
     let c = cfg();
     let req = make(&c, "n-sites", 7);

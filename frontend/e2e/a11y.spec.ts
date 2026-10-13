@@ -1,0 +1,88 @@
+import { readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
+import { expect, type Page } from '@playwright/test'
+import { test } from './fixtures'
+import { createProject, login, uniqueName } from './helpers'
+
+/**
+ * Accessibility, checked by axe-core on the screens people spend their time on: every field has a name, headings and
+ * landmarks give the page a shape a screen reader can walk, text keeps its contrast (WCAG 2.1 A and AA).
+ *
+ * The page's Content-Security-Policy forbids inline scripts, and it stays that way: only this spec lifts it for its
+ * own test browser, to hand axe to the page.
+ */
+test.use({ bypassCSP: true })
+
+// axe judges what is on the screen at that moment: a card halfway through its entrance would be judged at half its colour
+test.beforeEach(async ({ page }) => { await page.addInitScript(() => { try { localStorage.setItem('ia_motion', 'off') } catch { /* no storage: the default motion applies */ } }) })
+
+const axe = readFileSync(createRequire(import.meta.url).resolve('axe-core/axe.min.js'), 'utf8')
+
+interface Violation { id: string; impact: string | null; help: string; nodes: { target: string[]; failureSummary?: string }[] }
+
+async function violations(page: Page): Promise<string[]> {
+  await page.evaluate(axe)
+  const found: Violation[] = await page.evaluate(async () => {
+    // @ts-expect-error axe is injected above
+    // what a simulation fades out on purpose (`.dim`) is not for reading at that moment; it is back at full strength when the simulation closes
+    const res = await window.axe.run({ include: [['body']], exclude: [['.dim']] }, { resultTypes: ['violations'], runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'best-practice'] } })
+    return res.violations
+  })
+  return found.map((v) => `${v.id} [${v.impact}] ×${v.nodes.length}: ${v.help} — e.g. ${v.nodes[0]?.target.join(' ')} ${(v.nodes[0]?.failureSummary ?? '').split('\n')[1] ?? ''}`.trim())
+}
+
+const clean = async (page: Page, screen: string) => expect(await violations(page), screen).toEqual([])
+
+test.describe('accessibility (axe-core)', () => {
+  test('the login page', async ({ page }) => {
+    await page.goto('/login')
+    await expect(page.locator('#email')).toBeVisible()
+    await clean(page, 'login')
+  })
+
+  test('the project list and the new-project wizard', async ({ page }) => {
+    await login(page)
+    await expect(page.locator('.project').first()).toBeVisible()
+    await clean(page, 'projects')
+    await page.getByRole('button', { name: 'Новый проект' }).first().click()
+    await page.locator('.wizard-card').click()
+    await expect(page.locator('.wiz .site').first()).toBeVisible({ timeout: 20_000 })
+    await clean(page, 'placement wizard')
+  })
+
+  test('the editor: every panel, the inspector, a simulation and the export dialog', async ({ page }) => {
+    await login(page)
+    await createProject(page, uniqueName('a11y'), '2 ЦОД + witness')
+    await expect(page.locator('.arch-node').first()).toBeVisible()
+    await clean(page, 'editor')
+
+    for (const tab of ['Требования', 'Ёмкость', 'Стоимость', 'Проверки']) {
+      await page.locator('.right .tab', { hasText: tab }).click()
+      await clean(page, `tab ${tab}`)
+    }
+
+    await page.locator('.arch-node').first().click()
+    await expect(page.locator('.inspector')).toBeVisible()
+    await clean(page, 'inspector')
+    await page.keyboard.press('Escape')
+
+    await page.locator('.whatif .w', { hasText: 'ЦОД-1' }).first().click()
+    await expect(page.getByTestId('simcard')).toBeVisible()
+    await clean(page, 'simulation')
+    await page.locator('.whatif .x').click()
+
+    await page.getByRole('button', { name: /Экспорт/ }).first().click()
+    await expect(page.locator('.modal')).toBeVisible()
+    await clean(page, 'export')
+  })
+
+  test('the admin panel', async ({ page }) => {
+    await login(page)
+    for (const path of ['settings', 'catalog/kind', 'catalog/versions', 'placement/pattern']) {
+      await page.goto('/admin/' + path)
+      await expect(page.locator('#adm-main')).toBeVisible()
+      await page.waitForTimeout(600)
+      await clean(page, 'admin ' + path)
+    }
+  })
+})

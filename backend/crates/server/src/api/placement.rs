@@ -40,8 +40,11 @@ pub async fn options(State(state): State<AppState>, _user: AuthUser) -> ApiResul
         })
         .collect();
     let zone_types: Vec<&str> = cfg.catalog.zone_types.iter().filter(|z| z.level == engine::catalog::ZoneLevel::Site).map(|z| z.id.as_str()).collect();
+    // the pattern the wizard offers first: the administrator's choice when it is on offer, else the first one
+    let default_pattern = p.patterns.iter().filter(|x| x.enabled).find(|x| x.id == p.settings.default_pattern).or_else(|| p.patterns.iter().find(|x| x.enabled)).map(|x| x.id.clone());
     Ok(Json(json!({
         "patterns": patterns,
+        "defaultPattern": default_pattern,
         "stacks": stacks,
         "siteTypes": zone_types,
         "maxSiteFailures": cfg.engine.scenarios.max_site_failures,

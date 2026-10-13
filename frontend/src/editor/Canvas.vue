@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, markRaw, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, markRaw, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { ConnectionMode, VueFlow, useVueFlow, type GraphNode, type NodeDragEvent } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { MiniMap } from '@vue-flow/minimap'
@@ -9,21 +9,24 @@ import '@vue-flow/minimap/dist/style.css'
 import { lt, t } from '@/i18n'
 import { useApp } from '@/stores/app'
 import { useEditor, type Layer } from '@/stores/editor'
+import { useMotion } from '@/stores/motion'
 import { useUi } from '@/stores/ui'
 import ArchEdge from './ArchEdge.vue'
 import ArchNode from './ArchNode.vue'
 import ArchZone from './ArchZone.vue'
 import { createFlowBuilder, nodeFlowId, zoneFlowId } from './flowModel'
 import { lodOf } from '@/lib/lod'
+import { DURATIONS } from '@/lib/motion'
 import { MIN_ZONE_H, MIN_ZONE_W } from './layout'
 
 const app = useApp()
 const editor = useEditor()
 const ui = useUi()
+const motion = useMotion()
 const nodeTypes = { card: markRaw(ArchNode), zone: markRaw(ArchZone) } as any
 const edgeTypes = { arch: markRaw(ArchEdge) } as any
 
-const { screenToFlowCoordinate, fitView, zoomIn, zoomOut, viewport, panBy, onNodesInitialized, addSelectedNodes, removeSelectedElements, findNode, getSelectedNodes } = useVueFlow()
+const { screenToFlowCoordinate, fitView, zoomIn, zoomOut, viewport, onNodesInitialized, addSelectedNodes, removeSelectedElements, findNode, getSelectedNodes } = useVueFlow()
 const wrap = ref<HTMLElement | null>(null)
 
 const build = createFlowBuilder()
@@ -36,18 +39,78 @@ function updateCenter() {
   editor.viewCenter = screenToFlowCoordinate({ x: r.left + r.width / 2, y: r.top + r.height / 2 })
 }
 
-async function fit() {
+/** How long the view glides to a new place: the design duration scaled by the administrator's speed in full motion, at once otherwise. */
+const glide = (ms: number) => (motion.full ? Math.round(ms * motion.factor) : 0)
+
+const GAP = 16
+/**
+ * What floats over the canvas (the toolbar above; the zoom controls and the what-if bar below, marked `data-overlay`) takes room
+ * from it: the diagram is fit into what is left, so that no card ends up behind a panel.
+ */
+function clearance(): { top: number; bottom: number } {
+  const host = wrap.value?.getBoundingClientRect()
+  let top = 0
+  let bottom = 0
+  if (host) {
+    for (const el of wrap.value?.parentElement?.querySelectorAll<HTMLElement>('[data-overlay]') ?? []) {
+      const r = el.getBoundingClientRect()
+      if (!r.height) continue
+      if (el.dataset.overlay === 'top') top = Math.max(top, r.bottom - host.top)
+      else bottom = Math.max(bottom, host.bottom - r.top)
+    }
+  }
+  return { top, bottom }
+}
+
+/** Is the view the one `fit` made? Once the user pans or zooms it is theirs, and it is no longer moved for them. */
+let autoFit = true
+async function fit(ms = 0) {
   await nextTick()
   setTimeout(async () => {
-    await fitView({ padding: 0.1, maxZoom: 1, duration: 0 })
-    await panBy({ x: 0, y: 26 }) // leave room for the floating toolbar
+    const { top, bottom } = clearance()
+    autoFit = true
+    await fitView({ padding: { top: `${top + GAP}px`, bottom: `${bottom + GAP}px`, x: '5%' }, maxZoom: 1, duration: ms })
     updateCenter()
   }, 80)
 }
+function userMovedView(e: { event: { sourceEvent?: unknown } }) {
+  if (e.event?.sourceEvent) autoFit = false
+}
+/** A press on the canvas is the user taking hold of it: from then on the view is theirs. */
+function takeHold() {
+  autoFit = false
+}
+function zoomBy(dir: 1 | -1) {
+  autoFit = false
+  void (dir > 0 ? zoomIn : zoomOut)({ duration: glide(DURATIONS.instant) })
+}
 
-onNodesInitialized(() => { void fit() })
-onMounted(() => { void fit() })
-watch(() => editor.fitToken, () => void fit())
+/** Does a panel over the canvas cover a card right now? */
+function covered(): boolean {
+  const area = wrap.value?.parentElement
+  if (!area || !wrap.value) return false
+  const panels = Array.from(area.querySelectorAll<HTMLElement>('[data-overlay]')).map((e) => e.getBoundingClientRect()).filter((r) => r.height > 0)
+  return Array.from(wrap.value.querySelectorAll<HTMLElement>('.arch-node')).some((n) => {
+    const c = n.getBoundingClientRect()
+    return panels.some((p) => Math.min(c.right, p.right) - Math.max(c.left, p.left) > 2 && Math.min(c.bottom, p.bottom) - Math.max(c.top, p.top) > 2)
+  })
+}
+
+// the panels change size (the what-if bar grows a row once the scenarios are known): a diagram still at its fit that has
+// ended up behind one follows. Nothing moves otherwise, and never under a hand that has touched the canvas.
+let settle: ReturnType<typeof setTimeout> | undefined
+const resized = new ResizeObserver(() => {
+  clearTimeout(settle)
+  settle = setTimeout(() => { if (autoFit && !editor.isEmpty && covered()) void fit(glide(DURATIONS.base)) }, 120)
+})
+function watchOverlays() {
+  for (const el of wrap.value?.parentElement?.querySelectorAll<HTMLElement>('[data-overlay]') ?? []) resized.observe(el)
+}
+
+onNodesInitialized(() => { if (autoFit) void fit() })
+onMounted(() => { void fit(); watchOverlays() })
+onBeforeUnmount(() => { resized.disconnect(); clearTimeout(settle) })
+watch(() => editor.fitToken, () => { void fit(); watchOverlays() })
 
 watch(() => editor.highlight, (h) => {
   if (!h) return
@@ -58,13 +121,14 @@ watch(() => editor.highlight, (h) => {
     const edge = editor.edgeById.get(e)
     if (edge) { ids.add(nodeFlowId(edge.source)); ids.add(nodeFlowId(edge.target)) }
   }
-  if (ids.size) void fitView({ nodes: [...ids], padding: 0.45, maxZoom: 1.1, duration: 400 })
+  if (ids.size) { autoFit = false; void fitView({ nodes: [...ids], padding: 0.45, maxZoom: 1.1, duration: glide(DURATIONS.slow) }) }
 })
 
 watch(() => editor.reveal, (r) => {
   if (!r) return
   const ids = [...r.nodes.map(nodeFlowId), ...r.zones.map(zoneFlowId)]
-  void fitView({ nodes: ids, padding: 0.7, maxZoom: 1, duration: 350 })
+  autoFit = false
+  void fitView({ nodes: ids, padding: 0.7, maxZoom: 1, duration: glide(DURATIONS.slow) })
 })
 
 // ----------------------------------------------------------------------------------- selection
@@ -190,14 +254,14 @@ function nodeColor(n: { id: string; type?: string }) {
 </script>
 
 <template>
-  <div ref="wrap" class="canvas" :class="['tool-' + editor.tool, editor.pickingNode && 'picking']" :data-lod="lod" :style="{ '--zoom': viewport.zoom || 1 }" @dragover="onDragOver" @drop="onDrop">
+  <div ref="wrap" class="canvas" :class="['tool-' + editor.tool, editor.pickingNode && 'picking']" :data-lod="lod" :style="{ '--zoom': viewport.zoom || 1 }" @dragover="onDragOver" @drop="onDrop" @pointerdown.capture="takeHold">
     <VueFlow
       :nodes="flow.nodes" :edges="flow.edges" :node-types="nodeTypes" :edge-types="edgeTypes"
       :min-zoom="0.15" :max-zoom="1.8" :default-viewport="{ x: 40, y: 40, zoom: 0.8 }"
       :nodes-draggable="!editor.readonly" :nodes-connectable="!editor.readonly" :elements-selectable="true"
       :connection-mode="ConnectionMode.Loose" :connection-radius="30" :delete-key-code="null" :selection-key-code="'Shift'" :multi-selection-key-code="'Shift'"
       :pan-on-drag="editor.tool !== 'zone'" :zoom-on-double-click="false" :prevent-scrolling="true" :snap-to-grid="false" :auto-pan-on-node-drag="true"
-      @node-drag-stop="onDragStop" @pane-click="onPaneClick" @connect="onConnect" @edge-click="onEdgeClick" @move-end="updateCenter"
+      @node-drag-stop="onDragStop" @pane-click="onPaneClick" @connect="onConnect" @edge-click="onEdgeClick" @move-start="userMovedView" @move-end="updateCenter"
     >
       <Background :gap="22" :size="1.6" />
       <MiniMap class="minimap" pannable zoomable :node-color="nodeColor" :node-stroke-width="0" mask-color="rgba(20,23,31,.06)" />
@@ -208,7 +272,7 @@ function nodeColor(n: { id: string; type?: string }) {
     </div>
 
     <button v-if="!ui.libraryOpen" class="open-lib" :title="t('library.expand')" :aria-label="t('library.expand')" @click="ui.libraryOpen = true"><PanelLeftOpen :size="16" /></button>
-    <div class="toolbar" :class="{ shifted: !ui.libraryOpen }">
+    <div class="toolbar" data-overlay="top" :class="{ shifted: !ui.libraryOpen }">
       <template v-if="app.canEdit">
         <button class="tool" :class="{ on: editor.tool === 'select' }" @click="editor.setTool('select')"><MousePointer2 :size="14" />{{ t('tool.select') }}</button>
         <button class="tool" :class="{ on: editor.tool === 'connect' }" :disabled="editor.readonly" @click="editor.setTool('connect')"><Spline :size="14" />{{ t('tool.connect') }}</button>
@@ -230,19 +294,19 @@ function nodeColor(n: { id: string; type?: string }) {
     </div>
     <div v-if="hint" class="hint-bar">{{ hint }}</div>
 
-    <div class="zoom">
+    <div class="zoom" data-overlay="bottom">
       <template v-if="app.canEdit">
         <button :disabled="!editor.canUndo" :title="t('tool.undo') + ' (Ctrl+Z)'" :aria-label="t('tool.undo')" @click="editor.undo()"><Undo2 :size="14" /></button>
         <button :disabled="!editor.canRedo" :title="t('tool.redo') + ' (Ctrl+Shift+Z)'" :aria-label="t('tool.redo')" class="redo" @click="editor.redo()"><Redo2 :size="14" /></button>
       </template>
-      <button :aria-label="'−'" @click="zoomOut({ duration: 120 })"><Minus :size="14" /></button>
+      <button :aria-label="'−'" @click="zoomBy(-1)"><Minus :size="14" /></button>
       <span class="pct">{{ zoomPct }}%</span>
-      <button :aria-label="'+'" @click="zoomIn({ duration: 120 })"><Plus :size="14" /></button>
-      <button class="fit" @click="fit()">{{ t('canvas.fit') }}</button>
+      <button :aria-label="'+'" @click="zoomBy(1)"><Plus :size="14" /></button>
+      <button class="fit" @click="fit(glide(DURATIONS.base))">{{ t('canvas.fit') }}</button>
     </div>
 
     <div v-if="editor.isEmpty && !editor.loading && !editor.preview" class="empty-state" data-testid="canvas-empty">
-      <h3>{{ t('canvas.empty.title') }}</h3>
+      <h2>{{ t('canvas.empty.title') }}</h2>
       <p>{{ t('canvas.empty.text') }}</p>
       <div v-if="app.canEdit && !editor.readonly" class="starts">
         <button v-if="ui.aiOn" class="start rise" style="--i: 0" @click="ui.promptFocus++"><Sparkles :size="18" /><b>{{ t('canvas.empty.ai') }}</b><span>{{ t('canvas.empty.ai.hint') }}</span></button>
@@ -315,6 +379,6 @@ function nodeColor(n: { id: string; type?: string }) {
 .start svg { color: var(--accent); margin-bottom: 4px; }
 .start b { color: var(--text); font-size: 13.5px; }
 .start span { font-size: 12.5px; line-height: 1.45; color: var(--muted); }
-.empty-state h3 { font-size: 18px; color: var(--text); margin-bottom: 8px; }
+.empty-state h2 { font-size: 18px; color: var(--text); margin-bottom: 8px; }
 .empty-state p { margin: 0; line-height: 1.55; }
 </style>

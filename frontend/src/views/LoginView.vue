@@ -69,7 +69,7 @@ async function change() {
   <main class="login">
     <div class="lang"><MotionSwitch /><LangSwitch /></div>
     <section class="card login-card">
-      <div class="brand"><BrandLogo :size="34" /><span>{{ app.appName }}</span></div>
+      <h1 class="brand"><BrandLogo :size="34" /><span>{{ app.appName }}</span></h1>
       <p class="sub muted">{{ t('login.subtitle') }}</p>
 
       <form v-if="!changing" class="col" style="gap: 14px" @submit.prevent="submit">
