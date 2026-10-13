@@ -503,6 +503,16 @@ fn capacity_plan_shows_load_headroom_and_the_worst_failure_of_every_service() {
     assert!(w.capacity_rps < app.capacity_rps.unwrap(), "losing a site removes capacity: {} vs {}", w.capacity_rps, app.capacity_rps.unwrap());
     assert!(!w.failed.is_empty());
 
+    // a source of load that needs no capacity model (external users) is not part of the plan, and every service
+    // without a model is one the capacity rule asks a model for – the plan and the rule agree
+    let kinds: std::collections::BTreeMap<_, _> = a.nodes.iter().map(|n| (n.id.as_str(), n.kind.as_str())).collect();
+    assert!(rep.capacity.iter().all(|r| r.nodes.iter().all(|n| kinds[n.as_str()] != "users")), "{:?}", rep.capacity.iter().map(|r| &r.name).collect::<Vec<_>>());
+    let wanted = engine::checks::capacity_model_traits(c.rules.iter().find(|r| r.check == engine::config::CheckType::Capacity));
+    for row in rep.capacity.iter().filter(|r| r.capacity_rps.is_none()) {
+        let traits = &c.catalog.kinds.iter().find(|k| k.id == row.kind).unwrap().traits;
+        assert!(wanted.iter().any(|t| traits.contains(t)), "{} has no model and needs none, so it is not in the plan", row.name);
+    }
+
     // no peak load → no plan, never an invented one
     let mut b = a.clone();
     b.requirements.rps_peak = None;

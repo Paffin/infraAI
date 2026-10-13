@@ -1675,21 +1675,6 @@
   ],
   "capacity": [
    {
-    "unit": "users",
-    "name": "Пользователи",
-    "kind": "users",
-    "nodes": [
-     "users"
-    ],
-    "instances": 1,
-    "perReplicaRps": null,
-    "loadRps": 30000.0,
-    "capacityRps": null,
-    "targetRps": 55714.28571428572,
-    "instancesNeeded": null,
-    "worst": null
-   },
-   {
     "unit": "gslb",
     "name": "GSLB + CDN",
     "kind": "gslb",

@@ -322,12 +322,17 @@ fn capacity_rows(ctx: &Ctx<'_>) -> Vec<CapacityRow> {
     let req = &ix.arch.requirements;
     let growth = req.growth_percent.unwrap_or(0.0) / 100.0;
     let headroom = ctx.cfg.settings.assumptions.headroom_percent / 100.0;
+    let model_traits = checks::capacity_model_traits(ctx.cfg.rules.iter().find(|r| r.check == CheckType::Capacity && r.enabled));
     let scenarios: Vec<_> = standard_scenarios(ix).into_iter().filter(|sc| !matches!(sc, Scenario::Instance { .. } | Scenario::Node { .. } | Scenario::None)).collect();
     let results: Vec<_> = scenarios.iter().map(|sc| ctx.sim(sc)).collect();
     let mut rows = vec![];
     for l in &baseline.unit_loads {
         let Some(&u) = ix.unit_ix.get(&l.unit) else { continue };
         let unit = &ix.units[u];
+        // a source of load without a capacity model that needs none (external users) is not part of the plan
+        if l.capacity_rps.is_none() && !model_traits.iter().any(|t| unit.traits.contains(t)) {
+            continue;
+        }
         let serving: Vec<usize> = unit.members.iter().copied().filter(|&m| !ix.is_witness(m)).collect();
         let instances: u32 = serving.iter().map(|&m| ix.replicas(m)).sum();
         let per = serving.iter().find_map(|&m| ix.per_replica_rps(m));

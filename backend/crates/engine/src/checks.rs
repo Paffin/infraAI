@@ -1287,14 +1287,7 @@ fn capacity(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
     let growth = ix.arch.requirements.growth_percent.unwrap_or(0.0) / 100.0;
     let headroom = ctx.cfg.settings.assumptions.headroom_percent / 100.0;
     let base = ctx.sim(&Scenario::None);
-    let model_traits = {
-        let v = p_vec(rule, "requireModelTraits");
-        if v.is_empty() {
-            vec!["workload".to_string(), "datastore".to_string(), "balancer".to_string()]
-        } else {
-            v
-        }
-    };
+    let model_traits = capacity_model_traits(Some(rule));
     let _ = rps;
     let mut out = vec![];
     for l in &base.unit_loads {
@@ -1331,6 +1324,18 @@ fn capacity(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
     }
     let _ = rule;
     CheckOut::found(out)
+}
+
+/// Traits of the kinds that must come with a capacity model (`requireModelTraits` of the capacity rule): a unit
+/// without one of them (an external client, a monitoring agent…) is not asked for RPS per instance – neither by the
+/// rule nor in the capacity plan.
+pub fn capacity_model_traits(rule: Option<&Rule>) -> Vec<String> {
+    let v = rule.map(|r| p_vec(r, "requireModelTraits")).unwrap_or_default();
+    if v.is_empty() {
+        vec!["workload".to_string(), "datastore".to_string(), "balancer".to_string()]
+    } else {
+        v
+    }
 }
 
 fn sev_or(_rule: &Rule, s: Status) -> Status {
