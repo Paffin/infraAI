@@ -70,6 +70,13 @@ function cycleDate(c: Cycle): string {
   return e === true ? t('version.over') : ''
 }
 
+/** Opening the list shows every line; only typing narrows it. */
+function show() {
+  if (!props.table || props.disabled) return
+  typed.value = ''
+  open.value = true
+}
+
 function pick(c: string) {
   emit('change', c)
   typed.value = ''
@@ -97,8 +104,8 @@ const staleText = computed(() => (view.value?.stale && view.value.ageDays !== nu
       <span class="lbl">{{ lt(def.label) }}</span>
       <span class="ctl">
         <input class="in mono" type="text" autocomplete="off" :disabled="disabled" :value="declared ? text : ''" :placeholder="placeholder" role="combobox" :aria-expanded="open" aria-haspopup="listbox"
-          @input="onInput" @focus="table && !disabled && (open = true)" @keydown.down.prevent="open = !!table" />
-        <button v-if="table && !disabled" type="button" class="chev" tabindex="-1" :aria-label="t('version.pick')" @mousedown.prevent="open = !open"><ChevronDown :size="13" /></button>
+          @input="onInput" @focus="show" @click="open || show()" @keydown.down.prevent="show" />
+        <button v-if="table && !disabled" type="button" class="chev" tabindex="-1" :aria-label="t('version.pick')" @mousedown.prevent="open ? (open = false) : show()"><ChevronDown :size="13" /></button>
       </span>
     </label>
 

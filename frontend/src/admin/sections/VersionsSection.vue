@@ -73,7 +73,8 @@ async function sync(ids: string[]) {
 </script>
 
 <template>
-  <div class="versions">
+  <ConfigItems ref="list" kind="catalog.versions">
+    <template #top>
     <div class="vstat card" role="status">
       <div class="cell">
         <Clock :size="16" aria-hidden="true" />
@@ -91,8 +92,7 @@ async function sync(ids: string[]) {
       </div>
       <button class="btn btn-primary" :disabled="syncing.size > 0" @click="sync([])"><DownloadCloud :size="15" />{{ all ? t('admin.versions.syncing') : t('admin.versions.syncAll') }}</button>
     </div>
-
-    <ConfigItems ref="list" kind="catalog.versions">
+    </template>
       <template #head>
         <th>{{ t('admin.versions.colAsOf') }}</th>
         <th>{{ t('admin.versions.colLines') }}</th>
@@ -111,12 +111,10 @@ async function sync(ids: string[]) {
           </button>
         </td>
       </template>
-    </ConfigItems>
-  </div>
+  </ConfigItems>
 </template>
 
 <style scoped>
-.versions { display: flex; flex-direction: column; }
 .vstat { display: flex; align-items: center; gap: 22px; margin: 0 0 14px; padding: 12px 16px; }
 .vstat .cell { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .vstat .cell > div { display: flex; flex-direction: column; gap: 3px; }

@@ -4,14 +4,27 @@
 //!   cargo run -p engine --example report -- path/to/architecture.json [lang]
 //!   cargo run -p engine --example report -- three-az-region en --json     (the whole report as JSON – how the
 //!                                                                        frontend test fixtures are recorded)
+//!   … --today 2026-10-13     (give the engine a clock: without one the lifecycle rules are not applicable)
 
 use engine::defaults;
 use engine::evaluate::{evaluate, render_message, Status};
 use engine::model::Architecture;
 
+static TODAY: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+
+fn clock() -> String {
+    TODAY.get().cloned().unwrap_or_default()
+}
+
 fn main() {
-    let json = std::env::args().any(|a| a == "--json");
-    let args: Vec<String> = std::env::args().filter(|a| a != "--json").collect();
+    let mut raw: Vec<String> = std::env::args().collect();
+    if let Some(i) = raw.iter().position(|a| a == "--today") {
+        let day = raw.get(i + 1).cloned().expect("--today needs a date (YYYY-MM-DD)");
+        raw.drain(i..=i + 1);
+        TODAY.set(day).ok();
+    }
+    let json = raw.iter().any(|a| a == "--json");
+    let args: Vec<String> = raw.into_iter().filter(|a| a != "--json").collect();
     let what = args.get(1).cloned().unwrap_or_else(|| "two-dc-witness".into());
     let lang = args.get(2).cloned().unwrap_or_else(|| "ru".into());
     let arch: Architecture = if what == "demo" {
@@ -21,7 +34,7 @@ fn main() {
     } else {
         serde_json::from_str(&std::fs::read_to_string(&what).expect("read file")).expect("parse architecture")
     };
-    let cfg = defaults::engine_config(&lang);
+    let cfg = engine::config::EngineConfig { today: clock, ..defaults::engine_config(&lang) };
     let rep = evaluate(&arch, &cfg, &[]);
     if json {
         println!("{}", serde_json::to_string_pretty(&rep).expect("serialize the report"));

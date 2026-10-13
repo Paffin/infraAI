@@ -160,13 +160,13 @@ watch(() => ui.focusRequest, () => void nextTick(applyFocus), { immediate: true 
           </select>
         </label>
         <template v-if="kind?.variants?.length">
-          <label class="prop"><span class="lbl">{{ t('product.variant') }}</span>
+          <label class="prop" :class="{ assumed: !node.props.variant }"><span class="lbl">{{ t('product.variant') }}</span>
             <select class="in" :disabled="dis" :value="node.props.variant ? String(node.props.variant) : ''" data-prop="variant" @change="setNodeProp('variant', (($event.target as HTMLSelectElement).value || undefined))">
-              <option value="">{{ t('product.variant.default', { name: lt(kind.variants.find((v) => v.default)?.name ?? kind.name) }) }}</option>
+              <option value="">{{ t('product.variant.default') }}</option>
               <option v-for="v in kind.variants" :key="v.id" :value="v.id">{{ lt(v.name) }}</option>
             </select>
           </label>
-          <p v-if="variant?.description" class="vdesc">{{ lt(variant.description) }}<span v-if="managed" class="tag tag-nodata mgd" :title="t('product.variant.managedHint')">{{ t('product.variant.managed') }}</span></p>
+          <p v-if="variant?.description" class="vdesc"><b v-if="!node.props.variant">{{ lt(variant.name) }}. </b>{{ lt(variant.description) }}<span v-if="managed" class="tag tag-nodata mgd" :title="t('product.variant.managedHint')">{{ t('product.variant.managed') }}</span></p>
         </template>
         <VersionField v-if="versionDef" :def="versionDef" :value="node.props.version" :fallback="nodeEff.version" :disabled="dis" :flash="flashKey === 'version'" :table="refOf('version')" :versions="app.versions" @change="setNodeProp('version', $event)" />
         <label class="prop"><span class="lbl">{{ t('inspector.zoneOf') }}</span>
@@ -306,6 +306,7 @@ select.in { text-align-last: right; padding-right: 2px; }
 .more { flex: none; display: inline-flex; align-items: center; gap: 5px; align-self: flex-start; margin-top: 8px; padding: 2px 4px; border: 0; background: transparent; color: var(--muted); font-size: 12px; border-radius: 4px; }
 .more:hover:not(:disabled) { color: var(--text); background: var(--surface-sunken); }
 .note { flex: none; margin: 6px 0 2px; font-size: 12px; color: var(--muted); }
+.assumed .in:not(:focus) { color: var(--faint); }
 .vdesc { flex: none; margin: 0 0 4px; font-size: 11.5px; line-height: 1.4; color: var(--muted); }
 .mgd { margin-left: 6px; font-size: 10.5px; vertical-align: 1px; }
 .finds { flex: none; list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; }

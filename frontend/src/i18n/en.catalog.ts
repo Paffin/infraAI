@@ -2,7 +2,7 @@
 export default {
   'product.title': 'Product',
   'product.variant': 'Variant',
-  'product.variant.default': 'Default — {name}',
+  'product.variant.default': 'Default',
   'product.variant.managed': 'managed service',
   'product.variant.managedHint': 'The provider runs failover and backups',
   'product.variants': '{n} {n|plural:variant,variants}',
@@ -33,6 +33,7 @@ export default {
 
   'library.function.count': '{n} {n|plural:product,products}',
   'library.expandAll': 'Expand all',
+  'library.more': 'More: {n}',
   'library.collapseAll': 'Collapse all',
   'library.found': 'Found: {n}',
   'library.matchVariant': 'variant: {name}',

@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import { Check, Info, Minus, Plus, TriangleAlert } from 'lucide-vue-next'
 import * as api from '@/api/endpoints'
 import { ApiError } from '@/api/client'
-import type { Finding, PlacementOptions, PlacementPattern, PlacementPreview, PlacementRequest, PlacementVariant } from '@/api/types'
+import type { Finding, PlacementLayer, PlacementOptions, PlacementPattern, PlacementPreview, PlacementRequest, PlacementVariant } from '@/api/types'
 import Modal from '@/components/Modal.vue'
 import { lang, lt, t } from '@/i18n'
 import { errorMessage, fmtDuration, fmtMoney, fmtPct } from '@/lib/format'
@@ -37,6 +37,8 @@ const failures = ref<number | null>(null)
 const siteType = ref('')
 const layerOn = ref<Record<string, boolean>>({})
 const kinds = ref<Record<string, string>>({})
+/** layer id → variant of the chosen product ('' = the product's default) */
+const variants = ref<Record<string, string>>({})
 const over = ref<{ rpsPeak?: number; rtoSeconds?: number; rpoSeconds?: number; budgetMonthly?: number }>({})
 const name = ref('')
 /** The suggested name follows the pattern and the number of sites until the user types their own. */
@@ -58,6 +60,30 @@ const regionsOn = computed(() => pattern.value?.regions.mode === 'count')
 const racksOn = computed(() => (pattern.value?.racks.max ?? 1) > 1)
 const siteTypeName = (id: string) => lt(app.index?.zoneTypes.get(id)?.name) || id
 const kindName = (id: string) => lt(app.index?.kinds.get(id)?.name) || id
+const variantName = (kind: string, id: string) => lt(app.index?.kinds.get(kind)?.variants?.find((v) => v.id === id)?.name) || id
+/** The product chosen for a layer, with the ways to deploy it. */
+const productOf = (layerId: string) => {
+  const l = stack.value?.layers.find((x) => x.id === layerId)
+  const kind = kinds.value[layerId] ?? l?.kind
+  return l?.products.find((p) => p.kind === kind)
+}
+function setKind(layerId: string, kind: string) {
+  kinds.value[layerId] = kind
+  variants.value[layerId] = ''
+}
+/** A quorum layer (a DCS) that none of the chosen products uses: managed services and clusters that vote by themselves do not need one. */
+function dcsUnused(l: PlacementLayer): boolean {
+  const users = (stack.value?.layers ?? []).filter((x) => x.dcs === l.id && (!x.optional || layerOn.value[x.id]))
+  if (!users.length) return false
+  return users.every((x) => {
+    const kind = kinds.value[x.id] ?? x.kind
+    const def = app.index?.kinds.get(kind)?.props.find((p) => p.key === 'dcs')
+    if (!def) return true
+    if (!def.variants?.length) return false
+    const chosen = variants.value[x.id] || productOf(x.id)?.variants.find((v) => v.default)?.id
+    return !chosen || !def.variants.includes(chosen)
+  })
+}
 
 // ------------------------------------------------------------------------------------------ state ⇄ request
 function resetToPattern(p: PlacementPattern) {
@@ -69,7 +95,8 @@ function resetToPattern(p: PlacementPattern) {
   over.value = {}
   const st = options.value?.stacks.find((s) => s.id === p.stack)
   layerOn.value = Object.fromEntries((st?.layers ?? []).filter((l) => l.optional).map((l) => [l.id, l.default]))
-  kinds.value = Object.fromEntries((st?.layers ?? []).filter((l) => l.alternatives.length).map((l) => [l.id, l.kind]))
+  kinds.value = Object.fromEntries((st?.layers ?? []).filter((l) => l.products.length > 1).map((l) => [l.id, l.kind]))
+  variants.value = {}
 }
 
 function pickPattern(id: string) {
@@ -97,6 +124,9 @@ const request = computed<PlacementRequest | null>(() => {
   if (siteType.value && siteType.value !== p.siteType) r.siteType = siteType.value
   const k = Object.fromEntries(Object.entries(kinds.value).filter(([id, kind]) => stack.value?.layers.find((l) => l.id === id)?.kind !== kind))
   if (Object.keys(k).length) r.kinds = k
+  const on = (id: string) => optionalLayers.value.find((l) => l.id === id) ? !!layerOn.value[id] : true
+  const v = Object.fromEntries(Object.entries(variants.value).filter(([id, variant]) => variant && on(id) && productOf(id)?.variants.some((x) => x.id === variant)))
+  if (Object.keys(v).length) r.variants = v
   const req = Object.fromEntries(Object.entries(over.value).filter(([, v]) => typeof v === 'number' && Number.isFinite(v)))
   if (Object.keys(req).length) r.requirements = req
   return r
@@ -344,19 +374,30 @@ const patternReq = (key: 'rpsPeak' | 'rtoSeconds' | 'rpoSeconds' | 'budgetMonthl
         <section v-if="stack">
           <h4>{{ t('placement.layers') }}</h4>
           <p class="hint">{{ t('placement.layers.hint') }}</p>
-          <div v-for="l in optionalLayers" :key="l.id" class="layer">
+          <div v-for="l in optionalLayers" :key="l.id" class="layer" :class="{ stack: layerOn[l.id] && l.products.length > 1 }">
             <label class="sw"><input v-model="layerOn[l.id]" type="checkbox" /><span class="knob" /><span class="grow">{{ lt(l.name) }}</span></label>
-            <select v-if="l.alternatives.length && layerOn[l.id]" v-model="kinds[l.id]" class="select input-sm" :aria-label="lt(l.name)">
-              <option :value="l.kind">{{ kindName(l.kind) }}</option>
-              <option v-for="k in l.alternatives" :key="k" :value="k">{{ kindName(k) }}</option>
-            </select>
+            <span v-if="layerOn[l.id] && dcsUnused(l)" class="unused" :title="t('placement.dcs.unusedHint')">{{ t('placement.dcs.unused') }}</span>
+            <div v-if="layerOn[l.id] && l.products.length > 1" class="picks">
+              <select :value="kinds[l.id]" class="select input-sm" :aria-label="lt(l.name)" @change="setKind(l.id, ($event.target as HTMLSelectElement).value)">
+                <option v-for="p in l.products" :key="p.kind" :value="p.kind">{{ kindName(p.kind) }}</option>
+              </select>
+              <select v-if="productOf(l.id)?.variants.length" :value="variants[l.id] ?? ''" class="select input-sm" :aria-label="t('product.variant')" @change="variants[l.id] = ($event.target as HTMLSelectElement).value">
+                <option value="">{{ t('placement.variant.default') }}</option>
+                <option v-for="v in productOf(l.id)!.variants" :key="v.id" :value="v.id">{{ v.managed ? '☁ ' : '' }}{{ variantName(kinds[l.id] ?? l.kind, v.id) }}</option>
+              </select>
+            </div>
           </div>
-          <div v-for="l in stack.layers.filter((x) => !x.optional && x.alternatives.length)" :key="l.id" class="layer">
+          <div v-for="l in stack.layers.filter((x) => !x.optional && x.products.length > 1)" :key="l.id" class="layer stack">
             <span class="grow lname">{{ lt(l.name) }}</span>
-            <select v-model="kinds[l.id]" class="select input-sm" :aria-label="lt(l.name)">
-              <option :value="l.kind">{{ kindName(l.kind) }}</option>
-              <option v-for="k in l.alternatives" :key="k" :value="k">{{ kindName(k) }}</option>
-            </select>
+            <div class="picks">
+              <select :value="kinds[l.id]" class="select input-sm" :aria-label="lt(l.name)" @change="setKind(l.id, ($event.target as HTMLSelectElement).value)">
+                <option v-for="p in l.products" :key="p.kind" :value="p.kind">{{ kindName(p.kind) }}</option>
+              </select>
+              <select v-if="productOf(l.id)?.variants.length" :value="variants[l.id] ?? ''" class="select input-sm" :aria-label="t('product.variant')" @change="variants[l.id] = ($event.target as HTMLSelectElement).value">
+                <option value="">{{ t('placement.variant.default') }}</option>
+                <option v-for="v in productOf(l.id)!.variants" :key="v.id" :value="v.id">{{ v.managed ? '☁ ' : '' }}{{ variantName(kinds[l.id] ?? l.kind, v.id) }}</option>
+              </select>
+            </div>
           </div>
         </section>
 
@@ -468,8 +509,13 @@ section { display: flex; flex-direction: column; gap: 10px; }
 .chip { cursor: pointer; }
 .chip.on { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent); font-weight: 600; }
 .seg { display: flex; gap: 6px; flex-wrap: wrap; }
-.layer { display: flex; align-items: center; gap: 8px; min-height: 30px; }
+.layer { display: flex; align-items: center; gap: 8px; min-height: 30px; flex-wrap: wrap; }
 .layer .select { width: 150px; flex: none; }
+.layer.stack { padding: 4px 0 6px; border-bottom: 1px solid var(--line); }
+.layer.stack:last-child { border-bottom: 0; }
+.picks { display: flex; gap: 6px; flex-wrap: wrap; width: 100%; padding-left: 40px; }
+.picks .select { flex: 1 1 130px; width: auto; min-width: 0; }
+.unused { font-size: 11px; color: var(--muted); background: var(--surface-sunken); border-radius: 999px; padding: 1px 8px; }
 .lname { font-size: 13px; }
 .sw { display: flex; align-items: center; gap: 10px; cursor: pointer; flex: 1; font-size: 13px; }
 .sw input { position: absolute; opacity: 0; pointer-events: none; }

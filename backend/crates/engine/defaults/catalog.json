@@ -3428,7 +3428,8 @@
      "cost": {
       "multiplier": 1.6,
       "monthlyFixed": 0
-     }
+     },
+     "versions": ""
     }
    ]
   },
@@ -3728,7 +3729,8 @@
      "cost": {
       "multiplier": 1.5,
       "monthlyFixed": 0
-     }
+     },
+     "versions": ""
     }
    ]
   },
@@ -3920,7 +3922,8 @@
      "cost": {
       "multiplier": 2.2,
       "monthlyFixed": 0
-     }
+     },
+     "versions": ""
     }
    ]
   },
@@ -4070,7 +4073,8 @@
      "cost": {
       "multiplier": 1.9,
       "monthlyFixed": 0
-     }
+     },
+     "versions": ""
     }
    ]
   },
@@ -4226,7 +4230,8 @@
      "cost": {
       "multiplier": 1.0,
       "monthlyFixed": 0
-     }
+     },
+     "versions": ""
     }
    ]
   },
@@ -4955,7 +4960,8 @@
      "cost": {
       "multiplier": 2.0,
       "monthlyFixed": 0
-     }
+     },
+     "versions": ""
     }
    ]
   },
@@ -5052,7 +5058,8 @@
       "ru": "Две независимые копии Prometheus собирают одно и то же; Alertmanager в кластере.",
       "en": "Two independent Prometheus copies scrape the same targets; Alertmanager is clustered."
      },
-     "default": true
+     "default": true,
+     "versions": "prometheus"
     },
     {
      "id": "victoria",
@@ -5063,7 +5070,8 @@
      "description": {
       "ru": "Кластер с отдельными vminsert / vmselect / vmstorage: дешевле хранение, горизонтальная запись.",
       "en": "A cluster with separate vminsert / vmselect / vmstorage: cheaper storage, horizontal writes."
-     }
+     },
+     "versions": ""
     },
     {
      "id": "cloud",
@@ -5084,7 +5092,8 @@
      "cost": {
       "multiplier": 1.5,
       "monthlyFixed": 0
-     }
+     },
+     "versions": ""
     }
    ],
    "versions": "prometheus"
@@ -7667,7 +7676,8 @@
      "cost": {
       "multiplier": 1.6,
       "monthlyFixed": 0
-     }
+     },
+     "versions": ""
     }
    ]
   },
@@ -7969,7 +7979,8 @@
      "cost": {
       "multiplier": 1.6,
       "monthlyFixed": 0
-     }
+     },
+     "versions": ""
     }
    ]
   },
@@ -8240,7 +8251,8 @@
      "cost": {
       "multiplier": 1.7,
       "monthlyFixed": 0
-     }
+     },
+     "versions": ""
     }
    ],
    "versions": "mssqlserver"
@@ -8497,7 +8509,8 @@
      "cost": {
       "multiplier": 1.8,
       "monthlyFixed": 0
-     }
+     },
+     "versions": ""
     }
    ],
    "versions": "oracle_database"
@@ -8664,7 +8677,8 @@
      "cost": {
       "multiplier": 1.9,
       "monthlyFixed": 0
-     }
+     },
+     "versions": ""
     }
    ]
   },
@@ -8815,7 +8829,8 @@
      "cost": {
       "multiplier": 1.9,
       "monthlyFixed": 0
-     }
+     },
+     "versions": ""
     }
    ]
   },
@@ -8966,7 +8981,8 @@
      "cost": {
       "multiplier": 1.9,
       "monthlyFixed": 0
-     }
+     },
+     "versions": ""
     }
    ]
   },
@@ -9428,7 +9444,8 @@
      "cost": {
       "multiplier": 1.8,
       "monthlyFixed": 0
-     }
+     },
+     "versions": ""
     },
     {
      "id": "documentdb",
@@ -9475,7 +9492,8 @@
      "cost": {
       "multiplier": 1.6,
       "monthlyFixed": 0
-     }
+     },
+     "versions": ""
     }
    ]
   },
@@ -10124,7 +10142,8 @@
      "cost": {
       "multiplier": 1.8,
       "monthlyFixed": 0
-     }
+     },
+     "versions": ""
     }
    ]
   },
@@ -10275,7 +10294,8 @@
      "cost": {
       "multiplier": 1.8,
       "monthlyFixed": 0
-     }
+     },
+     "versions": ""
     }
    ]
   },
@@ -11163,7 +11183,8 @@
      "cost": {
       "multiplier": 1.5,
       "monthlyFixed": 0
-     }
+     },
+     "versions": ""
     }
    ]
   },
@@ -11270,7 +11291,8 @@
      "cost": {
       "multiplier": 1.4,
       "monthlyFixed": 0
-     }
+     },
+     "versions": ""
     }
    ]
   },
@@ -11430,7 +11452,8 @@
      "cost": {
       "multiplier": 1.7,
       "monthlyFixed": 0
-     }
+     },
+     "versions": ""
     }
    ]
   },
@@ -11571,7 +11594,8 @@
      "cost": {
       "multiplier": 1.8,
       "monthlyFixed": 0
-     }
+     },
+     "versions": ""
     }
    ]
   },
@@ -12290,7 +12314,8 @@
      "cost": {
       "multiplier": 1.9,
       "monthlyFixed": 0
-     }
+     },
+     "versions": ""
     }
    ]
   },
@@ -12455,7 +12480,8 @@
      "cost": {
       "multiplier": 1.7,
       "monthlyFixed": 0
-     }
+     },
+     "versions": ""
     }
    ]
   },

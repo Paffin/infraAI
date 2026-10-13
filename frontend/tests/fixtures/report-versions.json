@@ -1,0 +1,1732 @@
+{
+ "architecture": {
+  "schemaVersion": 1,
+  "meta": {
+   "name": "versions"
+  },
+  "requirements": {
+   "rpsPeak": 200,
+   "rtoSeconds": 900,
+   "rpoSeconds": 0
+  },
+  "zones": [
+   {
+    "id": "dc1",
+    "name": "DC1",
+    "type": "dc",
+    "props": {
+     "geo": "a"
+    }
+   },
+   {
+    "id": "dc2",
+    "name": "DC2",
+    "type": "dc",
+    "props": {
+     "geo": "b"
+    }
+   }
+  ],
+  "nodes": [
+   {
+    "id": "users",
+    "kind": "users",
+    "name": "Users"
+   },
+   {
+    "id": "app",
+    "kind": "vm_pool",
+    "name": "App servers",
+    "zoneId": "dc1",
+    "group": "app",
+    "props": {
+     "replicas": 2,
+     "os": "ubuntu",
+     "osVersion": "20.04",
+     "variant": "vsphere",
+     "version": "7.0"
+    }
+   },
+   {
+    "id": "app2",
+    "kind": "vm_pool",
+    "name": "App servers",
+    "zoneId": "dc2",
+    "group": "app",
+    "props": {
+     "replicas": 2,
+     "os": "debian",
+     "osVersion": "13"
+    }
+   },
+   {
+    "id": "pg1",
+    "kind": "postgresql",
+    "name": "PostgreSQL primary",
+    "zoneId": "dc1",
+    "group": "pg",
+    "role": "primary",
+    "props": {
+     "version": "12.19",
+     "failover": "manual"
+    }
+   },
+   {
+    "id": "pg2",
+    "kind": "postgresql",
+    "name": "PostgreSQL replica",
+    "zoneId": "dc2",
+    "group": "pg",
+    "role": "replica",
+    "props": {
+     "version": "17.2",
+     "failover": "manual"
+    }
+   },
+   {
+    "id": "kafka",
+    "kind": "kafka",
+    "name": "Kafka",
+    "zoneId": "dc1",
+    "group": "kafka",
+    "props": {
+     "version": "99.1"
+    }
+   }
+  ],
+  "edges": [
+   {
+    "id": "e1",
+    "source": "users",
+    "target": "app",
+    "type": "traffic"
+   },
+   {
+    "id": "e2",
+    "source": "users",
+    "target": "app2",
+    "type": "traffic"
+   },
+   {
+    "id": "e3",
+    "source": "app",
+    "target": "pg1",
+    "type": "traffic"
+   },
+   {
+    "id": "e4",
+    "source": "app2",
+    "target": "pg2",
+    "type": "traffic"
+   },
+   {
+    "id": "e5",
+    "source": "pg1",
+    "target": "pg2",
+    "type": "async"
+   },
+   {
+    "id": "e6",
+    "source": "app",
+    "target": "kafka",
+    "type": "traffic"
+   }
+  ]
+ },
+ "report": {
+  "engineVersion": 1,
+  "issues": [],
+  "counts": {
+   "critical": 5,
+   "risk": 6,
+   "noData": 7,
+   "ok": 16,
+   "na": 25,
+   "accepted": 0
+  },
+  "rules": [
+   {
+    "ruleId": "HA-SPOF-01",
+    "category": "ha",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "HA-SITE-01",
+    "category": "ha",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "HA-RACK-02",
+    "category": "ha",
+    "status": "na",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "HA-SITE-02",
+    "category": "ha",
+    "status": "na",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "HA-RTO-01",
+    "category": "dr",
+    "status": "critical",
+    "findings": 1,
+    "accepted": 0
+   },
+   {
+    "ruleId": "DR-RPO-01",
+    "category": "dr",
+    "status": "critical",
+    "findings": 1,
+    "accepted": 0
+   },
+   {
+    "ruleId": "DR-GEO-01",
+    "category": "dr",
+    "status": "na",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "DR-GEO-02",
+    "category": "dr",
+    "status": "na",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "DR-NET-01",
+    "category": "dr",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "DR-NET-02",
+    "category": "dr",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "DR-NET-03",
+    "category": "dr",
+    "status": "na",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "DR-NET-04",
+    "category": "dr",
+    "status": "na",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "HA-LB-01",
+    "category": "ha",
+    "status": "na",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "HA-APP-01",
+    "category": "ha",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "HA-ZONE-01",
+    "category": "ha",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "HA-ZONE-02",
+    "category": "ha",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "HA-RACK-01",
+    "category": "ha",
+    "status": "na",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "HA-QRM-01",
+    "category": "ha",
+    "status": "na",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "HA-QRM-02",
+    "category": "ha",
+    "status": "na",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "HA-QRM-03",
+    "category": "ha",
+    "status": "na",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "HA-WIT-01",
+    "category": "ha",
+    "status": "na",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "HA-DB-01",
+    "category": "ha",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "HA-DB-02",
+    "category": "ha",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "HA-DB-03",
+    "category": "dr",
+    "status": "critical",
+    "findings": 1,
+    "accepted": 0
+   },
+   {
+    "ruleId": "DR-KFK-01",
+    "category": "dr",
+    "status": "na",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "HA-DB-04",
+    "category": "ha",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "HA-DB-05",
+    "category": "ha",
+    "status": "risk",
+    "findings": 1,
+    "accepted": 0
+   },
+   {
+    "ruleId": "HA-CACHE-01",
+    "category": "ha",
+    "status": "na",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "HA-CACHE-02",
+    "category": "cap",
+    "status": "na",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "HA-K8S-01",
+    "category": "ha",
+    "status": "na",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "HA-GSLB-01",
+    "category": "ha",
+    "status": "na",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "HA-DEP-01",
+    "category": "ha",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "HA-GRP-01",
+    "category": "ha",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "HA-OBS-01",
+    "category": "obs",
+    "status": "risk",
+    "findings": 1,
+    "accepted": 0
+   },
+   {
+    "ruleId": "HA-OBS-02",
+    "category": "obs",
+    "status": "na",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "GOV-GIT-01",
+    "category": "gov",
+    "status": "risk",
+    "findings": 1,
+    "accepted": 0
+   },
+   {
+    "ruleId": "SEC-VLT-01",
+    "category": "sec",
+    "status": "risk",
+    "findings": 1,
+    "accepted": 0
+   },
+   {
+    "ruleId": "DR-BKP-01",
+    "category": "dr",
+    "status": "critical",
+    "findings": 1,
+    "accepted": 0
+   },
+   {
+    "ruleId": "DR-BKP-02",
+    "category": "dr",
+    "status": "na",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "DR-BKP-03",
+    "category": "dr",
+    "status": "na",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "DR-BKP-04",
+    "category": "dr",
+    "status": "na",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "DR-BKP-05",
+    "category": "dr",
+    "status": "na",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "NET-LAT-01",
+    "category": "net",
+    "status": "na",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "NET-LAT-02",
+    "category": "net",
+    "status": "na",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "NET-LINK-01",
+    "category": "net",
+    "status": "no_data",
+    "findings": 1,
+    "accepted": 0
+   },
+   {
+    "ruleId": "NET-TLS-01",
+    "category": "sec",
+    "status": "no_data",
+    "findings": 1,
+    "accepted": 0
+   },
+   {
+    "ruleId": "NET-BW-01",
+    "category": "net",
+    "status": "no_data",
+    "findings": 1,
+    "accepted": 0
+   },
+   {
+    "ruleId": "NET-SEG-01",
+    "category": "sec",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "NET-WAF-01",
+    "category": "sec",
+    "status": "risk",
+    "findings": 2,
+    "accepted": 0
+   },
+   {
+    "ruleId": "SEC-ENC-01",
+    "category": "sec",
+    "status": "no_data",
+    "findings": 3,
+    "accepted": 0
+   },
+   {
+    "ruleId": "SEC-ENC-02",
+    "category": "sec",
+    "status": "na",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "CAP-01",
+    "category": "cap",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "CAP-02",
+    "category": "cap",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "CAP-03",
+    "category": "cap",
+    "status": "no_data",
+    "findings": 1,
+    "accepted": 0
+   },
+   {
+    "ruleId": "COST-01",
+    "category": "cost",
+    "status": "no_data",
+    "findings": 1,
+    "accepted": 0
+   },
+   {
+    "ruleId": "GOV-ZONE-01",
+    "category": "gov",
+    "status": "no_data",
+    "findings": 2,
+    "accepted": 0
+   },
+   {
+    "ruleId": "GOV-ZONE-02",
+    "category": "gov",
+    "status": "ok",
+    "findings": 0,
+    "accepted": 0
+   },
+   {
+    "ruleId": "VER-01",
+    "category": "lifecycle",
+    "status": "critical",
+    "findings": 4,
+    "accepted": 0
+   },
+   {
+    "ruleId": "VER-02",
+    "category": "lifecycle",
+    "status": "risk",
+    "findings": 1,
+    "accepted": 0
+   }
+  ],
+  "findings": [
+   {
+    "id": "DR-BKP-01:pg",
+    "ruleId": "DR-BKP-01",
+    "category": "dr",
+    "status": "critical",
+    "subjects": {
+     "nodes": [
+      "pg1",
+      "pg2"
+     ],
+     "edges": [],
+     "zones": []
+    },
+    "vars": {
+     "unit": "PostgreSQL"
+    },
+    "fixes": []
+   },
+   {
+    "id": "DR-RPO-01:dc1",
+    "ruleId": "DR-RPO-01",
+    "category": "dr",
+    "status": "critical",
+    "subjects": {
+     "nodes": [],
+     "edges": [],
+     "zones": [
+      "dc1"
+     ]
+    },
+    "vars": {
+     "zone": "DC1",
+     "seconds": 5.0,
+     "rpo": 0.0
+    },
+    "fixes": [],
+    "scenario": {
+     "type": "zone",
+     "zoneId": "dc1"
+    }
+   },
+   {
+    "id": "HA-DB-03:e5",
+    "ruleId": "HA-DB-03",
+    "category": "dr",
+    "status": "critical",
+    "subjects": {
+     "nodes": [
+      "pg1",
+      "pg2"
+     ],
+     "edges": [
+      "e5"
+     ],
+     "zones": []
+    },
+    "vars": {
+     "source": "PostgreSQL primary",
+     "target": "PostgreSQL replica",
+     "lag": 5.0,
+     "rpo": 0.0
+    },
+    "fixes": []
+   },
+   {
+    "id": "HA-RTO-01:dc1",
+    "ruleId": "HA-RTO-01",
+    "category": "dr",
+    "status": "critical",
+    "subjects": {
+     "nodes": [],
+     "edges": [],
+     "zones": [
+      "dc1"
+     ]
+    },
+    "vars": {
+     "zone": "DC1",
+     "seconds": 1800.0,
+     "rto": 900.0,
+     "kind": "manual"
+    },
+    "fixes": [],
+    "scenario": {
+     "type": "zone",
+     "zoneId": "dc1"
+    }
+   },
+   {
+    "id": "VER-01:app:osVersion",
+    "ruleId": "VER-01",
+    "category": "lifecycle",
+    "status": "critical",
+    "subjects": {
+     "nodes": [
+      "app"
+     ],
+     "edges": [],
+     "zones": []
+    },
+    "vars": {
+     "node": "App servers",
+     "product": "Ubuntu",
+     "version": "20.04",
+     "cycle": "20.04",
+     "eol": "2025-05-31",
+     "days": -500,
+     "latest": "20.04.6",
+     "recommended": "26.04",
+     "variant": "expired"
+    },
+    "fixes": [
+     {
+      "id": "set_version:app:osVersion",
+      "kind": "set_version",
+      "vars": {
+       "recommended": "26.04",
+       "product": "Ubuntu",
+       "node": "App servers",
+       "key": "osVersion",
+       "value": "26.04"
+      },
+      "ops": [
+       {
+        "op": "update_node",
+        "id": "app",
+        "set": {
+         "props.osVersion": "26.04"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "VER-01:app:version",
+    "ruleId": "VER-01",
+    "category": "lifecycle",
+    "status": "critical",
+    "subjects": {
+     "nodes": [
+      "app"
+     ],
+     "edges": [],
+     "zones": []
+    },
+    "vars": {
+     "node": "App servers",
+     "product": "VMware ESXi",
+     "version": "7.0",
+     "cycle": "7.0",
+     "eol": "2025-10-02",
+     "days": -376,
+     "latest": "7.0 Update 3w",
+     "recommended": "9.1",
+     "variant": "expired"
+    },
+    "fixes": [
+     {
+      "id": "set_version:app:version",
+      "kind": "set_version",
+      "vars": {
+       "recommended": "9.1",
+       "product": "VMware ESXi",
+       "node": "App servers",
+       "key": "version",
+       "value": "9.1"
+      },
+      "ops": [
+       {
+        "op": "update_node",
+        "id": "app",
+        "set": {
+         "props.version": "9.1"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "VER-01:pg1:version",
+    "ruleId": "VER-01",
+    "category": "lifecycle",
+    "status": "critical",
+    "subjects": {
+     "nodes": [
+      "pg1"
+     ],
+     "edges": [],
+     "zones": []
+    },
+    "vars": {
+     "node": "PostgreSQL primary",
+     "product": "PostgreSQL",
+     "version": "12.19",
+     "cycle": "12",
+     "eol": "2024-11-21",
+     "days": -691,
+     "latest": "12.22",
+     "recommended": "18",
+     "variant": "expired"
+    },
+    "fixes": [
+     {
+      "id": "set_version:pg1:version",
+      "kind": "set_version",
+      "vars": {
+       "recommended": "18",
+       "product": "PostgreSQL",
+       "node": "PostgreSQL primary",
+       "key": "version",
+       "value": "18"
+      },
+      "ops": [
+       {
+        "op": "update_node",
+        "id": "pg1",
+        "set": {
+         "props.version": "18"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "GOV-GIT-01:gitops",
+    "ruleId": "GOV-GIT-01",
+    "category": "gov",
+    "status": "risk",
+    "subjects": {
+     "nodes": [],
+     "edges": [],
+     "zones": []
+    },
+    "vars": {
+     "trait": "gitops"
+    },
+    "fixes": [
+     {
+      "id": "add_required:gitops",
+      "kind": "add_required",
+      "vars": {
+       "kind": "GitOps",
+       "zone": "DC1"
+      },
+      "ops": [
+       {
+        "op": "add_node",
+        "node": {
+         "id": "gitops",
+         "kind": "gitops",
+         "name": "GitOps",
+         "zoneId": "dc1",
+         "group": null,
+         "role": null,
+         "props": {
+          "replicas": 2
+         },
+         "proposed": true
+        }
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "HA-DB-05:pg2:failover",
+    "ruleId": "HA-DB-05",
+    "category": "ha",
+    "status": "risk",
+    "subjects": {
+     "nodes": [
+      "pg2"
+     ],
+     "edges": [],
+     "zones": []
+    },
+    "vars": {
+     "node": "PostgreSQL replica",
+     "key": "failover",
+     "expected": "auto",
+     "actual": "manual"
+    },
+    "fixes": [
+     {
+      "id": "set_prop:pg2:failover",
+      "kind": "set_prop",
+      "vars": {
+       "node": "PostgreSQL replica",
+       "key": "failover",
+       "value": "auto"
+      },
+      "ops": [
+       {
+        "op": "update_node",
+        "id": "pg2",
+        "set": {
+         "props.failover": "auto"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "HA-OBS-01:monitoring",
+    "ruleId": "HA-OBS-01",
+    "category": "obs",
+    "status": "risk",
+    "subjects": {
+     "nodes": [],
+     "edges": [],
+     "zones": []
+    },
+    "vars": {
+     "trait": "monitoring"
+    },
+    "fixes": [
+     {
+      "id": "add_required:monitoring",
+      "kind": "add_required",
+      "vars": {
+       "kind": "Monitoring",
+       "zone": "DC1"
+      },
+      "ops": [
+       {
+        "op": "add_node",
+        "node": {
+         "id": "monitoring",
+         "kind": "monitoring",
+         "name": "Monitoring",
+         "zoneId": "dc1",
+         "group": null,
+         "role": null,
+         "props": {
+          "replicas": 2
+         },
+         "proposed": true
+        }
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "NET-WAF-01:app",
+    "ruleId": "NET-WAF-01",
+    "category": "sec",
+    "status": "risk",
+    "subjects": {
+     "nodes": [
+      "app"
+     ],
+     "edges": [],
+     "zones": []
+    },
+    "vars": {
+     "node": "App servers",
+     "via": "waf"
+    },
+    "fixes": [
+     {
+      "id": "add_required:waf",
+      "kind": "add_required",
+      "vars": {
+       "kind": "WAF",
+       "zone": "DC1"
+      },
+      "ops": [
+       {
+        "op": "add_node",
+        "node": {
+         "id": "waf",
+         "kind": "waf",
+         "name": "WAF",
+         "zoneId": "dc1",
+         "group": null,
+         "role": null,
+         "props": {
+          "replicas": 2
+         },
+         "proposed": true
+        }
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "NET-WAF-01:app2",
+    "ruleId": "NET-WAF-01",
+    "category": "sec",
+    "status": "risk",
+    "subjects": {
+     "nodes": [
+      "app2"
+     ],
+     "edges": [],
+     "zones": []
+    },
+    "vars": {
+     "node": "App servers",
+     "via": "waf"
+    },
+    "fixes": [
+     {
+      "id": "add_required:waf",
+      "kind": "add_required",
+      "vars": {
+       "kind": "WAF",
+       "zone": "DC1"
+      },
+      "ops": [
+       {
+        "op": "add_node",
+        "node": {
+         "id": "waf",
+         "kind": "waf",
+         "name": "WAF",
+         "zoneId": "dc1",
+         "group": null,
+         "role": null,
+         "props": {
+          "replicas": 2
+         },
+         "proposed": true
+        }
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "SEC-VLT-01:secrets",
+    "ruleId": "SEC-VLT-01",
+    "category": "sec",
+    "status": "risk",
+    "subjects": {
+     "nodes": [],
+     "edges": [],
+     "zones": []
+    },
+    "vars": {
+     "trait": "secrets"
+    },
+    "fixes": [
+     {
+      "id": "add_required:secrets",
+      "kind": "add_required",
+      "vars": {
+       "kind": "Vault",
+       "zone": "DC1"
+      },
+      "ops": [
+       {
+        "op": "add_node",
+        "node": {
+         "id": "vault",
+         "kind": "vault",
+         "name": "Vault",
+         "zoneId": "dc1",
+         "group": null,
+         "role": null,
+         "props": {
+          "replicas": 1
+         },
+         "proposed": true
+        }
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "VER-02:pg",
+    "ruleId": "VER-02",
+    "category": "lifecycle",
+    "status": "risk",
+    "subjects": {
+     "nodes": [
+      "pg1",
+      "pg2"
+     ],
+     "edges": [],
+     "zones": []
+    },
+    "vars": {
+     "unit": "PostgreSQL",
+     "versions": "12, 17"
+    },
+    "fixes": []
+   },
+   {
+    "id": "CAP-03:pg1:connectionPooler",
+    "ruleId": "CAP-03",
+    "category": "cap",
+    "status": "no_data",
+    "subjects": {
+     "nodes": [
+      "pg1"
+     ],
+     "edges": [],
+     "zones": []
+    },
+    "vars": {
+     "node": "PostgreSQL primary",
+     "key": "connectionPooler",
+     "expected": true,
+     "actual": null
+    },
+    "fixes": [],
+    "needs": [
+     {
+      "target": "node",
+      "id": "pg1",
+      "prop": "connectionPooler"
+     }
+    ]
+   },
+   {
+    "id": "COST-01:req",
+    "ruleId": "COST-01",
+    "category": "cost",
+    "status": "no_data",
+    "subjects": {
+     "nodes": [],
+     "edges": [],
+     "zones": []
+    },
+    "vars": {
+     "what": "budget"
+    },
+    "fixes": [],
+    "needs": [
+     {
+      "target": "requirements",
+      "prop": "budgetMonthly"
+     }
+    ]
+   },
+   {
+    "id": "GOV-ZONE-01:dc1:tier",
+    "ruleId": "GOV-ZONE-01",
+    "category": "gov",
+    "status": "no_data",
+    "subjects": {
+     "nodes": [],
+     "edges": [],
+     "zones": [
+      "dc1"
+     ]
+    },
+    "vars": {
+     "zone": "DC1",
+     "key": "tier",
+     "expected": null,
+     "actual": null
+    },
+    "fixes": [],
+    "needs": [
+     {
+      "target": "zone",
+      "id": "dc1",
+      "prop": "tier"
+     }
+    ]
+   },
+   {
+    "id": "GOV-ZONE-01:dc2:tier",
+    "ruleId": "GOV-ZONE-01",
+    "category": "gov",
+    "status": "no_data",
+    "subjects": {
+     "nodes": [],
+     "edges": [],
+     "zones": [
+      "dc2"
+     ]
+    },
+    "vars": {
+     "zone": "DC2",
+     "key": "tier",
+     "expected": null,
+     "actual": null
+    },
+    "fixes": [],
+    "needs": [
+     {
+      "target": "zone",
+      "id": "dc2",
+      "prop": "tier"
+     }
+    ]
+   },
+   {
+    "id": "NET-BW-01:e5:bandwidthMbps",
+    "ruleId": "NET-BW-01",
+    "category": "net",
+    "status": "no_data",
+    "subjects": {
+     "nodes": [
+      "pg1",
+      "pg2"
+     ],
+     "edges": [
+      "e5"
+     ],
+     "zones": []
+    },
+    "vars": {
+     "edge": "PostgreSQL primary → PostgreSQL replica",
+     "source": "PostgreSQL primary",
+     "target": "PostgreSQL replica",
+     "key": "bandwidthMbps",
+     "expected": null,
+     "actual": null
+    },
+    "fixes": [],
+    "needs": [
+     {
+      "target": "edge",
+      "id": "e5",
+      "prop": "bandwidthMbps"
+     }
+    ]
+   },
+   {
+    "id": "NET-LINK-01:e5:paths",
+    "ruleId": "NET-LINK-01",
+    "category": "net",
+    "status": "no_data",
+    "subjects": {
+     "nodes": [
+      "pg1",
+      "pg2"
+     ],
+     "edges": [
+      "e5"
+     ],
+     "zones": []
+    },
+    "vars": {
+     "edge": "PostgreSQL primary → PostgreSQL replica",
+     "source": "PostgreSQL primary",
+     "target": "PostgreSQL replica",
+     "key": "paths",
+     "expected": 2,
+     "actual": null
+    },
+    "fixes": [],
+    "needs": [
+     {
+      "target": "edge",
+      "id": "e5",
+      "prop": "paths"
+     }
+    ]
+   },
+   {
+    "id": "NET-TLS-01:e5:tls",
+    "ruleId": "NET-TLS-01",
+    "category": "sec",
+    "status": "no_data",
+    "subjects": {
+     "nodes": [
+      "pg1",
+      "pg2"
+     ],
+     "edges": [
+      "e5"
+     ],
+     "zones": []
+    },
+    "vars": {
+     "edge": "PostgreSQL primary → PostgreSQL replica",
+     "source": "PostgreSQL primary",
+     "target": "PostgreSQL replica",
+     "key": "tls",
+     "expected": true,
+     "actual": null
+    },
+    "fixes": [],
+    "needs": [
+     {
+      "target": "edge",
+      "id": "e5",
+      "prop": "tls"
+     }
+    ]
+   },
+   {
+    "id": "SEC-ENC-01:kafka:encryptionAtRest",
+    "ruleId": "SEC-ENC-01",
+    "category": "sec",
+    "status": "no_data",
+    "subjects": {
+     "nodes": [
+      "kafka"
+     ],
+     "edges": [],
+     "zones": []
+    },
+    "vars": {
+     "node": "Kafka",
+     "key": "encryptionAtRest",
+     "expected": true,
+     "actual": null
+    },
+    "fixes": [],
+    "needs": [
+     {
+      "target": "node",
+      "id": "kafka",
+      "prop": "encryptionAtRest"
+     }
+    ]
+   },
+   {
+    "id": "SEC-ENC-01:pg1:encryptionAtRest",
+    "ruleId": "SEC-ENC-01",
+    "category": "sec",
+    "status": "no_data",
+    "subjects": {
+     "nodes": [
+      "pg1"
+     ],
+     "edges": [],
+     "zones": []
+    },
+    "vars": {
+     "node": "PostgreSQL primary",
+     "key": "encryptionAtRest",
+     "expected": true,
+     "actual": null
+    },
+    "fixes": [],
+    "needs": [
+     {
+      "target": "node",
+      "id": "pg1",
+      "prop": "encryptionAtRest"
+     }
+    ]
+   },
+   {
+    "id": "SEC-ENC-01:pg2:encryptionAtRest",
+    "ruleId": "SEC-ENC-01",
+    "category": "sec",
+    "status": "no_data",
+    "subjects": {
+     "nodes": [
+      "pg2"
+     ],
+     "edges": [],
+     "zones": []
+    },
+    "vars": {
+     "node": "PostgreSQL replica",
+     "key": "encryptionAtRest",
+     "expected": true,
+     "actual": null
+    },
+    "fixes": [],
+    "needs": [
+     {
+      "target": "node",
+      "id": "pg2",
+      "prop": "encryptionAtRest"
+     }
+    ]
+   },
+   {
+    "id": "VER-01:kafka:version",
+    "ruleId": "VER-01",
+    "category": "lifecycle",
+    "status": "no_data",
+    "subjects": {
+     "nodes": [
+      "kafka"
+     ],
+     "edges": [],
+     "zones": []
+    },
+    "vars": {
+     "node": "Kafka",
+     "product": "Apache Kafka",
+     "version": "99.1",
+     "variant": "unknown"
+    },
+    "fixes": []
+   }
+  ],
+  "objectives": [
+   {
+    "id": "rto",
+    "status": "critical",
+    "required": 900.0,
+    "actual": 1800.0,
+    "assumed": false
+   },
+   {
+    "id": "rpo",
+    "status": "critical",
+    "required": 0.0,
+    "actual": 5.0,
+    "assumed": true
+   },
+   {
+    "id": "site_loss",
+    "status": "ok",
+    "required": "site",
+    "actual": true,
+    "assumed": false
+   },
+   {
+    "id": "spof",
+    "status": "ok",
+    "required": 0,
+    "actual": 0,
+    "assumed": false
+   },
+   {
+    "id": "capacity",
+    "status": "ok",
+    "required": 0.8,
+    "actual": 1.2,
+    "assumed": false
+   }
+  ],
+  "scenarios": [
+   {
+    "scenario": {
+     "type": "zone",
+     "zoneId": "dc1"
+    },
+    "failed": [
+     "DC1"
+    ],
+    "state": "up",
+    "recoveryKind": "manual",
+    "recoverySeconds": 1800.0,
+    "rpoSeconds": 5.0,
+    "rpoAssumed": true,
+    "capacityRatio": 1.2,
+    "splitBrain": false,
+    "dataLost": true,
+    "downUnits": [
+     "Kafka"
+    ]
+   },
+   {
+    "scenario": {
+     "type": "zone",
+     "zoneId": "dc2"
+    },
+    "failed": [
+     "DC2"
+    ],
+    "state": "up",
+    "recoveryKind": "none",
+    "recoverySeconds": 0.0,
+    "rpoSeconds": 0.0,
+    "rpoAssumed": false,
+    "capacityRatio": 1.2,
+    "splitBrain": false,
+    "dataLost": false,
+    "downUnits": []
+   },
+   {
+    "scenario": {
+     "type": "link",
+     "a": "dc1",
+     "b": "dc2"
+    },
+    "failed": [
+     "DC1 ↔ DC2"
+    ],
+    "state": "up",
+    "recoveryKind": "none",
+    "recoverySeconds": 0.0,
+    "rpoSeconds": 0.0,
+    "rpoAssumed": false,
+    "capacityRatio": 1.2,
+    "splitBrain": false,
+    "dataLost": false,
+    "downUnits": []
+   }
+  ],
+  "scenarioStats": {
+   "generated": 12,
+   "listed": 3,
+   "truncated": false,
+   "sites": 2,
+   "racks": 0,
+   "siteFailures": 1
+  },
+  "baselineLoads": [
+   {
+    "unit": "users",
+    "loadRps": 200.0,
+    "capacityRps": null,
+    "ratio": null
+   },
+   {
+    "unit": "app",
+    "loadRps": 200.0,
+    "capacityRps": 480.0,
+    "ratio": 2.4
+   },
+   {
+    "unit": "pg",
+    "loadRps": 200.0,
+    "capacityRps": 4000.0,
+    "ratio": 20.0
+   },
+   {
+    "unit": "kafka",
+    "loadRps": 100.0,
+    "capacityRps": 60000.0,
+    "ratio": 600.0
+   }
+  ],
+  "capacity": [
+   {
+    "unit": "app",
+    "name": "App servers",
+    "kind": "vm_pool",
+    "nodes": [
+     "app",
+     "app2"
+    ],
+    "instances": 4,
+    "perReplicaRps": 120.0,
+    "loadRps": 200.0,
+    "capacityRps": 480.0,
+    "targetRps": 285.7142857142857,
+    "instancesNeeded": 3,
+    "worst": {
+     "scenario": {
+      "type": "zone",
+      "zoneId": "dc1"
+     },
+     "failed": [
+      "DC1"
+     ],
+     "loadRps": 200.0,
+     "capacityRps": 240.0
+    }
+   },
+   {
+    "unit": "pg",
+    "name": "PostgreSQL",
+    "kind": "postgresql",
+    "nodes": [
+     "pg1",
+     "pg2"
+    ],
+    "instances": 2,
+    "perReplicaRps": 2000.0,
+    "loadRps": 200.0,
+    "capacityRps": 4000.0,
+    "targetRps": 285.7142857142857,
+    "instancesNeeded": 1,
+    "worst": {
+     "scenario": {
+      "type": "zone",
+      "zoneId": "dc1"
+     },
+     "failed": [
+      "DC1"
+     ],
+     "loadRps": 200.0,
+     "capacityRps": 4000.0
+    }
+   },
+   {
+    "unit": "kafka",
+    "name": "Kafka",
+    "kind": "kafka",
+    "nodes": [
+     "kafka"
+    ],
+    "instances": 3,
+    "perReplicaRps": 20000.0,
+    "loadRps": 100.0,
+    "capacityRps": 60000.0,
+    "targetRps": 142.85714285714286,
+    "instancesNeeded": 1,
+    "worst": {
+     "scenario": {
+      "type": "zone",
+      "zoneId": "dc2"
+     },
+     "failed": [
+      "DC2"
+     ],
+     "loadRps": 200.0,
+     "capacityRps": 60000.0
+    }
+   }
+  ],
+  "score": {
+   "value": 0.0,
+   "penalty": 109.5,
+   "coverage": 0.794,
+   "breakdown": [
+    {
+     "ruleId": "HA-RTO-01",
+     "status": "critical",
+     "penalty": 15.0
+    },
+    {
+     "ruleId": "DR-RPO-01",
+     "status": "critical",
+     "penalty": 15.0
+    },
+    {
+     "ruleId": "HA-DB-03",
+     "status": "critical",
+     "penalty": 15.0
+    },
+    {
+     "ruleId": "HA-DB-05",
+     "status": "risk",
+     "penalty": 4.0
+    },
+    {
+     "ruleId": "HA-OBS-01",
+     "status": "risk",
+     "penalty": 4.0
+    },
+    {
+     "ruleId": "GOV-GIT-01",
+     "status": "risk",
+     "penalty": 4.0
+    },
+    {
+     "ruleId": "SEC-VLT-01",
+     "status": "risk",
+     "penalty": 4.0
+    },
+    {
+     "ruleId": "DR-BKP-01",
+     "status": "critical",
+     "penalty": 15.0
+    },
+    {
+     "ruleId": "NET-WAF-01",
+     "status": "risk",
+     "penalty": 4.0
+    },
+    {
+     "ruleId": "VER-01",
+     "status": "critical",
+     "penalty": 15.0
+    },
+    {
+     "ruleId": "VER-02",
+     "status": "risk",
+     "penalty": 4.0
+    },
+    {
+     "ruleId": "NET-LINK-01",
+     "status": "no_data",
+     "penalty": 1.5
+    },
+    {
+     "ruleId": "NET-TLS-01",
+     "status": "no_data",
+     "penalty": 1.5
+    },
+    {
+     "ruleId": "NET-BW-01",
+     "status": "no_data",
+     "penalty": 1.5
+    },
+    {
+     "ruleId": "SEC-ENC-01",
+     "status": "no_data",
+     "penalty": 1.5
+    },
+    {
+     "ruleId": "CAP-03",
+     "status": "no_data",
+     "penalty": 1.5
+    },
+    {
+     "ruleId": "COST-01",
+     "status": "no_data",
+     "penalty": 1.5
+    },
+    {
+     "ruleId": "GOV-ZONE-01",
+     "status": "no_data",
+     "penalty": 1.5
+    }
+   ]
+  },
+  "cost": {
+   "currency": "RUB",
+   "symbol": "₽",
+   "total": 116700.0,
+   "nodes": [
+    {
+     "nodeId": "users",
+     "amount": 0.0,
+     "missing": [],
+     "model": "onprem"
+    },
+    {
+     "nodeId": "app",
+     "amount": 9300.0,
+     "missing": [],
+     "model": "onprem"
+    },
+    {
+     "nodeId": "app2",
+     "amount": 9300.0,
+     "missing": [],
+     "model": "onprem"
+    },
+    {
+     "nodeId": "pg1",
+     "amount": 26100.0,
+     "missing": [],
+     "model": "onprem"
+    },
+    {
+     "nodeId": "pg2",
+     "amount": 26100.0,
+     "missing": [],
+     "model": "onprem"
+    },
+    {
+     "nodeId": "kafka",
+     "amount": 45900.0,
+     "missing": [],
+     "model": "onprem"
+    }
+   ],
+   "byCategory": {
+    "compute": 18600.0,
+    "data": 98100.0,
+    "edge": 0.0
+   },
+   "byZone": {
+    "_global": 0.0,
+    "dc1": 81300.0,
+    "dc2": 35400.0
+   },
+   "byKind": {
+    "kafka": 45900.0,
+    "postgresql": 52200.0,
+    "users": 0.0,
+    "vm_pool": 18600.0
+   },
+   "incomplete": 0,
+   "budget": null
+  },
+  "units": {
+   "app": "App servers",
+   "kafka": "Kafka",
+   "pg": "PostgreSQL",
+   "users": "Users"
+  }
+ }
+}

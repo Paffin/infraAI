@@ -2,7 +2,7 @@
 export default {
   'product.title': 'Продукт',
   'product.variant': 'Вариант',
-  'product.variant.default': 'По умолчанию — {name}',
+  'product.variant.default': 'По умолчанию',
   'product.variant.managed': 'управляемый сервис',
   'product.variant.managedHint': 'Отказоустойчивость и копии обеспечивает провайдер',
   'product.variants': '{n} {n|plural:вариант,варианта,вариантов}',
@@ -33,6 +33,7 @@ export default {
 
   'library.function.count': '{n} {n|plural:продукт,продукта,продуктов}',
   'library.expandAll': 'Развернуть всё',
+  'library.more': 'Ещё {n}',
   'library.collapseAll': 'Свернуть всё',
   'library.found': 'Найдено: {n}',
   'library.matchVariant': 'вариант: {name}',

@@ -692,14 +692,21 @@ export interface PlacementPattern {
   stack: string
 }
 
+export interface PlacementProduct { kind: string; variants: { id: string; default: boolean; managed: boolean }[] }
+
 export interface PlacementLayer {
   id: string
   name: LText
   kind: string
   alternatives: string[]
+  /** every product of this job the layer can be built from (the default one first) */
+  products: PlacementProduct[]
+  function?: string | null
   scope: 'global' | 'site' | 'cluster' | 'single'
   optional: boolean
   default: boolean
+  /** the layer that holds the quorum of this one */
+  dcs?: string | null
 }
 
 export interface PlacementOptions {
@@ -719,6 +726,8 @@ export interface PlacementRequest {
   stack?: string
   layers?: string[]
   kinds?: Record<string, string>
+  /** layer id → variant of its product (a topology or a managed offering) */
+  variants?: Record<string, string>
   siteType?: string
   requirements?: Requirements
   name?: string

@@ -49,6 +49,8 @@ const categories = computed(() => {
   }).filter((c) => c.fns.length)
 })
 const found = computed(() => categories.value.reduce((n, c) => n + c.count, 0))
+/** Tiles of the functions that have one product only. */
+const singles = (c: { fns: { tiles: Tile[] }[] }) => c.fns.filter((g) => g.tiles.length === 1).flatMap((g) => g.tiles)
 
 // Groups with many products start folded: a hundred buttons in one list help nobody. A search opens everything it finds.
 const OPEN_KEY = 'ia_lib_open'
@@ -56,7 +58,9 @@ function loadOpen(): Record<string, boolean> {
   try { return JSON.parse(localStorage.getItem(OPEN_KEY) ?? '{}') } catch { return {} }
 }
 const openState = ref<Record<string, boolean>>(loadOpen())
-const SMALL_GROUP = 2
+const SMALL_GROUP = 3
+/** How many products of a folded group stay visible. */
+const PEEK = 2
 const isOpen = (key: string, size: number) => !!query.value || (openState.value[key] ?? size <= SMALL_GROUP)
 function toggle(key: string, size: number) {
   openState.value = { ...openState.value, [key]: !isOpen(key, size) }
@@ -124,24 +128,38 @@ defineExpose({ focus: () => { ui.libraryOpen = true; setTimeout(() => input.valu
 
       <section v-for="c in categories" :key="c.id">
         <h4>{{ c.name }}<span v-if="query" class="found">{{ c.count }}</span></h4>
-        <div v-for="g in c.fns" :key="g.key" class="fn">
+        <!-- products that are alone in their job need no heading: they share one grid -->
+        <div v-if="singles(c).length" class="grid">
+          <button
+            v-for="x in singles(c)" :key="x.kind.id" class="kind" :disabled="editor.readonly" draggable="true" :title="tileTitle(x.kind)"
+            @dragstart="dragKind($event, 'kind', x.kind.id, x.variant?.id)" @click="addKind(x)"
+          >
+            <span class="badge-abbr" :style="{ background: x.kind.color }">{{ x.kind.abbr }}</span>
+            <span class="two">
+              <span class="truncate">{{ lt(x.kind.name) }}</span>
+              <span v-if="x.variant" class="sub">{{ lt(x.variant.name) }}</span>
+            </span>
+          </button>
+        </div>
+        <div v-for="g in c.fns.filter((x) => x.tiles.length > 1)" :key="g.key" class="fn">
           <button v-if="g.name" class="fh" :aria-expanded="isOpen(g.key, g.tiles.length)" @click="toggle(g.key, g.tiles.length)">
             <component :is="isOpen(g.key, g.tiles.length) ? ChevronDown : ChevronRight" :size="13" />
             <span class="grow truncate">{{ g.name }}</span>
-            <span v-if="!isOpen(g.key, g.tiles.length)" class="peek" aria-hidden="true"><i v-for="x in g.tiles.slice(0, 5)" :key="x.kind.id" :style="{ background: x.kind.color }" /></span>
             <span class="cnt">{{ g.tiles.length }}</span>
           </button>
-          <div v-if="isOpen(g.key, g.tiles.length)" class="grid">
+          <!-- folded: the first products (the usual choices) stay at hand, the rest is one click away -->
+          <div class="grid">
             <button
-              v-for="x in g.tiles" :key="x.kind.id" class="kind" :disabled="editor.readonly" draggable="true" :title="tileTitle(x.kind)"
+              v-for="x in (isOpen(g.key, g.tiles.length) ? g.tiles : g.tiles.slice(0, PEEK))" :key="x.kind.id" class="kind" :disabled="editor.readonly" draggable="true" :title="tileTitle(x.kind)"
               @dragstart="dragKind($event, 'kind', x.kind.id, x.variant?.id)" @click="addKind(x)"
             >
               <span class="badge-abbr" :style="{ background: x.kind.color }">{{ x.kind.abbr }}</span>
               <span class="two">
                 <span class="truncate">{{ lt(x.kind.name) }}</span>
-                <span v-if="x.variant" class="sub truncate">{{ t('library.matchVariant', { name: lt(x.variant.name) }) }}</span>
+                <span v-if="x.variant" class="sub">{{ lt(x.variant.name) }}</span>
               </span>
             </button>
+            <button v-if="!isOpen(g.key, g.tiles.length)" class="kind more-tile" @click="toggle(g.key, g.tiles.length)">{{ t('library.more', { n: g.tiles.length - PEEK }) }}</button>
           </div>
         </div>
       </section>
@@ -190,14 +208,15 @@ h4 { font-size: 11.5px; letter-spacing: .09em; text-transform: uppercase; color:
 .faint { color: var(--faint); }
 .found { margin-left: 8px; font-weight: 500; letter-spacing: 0; color: var(--faint); }
 .fn { margin-bottom: 4px; }
+h4 + .grid { margin-top: 0; }
 .fh { width: 100%; display: flex; align-items: center; gap: 5px; height: 28px; padding: 0 4px 0 2px; border: 0; background: transparent; border-radius: var(--radius-sm); font-size: 12.5px; color: var(--text-2); text-align: left; }
 .fh:hover { background: var(--surface-sunken); }
 .fh .cnt { flex: none; min-width: 18px; text-align: right; font-size: 11px; color: var(--faint); }
-.peek { flex: none; display: inline-flex; gap: 3px; }
-.peek i { width: 9px; height: 9px; border-radius: 3px; opacity: .85; }
+.more-tile { justify-content: center; color: var(--muted); cursor: pointer; border-style: dashed; }
+.more-tile:hover { color: var(--accent); }
 .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 2px 0 8px; }
 .two { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
-.two .sub { font-size: 10.5px; color: var(--accent); }
+.two .sub { font-size: 10.5px; color: var(--accent); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .kind { display: flex; align-items: center; gap: 7px; min-height: 40px; padding: 0 7px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius); font-size: 12.5px; text-align: left; min-width: 0; cursor: grab; }
 .kind:hover:not(:disabled) { background: var(--surface-2); border-color: #b8c2d4; }
 .kind:disabled { opacity: .55; cursor: not-allowed; }

@@ -6,6 +6,7 @@
 # Writes frontend/tests/fixtures/<fixture-name>.json = {"architecture": …, "report": …}, where `report` is what
 # `engine::evaluate::evaluate` returns (shipped catalog, rules and settings) for that architecture – the frontend
 # suites (needs, objectives, capacity, diagram) run on these files instead of on hand-written look-alikes.
+# FIXTURE_TODAY=2026-10-13 gives the engine a clock (product lifecycle rules need one).
 # Needs a Rust toolchain; run it again only when the shape of the report changes.
 set -euo pipefail
 SRC=${1:?usage: record-fixture.sh <template-id | architecture.json> <fixture-name>}
@@ -13,7 +14,9 @@ NAME=${2:?usage: record-fixture.sh <template-id | architecture.json> <fixture-na
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 OUT="$ROOT/frontend/tests/fixtures/$NAME.json"
 mkdir -p "$ROOT/frontend/tests/fixtures"
-(cd "$ROOT/backend" && cargo run -q -p engine --example report -- "$SRC" en --json) > "$OUT.report"
+TODAY_ARGS=()
+if [ -n "${FIXTURE_TODAY:-}" ]; then TODAY_ARGS=(--today "$FIXTURE_TODAY"); fi
+(cd "$ROOT/backend" && cargo run -q -p engine --example report -- "$SRC" en --json "${TODAY_ARGS[@]}") > "$OUT.report"
 python3 - "$SRC" "$OUT" "$ROOT" <<'PY'
 import json, os, sys
 src, out, root = sys.argv[1:4]

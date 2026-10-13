@@ -16,6 +16,8 @@ import StateBlock from '../components/StateBlock.vue'
 
 const props = defineProps<{ kind: string }>()
 defineSlots<{
+  /** content between the page header and the list (a status card) */
+  top?(): unknown
   /** extra header cells (before the status column) */
   head?(): unknown
   /** extra cells of a row; `patch` saves a modified copy of the item's data */
@@ -165,6 +167,8 @@ defineExpose({ reload: (spinner = true) => load(spinner) })
       <button class="btn btn-icon" :title="t('common.refresh')" :aria-label="t('common.refresh')" :disabled="loading" @click="afterChange"><RefreshCw :size="15" /></button>
       <button v-if="!meta?.single" class="btn btn-primary" @click="editing = { item: null }"><Plus :size="15" />{{ t('admin.items.create') }}</button>
     </header>
+
+    <slot name="top" />
 
     <StateBlock :loading="loading && !items.length" :error="error" @retry="load()">
       <div class="filters" role="group" :aria-label="t('admin.items.filter')">

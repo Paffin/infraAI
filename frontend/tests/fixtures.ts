@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import type { Architecture, Catalog, Report } from '../src/api/types'
+import type { Architecture, Catalog, Report, VersionSet } from '../src/api/types'
 import { indexCatalog } from '../src/lib/catalog'
 
 /**
@@ -23,4 +23,15 @@ export const realIndex = () => indexCatalog(realCatalog())
 export function ruleCheck(id: string): string | undefined {
   const rules: { id: string; check: string }[] = JSON.parse(readFileSync(join(process.cwd(), '..', 'backend', 'crates', 'engine', 'defaults', 'rules.json'), 'utf8'))
   return rules.find((r) => r.id === id)?.check
+}
+
+/** The shipped release tables (support dates of the products), the file the backend seeds `catalog.versions` from. */
+export function realVersions(): VersionSet[] {
+  return JSON.parse(readFileSync(join(process.cwd(), '..', 'backend', 'crates', 'engine', 'defaults', 'versions.json'), 'utf8'))
+}
+
+/** Rule id → the rule as shipped (what the UI gets as `app.rules`). */
+export function realRule(id: string) {
+  const rules: { id: string }[] = JSON.parse(readFileSync(join(process.cwd(), '..', 'backend', 'crates', 'engine', 'defaults', 'rules.json'), 'utf8'))
+  return rules.find((r) => r.id === id) as import('../src/api/types').Rule | undefined
 }
