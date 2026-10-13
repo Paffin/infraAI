@@ -163,7 +163,7 @@ const KEY_ORDER: Record<string, string[]> = {
   template: ['id', 'name', 'description', 'badge', 'enabled', 'order', 'architecture'],
   iac: ['id', 'title', 'enabled', 'target', 'reason', 'granularity', 'requires', 'unsupported', 'needs', 'vars', 'objects', 'releases', 'secrets', 'notes'],
   prompt: ['id', 'title', 'role', 'system'],
-  engine: ['assumptions', 'scoring', 'scenarios', 'tolerance', 'authority', 'lifecycle', 'cost', 'export'],
+  engine: ['assumptions', 'scoring', 'scenarios', 'tolerance', 'authority', 'lifecycle', 'reliability', 'cost', 'export'],
   'placement.pattern': ['id', 'name', 'description', 'badge', 'enabled', 'order', 'minSites', 'maxSites', 'defaultSites', 'siteType', 'regions', 'racks', 'tolerance', 'siteFailures', 'witness', 'standbySites', 'syncWithinGeo', 'offsiteBackupSite', 'requirements', 'stack', 'pros', 'cons'],
   'placement.stack': ['id', 'name', 'description', 'order', 'layers'],
   'placement.settings': ['defaultPattern', 'intraSite', 'intraGeo', 'interGeo', 'siteNames', 'regionName', 'witnessName', 'rackName', 'rackShortName', 'backupSiteName', 'geoPrefix', 'witnessSiteType', 'regionZoneType', 'rackZoneType', 'minVoters', 'maxVoters', 'witnessProps', 'standbyScaleUpSeconds', 'standbyMinReplicas', 'maxNodes', 'tlsBetweenSites'],

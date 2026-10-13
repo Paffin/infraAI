@@ -10,6 +10,7 @@ use crate::cost::{self, CostReport};
 use crate::graph::Index;
 use crate::model::{validate, Architecture, Issue, ValidationLimits};
 use crate::ops::Op;
+use crate::reliability::{Availability, Standing};
 use crate::sim::{scenario_set, simulate, RecoveryKind, Scenario, ScenarioSet, ServiceState, SimResult, UnitLoad};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
@@ -121,7 +122,7 @@ pub struct Counts {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Objective {
-    /// `rto`, `rpo`, `site_loss`, `spof`, `capacity`, `budget`.
+    /// `rto`, `rpo`, `site_loss`, `sites_loss`, `spof`, `capacity`, `availability`.
     pub id: String,
     pub status: Status,
     #[serde(default)]
@@ -201,6 +202,10 @@ pub struct Report {
     pub capacity: Vec<CapacityRow>,
     pub score: Score,
     pub cost: CostReport,
+    /// Expected availability and where the downtime comes from (absent when the estimate is switched off or there is
+    /// nothing to serve).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub availability: Option<Availability>,
     /// Units with their display names (group key → name) for the UI.
     pub units: BTreeMap<String, String>,
 }
@@ -246,6 +251,8 @@ pub struct Ctx<'a> {
     cache: RefCell<HashMap<String, Rc<SimResult>>>,
     /// A check looked at a sample of the site combinations instead of all of them.
     sampled: std::cell::Cell<bool>,
+    /// The availability estimate, worked out once for the rule, the objective tile and the report.
+    availability: std::cell::OnceCell<Option<Rc<Availability>>>,
     /// Today as days since 1970-01-01; `None` without a clock.
     pub today: Option<i64>,
     /// Release tables by product id.
@@ -259,6 +266,7 @@ impl<'a> Ctx<'a> {
             cfg,
             cache: RefCell::new(HashMap::new()),
             sampled: std::cell::Cell::new(false),
+            availability: std::cell::OnceCell::new(),
             today: crate::lifecycle::parse_date(&(cfg.today)()),
             versions: cfg.versions.iter().map(|v| (v.id.as_str(), v)).collect(),
         }
@@ -266,6 +274,10 @@ impl<'a> Ctx<'a> {
     /// Remember that a check sampled the combinations (reported as `scenarioStats.truncated`).
     pub fn mark_sampled(&self) {
         self.sampled.set(true);
+    }
+    /// The expected availability of the architecture (`None` when the estimate is switched off or there is no service).
+    pub fn availability(&self) -> Option<Rc<Availability>> {
+        self.availability.get_or_init(|| crate::reliability::estimate(self).map(Rc::new)).clone()
     }
     pub fn sim(&self, sc: &Scenario) -> Rc<SimResult> {
         let key = sc.key();
@@ -345,6 +357,7 @@ pub fn evaluate(arch: &Architecture, cfg: &EngineConfig, waivers: &[Waiver]) -> 
     let objectives = objectives(&ctx, &findings);
     let units = ctx.ix.units.iter().map(|u| (u.key.clone(), u.name.clone())).collect();
     let cost = cost::estimate(&ctx.ix);
+    let availability = ctx.availability().map(|a| (*a).clone());
     let capacity = capacity_rows(&ctx, &set);
     let scenario_stats = ScenarioStats {
         generated: set.generated,
@@ -355,7 +368,22 @@ pub fn evaluate(arch: &Architecture, cfg: &EngineConfig, waivers: &[Waiver]) -> 
         site_failures: checks::site_failures(&ctx),
     };
 
-    Report { engine_version: ENGINE_VERSION, issues, counts, rules, findings, objectives, scenarios, scenario_stats, baseline_loads: baseline.unit_loads.clone(), capacity, score, cost, units }
+    Report {
+        engine_version: ENGINE_VERSION,
+        issues,
+        counts,
+        rules,
+        findings,
+        objectives,
+        scenarios,
+        scenario_stats,
+        baseline_loads: baseline.unit_loads.clone(),
+        capacity,
+        score,
+        cost,
+        availability,
+        units,
+    }
 }
 
 fn capacity_rows(ctx: &Ctx<'_>, set: &ScenarioSet) -> Vec<CapacityRow> {
@@ -622,6 +650,18 @@ fn objectives(ctx: &Ctx<'_>, findings: &[Finding]) -> Vec<Objective> {
         actual: worst_cap.map(|v| json!((v * 1000.0).round() / 1000.0)),
         assumed: false,
     });
+
+    // Availability: the estimate against the target (an estimate rests on assumed failure rates)
+    if let Some(av) = ctx.availability() {
+        let status = match av.standing() {
+            Standing::NoTarget => Status::NoData,
+            Standing::Within if av.truncated => Status::NoData,
+            Standing::Within => Status::Ok,
+            Standing::Close => Status::Risk,
+            Standing::Over => Status::Critical,
+        };
+        out.push(Objective { id: "availability".into(), status, required: av.target.map(|v| json!(v)), actual: Some(json!(av.estimate)), assumed: true });
+    }
     out
 }
 

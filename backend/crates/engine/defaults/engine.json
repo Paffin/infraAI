@@ -104,6 +104,95 @@
   "preferLts": true,
   "staleDays": 120
  },
+ "reliability": {
+  "enabled": true,
+  "daysPerYear": 365.25,
+  "failures": {
+   "instance": 2,
+   "unit": 0.25,
+   "zone": {
+    "rack": 0.3,
+    "dc": 0.13,
+    "cloud": 0.1,
+    "az": 0.1,
+    "region": 0.02,
+    "site": 0.1,
+    "geo": 0.02
+   },
+   "link": 0.5,
+   "isolation": 0.5,
+   "geo": 0.01
+  },
+  "repair": {
+   "instance": 14400,
+   "unit": 3600,
+   "zone": {
+    "rack": 28800,
+    "dc": 43200,
+    "cloud": 21600,
+    "az": 21600,
+    "region": 172800,
+    "site": 21600,
+    "geo": 172800
+   },
+   "link": 14400,
+   "isolation": 7200,
+   "geo": 86400
+  },
+  "tierFactor": {
+   "I": 18,
+   "II": 14,
+   "III": 1,
+   "IV": 0.25
+  },
+  "isolationGroupFactor": 0.1,
+  "provider": {
+   "traits": [
+    "managed"
+   ],
+   "byFunction": {
+    "gslb": 0.9999,
+    "dns-server": 0.9999,
+    "cdn": 0.9999,
+    "waf": 0.9999,
+    "l7": 0.9999,
+    "l4": 0.9999,
+    "firewall": 0.9995,
+    "vpn": 0.9995,
+    "k8s": 0.9995,
+    "vm": 0.999,
+    "functions": 0.9995,
+    "api-gateway": 0.9995,
+    "rdbms": 0.9995,
+    "newsql": 0.9995,
+    "nosql-doc": 0.9995,
+    "wide-column": 0.9995,
+    "cache": 0.9995,
+    "mq": 0.9995,
+    "search": 0.999,
+    "olap": 0.999,
+    "object-store": 0.999,
+    "secrets": 0.999,
+    "monitoring": 0.999,
+    "dashboards": 0.999,
+    "ci": 0.999,
+    "access": 0.999,
+    "cni": 0.9995
+   },
+   "default": 0.999,
+   "incidentSeconds": 1800
+  },
+  "partialCapacity": true,
+  "warnPercent": 80,
+  "top": 8,
+  "presets": [
+   99,
+   99.5,
+   99.9,
+   99.95,
+   99.99
+  ]
+ },
  "cost": {
   "currency": "RUB",
   "symbol": "₽",

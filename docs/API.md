@@ -46,7 +46,8 @@ answers `403 password_change_required`.
   limits: {maxNodes, maxEdges, maxZones, waiverMinReasonChars, waiverMaxDays},
   today: "YYYY-MM-DD",         // the date (UTC) the lifecycle verdicts are given for
   engine: {currency, symbol, lifecycle: {warnDays, matureDays, preferLts, staleDays},
-           minCapacityDuringFailure, headroomPercent, defaultFailureTolerance, toleranceLevels, maxSiteFailures} }
+           minCapacityDuringFailure, headroomPercent, defaultFailureTolerance, toleranceLevels, maxSiteFailures,
+           availability: {enabled, presets, warnPercent, daysPerYear}} }
 ```
 
 `LText` values (names, texts) are a string or `{ru, en, …}`; resolve with a fallback to `en`, then `ru`.
@@ -115,11 +116,12 @@ around applied AI proposals).
   findings: [{ id, ruleId, category, status, subjects:{nodes,edges,zones}, vars, fixes:[{id,kind,vars,ops}],
                needs?:[{target: requirements|node|edge|zone, id?, prop}],
                scenario?, accepted?:{reason,by,at} }],         // id = stable fingerprint (waivers)
-  objectives: [{id: rto|rpo|site_loss|spof|capacity, status, required, actual, assumed}],
+  objectives: [{id: rto|rpo|site_loss|sites_loss|spof|capacity|availability, status, required, actual, assumed}],
   scenarios: [ScenarioSummary], baselineLoads: [UnitLoad],
   capacity: [CapacityRow],                                     // empty without a declared peak load
   score: {value, penalty, coverage, breakdown:[{ruleId,status,penalty}]},
   cost: {currency, symbol, total, nodes:[{nodeId,amount,missing,model}], byCategory, byZone, byKind, incomplete, budget},
+  availability?: Availability,                                // absent when the estimate is off or there is nothing to serve
   units: {<groupKey>: <display name>} }
 ```
 
@@ -133,6 +135,12 @@ rendered with `{...finding.vars, ...fix.vars}`. A fix is a list of patch operati
 `node` / `edge` / `zone` + `id` + `prop` = a property of that element (`rpsPerReplica`, `lagSeconds`, `geo`…). The UI
 turns each into a button that opens exactly that field; every `prop` of an element is a property the catalog defines for
 it (a test of the frontend checks this against the shipped catalog).
+
+`availability` is the expected availability ([AVAILABILITY.md](AVAILABILITY.md)): `{estimate (0…1), serviceDown, downtimeSecondsPerYear, target|null (0…1),
+budgetSecondsPerYear|null, causes:[{cause: instance|unit|provider|rack|site|link|isolation|geo, secondsPerYear, share}], units:[{unit, name, secondsPerYear, share}],
+top:[{scenario, cause, failed, perYear, downtimeSeconds, secondsPerYear, basis: repair|recovery|interruption|capacity}], scenarios, truncated, basis}`;
+`basis` is the engine settings `reliability` the number rests on (rates, repair times, provider SLAs). The objective `availability` has `required` = the target and `actual` = the estimate (0…1).
+A requirement `availabilitySlo` is a percentage (`99.95`); a value up to 1 is read as a fraction.
 
 `capacity[]` is the capacity plan of each logical service (unit): `{unit, name, kind, nodes, instances,
 perReplicaRps, loadRps, capacityRps|null, targetRps, instancesNeeded|null, worst:{scenario, failed, loadRps,
@@ -151,6 +159,8 @@ so a client can answer "what if traffic doubles" by multiplying (the editor's *C
   edgeStates:{<edgeId>: ok|cut|dead},
   timeline?: [{at, state, capacityRatio, nodes:{<nodeId>: state}, edges:{<edgeId>: state}}] }
 ```
+
+`interruptions: [{unit, kind: failover|manual_failover|restore|reroute|scale_out, seconds, share}]` – what interrupts the service while the recovery runs and what share of the requests it touches (the input of the availability estimate).
 
 `events[].code` values: `promoted manual_failover primary_lost fenced split_brain quorum_lost quorum_ok
 no_candidate no_failover writes_blocked async_fallback restore_from_backup data_lost replicated_elsewhere

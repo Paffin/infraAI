@@ -1,7 +1,7 @@
 import { computed, type Component, type ComputedRef } from 'vue'
 import { useRouter } from 'vue-router'
 import {
-  Boxes, Coins, Copy, Download, Gauge, History, Keyboard, Languages, Layers, LayoutDashboard, ListChecks, Maximize, MousePointer2, PanelLeft, Play, Plus, Redo2, Save, ShieldCheck,
+  Activity, Boxes, Coins, Copy, Download, Gauge, History, Keyboard, Languages, Layers, LayoutDashboard, ListChecks, Maximize, MousePointer2, PanelLeft, Play, Plus, Redo2, Save, ShieldCheck,
   Network, Sparkles, Spline, Square, Trash2, Undo2, Zap, Folder, Users,
 } from 'lucide-vue-next'
 import type { Status } from '@/api/types'
@@ -12,7 +12,7 @@ import { scenarioLabel } from '@/lib/sim'
 import { useApp } from '@/stores/app'
 import { useDialogs } from '@/stores/dialogs'
 import { useEditor } from '@/stores/editor'
-import { useUi, type RightTab } from '@/stores/ui'
+import { ANALYSIS_VIEWS, useUi, type AnalysisView, type RightTab } from '@/stores/ui'
 
 export type CommandGroup = 'element' | 'finding' | 'scenario' | 'add' | 'edit' | 'view' | 'panel'
 export const GROUP_ORDER: CommandGroup[] = ['element', 'finding', 'scenario', 'add', 'edit', 'view', 'panel']
@@ -37,8 +37,9 @@ export interface Command {
   run: () => void
 }
 
-const TABS: RightTab[] = ['checks', 'requirements', 'capacity', 'cost', 'chat']
-const TAB_ICON: Record<RightTab, Component> = { checks: ListChecks, requirements: ShieldCheck, capacity: Gauge, cost: Coins, chat: Sparkles }
+const TABS: RightTab[] = ['checks', 'requirements', 'chat']
+const TAB_ICON: Record<RightTab, Component> = { checks: ListChecks, requirements: ShieldCheck, analysis: Gauge, chat: Sparkles }
+const ANALYSIS_ICON: Record<AnalysisView, Component> = { capacity: Gauge, availability: Activity, cost: Coins }
 
 /** Everything the command palette (Ctrl/⌘+K) can find or do for the open project; rebuilt when the project, the report or the language changes. */
 export function usePaletteCommands(): ComputedRef<Command[]> {
@@ -167,6 +168,9 @@ export function usePaletteCommands(): ComputedRef<Command[]> {
     // ---------------------------------------------------------------- panels and windows
     for (const tab of TABS) {
       out.push({ id: 'panel:' + tab, group: 'panel', title: t('cmd.open', { name: t('tab.' + tab) }), icon: TAB_ICON[tab], suggest: true, run: () => { ui.tab = tab } })
+    }
+    for (const view of ANALYSIS_VIEWS) {
+      out.push({ id: 'panel:' + view, group: 'panel', title: t('cmd.open', { name: t('tab.' + view) }), icon: ANALYSIS_ICON[view], suggest: true, run: () => ui.showAnalysis(view) })
     }
     out.push({ id: 'panel:matrix', group: 'panel', title: t('editor.sim'), icon: Zap, keywords: ['matrix', 'матрица'], suggest: true, run: () => { ui.modal = 'matrix' } })
     out.push({ id: 'panel:versions', group: 'panel', title: t('editor.versions'), icon: History, keywords: ['versions', 'diff', 'история'], suggest: true, run: () => { ui.modal = 'versions' } })

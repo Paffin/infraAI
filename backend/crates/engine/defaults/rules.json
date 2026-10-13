@@ -162,6 +162,48 @@
   }
  },
  {
+  "id": "AV-SLO-01",
+  "category": "ha",
+  "check": "availability_slo",
+  "enabled": true,
+  "severity": "critical",
+  "params": {},
+  "title": {
+   "ru": "Ожидаемая доступность укладывается в SLO",
+   "en": "Expected availability meets the SLO"
+  },
+  "message": {
+   "ru": "Оценка доступности — {estimate|avail} при цели {target|avail}: простои ≈ {downtime|dur} в год при допустимых {budget|dur} ({percent}% бюджета). Больше всего вносит «{unit}» ({share|pct}).",
+   "en": "Estimated availability is {estimate|avail} against a target of {target|avail}: ≈ {downtime|dur} of downtime a year with {budget|dur} allowed ({percent}% of the budget). “{unit}” costs most ({share|pct})."
+  },
+  "variantMessages": {
+   "plain": {
+    "ru": "Оценка доступности — {estimate|avail} при цели {target|avail}: простои ≈ {downtime|dur} в год при допустимых {budget|dur} ({percent}% бюджета).",
+    "en": "Estimated availability is {estimate|avail} against a target of {target|avail}: ≈ {downtime|dur} of downtime a year with {budget|dur} allowed ({percent}% of the budget)."
+   },
+   "down": {
+    "ru": "Сервис не работает даже без отказов (недоступно: {unit}) — оценка доступности {estimate|avail}. Сначала нужно, чтобы путь от пользователей до данных заработал.",
+    "en": "The service does not work even while nothing has failed (unavailable: {unit}) — the availability estimate is {estimate|avail}. The path from the users to the data has to work first."
+   }
+  },
+  "noDataMessage": {
+   "ru": "Оценка доступности {estimate|avail} получена не по всем отказам — часть сценариев отброшена лимитом, настоящие простои могут быть больше.",
+   "en": "The availability estimate of {estimate|avail} does not cover every failure — some scenarios were cut by the limit, so the real downtime may be larger."
+  },
+  "requirementMessage": {
+   "ru": "В требованиях не задана доступность (SLO): оценка — {estimate|avail}, но сравнить её не с чем.",
+   "en": "No availability target (SLO) in the requirements: the estimate is {estimate|avail}, but there is nothing to compare it with."
+  },
+  "ok": {
+   "ru": "Ожидаемая доступность укладывается в SLO",
+   "en": "Expected availability meets the SLO"
+  },
+  "rationale": {
+   "ru": "Доступность — доля года, когда сервис работает. Движок берёт каждый отказ (экземпляр, весь сервис, стойка, площадка, связь, катастрофа, инцидент у провайдера), умножает частоту на время простоя из симулятора и складывает. Частоты — допущения: их правят в настройках («reliability») и в свойствах продуктов. Оценка не обещание, а способ сравнить варианты и увидеть, что съедает бюджет простоя.",
+   "en": "Availability is the share of the year the service works. The engine takes every failure (an instance, a whole service, a rack, a site, a link, a disaster, a provider's incident), multiplies its rate by the downtime the simulator gives and adds it up. The rates are assumptions: they are set in the settings (“reliability”) and in the products' properties. The estimate is not a promise but a way to compare designs and to see what eats the downtime budget."
+  }
+ },
+ {
   "id": "DR-RPO-01",
   "category": "dr",
   "check": "rpo",

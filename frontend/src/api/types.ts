@@ -240,7 +240,7 @@ export interface RuleResult { ruleId: string; category: string; status: Status; 
 export interface Counts { critical: number; risk: number; noData: number; ok: number; na: number; accepted: number }
 
 export interface Objective {
-  id: 'rto' | 'rpo' | 'site_loss' | 'sites_loss' | 'spof' | 'capacity' | string
+  id: 'rto' | 'rpo' | 'site_loss' | 'sites_loss' | 'spof' | 'capacity' | 'availability' | string
   status: Status
   required?: unknown
   actual?: unknown
@@ -311,6 +311,51 @@ export interface ScenarioStats {
   siteFailures: number
 }
 
+/** What fails: one instance, a whole service (a bad release), a service a provider runs, a rack, a site, the links, an isolated site, a disaster. */
+export type AvailabilityCause = 'instance' | 'unit' | 'provider' | 'rack' | 'site' | 'link' | 'isolation' | 'geo'
+
+/** One kind of failure and what it costs a year. `basis`: `repair` (nothing recovers it), `recovery` (a restore, an operator), `interruption` (a failover), `capacity` (what is left cannot carry the load). */
+export interface AvailabilityFailure {
+  scenario: Scenario
+  cause: AvailabilityCause
+  failed: string[]
+  perYear: number
+  downtimeSeconds: number
+  secondsPerYear: number
+  basis: 'repair' | 'recovery' | 'interruption' | 'capacity' | string
+}
+
+/** The assumptions the estimate rests on (the engine settings `reliability`). */
+export interface AvailabilityBasis {
+  enabled: boolean
+  daysPerYear: number
+  failures: { instance: number; unit: number; zone: Record<string, number>; link: number; isolation: number; geo: number }
+  repair: { instance: number; unit: number; zone: Record<string, number>; link: number; isolation: number; geo: number }
+  tierFactor: Record<string, number>
+  isolationGroupFactor: number
+  provider: { traits: string[]; byFunction: Record<string, number>; default: number; incidentSeconds: number }
+  partialCapacity: boolean
+  warnPercent: number
+  top: number
+  presets: number[]
+}
+
+/** The expected availability: how much of the year the service is down, from what fails, how often and what the architecture does about it. */
+export interface Availability {
+  estimate: number
+  /** The service does not work even while nothing has failed: it is down all the time. */
+  serviceDown: boolean
+  downtimeSecondsPerYear: number
+  target: number | null
+  budgetSecondsPerYear: number | null
+  causes: { cause: AvailabilityCause; secondsPerYear: number; share: number }[]
+  units: { unit: string; name: string; secondsPerYear: number; share: number }[]
+  top: AvailabilityFailure[]
+  scenarios: number
+  truncated: boolean
+  basis: AvailabilityBasis
+}
+
 export interface Report {
   engineVersion: number
   issues: Issue[]
@@ -324,6 +369,8 @@ export interface Report {
   capacity: CapacityRow[]
   score: { value: number; penalty: number; coverage: number; breakdown: { ruleId: string; status: Status; penalty: number }[] }
   cost: CostReport
+  /** Absent when the estimate is switched off or there is nothing to serve. */
+  availability?: Availability
   units: Record<string, string>
 }
 
@@ -424,7 +471,7 @@ export interface Bootstrap {
   limits: { maxNodes: number; maxEdges: number; maxZones: number; waiverMinReasonChars: number; waiverMaxDays: number }
   /** Today's date on the server (`YYYY-MM-DD`): support dates are judged against it. */
   today?: string
-  engine: { currency: string; symbol: string; minCapacityDuringFailure: number; headroomPercent: number; defaultFailureTolerance: string; toleranceLevels?: ToleranceLevel[]; maxSiteFailures?: number; lifecycle?: LifecycleSettings }
+  engine: { currency: string; symbol: string; minCapacityDuringFailure: number; headroomPercent: number; defaultFailureTolerance: string; toleranceLevels?: ToleranceLevel[]; maxSiteFailures?: number; lifecycle?: LifecycleSettings; availability?: { enabled: boolean; presets: number[]; warnPercent: number; daysPerYear: number } }
 }
 
 // ---------------------------------------------------------------------------- lifecycle

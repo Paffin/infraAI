@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { expect, type Page } from '@playwright/test'
 import { test } from './fixtures'
-import { createProject, login, uniqueName } from './helpers'
+import { createProject, login, uniqueName, openAnalysis } from './helpers'
 
 /**
  * Accessibility, checked by axe-core on the screens people spend their time on: every field has a name, headings and
@@ -56,10 +56,15 @@ test.describe('accessibility (axe-core)', () => {
     await expect(page.locator('.arch-node').first()).toBeVisible()
     await clean(page, 'editor')
 
-    for (const tab of ['Требования', 'Ёмкость', 'Стоимость', 'Проверки']) {
+    for (const tab of ['Требования', 'Проверки']) {
       await page.locator('.right .tab', { hasText: tab }).click()
       await clean(page, `tab ${tab}`)
     }
+    for (const view of ['Ёмкость', 'Доступность', 'Стоимость'] as const) {
+      await openAnalysis(page, view)
+      await clean(page, `analysis ${view}`)
+    }
+    await page.locator('.right .tab', { hasText: 'Проверки' }).click()
 
     await page.locator('.arch-node').first().click()
     await expect(page.locator('.inspector')).toBeVisible()

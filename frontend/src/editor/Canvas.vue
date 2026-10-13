@@ -3,7 +3,7 @@ import { computed, markRaw, nextTick, onBeforeUnmount, onMounted, ref, watch } f
 import { ConnectionMode, VueFlow, useVueFlow, type GraphNode, type NodeDragEvent } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { MiniMap } from '@vue-flow/minimap'
-import { LayoutDashboard, LayoutTemplate, Minus, MousePointer2, Network, PanelLeftOpen, Plus, Redo2, Sparkles, Spline, Square, Undo2 } from 'lucide-vue-next'
+import { LayoutDashboard, LayoutTemplate, Minus, MousePointer2, Network, PanelLeftOpen, Plus, Redo2, Sparkles, Spline, Square, TriangleAlert, Undo2, X } from 'lucide-vue-next'
 import '@vue-flow/core/dist/style.css'
 import '@vue-flow/minimap/dist/style.css'
 import { lt, t } from '@/i18n'
@@ -244,6 +244,18 @@ function toggleLayer(l: Layer) {
   editor.layer = editor.layer === l ? 'all' : l
 }
 const legend = computed(() => (app.boot?.catalog.edgeTypes ?? []).map((e) => ({ id: e.id, label: lt(e.short ?? e.name), color: e.style.color, dash: e.style.dash ?? '', width: Math.max(1.5, e.style.width ?? 1.6) })))
+/**
+ * Cards and zones that disagree (a card outside the zone it belongs to, a rack drawn beside its data center): what a change that
+ * rearranged the zones used to leave behind. The notice offers the layout again; it is not forced, a hand-made picture is the user's.
+ */
+const driftOff = ref('')
+const driftNote = computed(() => app.canEdit && !editor.readonly && !editor.loading && !editor.preview && driftOff.value !== editor.projectId && editor.layoutDrift)
+function dismissDrift() {
+  driftOff.value = editor.projectId
+}
+function relayout() {
+  editor.autoLayout()
+}
 const hint = computed(() => (editor.tool === 'connect' ? t('canvas.connect.hint') : editor.tool === 'zone' ? t('canvas.zone.hint') : editor.pickingNode ? t('sim.node.pick') : ''))
 
 function nodeColor(n: { id: string; type?: string }) {
@@ -293,6 +305,12 @@ function nodeColor(n: { id: string; type?: string }) {
       </span>
     </div>
     <div v-if="hint" class="hint-bar">{{ hint }}</div>
+    <div v-else-if="driftNote" class="drift-bar" role="status" data-testid="drift-note">
+      <TriangleAlert :size="14" aria-hidden="true" />
+      <span>{{ t('canvas.drift') }}</span>
+      <button class="btn btn-sm" @click="relayout">{{ t('canvas.drift.fix') }}</button>
+      <button class="x" :aria-label="t('common.close')" :title="t('common.close')" @click="dismissDrift"><X :size="14" /></button>
+    </div>
 
     <div class="zoom" data-overlay="bottom">
       <template v-if="app.canEdit">
@@ -330,7 +348,7 @@ function nodeColor(n: { id: string; type?: string }) {
 .canvas .vue-flow__node { font-family: var(--font); }
 /* semantic zoom (see lib/lod.ts): what stays legible when the diagram is zoomed out */
 .canvas[data-lod='compact'] .arch-node .sub, .canvas[data-lod='mini'] .arch-node .sub { display: none; }
-.canvas[data-lod='compact'] .arch-node .name { font-size: clamp(14px, calc(10.5px / var(--zoom, 1)), 26px); white-space: normal; line-height: 1.12; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: clip; }
+.canvas[data-lod='compact'] .arch-node .name { font-size: clamp(14px, calc(10.5px / var(--zoom, 1)), 26px); white-space: normal; line-height: 1.12; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; overflow-wrap: anywhere; hyphens: auto; }
 .canvas[data-lod='compact'] .zone-head .zname, .canvas[data-lod='mini'] .zone-head .zname { font-size: clamp(14px, calc(11.5px / var(--zoom, 1)), 30px); }
 .canvas[data-lod='compact'] .zone-head .ztag, .canvas[data-lod='mini'] .zone-head .ztag, .canvas[data-lod='compact'] .edge-label, .canvas[data-lod='mini'] .edge-label { display: none; }
 .canvas[data-lod='mini'] .arch-node .txt { display: none; }
@@ -362,6 +380,11 @@ function nodeColor(n: { id: string; type?: string }) {
 .lay.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 .legend { gap: 11px; }
 .leg { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.drift-bar { position: absolute; top: 58px; left: 50%; transform: translateX(-50%); width: max-content; max-width: calc(100% - 32px); display: flex; align-items: center; gap: 10px; background: var(--surface); color: var(--text); border: 1px solid var(--risk-line, var(--line-strong)); font-size: 12.5px; padding: 5px 6px 5px 12px; border-radius: var(--radius-sm); z-index: 60; box-shadow: var(--shadow-1); animation: drift-in var(--dur-base, .22s) var(--ease-out, ease-out); }
+.drift-bar svg { color: var(--risk, #b45309); flex: none; }
+.drift-bar .x { border: 0; background: transparent; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; color: var(--muted); }
+.drift-bar .x:hover { background: var(--surface-sunken); color: var(--text); }
+@keyframes drift-in { from { opacity: 0; transform: translate(-50%, -6px); } to { opacity: 1; transform: translate(-50%, 0); } }
 .hint-bar { position: absolute; top: 58px; left: 50%; transform: translateX(-50%); width: max-content; background: var(--ink); color: var(--on-dark); font-size: 12.5px; padding: 6px 12px; border-radius: var(--radius-sm); z-index: 60; pointer-events: none; }
 
 .zoom { position: absolute; left: 18px; bottom: 18px; display: flex; align-items: stretch; height: 34px; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); background: var(--surface); overflow: hidden; z-index: 60; box-shadow: var(--shadow-1); }

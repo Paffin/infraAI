@@ -2,6 +2,8 @@
 import { computed, nextTick, onMounted, ref, useId, watch } from 'vue'
 import { lt, t } from '@/i18n'
 import { splitSeconds, toSeconds } from '@/lib/format'
+import { downtimeText } from '@/lib/availability'
+import { formatAvailability, targetFraction, yearlyDowntime } from '@/lib/nines'
 import { useApp } from '@/stores/app'
 import { useEditor } from '@/stores/editor'
 import { useUi } from '@/stores/ui'
@@ -21,6 +23,14 @@ const maxSiteFailures = computed(() => app.boot?.engine.maxSiteFailures ?? 4)
 /** Several sites at once only make sense when sites are the failure domain being asked about. */
 const asksSites = computed(() => { const cur = levels.value.find((x) => x.id === (req.value.failureTolerance ?? tolerance.value)); return !cur ? true : cur.domain === 'site' || cur.domain === 'geo' })
 const symbol = computed(() => app.boot?.engine.symbol ?? '')
+
+/** What the availability target means in a year (for the current value, else for 99.9), and what the engine estimates for the diagram. */
+const sloExample = computed(() => {
+  const v = req.value.availabilitySlo
+  const a = v === undefined || v === null ? 0.999 : targetFraction(v)
+  return downtimeText(yearlyDowntime(a, editor.report?.availability?.basis.daysPerYear ?? app.boot?.engine.availability?.daysPerYear ?? 365.25))
+})
+const sloEstimate = computed(() => { const a = editor.report?.availability; return a && !a.serviceDown ? formatAvailability(a.estimate) : '' })
 const compliance = ref('')
 
 type NumKey = 'rpsPeak' | 'growthPercent' | 'availabilitySlo' | 'budgetMonthly'
@@ -120,6 +130,8 @@ function removeCompliance(x: string) {
     <div class="field" v-bind="attrs('availabilitySlo')">
       <label :for="`${uid}-availabilitySlo`">{{ t('req.availabilitySlo') }}</label>
       <input :id="`${uid}-availabilitySlo`" class="input mono" type="number" min="0" max="100" step="0.001" :disabled="dis" :value="req.availabilitySlo ?? ''" @input="setNum('availabilitySlo', $event)" />
+      <span class="hint">{{ t('req.availabilitySlo.hint', { v: sloExample }) }}</span>
+      <span v-if="sloEstimate" class="hint est">{{ t('req.availabilitySlo.estimate', { v: sloEstimate }) }} · <button class="linklike" @click="ui.showAnalysis('availability')">{{ t('req.availabilitySlo.open') }}</button></span>
     </div>
     <div class="field" v-bind="attrs('budgetMonthly')">
       <label :for="`${uid}-budgetMonthly`">{{ t('req.budgetMonthly') }}, {{ symbol }}</label>
@@ -161,4 +173,6 @@ h2 { font-size: 16px; }
 @keyframes flash { 0%, 55% { background: var(--accent-soft); box-shadow: 0 0 0 6px var(--accent-soft); } 100% { background: transparent; box-shadow: 0 0 0 6px transparent; } }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .x { border: 0; background: transparent; color: var(--muted); font-size: 15px; line-height: 1; padding: 0; }
+.linklike { border: 0; background: transparent; padding: 0; font: inherit; color: var(--accent); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.linklike:hover { text-decoration-thickness: 2px; }
 </style>

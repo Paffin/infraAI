@@ -38,7 +38,11 @@ async fn configure(app: &TestApp, c: &str) {
 }
 
 async fn run_job(app: &TestApp, c: &str, pid: &str, kind: &str, prompt: &str) -> Value {
-    let (s, j) = app.post(c, &format!("/api/projects/{pid}/ai/jobs"), json!({"kind": kind, "prompt": prompt, "lang": "en"})).await;
+    run_job_in(app, c, pid, kind, prompt, "en").await
+}
+
+async fn run_job_in(app: &TestApp, c: &str, pid: &str, kind: &str, prompt: &str, lang: &str) -> Value {
+    let (s, j) = app.post(c, &format!("/api/projects/{pid}/ai/jobs"), json!({"kind": kind, "prompt": prompt, "lang": lang})).await;
     assert_eq!(s, StatusCode::OK, "{j}");
     let id = j["jobId"].as_str().unwrap().to_string();
     let started = Instant::now();
@@ -134,6 +138,63 @@ async fn live_patch_is_previewed_applied_and_versioned() {
     assert!(vers["versions"].as_array().unwrap().iter().any(|x| x["message"].as_str().unwrap_or("").starts_with("AI:")), "a rollback version is kept");
     let (s, _) = app.post(&c, &format!("/api/proposals/{proposal}/apply"), json!({})).await;
     assert_eq!(s, StatusCode::CONFLICT, "a proposal is applied once");
+    app.cleanup().await;
+}
+
+/// "Make it fault tolerant within one data center" on a scheme the user drew: the failure domains are racks, nothing leaves the data
+/// center, the engine's verdict follows the level the model declared and no fix of the engine makes things worse.
+#[tokio::test]
+#[ignore = "calls the real OpenRouter (see the module docs)"]
+async fn live_one_data_center_stays_one_data_center() {
+    let app = TestApp::new().await;
+    let c = app.login_admin().await;
+    configure(&app, &c).await;
+    let (s, p) = app.post(&c, "/api/projects", json!({"name": "one data center"})).await;
+    assert_eq!(s, StatusCode::OK);
+    let pid = p["id"].as_str().unwrap().to_string();
+    let base: Value = serde_json::from_str(include_str!("fixtures/llm/one_dc_base.json")).unwrap();
+    let (_, cur) = app.get(&c, &format!("/api/projects/{pid}")).await;
+    let (s, v) = app.put(&c, &format!("/api/projects/{pid}/draft"), json!({"architecture": base, "expectedRev": cur["rev"]})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+
+    let prompt = "Сделай отказоустойчиво в рамках одного ЦОД";
+    let job = run_job_in(&app, &c, &pid, "patch", prompt, "ru").await;
+    assert_eq!(job["status"], "succeeded", "{job}");
+    record("patch_one_dc", "patch", prompt, &job);
+    let proposal = job["result"]["proposalId"].as_str().expect("the model proposed operations").to_string();
+    let (_, before) = app.get(&c, &format!("/api/projects/{pid}")).await;
+    let (s, v) = app.post(&c, &format!("/api/proposals/{proposal}/apply"), json!({"expectedRev": before["rev"]})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    let (_, after) = app.get(&c, &format!("/api/projects/{pid}")).await;
+    let arch = &after["architecture"];
+
+    // the model said what the failure to survive is, with a level the engine knows
+    assert_eq!(arch["requirements"]["failureTolerance"], "rack", "{}", arch["requirements"]);
+    // nothing leaves the data center: no site, cloud, region or arbiter outside it
+    let zones = arch["zones"].as_array().unwrap();
+    let sites: Vec<&str> = zones.iter().filter(|z| matches!(z["type"].as_str(), Some("dc") | Some("cloud") | Some("az") | Some("region"))).map(|z| z["id"].as_str().unwrap()).collect();
+    assert_eq!(sites, ["dc1"], "no other site was added: {zones:?}");
+    // the racks are failure domains of the data center, none of them an empty box
+    let racks: Vec<&Value> = zones.iter().filter(|z| z["type"] == "rack").collect();
+    assert!(racks.len() >= 2, "{racks:?}");
+    let nodes = arch["nodes"].as_array().unwrap();
+    for r in &racks {
+        assert_eq!(r["parentId"], "dc1", "a rack is a part of the data center: {r}");
+        assert!(nodes.iter().any(|n| n["zoneId"] == r["id"]), "rack {} is empty", r["id"]);
+    }
+    // every node is either global or somewhere inside the data center
+    let inside = |zid: &str| zid == "dc1" || racks.iter().any(|r| r["id"] == zid);
+    assert!(nodes.iter().all(|n| n["zoneId"].is_null() || inside(n["zoneId"].as_str().unwrap())), "a node left the data center");
+    // the services that must survive a rack are spread over racks (more than one member in different racks)
+    let spread = |group: &str| nodes.iter().filter(|n| n["group"] == group).filter_map(|n| n["zoneId"].as_str()).collect::<std::collections::BTreeSet<_>>().len();
+    assert!(spread("pg") >= 2 || spread("app") >= 2, "the database or the application is in one rack only");
+
+    // the engine's verdict: surviving a rack is verified, and what the engine added by itself did not make anything worse
+    let (_, report) = app.post(&c, "/api/evaluate", json!({"architecture": arch, "projectId": pid, "lang": "en"})).await;
+    let spof = report["objectives"].as_array().unwrap().iter().find(|o| o["id"] == "spof").unwrap();
+    assert_eq!(spof["status"], "ok", "{spof}");
+    let criticals = report["counts"]["critical"].as_u64().unwrap();
+    assert!(criticals <= 2, "{criticals} critical findings: {:?}", report["findings"].as_array().unwrap().iter().filter(|f| f["status"] == "critical").map(|f| f["id"].clone()).collect::<Vec<_>>());
     app.cleanup().await;
 }
 

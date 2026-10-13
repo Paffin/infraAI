@@ -435,7 +435,7 @@ mod tests {
         assert!(!schema_is_tight(&json!({"type": "object", "properties": {"props": {"type": "object"}}})));
         // the schemas the pipeline sends contain maps (node props, `set`): they must not be sent as json_schema in auto mode
         let catalog = engine::defaults::catalog();
-        assert!(!schema_is_tight(&generate_schema(&catalog)));
+        assert!(!schema_is_tight(&generate_schema(&catalog, &["instance".to_string(), "rack".to_string(), "site".to_string()])));
         assert!(!schema_is_tight(&patch_schema()));
     }
 
@@ -497,7 +497,7 @@ mod tests {
     #[test]
     fn structured_output_follows_the_mode_and_what_the_model_supports() {
         let catalog = engine::defaults::catalog();
-        let loose = Some(("architecture", generate_schema(&catalog)));
+        let loose = Some(("architecture", generate_schema(&catalog, &["instance".to_string(), "rack".to_string(), "site".to_string()])));
         let tight = Some(("answer", json!({"type": "object", "properties": {"a": {"type": "string"}}})));
         let all: Option<Vec<String>> = Some(["structured_outputs", "response_format", "temperature", "max_tokens", "reasoning"].iter().map(|x| x.to_string()).collect());
         let s = Settings::defaults(); // structuredOutput = auto
@@ -533,7 +533,7 @@ mod tests {
     fn degraded_mode_drops_optional_parameters_but_never_the_privacy_routing() {
         let s = Settings::defaults().with("llm.reasoningEffort", json!("low")).unwrap().with("llm.provider.zdr", json!(true)).unwrap();
         let catalog = engine::defaults::catalog();
-        let r = req(ModelRole::Planner, Some(("architecture", generate_schema(&catalog))));
+        let r = req(ModelRole::Planner, Some(("architecture", generate_schema(&catalog, &["instance".to_string(), "rack".to_string(), "site".to_string()]))));
         let full = build_body(&s, &r, &None, false);
         let degraded = build_body(&s, &r, &None, true);
         for k in ["temperature", "reasoning", "response_format"] {

@@ -42,6 +42,11 @@ SCORE=$(echo "{\"architecture\":$ARCH}" | api -d @- "$BASE/api/evaluate" | json 
 echo "reference architecture '$TEMPLATE' scores $SCORE"
 python3 -c "import sys; sys.exit(0 if float('$SCORE') >= 80 else 1)" || fail "reference architecture scored $SCORE"
 
+# the expected availability comes with the report: a number between a nine and all of the year, against the target the template carries
+AVAIL=$(echo "{\"architecture\":$ARCH}" | api -d @- "$BASE/api/evaluate" | json "'%.5f' % d['availability']['estimate']")
+echo "expected availability $AVAIL"
+python3 -c "import sys; sys.exit(0 if 0.99 < float('$AVAIL') < 1 else 1)" || fail "the availability estimate is $AVAIL"
+
 ZONE=$(echo "$ARCH" | json "d['zones'][0]['id']")
 STATE=$(echo "{\"architecture\":$ARCH,\"scenario\":{\"type\":\"zone\",\"zoneId\":\"$ZONE\"}}" | api -d @- "$BASE/api/simulate" | json "d['state']")
 echo "losing site $ZONE: service is $STATE"

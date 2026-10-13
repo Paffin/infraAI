@@ -516,6 +516,7 @@ pub fn run(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
         CheckType::Capacity => capacity(ctx, rule),
         CheckType::CapacityUnderFailure => capacity_under_failure(ctx, rule),
         CheckType::CostBudget => cost_budget(ctx, rule),
+        CheckType::AvailabilitySlo => availability_slo(ctx, rule),
         CheckType::PathContains => path_contains(ctx, rule),
         CheckType::ForbiddenEdge => forbidden_edge(ctx, rule),
         CheckType::NoCycles => no_cycles(ctx, rule),
@@ -1107,7 +1108,10 @@ fn quorum_voters(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
                 for &m in &unit.members {
                     raw = raw.node(&nid(ctx, m));
                 }
-                out.push(raw.fix(add_witness_fix_in(ctx, u, level)));
+                // one more voter outside the lost domains settles it only when that vote tips the balance: three voters in the one data
+                // center stay a minority with an arbiter elsewhere (and four votes are an even number), so no fix is offered for those
+                let tips = (rem + 1.0) * 2.0 > total + 1.0;
+                out.push(raw.fix(if tips { add_witness_fix_in(ctx, u, level) } else { None }));
             }
         } else {
             let odd = (total as i64) % 2 == 1;
@@ -1315,6 +1319,7 @@ fn backup_exists(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
 fn backup_offsite(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
     let ix = &ctx.ix;
     let geo_tol = tol_covers(ctx, ZoneLevel::Geo);
+    let site_tol = tol_covers(ctx, ZoneLevel::Site);
     let mut out = vec![];
     let mut any = false;
     for (ei, ends) in ix.edge_ends.iter().enumerate() {
@@ -1327,7 +1332,17 @@ fn backup_offsite(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
         let e = &ix.arch.edges[ei];
         let base = |st: Status| Raw::new(&e.id, st).var("source", ix.node_name(*s)).var("target", ix.node_name(*t)).var("zone", zone_name(ctx, a)).edge(&e.id).node(&nid(ctx, *s)).node(&nid(ctx, *t));
         if a == b {
-            out.push(base(sev(rule)));
+            if site_tol {
+                out.push(base(sev(rule)));
+            } else {
+                // the requirement stops short of losing a whole site, so a copy has to be out of the rack of its source (a rack is a
+                // zone: a node put straight on the site says nothing about its rack); sharing the site stays a risk worth knowing about
+                let (ra, rb) = (ix.domain_of(*s, ZoneLevel::Rack), ix.domain_of(*t, ZoneLevel::Rack));
+                match ra {
+                    Some(r) if tol_covers(ctx, ZoneLevel::Rack) && ra == rb && r != a => out.push(base(sev(rule)).var("zone", zone_name(ctx, r))),
+                    _ => out.push(base(Status::Risk)),
+                }
+            }
         } else if geo_tol {
             match (&ix.geo_of[*s], &ix.geo_of[*t]) {
                 (Some(g1), Some(g2)) if g1 == g2 => out.push(base(Status::Risk).var("geo", g1.clone())),
@@ -1723,6 +1738,49 @@ fn cost_budget(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
         return CheckOut::found(vec![vars(Status::NoData)]);
     }
     CheckOut::found(vec![])
+}
+
+/// The expected availability against the target (`requirements.availabilitySlo`). The estimate is a model with assumed
+/// failure rates, so it is a `risk` while it leaves little room to be wrong (`reliability.warnPercent` of the downtime
+/// budget) and the rule's severity once it is over the budget.
+fn availability_slo(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
+    use crate::reliability::Standing;
+    let Some(av) = ctx.availability() else {
+        return CheckOut::na();
+    };
+    let raw = |key: &str, st: Status| {
+        let mut r = Raw::new(key, st).var("estimate", av.estimate).var("downtime", av.downtime_seconds_per_year).var("scenarios", av.scenarios as u64).var("truncated", av.truncated);
+        if let Some(t) = av.target {
+            r = r.var("target", t).var("budget", av.budget_seconds_per_year.unwrap_or(0.0)).var("percent", (av.budget_used().unwrap_or(0.0) * 100.0).round());
+        }
+        // what costs most: the service, and the failure that makes it
+        if let Some(u) = av.units.first() {
+            r = r.var("unit", u.name.clone()).var("share", u.share);
+            if let Some(&m) = ctx.ix.unit_ix.get(&u.unit).and_then(|&ui| ctx.ix.units[ui].members.first()) {
+                r = r.node(&ctx.ix.arch.nodes[m].id);
+            }
+        }
+        if av.service_down {
+            r = r.var("variant", "down");
+            if av.units.is_empty() {
+                r = r.var("unit", "—");
+            }
+        } else if av.units.is_empty() {
+            r = r.var("variant", "plain");
+        }
+        if let Some(c) = av.top.first() {
+            r = r.var("cause", serde_json::to_value(c.cause).unwrap_or(Value::Null)).var("failed", c.failed.join(", ")).scenario(c.scenario.clone());
+        }
+        r
+    };
+    match av.standing() {
+        Standing::NoTarget => CheckOut::found(vec![raw("req", Status::NoData).var("what", "availability").need("requirements", None, "availabilitySlo")]),
+        Standing::Over => CheckOut::found(vec![raw("slo", sev(rule))]),
+        Standing::Close => CheckOut::found(vec![raw("slo", Status::Risk)]),
+        // inside the budget, but part of the failures could not be looked at: the estimate is the optimistic one
+        Standing::Within if av.truncated => CheckOut::found(vec![raw("slo", Status::NoData)]),
+        Standing::Within => CheckOut::found(vec![]),
+    }
 }
 
 // ---------------------------------------------------------------------------------------------

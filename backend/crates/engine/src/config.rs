@@ -47,6 +47,8 @@ pub enum CheckType {
     Capacity,
     CapacityUnderFailure,
     CostBudget,
+    /// The expected availability (`reliability`) against the availability target of the requirements.
+    AvailabilitySlo,
     PathContains,
     ForbiddenEdge,
     NoCycles,
@@ -467,6 +469,125 @@ impl Default for LifecycleSettings {
     }
 }
 
+/// How often things fail, by what: events per year. A rate is per instance for `instance`, per service for `unit`
+/// (all of its instances at once), per failure domain for the zones, per pair of sites for `link`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct FailureRates {
+    pub instance: f64,
+    /// A whole service at once: a bad release, an expired certificate, a configuration slip. Redundancy does not help.
+    pub unit: f64,
+    /// Failure domains by zone type (`dc`, `cloud`, `az`, `region`, `rack`…), then by level (`rack`, `site`, `geo`).
+    pub zone: BTreeMap<String, f64>,
+    /// All paths between two sites down.
+    pub link: f64,
+    /// A site (or the group of sites that shares a carrier) loses the network but keeps running.
+    pub isolation: f64,
+    /// A disaster that takes every site of one disaster domain.
+    pub geo: f64,
+}
+
+impl Default for FailureRates {
+    fn default() -> Self {
+        Self { instance: 2.0, unit: 0.25, zone: BTreeMap::new(), link: 0.5, isolation: 0.5, geo: 0.01 }
+    }
+}
+
+/// How long a failed thing stays failed when nothing recovers it automatically, seconds.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct RepairTimes {
+    pub instance: f64,
+    /// A bad release is rolled back, a certificate renewed.
+    pub unit: f64,
+    pub zone: BTreeMap<String, f64>,
+    pub link: f64,
+    pub isolation: f64,
+    pub geo: f64,
+}
+
+impl Default for RepairTimes {
+    fn default() -> Self {
+        Self { instance: 14_400.0, unit: 3_600.0, zone: BTreeMap::new(), link: 14_400.0, isolation: 7_200.0, geo: 259_200.0 }
+    }
+}
+
+/// What a provider's SLA is worth when the catalog does not name it for a product.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct ProviderSla {
+    /// Traits that mark a service as run by a provider.
+    pub traits: Vec<String>,
+    /// Availability of a provider-run service by product function (`rdbms`, `cache`, `l7`…).
+    pub by_function: BTreeMap<String, f64>,
+    /// Availability when the function is not listed.
+    pub default: f64,
+    /// An SLA is a share of the year; the engine turns it into incidents of this length (seconds), so that what
+    /// the architecture does about an outage (a second region, a standby) can act on it.
+    pub incident_seconds: f64,
+}
+
+impl Default for ProviderSla {
+    fn default() -> Self {
+        Self { traits: vec!["managed".into()], by_function: BTreeMap::new(), default: 0.999, incident_seconds: 1_800.0 }
+    }
+}
+
+/// The estimate of availability: what fails, how often and for how long (`docs/AVAILABILITY.md`). All of it is an
+/// assumption the architect can correct; the estimate says so.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default = "ReliabilitySettings::bare")]
+pub struct ReliabilitySettings {
+    pub enabled: bool,
+    /// Days in the year the downtime is counted over.
+    pub days_per_year: f64,
+    pub failures: FailureRates,
+    pub repair: RepairTimes,
+    /// Multiplier of the failure rate of a data center by the value of its `tier` property (`I`…`IV`): a Tier I site is
+    /// lost far more often than a Tier IV one.
+    pub tier_factor: BTreeMap<String, f64>,
+    /// Sites isolated together (a shared carrier) fail together this much more rarely than one site alone.
+    pub isolation_group_factor: f64,
+    pub provider: ProviderSla,
+    /// Count the capacity a failure takes away as unavailability of the requests that no longer fit.
+    pub partial_capacity: bool,
+    /// Share of the downtime budget (percent) from which meeting the target is only a risk.
+    pub warn_percent: f64,
+    /// How many of the costliest failures the report lists.
+    pub top: usize,
+    /// Availability targets (percent) the editor offers to pick from: the usual classes of nines.
+    pub presets: Vec<f64>,
+}
+
+impl ReliabilitySettings {
+    /// The plain numbers without the tables (zone types, tiers, products): what a key that is missing from a stored
+    /// configuration falls back to.
+    pub fn bare() -> Self {
+        Self {
+            enabled: true,
+            days_per_year: 365.25,
+            failures: FailureRates::default(),
+            repair: RepairTimes::default(),
+            tier_factor: BTreeMap::new(),
+            isolation_group_factor: 0.1,
+            provider: ProviderSla::default(),
+            partial_capacity: true,
+            warn_percent: 80.0,
+            top: 8,
+            presets: vec![99.0, 99.5, 99.9, 99.95, 99.99],
+        }
+    }
+}
+
+impl Default for ReliabilitySettings {
+    /// What ships with the engine (`defaults/engine.json`): a configuration stored before the estimate existed has no
+    /// `reliability` block, and it must get the rates and tables that ship, not an empty set that would quietly leave
+    /// every site, rack and provider out of the estimate.
+    fn default() -> Self {
+        serde_json::from_str::<serde_json::Value>(crate::defaults::ENGINE_JSON).ok().and_then(|v| v.get("reliability").cloned()).and_then(|v| serde_json::from_value(v).ok()).unwrap_or_else(Self::bare)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase", default)]
 pub struct EngineSettings {
@@ -476,6 +597,7 @@ pub struct EngineSettings {
     pub tolerance: ToleranceSettings,
     pub authority: AuthoritySettings,
     pub lifecycle: LifecycleSettings,
+    pub reliability: ReliabilitySettings,
     pub cost: CostSettings,
     pub export: ExportSettings,
 }

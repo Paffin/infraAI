@@ -136,6 +136,9 @@ pub struct KindDef {
     pub cost: Option<CostDef>,
     #[serde(default)]
     pub runbook: Option<RunbookDef>,
+    /// How often its instances fail (the engine settings say it for every kind that does not).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reliability: Option<ReliabilityDef>,
     /// Default size of the card on the canvas is fixed; this lets a kind be hidden from the
     /// library without deleting it from existing projects.
     #[serde(default)]
@@ -151,6 +154,37 @@ pub struct KindDef {
     /// Id of the release table (`catalog.versions`) of this product; the kind id when absent.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub versions: Option<String>,
+}
+
+/// How often the instances of a product fail and what the provider promises (all of it optional: what is not said comes
+/// from the engine settings `reliability`). A variant's values replace the kind's.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ReliabilityDef {
+    /// Failures per instance per year (hardware, VM, pod, process).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub failures_per_year: Option<f64>,
+    /// Seconds until a failed instance is repaired or replaced.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repair_seconds: Option<f64>,
+    /// Failures per year of the whole service at once (a bad release, an expired certificate, a bug).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub common_mode_per_year: Option<f64>,
+    /// Availability (0..1) the provider guarantees to a service it runs; the service as a whole is down that much.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sla: Option<f64>,
+}
+
+impl ReliabilityDef {
+    /// `self` with the values of `over` where it has any.
+    pub fn over(&self, over: &ReliabilityDef) -> ReliabilityDef {
+        ReliabilityDef {
+            failures_per_year: over.failures_per_year.or(self.failures_per_year),
+            repair_seconds: over.repair_seconds.or(self.repair_seconds),
+            common_mode_per_year: over.common_mode_per_year.or(self.common_mode_per_year),
+            sla: over.sla.or(self.sla),
+        }
+    }
 }
 
 /// A way to deploy a product: Patroni or plain streaming replication for PostgreSQL, Sentinel or Cluster for Redis,
@@ -181,6 +215,9 @@ pub struct VariantDef {
     pub capacity: Option<CapacityDef>,
     #[serde(default)]
     pub cost: Option<CostDef>,
+    /// Failure rates and the provider's SLA of this way to deploy the product.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reliability: Option<ReliabilityDef>,
     /// Release table of this variant when it differs from the kind's: a managed offering has its own lifecycle
     /// (Amazon RDS supports a PostgreSQL line for a different time than the community does).
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -371,6 +408,15 @@ impl Catalog {
     /// Behavior of a node of `kind` in `variant`.
     pub fn behavior_of(&self, kind: &str, variant: Option<&VariantDef>) -> Option<Behavior> {
         self.kind(kind).map(|k| variant.and_then(|v| v.behavior).unwrap_or(k.behavior))
+    }
+
+    /// What the catalog says of the failures of a node of `kind` in `variant`: the kind's values, replaced by the variant's.
+    pub fn reliability_of(&self, kind: &str, variant: Option<&VariantDef>) -> ReliabilityDef {
+        let base = self.kind(kind).and_then(|k| k.reliability.clone()).unwrap_or_default();
+        match variant.and_then(|v| v.reliability.as_ref()) {
+            Some(v) => base.over(v),
+            None => base,
+        }
     }
 
     /// Traits of a node of `kind` in `variant`: the kind's, plus what the variant adds, minus what it removes.

@@ -6,6 +6,7 @@ import { lt, t } from '@/i18n'
 import { fmtDuration, fmtPct } from '@/lib/format'
 import { statusRank } from '@/lib/findings'
 import { focusNeed } from '@/lib/navigate'
+import { formatAvailability } from '@/lib/nines'
 import { objectiveAction, type ObjectiveAction } from '@/lib/objectives'
 import { scenarioLabel } from '@/lib/sim'
 import { useAi } from '@/stores/ai'
@@ -56,6 +57,7 @@ function objLabel(o: Objective): string {
     case 'sites_loss': return typeof o.required === 'number' ? t('obj.sites_loss.count', { n: o.required }) : t('obj.sites_loss')
     case 'spof': return t('obj.spof')
     case 'capacity': return t('obj.capacity')
+    case 'availability': return typeof o.required === 'number' ? t('obj.availability', { v: formatAvailability(o.required) }) : t('obj.availability.none')
     default: return o.id
   }
 }
@@ -70,6 +72,7 @@ function objValue(o: Objective): string {
     case 'sites_loss': return a === true ? t('obj.value.lives') : a === false ? t('obj.value.dies') : t('obj.value.nodata')
     case 'spof': return a === 0 ? t('obj.value.none') : String(a ?? '')
     case 'capacity': return typeof a === 'number' ? fmtPct(a) : t('obj.value.nodata')
+    case 'availability': return typeof a === 'number' ? '≈ ' + formatAvailability(a) : t('obj.value.nodata')
     default: return String(a ?? '')
   }
 }
@@ -86,7 +89,7 @@ function objHint(o: Objective): string {
   switch (a.kind) {
     case 'scenario': return t('obj.open.scenario', { name: scenarioLabel(a.scenario, editor.shown, report.value?.units) })
     case 'fill': return t('obj.open.fill')
-    case 'tab': return t('obj.open.capacity')
+    case 'tab': return a.tab === 'availability' ? t('obj.open.availability') : t('obj.open.capacity')
     case 'subjects': return t('obj.open.spof')
   }
 }
@@ -97,7 +100,7 @@ function openObjective(o: Objective) {
   switch (a.kind) {
     case 'scenario': void editor.runScenario(a.scenario); break
     case 'fill': focusNeed(a.need); break
-    case 'tab': ui.tab = a.tab; break
+    case 'tab': ui.showAnalysis(a.tab); break
     case 'subjects': editor.showSubjects({ subjects: a.subjects }); break
   }
 }

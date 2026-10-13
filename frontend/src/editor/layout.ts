@@ -284,6 +284,12 @@ export function layoutAll(input: Architecture, ix: CatalogIndex, opts: LayoutOpt
       cursor += b.directW + H_GAP
     }
     for (const k of b.kids) { place(k, cursor, null, dy); cursor += k.w + H_GAP }
+    // a zone is at least MIN_ZONE_H tall whatever its cards need, so the zone around it has to grow to cover it
+    for (const k of b.kids) {
+      const ku = k.zone.ui!
+      const need: number = ku.y! + ku.h! + NEST / 2 - b.zone.ui!.y!
+      if (need > b.zone.ui!.h!) b.zone.ui = { ...b.zone.ui!, h: Math.round(need) }
+    }
   }
   let stride = 0
   zoneRows.forEach((row, ri) => {
@@ -312,8 +318,63 @@ export function boundsOf(arch: Architecture): Rect | null {
 
 const overlaps = (a: Rect, b: Rect, m = 10) => a.x < b.x + b.w + m && a.x + a.w + m > b.x && a.y < b.y + b.h + m && a.y + a.h + m > b.y
 
-/** Give every node/zone without coordinates a position, keeping everything that already has one. */
-export function placeMissing(input: Architecture, ix: CatalogIndex, opts: LayoutOptions = {}): Architecture {
+export interface PlaceOptions extends LayoutOptions {
+  /**
+   * The architecture before this change. A change that rearranges the failure domains (zones added or moved into one another,
+   * nodes moved between zones) cannot be drawn by giving the new things a free place: the racks of a data center have to be
+   * drawn inside it and around their nodes. When that is what happened and the incremental placement leaves a picture that
+   * contradicts the model, the whole diagram is laid out again.
+   */
+  previous?: Architecture
+}
+
+const insideWithin = (inner: Rect, outer: Rect, slack = 4) => inner.x >= outer.x - slack && inner.y >= outer.y - slack && inner.x + inner.w <= outer.x + outer.w + slack && inner.y + inner.h <= outer.y + outer.h + slack
+
+/**
+ * Does the picture contradict the model: a card that lies outside the zone it belongs to (its centre decides, like when it is
+ * dropped), or a zone that is not drawn inside its parent.
+ */
+export function structureDrift(arch: Architecture): boolean {
+  const zones = new Map(arch.zones.map((z) => [z.id, z]))
+  for (const n of arch.nodes) {
+    const nr = nodeRect(n)
+    const zr = n.zoneId ? zoneRectOf(zones.get(n.zoneId)) : null
+    if (nr && zr && !contains(zr, nr.x + nr.w / 2, nr.y + nr.h / 2)) return true
+  }
+  for (const z of arch.zones) {
+    const parent = z.parentId && z.parentId !== z.id ? zones.get(z.parentId) : undefined
+    const zr = zoneRectOf(z)
+    const pr = zoneRectOf(parent)
+    if (zr && pr && !insideWithin(zr, pr)) return true
+  }
+  return false
+}
+
+const zoneRectOf = (z?: Zone): Rect | null => (z ? zoneRect(z) : null)
+
+/** Did the change rearrange the failure domains: a zone appeared, went away or moved into another one, or a node changed its zone. */
+export function structureChanged(before: Architecture, after: Architecture): boolean {
+  const zones = new Map(before.zones.map((z) => [z.id, z]))
+  if (after.zones.length !== before.zones.length) return true
+  for (const z of after.zones) {
+    const old = zones.get(z.id)
+    if (!old || (old.parentId ?? null) !== (z.parentId ?? null)) return true
+  }
+  const nodes = new Map(before.nodes.map((n) => [n.id, n]))
+  return after.nodes.some((n) => {
+    const old = nodes.get(n.id)
+    return !!old && (old.zoneId ?? null) !== (n.zoneId ?? null)
+  })
+}
+
+/** Give every node/zone without coordinates a position, keeping everything that already has one (see [[PlaceOptions]] for what is laid out again). */
+export function placeMissing(input: Architecture, ix: CatalogIndex, opts: PlaceOptions = {}): Architecture {
+  const placed = placeIncrementally(input, ix, opts)
+  if (opts.previous && structureChanged(opts.previous, placed) && structureDrift(placed)) return layoutAll(placed, ix, opts)
+  return placed
+}
+
+function placeIncrementally(input: Architecture, ix: CatalogIndex, opts: LayoutOptions): Architecture {
   const missingNodes = input.nodes.filter((n) => !hasPos(n.ui))
   const missingZones = input.zones.filter((z) => !hasRect(z.ui))
   if (!missingNodes.length && !missingZones.length) return input

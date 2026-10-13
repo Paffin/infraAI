@@ -1,6 +1,6 @@
 import { expect, type Page } from '@playwright/test'
 import { test } from './fixtures'
-import { createProject, login, uniqueName } from './helpers'
+import { createProject, login, uniqueName, openAnalysis } from './helpers'
 
 const TEMPLATE = '2 ЦОД + witness'
 
@@ -64,7 +64,7 @@ test.describe('guidance: what to fill in, objectives, capacity', () => {
 
   test('the capacity plan answers "what if the load grows"', async ({ page }) => {
     await createProject(page, uniqueName('capacity'), TEMPLATE)
-    await tab(page, 'Ёмкость').click()
+    await openAnalysis(page, 'Ёмкость')
     await expect(page.locator('.cap .svc').first()).toBeVisible({ timeout: 15_000 })
     const services = await page.locator('.cap .svc').count()
     expect(services).toBeGreaterThan(2)

@@ -5,7 +5,7 @@ import * as api from '@/api/endpoints'
 import type {
   ArchDiff, ArchNode, Architecture, Edge, Finding, Op, ProjectDetail, Props, Report, Requirements, Scalar, Scenario, SimResult, Status, Waiver, Zone,
 } from '@/api/types'
-import { CARD_H, CARD_W, DEFAULT_ZONE_H, DEFAULT_ZONE_W, boundsOf, layoutAll, mergeArchitecture, nodeRect, placeInZone, placeMissing, zoneAt, zoneChain, zoneDescendants, zoneRect } from '@/editor/layout'
+import { CARD_H, CARD_W, DEFAULT_ZONE_H, DEFAULT_ZONE_W, boundsOf, layoutAll, mergeArchitecture, nodeRect, placeInZone, placeMissing, structureDrift, zoneAt, zoneChain, zoneDescendants, zoneRect } from '@/editor/layout'
 import { lang, lt, t } from '@/i18n'
 import { effectiveProps, kindPropDefs } from '@/lib/catalog'
 import { errorMessage, newId } from '@/lib/format'
@@ -85,6 +85,8 @@ export const useEditor = defineStore('editor', () => {
   const canUndo = computed(() => historyVersion.value >= 0 && past.length > 0 && !readonly.value)
   const canRedo = computed(() => historyVersion.value >= 0 && future.length > 0 && !readonly.value)
   const isEmpty = computed(() => arch.value.nodes.length === 0 && arch.value.zones.length === 0)
+  /** Some card lies outside the zone it belongs to, or a zone outside its parent: the picture says something other than the model. */
+  const layoutDrift = computed(() => structureDrift(arch.value))
 
   /** The architecture the canvas displays: the working copy, or the pending AI proposal laid over it. */
   const shown = computed<Architecture>(() => {
@@ -95,7 +97,8 @@ export const useEditor = defineStore('editor', () => {
     for (const z of p.base.zones) if (!have.has(z.id) && p.diff.zones.removed.some((r) => r.id === z.id)) out.zones.push(z)
     for (const n of p.base.nodes) if (!have.has(n.id) && p.diff.nodes.removed.some((r) => r.id === n.id)) out.nodes.push(n)
     for (const e of p.base.edges) if (!have.has(e.id) && p.diff.edges.removed.some((r) => r.id === e.id)) out.edges.push(e)
-    return placeMissing(out, app.index!, layoutOpts())
+    // a proposal that rearranges the zones is drawn laid out again, exactly as it will be once applied
+    return placeMissing(out, app.index!, { ...layoutOpts(), previous: p.base })
   })
   const previewSets = computed(() => {
     const p = preview.value
@@ -498,14 +501,17 @@ export const useEditor = defineStore('editor', () => {
   }
 
   function updateZone(id: string, patch: { name?: string; type?: string; parentId?: string | null; role?: string | null }) {
-    edit((a) => {
-      const z = a.zones.find((x) => x.id === id)
-      if (!z) return
-      if (patch.name !== undefined) z.name = patch.name
-      if (patch.type !== undefined) z.type = patch.type
-      if (patch.parentId !== undefined) z.parentId = patch.parentId && patch.parentId !== id && !zoneChain(a, patch.parentId).includes(id) ? patch.parentId : null
-      if (patch.role !== undefined) z.role = patch.role || null
-    }, { coalesce: `zone:${id}:${Object.keys(patch).join(',')}` })
+    if (readonly.value) return
+    const next = clone(arch.value)
+    const z = next.zones.find((x) => x.id === id)
+    if (!z) return
+    if (patch.name !== undefined) z.name = patch.name
+    if (patch.type !== undefined) z.type = patch.type
+    if (patch.parentId !== undefined) z.parentId = patch.parentId && patch.parentId !== id && !zoneChain(next, patch.parentId).includes(id) ? patch.parentId : null
+    if (patch.role !== undefined) z.role = patch.role || null
+    // a zone put into another one has to be drawn inside it
+    commit(placeMissing(next, app.index!, { ...layoutOpts(), previous: arch.value }), { coalesce: `zone:${id}:${Object.keys(patch).join(',')}` })
+    if (patch.parentId !== undefined) fitToken.value++
   }
 
   /** Pick the edge type for a new connection from the catalog (semantics and traits), not from ids. */
@@ -739,7 +745,7 @@ export const useEditor = defineStore('editor', () => {
 
   /** Replace the whole architecture (template, restored version, applied AI proposal). */
   function replaceArchitecture(next: Architecture, o: { keepRev?: number; history?: boolean } = {}) {
-    const placed = placeMissing(next, app.index!, layoutOpts())
+    const placed = placeMissing(next, app.index!, { ...layoutOpts(), previous: arch.value })
     if (o.history === false) {
       past.length = 0
       future.length = 0
@@ -778,7 +784,7 @@ export const useEditor = defineStore('editor', () => {
   async function applyOps(ops: Op[]): Promise<boolean> {
     try {
       const r = await api.engine.apply(arch.value, ops, { projectId: projectId.value, lang: lang.value })
-      commit(placeMissing(r.architecture, app.index!, layoutOpts()))
+      commit(placeMissing(r.architecture, app.index!, { ...layoutOpts(), previous: arch.value }))
       return true
     } catch (e) {
       toasts.error(errorMessage(e))
@@ -875,7 +881,7 @@ export const useEditor = defineStore('editor', () => {
     load, reset, flushSave, touchSave, reloadFromServer, evaluateNow, scheduleEvaluate,
     runScenario, exitSim, undo, redo, edit, commit,
     addNode, addZone, updateNode, changeKind, setProp, updateEdge, reverseEdge, updateZone, connect, removeNode, removeEdge, removeZone, removeSelection, duplicateNode,
-    setMulti, selectNodes, removeNodes, duplicateNodes, groupNodes, moveNodesToZone, commitMoves, resizeZone, setRequirement, setMeta, autoLayout, replaceArchitecture, addTemplate, applyFix, applyOps,
+    layoutDrift, setMulti, selectNodes, removeNodes, duplicateNodes, groupNodes, moveNodesToZone, commitMoves, resizeZone, setRequirement, setMeta, autoLayout, replaceArchitecture, addTemplate, applyFix, applyOps,
     acceptRisk, revokeWaiver, select, setTool, clickNode, showSubjects, revealElements, revealSelection, setPreview, boundsOfShown, effective,
   }
 })

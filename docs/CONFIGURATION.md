@@ -204,7 +204,7 @@
 | `iac` | шаблон генерации IaC для вида компонента ([IAC.md](IAC.md)) |
 | `placement.pattern`, `placement.stack`, `placement.settings` | схемы размещения, платформы (слои) и параметры генератора ([PLACEMENT.md](PLACEMENT.md)) |
 | `prompt` | системный промпт ИИ ([LLM.md](LLM.md)) |
-| `engine` | допущения, веса оценки, сценарии отказов (`scenarios`: `maxCount`, `maxCombinations`, `maxSiteFailures`, изоляция площадок), уровни отказа (`tolerance`), **власть над переключением** (`authority`: признаки собственного кворума и провайдера), **жизненный цикл** (`lifecycle`: `warnDays`, `matureDays`, `preferLts`, `staleDays`), прайс стоимости, тексты экспорта |
+| `engine` | допущения, веса оценки, сценарии отказов (`scenarios`: `maxCount`, `maxCombinations`, `maxSiteFailures`, изоляция площадок), уровни отказа (`tolerance`), **власть над переключением** (`authority`: признаки собственного кворума и провайдера), **жизненный цикл** (`lifecycle`: `warnDays`, `matureDays`, `preferLts`, `staleDays`), **ожидаемая доступность** (`reliability`: частоты отказов и сроки ремонта, множители tier, SLA провайдеров, пороги — [AVAILABILITY.md](AVAILABILITY.md)), прайс стоимости, тексты экспорта |
 
 Чтобы добавить, например, **Ceph** или **VMware vSphere**: Каталог → «Новый элемент» → вид с поведением, признаками и свойствами;
 для специфичных проверок — правило типа `prop` по этим свойствам. Код не меняется, пересборка не нужна; новый вид сразу появляется в

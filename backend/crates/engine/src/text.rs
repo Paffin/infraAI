@@ -84,6 +84,7 @@ fn format_value(v: &Value, format: Option<&str>, lang: &str) -> String {
     match (format, v.as_f64()) {
         (Some("dur"), Some(s)) => format_duration(s, lang),
         (Some("pct"), Some(r)) => format!("{}%", (r * 100.0).round() as i64),
+        (Some("avail"), Some(a)) => format_availability(a),
         (Some(f), Some(n)) if f.starts_with("plural:") => plural_form(n, &f["plural:".len()..], lang),
         _ => display_value(v),
     }
@@ -110,6 +111,22 @@ pub fn plural_form(n: f64, forms: &str, lang: &str) -> String {
     } else {
         pick(list.len().saturating_sub(1))
     }
+}
+
+/// An availability (0…1) as a percentage with the nines it has and one more digit: `99.95%`, `99.9%`, `99.999%`, `95%`.
+/// The digits are cut, not rounded: 0.99996 is never shown as 100%.
+pub fn format_availability(a: f64) -> String {
+    let a = a.clamp(0.0, 1.0);
+    if a >= 1.0 {
+        return "100%".into();
+    }
+    let nines = (-(1.0 - a).log10()).floor().max(0.0) as i32;
+    let decimals = (nines - 1).clamp(0, 9);
+    let scale = 10f64.powi(decimals);
+    let cut = ((a * 100.0 * scale) + 1e-7).floor() / scale;
+    let text = format!("{:.*}", decimals as usize, cut);
+    let text = if text.contains('.') { text.trim_end_matches('0').trim_end_matches('.').to_string() } else { text };
+    format!("{text}%")
 }
 
 /// `35 с` / `15 мин` / `2 ч` / `3 дн` (or `s` / `min` / `h` / `d`): the unit is picked so that the
@@ -191,6 +208,18 @@ mod tests {
         assert_eq!(interpolate_l("{a|dur} {b|dur} {c|dur} {d|dur} {r|pct}", &vars, "ru"), "35 с 15 мин 2 ч 3 дн 96%");
         assert_eq!(interpolate_l("{a|dur} {b|dur}", &vars, "en"), "35 s 15 min");
         assert_eq!(interpolate_l("{zzz|dur}", &vars, "en"), "{zzz|dur}");
+    }
+
+    #[test]
+    fn availability_shows_its_nines() {
+        let f = |a: f64| format_availability(a);
+        assert_eq!([f(0.9995), f(0.999), f(0.99), f(0.95), f(0.5), f(0.0)], ["99.95%", "99.9%", "99%", "95%", "50%", "0%"]);
+        assert_eq!([f(0.9993412), f(0.99999), f(0.999996), f(0.99984), f(1.0)], ["99.93%", "99.999%", "99.9996%", "99.98%", "100%"]);
+        // never rounded up to the next nine
+        assert_eq!(f(0.999999999), "99.9999999%");
+        let mut vars = BTreeMap::new();
+        vars.insert("a".into(), json!(0.99949));
+        assert_eq!(interpolate_l("{a|avail}", &vars, "ru"), "99.94%");
     }
 
     #[test]

@@ -1,0 +1,210 @@
+{
+ "meta": {
+  "name": "Схема",
+  "description": null
+ },
+ "edges": [
+  {
+   "id": "e1",
+   "type": "traffic",
+   "label": null,
+   "props": {},
+   "source": "users",
+   "target": "gslb"
+  },
+  {
+   "id": "e2",
+   "type": "traffic",
+   "label": null,
+   "props": {},
+   "source": "gslb",
+   "target": "waf"
+  },
+  {
+   "id": "e3",
+   "type": "traffic",
+   "label": null,
+   "props": {},
+   "source": "waf",
+   "target": "haproxy"
+  },
+  {
+   "id": "e4",
+   "type": "traffic",
+   "label": null,
+   "props": {},
+   "source": "haproxy",
+   "target": "app"
+  },
+  {
+   "id": "e5",
+   "type": "traffic",
+   "label": null,
+   "props": {},
+   "source": "app",
+   "target": "pg"
+  },
+  {
+   "id": "e6",
+   "type": "control",
+   "label": null,
+   "props": {},
+   "source": "app",
+   "target": "vault"
+  },
+  {
+   "id": "e7",
+   "type": "traffic",
+   "label": null,
+   "props": {},
+   "source": "app",
+   "target": "os"
+  },
+  {
+   "id": "e8",
+   "type": "backup",
+   "label": null,
+   "props": {},
+   "source": "pg",
+   "target": "backup"
+  },
+  {
+   "id": "e9",
+   "type": "control",
+   "label": null,
+   "props": {},
+   "source": "mon",
+   "target": "app"
+  },
+  {
+   "id": "e10",
+   "type": "control",
+   "label": null,
+   "props": {},
+   "source": "gitops",
+   "target": "app"
+  }
+ ],
+ "nodes": [
+  {
+   "id": "users",
+   "kind": "users",
+   "name": "Пользователи",
+   "role": null,
+   "group": null,
+   "props": {},
+   "zoneId": null
+  },
+  {
+   "id": "gslb",
+   "kind": "gslb",
+   "name": "GSLB / DNS",
+   "role": null,
+   "group": null,
+   "props": {},
+   "zoneId": null
+  },
+  {
+   "id": "waf",
+   "kind": "waf",
+   "name": "WAF",
+   "role": null,
+   "group": null,
+   "props": {},
+   "zoneId": null
+  },
+  {
+   "id": "haproxy",
+   "kind": "haproxy",
+   "name": "HAProxy",
+   "role": null,
+   "group": null,
+   "props": {},
+   "zoneId": "dc1"
+  },
+  {
+   "id": "app",
+   "kind": "kubernetes",
+   "name": "Приложение",
+   "role": null,
+   "group": null,
+   "props": {},
+   "zoneId": "dc1"
+  },
+  {
+   "id": "pg",
+   "kind": "postgresql",
+   "name": "PostgreSQL",
+   "role": null,
+   "group": null,
+   "props": {},
+   "zoneId": "dc1"
+  },
+  {
+   "id": "vault",
+   "kind": "vault",
+   "name": "Секреты",
+   "role": null,
+   "group": null,
+   "props": {},
+   "zoneId": "dc1"
+  },
+  {
+   "id": "etcd",
+   "kind": "etcd",
+   "name": "etcd",
+   "role": null,
+   "group": null,
+   "props": {},
+   "zoneId": "dc1"
+  },
+  {
+   "id": "mon",
+   "kind": "monitoring",
+   "name": "Мониторинг",
+   "role": null,
+   "group": null,
+   "props": {},
+   "zoneId": "dc1"
+  },
+  {
+   "id": "gitops",
+   "kind": "gitops",
+   "name": "GitOps",
+   "role": null,
+   "group": null,
+   "props": {},
+   "zoneId": "dc1"
+  },
+  {
+   "id": "os",
+   "kind": "opensearch",
+   "name": "OpenSearch",
+   "role": null,
+   "group": null,
+   "props": {},
+   "zoneId": "dc1"
+  },
+  {
+   "id": "backup",
+   "kind": "backup_storage",
+   "name": "Бэкапы",
+   "role": null,
+   "group": null,
+   "props": {},
+   "zoneId": "dc1"
+  }
+ ],
+ "zones": [
+  {
+   "id": "dc1",
+   "name": "ЦОД 1",
+   "role": "active",
+   "type": "dc",
+   "props": {},
+   "parentId": null
+  }
+ ],
+ "requirements": {},
+ "schemaVersion": 1
+}

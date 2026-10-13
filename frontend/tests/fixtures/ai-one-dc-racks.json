@@ -1,0 +1,987 @@
+{
+ "about": "A hand-drawn one-data-center scheme (previous) and what the AI chat made of it after \"make it fault tolerant within one data center\" (next): recorded from a real run, the engine settings and the model of that day. next is the architecture as the server stores it after the proposal is applied: the cards that existed keep their positions, the new racks and cards have none.",
+ "previous": {
+  "meta": {
+   "name": "Схема",
+   "description": null
+  },
+  "edges": [
+   {
+    "id": "e1",
+    "type": "traffic",
+    "label": null,
+    "props": {},
+    "source": "users",
+    "target": "gslb"
+   },
+   {
+    "id": "e2",
+    "type": "traffic",
+    "label": null,
+    "props": {},
+    "source": "gslb",
+    "target": "waf"
+   },
+   {
+    "id": "e3",
+    "type": "traffic",
+    "label": null,
+    "props": {},
+    "source": "waf",
+    "target": "haproxy"
+   },
+   {
+    "id": "e4",
+    "type": "traffic",
+    "label": null,
+    "props": {},
+    "source": "haproxy",
+    "target": "app"
+   },
+   {
+    "id": "e5",
+    "type": "traffic",
+    "label": null,
+    "props": {},
+    "source": "app",
+    "target": "pg"
+   },
+   {
+    "id": "e6",
+    "type": "control",
+    "label": null,
+    "props": {},
+    "source": "app",
+    "target": "vault"
+   },
+   {
+    "id": "e7",
+    "type": "traffic",
+    "label": null,
+    "props": {},
+    "source": "app",
+    "target": "os"
+   },
+   {
+    "id": "e8",
+    "type": "backup",
+    "label": null,
+    "props": {},
+    "source": "pg",
+    "target": "backup"
+   },
+   {
+    "id": "e9",
+    "type": "control",
+    "label": null,
+    "props": {},
+    "source": "mon",
+    "target": "app"
+   },
+   {
+    "id": "e10",
+    "type": "control",
+    "label": null,
+    "props": {},
+    "source": "gitops",
+    "target": "app"
+   }
+  ],
+  "nodes": [
+   {
+    "id": "users",
+    "ui": {
+     "x": 162.0,
+     "y": 0.0
+    },
+    "kind": "users",
+    "name": "Пользователи",
+    "role": null,
+    "group": null,
+    "props": {},
+    "zoneId": null
+   },
+   {
+    "id": "gslb",
+    "ui": {
+     "x": 162.0,
+     "y": 126.0
+    },
+    "kind": "gslb",
+    "name": "GSLB / DNS",
+    "role": null,
+    "group": null,
+    "props": {},
+    "zoneId": null
+   },
+   {
+    "id": "waf",
+    "ui": {
+     "x": 162.0,
+     "y": 252.0
+    },
+    "kind": "waf",
+    "name": "WAF",
+    "role": null,
+    "group": null,
+    "props": {},
+    "zoneId": null
+   },
+   {
+    "id": "haproxy",
+    "ui": {
+     "x": 162.0,
+     "y": 458.0
+    },
+    "kind": "haproxy",
+    "name": "HAProxy",
+    "role": null,
+    "group": null,
+    "props": {},
+    "zoneId": "dc1"
+   },
+   {
+    "id": "app",
+    "ui": {
+     "x": 162.0,
+     "y": 584.0
+    },
+    "kind": "kubernetes",
+    "name": "Приложение",
+    "role": null,
+    "group": null,
+    "props": {},
+    "zoneId": "dc1"
+   },
+   {
+    "id": "pg",
+    "ui": {
+     "x": 296.0,
+     "y": 710.0
+    },
+    "kind": "postgresql",
+    "name": "PostgreSQL",
+    "role": null,
+    "group": null,
+    "props": {},
+    "zoneId": "dc1"
+   },
+   {
+    "id": "vault",
+    "ui": {
+     "x": 28.0,
+     "y": 962.0
+    },
+    "kind": "vault",
+    "name": "Секреты",
+    "role": null,
+    "group": null,
+    "props": {},
+    "zoneId": "dc1"
+   },
+   {
+    "id": "etcd",
+    "ui": {
+     "x": 296.0,
+     "y": 962.0
+    },
+    "kind": "etcd",
+    "name": "etcd",
+    "role": null,
+    "group": null,
+    "props": {},
+    "zoneId": "dc1"
+   },
+   {
+    "id": "mon",
+    "ui": {
+     "x": 296.0,
+     "y": 1088.0
+    },
+    "kind": "monitoring",
+    "name": "Мониторинг",
+    "role": null,
+    "group": null,
+    "props": {},
+    "zoneId": "dc1"
+   },
+   {
+    "id": "gitops",
+    "ui": {
+     "x": 28.0,
+     "y": 1088.0
+    },
+    "kind": "gitops",
+    "name": "GitOps",
+    "role": null,
+    "group": null,
+    "props": {},
+    "zoneId": "dc1"
+   },
+   {
+    "id": "os",
+    "ui": {
+     "x": 28.0,
+     "y": 710.0
+    },
+    "kind": "opensearch",
+    "name": "OpenSearch",
+    "role": null,
+    "group": null,
+    "props": {},
+    "zoneId": "dc1"
+   },
+   {
+    "id": "backup",
+    "ui": {
+     "x": 162.0,
+     "y": 836.0
+    },
+    "kind": "backup_storage",
+    "name": "Бэкапы",
+    "role": null,
+    "group": null,
+    "props": {},
+    "zoneId": "dc1"
+   }
+  ],
+  "zones": [
+   {
+    "id": "dc1",
+    "ui": {
+     "h": 778.0,
+     "w": 536.0,
+     "x": 0.0,
+     "y": 400.0
+    },
+    "name": "ЦОД 1",
+    "role": "active",
+    "type": "dc",
+    "props": {},
+    "parentId": null
+   }
+  ],
+  "requirements": {},
+  "schemaVersion": 1
+ },
+ "next": {
+  "meta": {
+   "name": "Схема",
+   "description": null
+  },
+  "edges": [
+   {
+    "id": "e1",
+    "type": "traffic",
+    "label": null,
+    "props": {},
+    "source": "users",
+    "target": "gslb"
+   },
+   {
+    "id": "e2",
+    "type": "traffic",
+    "label": null,
+    "props": {},
+    "source": "gslb",
+    "target": "waf"
+   },
+   {
+    "id": "e3",
+    "type": "traffic",
+    "label": null,
+    "props": {},
+    "source": "waf",
+    "target": "haproxy"
+   },
+   {
+    "id": "e4",
+    "type": "traffic",
+    "label": null,
+    "props": {},
+    "source": "haproxy",
+    "target": "app"
+   },
+   {
+    "id": "e5",
+    "type": "traffic",
+    "label": null,
+    "props": {},
+    "source": "app",
+    "target": "pg"
+   },
+   {
+    "id": "e6",
+    "type": "control",
+    "label": null,
+    "props": {},
+    "source": "app",
+    "target": "vault"
+   },
+   {
+    "id": "e7",
+    "type": "traffic",
+    "label": null,
+    "props": {},
+    "source": "app",
+    "target": "os"
+   },
+   {
+    "id": "e8",
+    "type": "backup",
+    "label": null,
+    "props": {},
+    "source": "pg",
+    "target": "backup"
+   },
+   {
+    "id": "e9",
+    "type": "control",
+    "label": null,
+    "props": {},
+    "source": "mon",
+    "target": "app"
+   },
+   {
+    "id": "e10",
+    "type": "control",
+    "label": null,
+    "props": {},
+    "source": "gitops",
+    "target": "app"
+   },
+   {
+    "id": "e11",
+    "type": "traffic",
+    "label": null,
+    "props": {},
+    "source": "waf",
+    "target": "haproxy-2"
+   },
+   {
+    "id": "e12",
+    "type": "traffic",
+    "label": null,
+    "props": {},
+    "source": "haproxy",
+    "target": "app-2"
+   },
+   {
+    "id": "e13",
+    "type": "traffic",
+    "label": null,
+    "props": {},
+    "source": "haproxy",
+    "target": "app-3"
+   },
+   {
+    "id": "e14",
+    "type": "traffic",
+    "label": null,
+    "props": {},
+    "source": "haproxy-2",
+    "target": "app"
+   },
+   {
+    "id": "e15",
+    "type": "traffic",
+    "label": null,
+    "props": {},
+    "source": "haproxy-2",
+    "target": "app-2"
+   },
+   {
+    "id": "e16",
+    "type": "traffic",
+    "label": null,
+    "props": {},
+    "source": "haproxy-2",
+    "target": "app-3"
+   },
+   {
+    "id": "e17",
+    "type": "quorum",
+    "label": null,
+    "props": {},
+    "source": "etcd",
+    "target": "etcd-2"
+   },
+   {
+    "id": "e18",
+    "type": "quorum",
+    "label": null,
+    "props": {},
+    "source": "etcd-2",
+    "target": "etcd-3"
+   },
+   {
+    "id": "e19",
+    "type": "quorum",
+    "label": null,
+    "props": {},
+    "source": "etcd",
+    "target": "etcd-3"
+   },
+   {
+    "id": "e20",
+    "type": "sync",
+    "label": null,
+    "props": {},
+    "source": "pg",
+    "target": "pg-2"
+   },
+   {
+    "id": "e21",
+    "type": "traffic",
+    "label": null,
+    "props": {},
+    "source": "app-2",
+    "target": "pg"
+   },
+   {
+    "id": "e22",
+    "type": "traffic",
+    "label": null,
+    "props": {},
+    "source": "app-3",
+    "target": "pg"
+   },
+   {
+    "id": "e23",
+    "type": "traffic",
+    "label": null,
+    "props": {},
+    "source": "app-2",
+    "target": "os"
+   },
+   {
+    "id": "e24",
+    "type": "traffic",
+    "label": null,
+    "props": {},
+    "source": "app-3",
+    "target": "os"
+   },
+   {
+    "id": "e25",
+    "type": "quorum",
+    "label": null,
+    "props": {},
+    "source": "vault",
+    "target": "vault-2"
+   },
+   {
+    "id": "e26",
+    "type": "quorum",
+    "label": null,
+    "props": {},
+    "source": "vault-2",
+    "target": "vault-3"
+   },
+   {
+    "id": "e27",
+    "type": "quorum",
+    "label": null,
+    "props": {},
+    "source": "vault",
+    "target": "vault-3"
+   },
+   {
+    "id": "e28",
+    "type": "control",
+    "label": null,
+    "props": {},
+    "source": "app-2",
+    "target": "vault"
+   },
+   {
+    "id": "e29",
+    "type": "control",
+    "label": null,
+    "props": {},
+    "source": "app-3",
+    "target": "vault"
+   },
+   {
+    "id": "e30",
+    "type": "control",
+    "label": null,
+    "props": {},
+    "source": "mon",
+    "target": "app-2"
+   },
+   {
+    "id": "e31",
+    "type": "control",
+    "label": null,
+    "props": {},
+    "source": "mon",
+    "target": "app-3"
+   },
+   {
+    "id": "e32",
+    "type": "control",
+    "label": null,
+    "props": {},
+    "source": "mon-2",
+    "target": "app"
+   },
+   {
+    "id": "e33",
+    "type": "control",
+    "label": null,
+    "props": {},
+    "source": "mon-2",
+    "target": "app-2"
+   },
+   {
+    "id": "e34",
+    "type": "control",
+    "label": null,
+    "props": {},
+    "source": "mon-2",
+    "target": "app-3"
+   },
+   {
+    "id": "e35",
+    "type": "control",
+    "label": null,
+    "props": {},
+    "source": "gitops",
+    "target": "app-2"
+   },
+   {
+    "id": "e36",
+    "type": "control",
+    "label": null,
+    "props": {},
+    "source": "gitops",
+    "target": "app-3"
+   },
+   {
+    "id": "e37",
+    "type": "backup",
+    "label": null,
+    "props": {},
+    "source": "os",
+    "target": "backup"
+   },
+   {
+    "id": "e38",
+    "type": "backup",
+    "label": null,
+    "props": {},
+    "source": "vault",
+    "target": "backup"
+   }
+  ],
+  "nodes": [
+   {
+    "id": "users",
+    "ui": {
+     "x": 162.0,
+     "y": 0.0
+    },
+    "kind": "users",
+    "name": "Пользователи",
+    "role": null,
+    "group": null,
+    "props": {},
+    "zoneId": null
+   },
+   {
+    "id": "gslb",
+    "ui": {
+     "x": 162.0,
+     "y": 126.0
+    },
+    "kind": "gslb",
+    "name": "GSLB / DNS",
+    "role": null,
+    "group": null,
+    "props": {
+     "replicas": 3
+    },
+    "zoneId": null
+   },
+   {
+    "id": "waf",
+    "ui": {
+     "x": 162.0,
+     "y": 252.0
+    },
+    "kind": "waf",
+    "name": "WAF",
+    "role": null,
+    "group": null,
+    "props": {
+     "replicas": 2
+    },
+    "zoneId": null
+   },
+   {
+    "id": "haproxy",
+    "ui": {
+     "x": 162.0,
+     "y": 458.0
+    },
+    "kind": "haproxy",
+    "name": "HAProxy",
+    "role": null,
+    "group": "haproxy",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 4,
+     "replicas": 2
+    },
+    "zoneId": "rack1"
+   },
+   {
+    "id": "app",
+    "ui": {
+     "x": 162.0,
+     "y": 584.0
+    },
+    "kind": "kubernetes",
+    "name": "Приложение",
+    "role": null,
+    "group": "app",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 4,
+     "replicas": 2
+    },
+    "zoneId": "rack1"
+   },
+   {
+    "id": "pg",
+    "ui": {
+     "x": 296.0,
+     "y": 710.0
+    },
+    "kind": "postgresql",
+    "name": "PostgreSQL",
+    "role": "primary",
+    "group": "pg",
+    "props": {
+     "dcs": "etcd",
+     "vcpu": 8,
+     "ramGb": 32,
+     "diskGb": 500,
+     "failover": "auto",
+     "connectionPooler": true,
+     "encryptionAtRest": true
+    },
+    "zoneId": "rack1"
+   },
+   {
+    "id": "vault",
+    "ui": {
+     "x": 28.0,
+     "y": 962.0
+    },
+    "kind": "vault",
+    "name": "Секреты",
+    "role": "voter",
+    "group": "vault",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 4,
+     "diskGb": 50,
+     "variant": "raft"
+    },
+    "zoneId": "rack1"
+   },
+   {
+    "id": "etcd",
+    "ui": {
+     "x": 296.0,
+     "y": 962.0
+    },
+    "kind": "etcd",
+    "name": "etcd",
+    "role": "voter",
+    "group": "etcd",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 4,
+     "diskGb": 50
+    },
+    "zoneId": "rack1"
+   },
+   {
+    "id": "mon",
+    "ui": {
+     "x": 296.0,
+     "y": 1088.0
+    },
+    "kind": "monitoring",
+    "name": "Мониторинг",
+    "role": null,
+    "group": "mon",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 8,
+     "diskGb": 200,
+     "replicas": 1
+    },
+    "zoneId": "rack1"
+   },
+   {
+    "id": "gitops",
+    "ui": {
+     "x": 28.0,
+     "y": 1088.0
+    },
+    "kind": "gitops",
+    "name": "GitOps",
+    "role": null,
+    "group": null,
+    "props": {
+     "vcpu": 2,
+     "ramGb": 4,
+     "diskGb": 50,
+     "replicas": 2
+    },
+    "zoneId": "rack3"
+   },
+   {
+    "id": "os",
+    "ui": {
+     "x": 28.0,
+     "y": 710.0
+    },
+    "kind": "opensearch",
+    "name": "OpenSearch",
+    "role": null,
+    "group": "os",
+    "props": {
+     "vcpu": 4,
+     "ramGb": 16,
+     "diskGb": 500,
+     "replicas": 1,
+     "encryptionAtRest": true
+    },
+    "zoneId": "rack1"
+   },
+   {
+    "id": "backup",
+    "ui": {
+     "x": 162.0,
+     "y": 836.0
+    },
+    "kind": "backup_storage",
+    "name": "Бэкапы",
+    "role": null,
+    "group": null,
+    "props": {
+     "vcpu": 1,
+     "ramGb": 2,
+     "diskGb": 5000,
+     "immutable": true,
+     "retentionDays": 30,
+     "encryptionAtRest": true
+    },
+    "zoneId": "rack3"
+   },
+   {
+    "id": "haproxy-2",
+    "kind": "haproxy",
+    "name": "HAProxy",
+    "role": null,
+    "group": "haproxy",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 4,
+     "replicas": 2
+    },
+    "zoneId": "rack2"
+   },
+   {
+    "id": "app-2",
+    "kind": "kubernetes",
+    "name": "Приложение",
+    "role": null,
+    "group": "app",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 4,
+     "replicas": 2
+    },
+    "zoneId": "rack2"
+   },
+   {
+    "id": "app-3",
+    "kind": "kubernetes",
+    "name": "Приложение",
+    "role": null,
+    "group": "app",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 4,
+     "replicas": 2
+    },
+    "zoneId": "rack3"
+   },
+   {
+    "id": "etcd-2",
+    "kind": "etcd",
+    "name": "etcd",
+    "role": "voter",
+    "group": "etcd",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 4,
+     "diskGb": 50
+    },
+    "zoneId": "rack2"
+   },
+   {
+    "id": "etcd-3",
+    "kind": "etcd",
+    "name": "etcd",
+    "role": "voter",
+    "group": "etcd",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 4,
+     "diskGb": 50
+    },
+    "zoneId": "rack3"
+   },
+   {
+    "id": "pg-2",
+    "kind": "postgresql",
+    "name": "PostgreSQL replica",
+    "role": "replica",
+    "group": "pg",
+    "props": {
+     "dcs": "etcd",
+     "vcpu": 8,
+     "ramGb": 32,
+     "diskGb": 500,
+     "failover": "auto",
+     "connectionPooler": true,
+     "encryptionAtRest": true
+    },
+    "zoneId": "rack2"
+   },
+   {
+    "id": "os-2",
+    "kind": "opensearch",
+    "name": "OpenSearch",
+    "role": null,
+    "group": "os",
+    "props": {
+     "vcpu": 4,
+     "ramGb": 16,
+     "diskGb": 500,
+     "replicas": 1,
+     "encryptionAtRest": true
+    },
+    "zoneId": "rack2"
+   },
+   {
+    "id": "os-3",
+    "kind": "opensearch",
+    "name": "OpenSearch",
+    "role": null,
+    "group": "os",
+    "props": {
+     "vcpu": 4,
+     "ramGb": 16,
+     "diskGb": 500,
+     "replicas": 1,
+     "encryptionAtRest": true
+    },
+    "zoneId": "rack3"
+   },
+   {
+    "id": "vault-2",
+    "kind": "vault",
+    "name": "Секреты",
+    "role": "voter",
+    "group": "vault",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 4,
+     "diskGb": 50,
+     "variant": "raft"
+    },
+    "zoneId": "rack2"
+   },
+   {
+    "id": "vault-3",
+    "kind": "vault",
+    "name": "Секреты",
+    "role": "voter",
+    "group": "vault",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 4,
+     "diskGb": 50,
+     "variant": "raft"
+    },
+    "zoneId": "rack3"
+   },
+   {
+    "id": "mon-2",
+    "kind": "monitoring",
+    "name": "Мониторинг",
+    "role": null,
+    "group": "mon",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 8,
+     "diskGb": 200,
+     "replicas": 1
+    },
+    "zoneId": "rack2"
+   }
+  ],
+  "zones": [
+   {
+    "id": "dc1",
+    "ui": {
+     "h": 778.0,
+     "w": 536.0,
+     "x": 0.0,
+     "y": 400.0
+    },
+    "name": "ЦОД 1",
+    "role": "active",
+    "type": "dc",
+    "props": {},
+    "parentId": null
+   },
+   {
+    "id": "rack1",
+    "name": "Стойка 1",
+    "role": "active",
+    "type": "rack",
+    "props": {},
+    "parentId": "dc1"
+   },
+   {
+    "id": "rack2",
+    "name": "Стойка 2",
+    "role": "active",
+    "type": "rack",
+    "props": {},
+    "parentId": "dc1"
+   },
+   {
+    "id": "rack3",
+    "name": "Стойка 3",
+    "role": "active",
+    "type": "rack",
+    "props": {},
+    "parentId": "dc1"
+   }
+  ],
+  "requirements": {
+   "failureTolerance": "rack"
+  },
+  "schemaVersion": 1
+ }
+}

@@ -22,7 +22,7 @@
    "growthPercent": 30.0,
    "rtoSeconds": 300.0,
    "rpoSeconds": 0.0,
-   "availabilitySlo": 99.99,
+   "availabilitySlo": 99.95,
    "failureTolerance": "site"
   },
   "zones": [

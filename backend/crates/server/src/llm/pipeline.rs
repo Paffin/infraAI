@@ -12,7 +12,8 @@ use crate::api_support::{limits, parse_arch, run_evaluate, summarize};
 use crate::config_store::Loaded;
 use crate::jobs::{Job, Progress};
 use crate::state::AppState;
-use engine::evaluate::{Report, Status};
+use engine::config::Waiver;
+use engine::evaluate::{evaluate, Report, Status};
 use engine::model::{validate, Architecture, IssueLevel, Requirements};
 use engine::ops::{apply_ops, diff, Op};
 use serde_json::{json, Value};
@@ -118,6 +119,9 @@ pub fn parse_generate(cfg: &Loaded, text: &str, base: &Architecture) -> Result<C
         }
     }
     arch.meta = base.meta.clone();
+    if let Some(t) = arch.requirements.failure_tolerance.take() {
+        arch.requirements.failure_tolerance = normalize_tolerance(cfg, &t);
+    }
     sanitize(&mut arch, &cfg.catalog);
     if arch.nodes.is_empty() {
         return Err(vec!["the architecture has no nodes".into()]);
@@ -149,6 +153,7 @@ fn merge_requirements(into: &mut Requirements, from: Requirements) {
     m!(availability_slo);
     m!(budget_monthly);
     m!(failure_tolerance);
+    m!(site_failures);
     m!(notes);
     if !from.compliance.is_empty() {
         into.compliance = from.compliance;
@@ -184,6 +189,19 @@ fn sanitize_ops(ops: &mut [Op], cfg: &Loaded) {
             }
             Op::UpdateNode { set, .. } | Op::UpdateEdge { set, .. } | Op::UpdateZone { set, .. } => {
                 set.retain(|k, v| !(k.starts_with("props.") && (v.is_object() || v.is_array())));
+            }
+            // a level of failure tolerance is one of the engine's levels; the id of an unknown one would quietly count as "site"
+            Op::SetRequirements { set } => {
+                if let Some(Value::String(t)) = set.get("failureTolerance") {
+                    match normalize_tolerance(cfg, t) {
+                        Some(id) => {
+                            set.insert("failureTolerance".into(), json!(id));
+                        }
+                        None => {
+                            set.remove("failureTolerance");
+                        }
+                    }
+                }
             }
             _ => {}
         }
@@ -250,6 +268,44 @@ fn criticals(r: &Report) -> usize {
     r.findings.iter().filter(|f| f.accepted.is_none() && f.status == Status::Critical).count()
 }
 
+/// Is `next` a better answer than `cur`: fewer critical findings, or as many and a higher score.
+fn improves(next: &Report, cur: &Report) -> bool {
+    criticals(next) < criticals(cur) || (criticals(next) == criticals(cur) && next.score.value > cur.score.value)
+}
+
+/// What the engine's mechanical fixes did to a design.
+pub struct FixRun {
+    pub arch: Architecture,
+    pub report: Report,
+    /// The fixes that stayed: their operations and the label shown to the user.
+    pub kept: Vec<(Vec<Op>, String)>,
+}
+
+/// Apply the fixes one at a time and keep each one only when the engine finds the result better (fewer critical findings, or as many
+/// and a higher score). A fix that does not do what it says – an arbiter that cannot make a quorum survive, a voter that makes the
+/// votes even – is dropped, and its finding is left to the user instead of being made worse.
+pub fn try_fixes(cfg: &Loaded, arch: Architecture, report: Report, picks: Vec<(Vec<Op>, String)>, waivers: &[Waiver], lang: &str) -> FixRun {
+    let ec = cfg.engine_config(lang);
+    let lim = limits(cfg);
+    let mut run = FixRun { arch, report, kept: vec![] };
+    for (ops, label) in picks {
+        let Ok(out) = apply_ops(&run.arch, &ops, &ec.catalog, &lim) else { continue };
+        let next = evaluate(&out.architecture, &ec, waivers);
+        if improves(&next, &run.report) {
+            run.arch = out.architecture;
+            run.report = next;
+            run.kept.push((ops, label));
+        }
+    }
+    run
+}
+
+/// `try_fixes` off the async runtime (the evaluations are CPU-bound).
+async fn run_fixes(cfg: &Arc<Loaded>, arch: Architecture, report: Report, picks: Vec<(Vec<Op>, String)>, waivers: &[Waiver], lang: &str) -> PResult<FixRun> {
+    let (cfg, waivers, lang) = (cfg.clone(), waivers.to_vec(), lang.to_string());
+    tokio::task::spawn_blocking(move || try_fixes(&cfg, arch, report, picks, &waivers, &lang)).await.map_err(|e| err("internal", e.to_string()))
+}
+
 /// With `llm.logPrompts` the raw model answers are kept in the job steps (debugging aid).
 async fn log_answer(cfg: &Loaded, p: &Progress, purpose: &str, text: &str) {
     if cfg.settings.boolean("llm.logPrompts") {
@@ -269,7 +325,7 @@ fn common_vars(cfg: &Loaded, lang: &str) -> BTreeMap<&'static str, String> {
     v.insert("zone_types", zone_types_digest(&cfg.catalog));
     v.insert("templates", templates_digest(cfg, lang));
     v.insert("rules", rules_digest(cfg, lang));
-    v.insert("requirements_schema", requirements_schema().to_string());
+    v.insert("requirements_schema", requirements_schema(cfg, lang));
     v.insert("max_ops", (cfg.settings.num("llm.maxOps") as i64).to_string());
     v
 }
@@ -341,7 +397,7 @@ async fn generate(state: &AppState, cfg: &Arc<Loaded>, ctx: &CallCtx, p: &Progre
         user.push_str(&format!("\n\nThe user already has this architecture; keep what fits and extend it (reuse ids):\n<user_data>\n{}\n</user_data>", arch_digest(&base, send_notes)));
     }
     let mut messages = vec![Msg::system(sys), Msg::user(user)];
-    let schema = generate_schema(&cfg.catalog);
+    let schema = generate_schema(&cfg.catalog, &tolerance_ids(cfg));
     let repair_rounds = cfg.settings.num("llm.repairRounds") as u32;
     let refine_rounds = cfg.settings.num("llm.refineRounds") as u32;
     let role = role_of(cfg, "generate");
@@ -392,7 +448,7 @@ async fn generate(state: &AppState, cfg: &Arc<Loaded>, ctx: &CallCtx, p: &Progre
         refine_base.requirements = cand.arch.requirements.clone();
         let Ok(next) = parse_generate(cfg, &resp.content, &refine_base) else { break };
         let next_report = run_evaluate(cfg.clone(), next.arch.clone(), waivers.clone(), lang.to_string()).await?;
-        if criticals(&next_report) < criticals(&report) || (criticals(&next_report) == criticals(&report) && next_report.score.value > report.score.value) {
+        if improves(&next_report, &report) {
             cand = next;
             report = next_report;
         } else {
@@ -400,7 +456,7 @@ async fn generate(state: &AppState, cfg: &Arc<Loaded>, ctx: &CallCtx, p: &Progre
         }
     }
 
-    // deterministic repair of what is mechanical, re-verified by the engine
+    // deterministic repair of what is mechanical, re-verified by the engine: a fix stays only when the result is better
     let mut applied: Vec<String> = vec![];
     let mut seen = std::collections::HashSet::new();
     for round in 0..cfg.settings.num("llm.autoFixRounds") as u32 {
@@ -409,11 +465,13 @@ async fn generate(state: &AppState, cfg: &Arc<Loaded>, ctx: &CallCtx, p: &Progre
             break;
         }
         p.step("autofix", json!({"round": round + 1, "fixes": picks.len()})).await;
-        let ops: Vec<Op> = picks.iter().flat_map(|(o, _)| o.clone()).collect();
-        let Ok(out) = apply_ops(&cand.arch, &ops, &cfg.catalog, &limits(cfg)) else { break };
-        cand.arch = out.architecture;
-        applied.extend(picks.into_iter().map(|(_, l)| l));
-        report = run_evaluate(cfg.clone(), cand.arch.clone(), waivers.clone(), lang.to_string()).await?;
+        let run = run_fixes(cfg, cand.arch.clone(), report.clone(), picks, &waivers, lang).await?;
+        if run.kept.is_empty() {
+            break;
+        }
+        cand.arch = run.arch;
+        report = run.report;
+        applied.extend(run.kept.into_iter().map(|(_, l)| l));
     }
 
     // preview against the current draft
@@ -521,7 +579,9 @@ async fn patch(state: &AppState, cfg: &Arc<Loaded>, ctx: &CallCtx, p: &Progress,
         }
     }
 
-    // deterministic repair of the critical findings the proposal introduced
+    // deterministic repair of the critical findings the proposal introduced – each fix on its own and kept only when the engine finds
+    // the result better: a fix that does not do what it says (an arbiter that cannot make a quorum survive, a voter that makes the
+    // votes even) is dropped, and the finding is left to the user instead of being made worse
     let mut applied: Vec<String> = vec![];
     let mut seen = std::collections::HashSet::new();
     for round in 0..cfg.settings.num("llm.autoFixRounds") as u32 {
@@ -531,12 +591,13 @@ async fn patch(state: &AppState, cfg: &Arc<Loaded>, ctx: &CallCtx, p: &Progress,
             break;
         }
         p.step("autofix", json!({"round": round + 1, "fixes": picks.len()})).await;
-        let mut ops = cand.ops.clone();
-        ops.extend(picks.iter().flat_map(|(o, _)| o.clone()));
-        let Ok(next) = preview_ops(cfg.clone(), base.clone(), ops.clone(), waivers.clone(), lang.to_string()).await else { break };
-        cand.ops = ops;
-        preview = next;
-        applied.extend(picks.into_iter().map(|(_, l)| l));
+        let run = run_fixes(cfg, preview.outcome.architecture.clone(), preview.after_report.clone(), picks, &waivers, lang).await?;
+        if run.kept.is_empty() {
+            break;
+        }
+        cand.ops.extend(run.kept.iter().flat_map(|(o, _)| o.clone()));
+        applied.extend(run.kept.into_iter().map(|(_, l)| l));
+        preview = preview_ops(cfg.clone(), base.clone(), cand.ops.clone(), waivers.clone(), lang.to_string()).await?;
     }
 
     let proposal_id = store_proposal(state, job, rev, json!({"mode": "ops", "ops": cand.ops}), &cand.rationale, preview_json(&preview)).await?;
@@ -636,6 +697,135 @@ mod tests {
         let report = evaluate(&c.arch, &cfg.engine_config("en"), &[]);
         let asked = report.findings.iter().any(|f| f.rule_id == "HA-DB-02" && f.status == Status::Critical && f.subjects.nodes.iter().any(|n| n.starts_with("pg-")));
         assert!(!asked, "{:?}", report.findings.iter().filter(|f| f.rule_id == "HA-DB-02").map(|f| (&f.status, &f.subjects.nodes)).collect::<Vec<_>>());
+    }
+
+    /// A scheme drawn inside one data center, and what the model made of "make it fault tolerant within one data center" (recorded by
+    /// `tests/live.rs`): the answer the pipeline gets after the call.
+    const ONE_DC_BASE: &str = include_str!("../../tests/fixtures/llm/one_dc_base.json");
+    const ONE_DC_ANSWER: &str = include_str!("../../tests/fixtures/llm/patch_one_dc_answer.json");
+
+    fn one_dc_base() -> Architecture {
+        serde_json::from_str(ONE_DC_BASE).unwrap()
+    }
+
+    fn sites(cfg: &Loaded, a: &Architecture) -> Vec<String> {
+        a.zones
+            .iter()
+            .filter(|z| matches!(cfg.catalog.zone_type(&z.zone_type).map(|t| t.level), Some(engine::catalog::ZoneLevel::Site) | Some(engine::catalog::ZoneLevel::Geo)))
+            .map(|z| z.id.clone())
+            .collect()
+    }
+
+    #[test]
+    fn a_real_answer_for_one_data_center_declares_the_rack_level_and_stays_in_the_data_center() {
+        let cfg = Loaded::embedded_defaults();
+        let base = one_dc_base();
+        let c = parse_patch(&cfg, &answer(ONE_DC_ANSWER), &base).expect("the recorded answer is valid");
+        let out = apply_ops(&base, &c.ops, &cfg.catalog, &limits(&cfg)).unwrap().architecture;
+        // the model says what the failure to survive is, with a level the engine has
+        assert_eq!(out.requirements.failure_tolerance.as_deref(), Some("rack"));
+        assert!(tolerance_ids(&cfg).contains(&"rack".to_string()));
+        // nothing leaves the data center
+        assert_eq!(sites(&cfg, &out), ["dc1"], "no other site, cloud or region");
+        // the racks are parts of the data center and none is an empty box
+        let racks: Vec<_> = out.zones.iter().filter(|z| z.zone_type == "rack").collect();
+        assert!(racks.len() >= 2);
+        for r in &racks {
+            assert_eq!(r.parent_id.as_deref(), Some("dc1"));
+            assert!(out.nodes.iter().any(|n| n.zone_id.as_deref() == Some(r.id.as_str())), "rack {} is empty", r.id);
+        }
+        assert!(out.nodes.iter().all(|n| n.zone_id.is_none() || n.zone_id.as_deref() == Some("dc1") || racks.iter().any(|r| Some(r.id.as_str()) == n.zone_id.as_deref())));
+        // the engine, not the model, judges it: verified against racks the design holds and the findings about the loss of a site are not asked
+        let ec = cfg.engine_config("en");
+        let (before, after) = (evaluate(&base, &ec, &[]), evaluate(&out, &ec, &[]));
+        assert!(before.counts.critical >= 5, "the scheme as drawn is a single point of failure: {}", before.counts.critical);
+        assert!(after.counts.critical <= 1, "{:?}", after.findings.iter().filter(|f| f.status == Status::Critical).map(|f| &f.id).collect::<Vec<_>>());
+        assert!(after.score.value > before.score.value + 40.0, "{} → {}", before.score.value, after.score.value);
+        assert_eq!(after.objectives.iter().find(|o| o.id == "spof").map(|o| o.status), Some(Status::Ok));
+        for id in ["HA-SITE-01", "HA-QRM-02", "HA-WIT-01"] {
+            let st = after.rules.iter().find(|r| r.rule_id == id).map(|r| r.status);
+            assert!(matches!(st, Some(Status::Na) | Some(Status::Ok)), "{id}: {st:?}");
+        }
+    }
+
+    #[test]
+    fn the_levels_of_failure_tolerance_in_the_prompt_are_the_engines_and_include_the_one_for_a_single_data_center() {
+        let mut cfg = Loaded::embedded_defaults();
+        let text = requirements_schema(&cfg, "en");
+        for id in ["instance", "rack", "site", "geo"] {
+            assert!(text.contains(&format!("\"{id}\" =")), "{id} is not offered: {text}");
+        }
+        assert!(text.contains("single data center"), "the level for one data center says so: {text}");
+        assert!(requirements_schema(&cfg, "ru").contains("Подходит для одного ЦОД"));
+        // the schema the model is held to lists the same levels
+        let schema = generate_schema(&cfg.catalog, &tolerance_ids(&cfg));
+        assert_eq!(schema["properties"]["requirements"]["properties"]["failureTolerance"]["enum"], json!(["instance", "rack", "site", "geo"]));
+        // a level an administrator adds is offered too, and what the model writes is matched to a level the engine has
+        let mut custom = cfg.engine.tolerance.levels[1].clone();
+        custom.id = "room".into();
+        custom.rank = 1;
+        custom.name = engine::text::LText::plain("Machine room");
+        custom.help = engine::text::LText::plain("A machine room of the data center is lost.");
+        cfg.engine.tolerance.levels.insert(1, custom);
+        assert!(requirements_schema(&cfg, "en").contains("\"room\" = A machine room"));
+        assert_eq!(tolerance_ids(&cfg)[1], "room");
+        assert_eq!(normalize_tolerance(&cfg, " Rack "), Some("rack".into()));
+        assert_eq!(normalize_tolerance(&cfg, "machine room"), Some("room".into()));
+        assert_eq!(normalize_tolerance(&cfg, "Отказ стойки"), Some("rack".into()));
+        assert_eq!(normalize_tolerance(&cfg, "planet"), None);
+        // a level the engine does not know never reaches the requirements: it would quietly count as "site"
+        let ops = json!({"rationale": "r", "ops": [{"op": "set_requirements", "set": {"failureTolerance": "planet", "rpsPeak": 10}}]}).to_string();
+        let c = parse_patch(&cfg, &ops, &Architecture::default()).unwrap();
+        let out = apply_ops(&Architecture::default(), &c.ops, &cfg.catalog, &limits(&cfg)).unwrap().architecture;
+        assert_eq!((out.requirements.failure_tolerance.clone(), out.requirements.rps_peak), (None, Some(10.0)));
+        let gen = json!({"architecture": {"zones": [], "nodes": [{"id": "n", "kind": "redis", "name": "R", "props": {}}], "edges": []}, "requirements": {"failureTolerance": "Rack-level"}, "rationale": "r"}).to_string();
+        assert_eq!(parse_generate(&cfg, &gen, &Architecture::default()).unwrap().arch.requirements.failure_tolerance, None);
+    }
+
+    #[test]
+    fn a_fix_that_makes_things_worse_is_not_applied_and_one_that_helps_is() {
+        // the answer that broke a user's picture: the racks are there but the failure to survive is left at the default (a site) and
+        // the backups went to a site of their own. The engine used to offer an arbiter at that site for the quorum – one more voter,
+        // which can neither make the quorum survive the loss of the data center nor leave the number of votes odd – and the pipeline
+        // applied it blindly.
+        let cfg = Loaded::embedded_defaults();
+        let base = one_dc_base();
+        let c = parse_patch(&cfg, &answer(ONE_DC_ANSWER), &base).expect("the recorded answer is valid");
+        let mut ops: Vec<Op> = c.ops.into_iter().filter(|o| !matches!(o, Op::SetRequirements { .. })).collect();
+        ops.push(serde_json::from_value(json!({"op": "add_zone", "zone": {"id": "bkp-site", "name": "Off-site backups", "type": "cloud", "parentId": null, "role": "standby", "props": {}}})).unwrap());
+        ops.push(serde_json::from_value(json!({"op": "update_node", "id": "backup", "set": {"zoneId": "bkp-site"}})).unwrap());
+        let arch = apply_ops(&base, &ops, &cfg.catalog, &limits(&cfg)).unwrap().architecture;
+        let ec = cfg.engine_config("en");
+        let report = evaluate(&arch, &ec, &[]);
+        assert!(criticals(&report) >= 3, "judged as a design for several sites it is full of criticals");
+
+        let votes = |a: &Architecture| a.nodes.iter().filter(|n| n.group.as_deref() == Some("etcd")).count();
+        let bad: Vec<Op> = serde_json::from_value(json!([
+            {"op": "add_node", "node": {"id": "etcd-w", "kind": "etcd", "name": "etcd witness", "zoneId": "bkp-site", "group": "etcd", "role": "witness", "props": {"vcpu": 1, "ramGb": 1}}},
+            {"op": "add_edge", "edge": {"id": "e-w", "source": "etcd-w", "target": "etcd", "type": "quorum"}}
+        ]))
+        .unwrap();
+        let good: Vec<Op> = serde_json::from_value(json!([{"op": "set_requirements", "set": {"failureTolerance": "rack"}}])).unwrap();
+
+        // the bad one alone: one more critical (an even number of votes) and nothing resolved – it is dropped
+        let alone = try_fixes(&cfg, arch.clone(), report.clone(), vec![(bad.clone(), "bad".into())], &[], "en");
+        assert!(alone.kept.is_empty(), "a fix that made things worse was kept");
+        assert_eq!(votes(&alone.arch), votes(&arch));
+        assert_eq!(criticals(&alone.report), criticals(&report));
+
+        // among others: only the one that helps stays, in whatever order they come
+        for picks in [vec![(bad.clone(), "bad"), (good.clone(), "good")], vec![(good.clone(), "good"), (bad.clone(), "bad")]] {
+            let run = try_fixes(&cfg, arch.clone(), report.clone(), picks.into_iter().map(|(o, l)| (o, l.to_string())).collect(), &[], "en");
+            assert_eq!(run.kept.iter().map(|k| k.1.as_str()).collect::<Vec<_>>(), ["good"]);
+            assert_eq!(votes(&run.arch), votes(&arch), "the voter of the bad fix is not there");
+            assert!(criticals(&run.report) < criticals(&report), "{} → {}", criticals(&report), criticals(&run.report));
+            assert!(run.report.score.value > report.score.value);
+        }
+
+        // a fix whose operations do not apply is skipped, not fatal
+        let broken: Vec<Op> = serde_json::from_value(json!([{"op": "update_node", "id": "nowhere", "set": {"props.replicas": 3}}])).unwrap();
+        let run = try_fixes(&cfg, arch.clone(), report.clone(), vec![(broken, "broken".into()), (good, "good".into())], &[], "en");
+        assert_eq!(run.kept.iter().map(|k| k.1.as_str()).collect::<Vec<_>>(), ["good"]);
     }
 
     #[test]

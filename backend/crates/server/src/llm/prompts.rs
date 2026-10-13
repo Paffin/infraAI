@@ -113,8 +113,25 @@ pub fn rules_digest(cfg: &Loaded, lang: &str) -> String {
     cfg.rules.iter().filter(|r| r.enabled).map(|r| format!("{}: {}", r.id, r.title.get(lang))).collect::<Vec<_>>().join("; ")
 }
 
-pub fn requirements_schema() -> &'static str {
-    "rpsPeak (number, requests/s at peak), growthPercent (number), rtoSeconds (number), rpoSeconds (number, 0 = no data loss), availabilitySlo (number, e.g. 99.95), budgetMonthly (number, in the configured currency), failureTolerance (\"instance\" | \"site\" | \"geo\"), compliance (array of strings), notes (string)"
+/// The levels of `failureTolerance` the engine knows (`tolerance.levels` of the engine settings): the model may only pick one of them.
+pub fn tolerance_ids(cfg: &Loaded) -> Vec<String> {
+    cfg.engine.tolerance.levels.iter().map(|l| l.id.clone()).collect()
+}
+
+/// A level of `failureTolerance` the model wrote down, as the id of a configured level (the id itself or the name of the level, in any case);
+/// `None` when it is none of them.
+pub fn normalize_tolerance(cfg: &Loaded, value: &str) -> Option<String> {
+    let v = value.trim().to_lowercase();
+    cfg.engine.tolerance.levels.iter().find(|l| l.id.to_lowercase() == v || ["ru", "en"].iter().any(|lang| l.name.get(lang).to_lowercase() == v)).map(|l| l.id.clone())
+}
+
+/// The requirement fields the model may fill. The levels of `failureTolerance` are the engine's (settings `tolerance.levels`) with their own
+/// explanation, so a level an administrator adds is offered to the model too and "one data center" has a level to be said with.
+pub fn requirements_schema(cfg: &Loaded, lang: &str) -> String {
+    let levels = cfg.engine.tolerance.levels.iter().map(|l| format!("\"{}\" = {}", l.id, l.help.get(lang))).collect::<Vec<_>>().join(" | ");
+    format!(
+        "rpsPeak (number, requests/s at peak), growthPercent (number), rtoSeconds (number), rpoSeconds (number, 0 = no data loss), availabilitySlo (number, e.g. 99.95), budgetMonthly (number, in the configured currency), failureTolerance (the largest failure the design must survive; one of: {levels}), siteFailures (number, how many sites may be lost at the same time, 1 unless stated), compliance (array of strings), notes (string)"
+    )
 }
 
 /// Minified architecture for the model: no canvas positions, optional notes.
@@ -190,7 +207,7 @@ fn obj_array(item: Value) -> Value {
     json!({"type": "array", "items": item})
 }
 
-pub fn generate_schema(cat: &Catalog) -> Value {
+pub fn generate_schema(cat: &Catalog, tolerance: &[String]) -> Value {
     let kinds: Vec<&str> = cat.kinds.iter().map(|k| k.id.as_str()).collect();
     let edges: Vec<&str> = cat.edge_types.iter().map(|k| k.id.as_str()).collect();
     let zones: Vec<&str> = cat.zone_types.iter().map(|k| k.id.as_str()).collect();
@@ -204,7 +221,8 @@ pub fn generate_schema(cat: &Catalog) -> Value {
                 "rpoSeconds": {"type": "number", "description": "recovery point objective in seconds; 0 = no committed data may be lost"},
                 "availabilitySlo": {"type": "number", "description": "availability target in percent, e.g. 99.95"},
                 "budgetMonthly": {"type": "number", "description": "monthly budget as a plain number"},
-                "failureTolerance": {"type": "string", "enum": ["instance", "site", "geo"]},
+                "failureTolerance": if tolerance.is_empty() { json!({"type": "string"}) } else { json!({"type": "string", "enum": tolerance, "description": "the largest failure the design must survive"}) },
+                "siteFailures": {"type": "number", "description": "how many sites may be lost at the same time"},
                 "compliance": {"type": "array", "items": {"type": "string"}},
                 "notes": {"type": "string"}
             }},

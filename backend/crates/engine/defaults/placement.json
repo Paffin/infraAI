@@ -724,7 +724,7 @@
     "growthPercent": 30,
     "rtoSeconds": 300,
     "rpoSeconds": 0,
-    "availabilitySlo": 99.99
+    "availabilitySlo": 99.95
    },
    "stack": "web-platform",
    "pros": [

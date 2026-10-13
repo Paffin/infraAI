@@ -3,16 +3,15 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { t } from '@/i18n'
 import { useAi } from '@/stores/ai'
 import { useUi, type RightTab } from '@/stores/ui'
-import CapacityPanel from './CapacityPanel.vue'
+import AnalysisPanel from './AnalysisPanel.vue'
 import ChatPanel from './ChatPanel.vue'
 import ChecksPanel from './ChecksPanel.vue'
-import CostPanel from './CostPanel.vue'
 import RequirementsPanel from './RequirementsPanel.vue'
 
 const ui = useUi()
 const ai = useAi()
-const tabs: RightTab[] = ['checks', 'requirements', 'capacity', 'cost', 'chat']
-const panels = { checks: ChecksPanel, requirements: RequirementsPanel, capacity: CapacityPanel, cost: CostPanel, chat: ChatPanel }
+const tabs: RightTab[] = ['checks', 'requirements', 'analysis', 'chat']
+const panels = { checks: ChecksPanel, requirements: RequirementsPanel, analysis: AnalysisPanel, chat: ChatPanel }
 const panel = computed(() => panels[ui.tab] ?? ChatPanel)
 
 // The underline slides to the active tab; where it is comes from the tab's own box, so any font or language fits.

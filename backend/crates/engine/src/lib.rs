@@ -20,5 +20,6 @@ pub mod lifecycle;
 pub mod model;
 pub mod ops;
 pub mod placement;
+pub mod reliability;
 pub mod sim;
 pub mod text;

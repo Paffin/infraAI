@@ -530,3 +530,99 @@ fn capacity_plan_shows_load_headroom_and_the_worst_failure_of_every_service() {
     assert!((doubled.target_rps / flat.target_rps - 2.0).abs() < 1e-9, "{} vs {}", doubled.target_rps, flat.target_rps);
     assert!(doubled.instances_needed > flat.instances_needed);
 }
+
+// ------------------------------------------------------------------ one data center: what a copy has to be out of
+
+/// One data center with three racks; the database lives in rack 1 and 2, its backups where `backup_zone` says.
+fn one_dc(tolerance: &str, backup_zone: &str) -> Architecture {
+    serde_json::from_value(json!({
+        "requirements": { "failureTolerance": tolerance, "rpsPeak": 1000 },
+        "zones": [
+            { "id": "dc1", "name": "DC-1", "type": "dc", "props": { "geo": "g1" } },
+            { "id": "r1", "name": "Rack 1", "type": "rack", "parentId": "dc1" },
+            { "id": "r2", "name": "Rack 2", "type": "rack", "parentId": "dc1" },
+            { "id": "r3", "name": "Rack 3", "type": "rack", "parentId": "dc1" },
+            { "id": "dc2", "name": "DC-2", "type": "dc", "props": { "geo": "g2" } }
+        ],
+        "nodes": [
+            { "id": "users", "kind": "users", "name": "Users" },
+            { "id": "app-1", "kind": "kubernetes", "name": "App", "zoneId": "r1", "group": "app", "props": { "replicas": 3 } },
+            { "id": "app-2", "kind": "kubernetes", "name": "App", "zoneId": "r2", "group": "app", "props": { "replicas": 3 } },
+            { "id": "pg-1", "kind": "postgresql", "name": "PG primary", "zoneId": "r1", "group": "pg", "role": "primary", "props": { "failover": "auto", "dcs": "etcd" } },
+            { "id": "pg-2", "kind": "postgresql", "name": "PG replica", "zoneId": "r2", "group": "pg", "role": "replica", "props": { "failover": "auto", "dcs": "etcd" } },
+            { "id": "etcd-1", "kind": "etcd", "name": "etcd", "zoneId": "r1", "group": "etcd", "role": "voter" },
+            { "id": "etcd-2", "kind": "etcd", "name": "etcd", "zoneId": "r2", "group": "etcd", "role": "voter" },
+            { "id": "etcd-3", "kind": "etcd", "name": "etcd", "zoneId": "r3", "group": "etcd", "role": "voter" },
+            { "id": "backup", "kind": "backup_storage", "name": "Backups", "zoneId": backup_zone, "props": { "immutable": true } }
+        ],
+        "edges": [
+            { "id": "e1", "source": "users", "target": "app-1", "type": "traffic" },
+            { "id": "e2", "source": "users", "target": "app-2", "type": "traffic" },
+            { "id": "e3", "source": "app-1", "target": "pg-1", "type": "traffic" },
+            { "id": "e4", "source": "app-2", "target": "pg-1", "type": "traffic" },
+            { "id": "e5", "source": "pg-1", "target": "pg-2", "type": "sync" },
+            { "id": "e6", "source": "pg-1", "target": "backup", "type": "backup" }
+        ]
+    }))
+    .unwrap()
+}
+
+fn backup_status(a: &Architecture) -> Option<Status> {
+    let rep = evaluate(a, &cfg(), &[]);
+    rep.findings.iter().find(|f| f.rule_id == "DR-BKP-02").map(|f| f.status)
+}
+
+#[test]
+fn a_design_for_one_data_center_asks_a_copy_to_be_out_of_the_rack_not_out_of_the_site() {
+    // the requirement stops at the loss of a rack: a copy in another rack of the same data center is a risk to know about
+    assert_eq!(backup_status(&one_dc("rack", "r3")), Some(Status::Risk));
+    // the same rack as its source dies with it
+    assert_eq!(backup_status(&one_dc("rack", "r1")), Some(Status::Critical));
+    // a copy in another site is what the strictest levels ask for, and nothing is left to say
+    assert_eq!(backup_status(&one_dc("rack", "dc2")), None);
+    assert_eq!(backup_status(&one_dc("site", "dc2")), None);
+    // when the loss of a site is to be survived, the same data center is critical whatever the rack
+    assert_eq!(backup_status(&one_dc("site", "r3")), Some(Status::Critical));
+    assert_eq!(backup_status(&one_dc("site", "r1")), Some(Status::Critical));
+}
+
+#[test]
+fn the_rack_level_is_what_a_design_inside_one_data_center_is_verified_against() {
+    // racks are the failure domains: no finding about losing the data center, and the design survives a rack
+    let rep = evaluate(&one_dc("rack", "r3"), &cfg(), &[]);
+    for id in ["HA-SITE-01", "HA-QRM-02", "HA-WIT-01", "HA-ZONE-01"] {
+        let st = rep.rules.iter().find(|r| r.rule_id == id).map(|r| r.status);
+        assert!(matches!(st, Some(Status::Na) | Some(Status::Ok)), "{id}: {st:?}");
+    }
+    let spof = rep.objectives.iter().find(|o| o.id == "spof").unwrap();
+    assert_eq!(spof.status, Status::Ok);
+    // the same design asked to survive a site is not fault tolerant, and says so
+    let site = evaluate(&one_dc("site", "r3"), &cfg(), &[]);
+    assert!(site.counts.critical > rep.counts.critical, "{} vs {}", site.counts.critical, rep.counts.critical);
+}
+
+#[test]
+fn an_arbiter_is_offered_only_where_one_more_vote_settles_the_quorum() {
+    // two voters in each of two data centers and one arbiter in a third: the loss of a data center leaves 3 of 5 – fine, nothing to say.
+    // three voters in one data center and a second site next to it: an arbiter there would be one vote of four against the three that are lost
+    let witness_fix = |a: &Architecture| {
+        let rep = evaluate(a, &cfg(), &[]);
+        rep.findings.iter().filter(|f| f.rule_id == "HA-QRM-02").map(|f| f.fixes.iter().any(|x| x.kind == "add_witness")).collect::<Vec<_>>()
+    };
+    let mut a = one_dc("site", "r3");
+    a.nodes.retain(|n| n.id != "etcd-2" && n.id != "etcd-3");
+    a.nodes.push(serde_json::from_value(json!({ "id": "etcd-2", "kind": "etcd", "name": "etcd", "zoneId": "r2", "group": "etcd", "role": "voter" })).unwrap());
+    a.nodes.push(serde_json::from_value(json!({ "id": "etcd-3", "kind": "etcd", "name": "etcd", "zoneId": "r3", "group": "etcd", "role": "voter" })).unwrap());
+    let flags = witness_fix(&a);
+    assert!(!flags.is_empty(), "three voters in one site do not survive its loss");
+    assert!(flags.iter().all(|f| !*f), "an arbiter cannot help three voters in one site: {flags:?}");
+    // two voters in each of two data centers: the loss of one leaves 2 of 4, and an arbiter in a third place makes it 3 of 5 – the fix is offered
+    let mut b = one_dc("site", "dc2");
+    b.nodes.retain(|n| !n.id.starts_with("etcd"));
+    for (id, zone) in [("etcd-1", "r1"), ("etcd-2", "r2"), ("etcd-3", "dc2"), ("etcd-4", "dc2")] {
+        b.nodes.push(serde_json::from_value(json!({ "id": id, "kind": "etcd", "name": "etcd", "zoneId": zone, "group": "etcd", "role": "voter" })).unwrap());
+    }
+    b.zones.push(serde_json::from_value(json!({ "id": "dc3", "name": "DC-3", "type": "dc", "props": { "geo": "g3" } })).unwrap());
+    let flags = witness_fix(&b);
+    assert!(flags.contains(&true), "an arbiter that does settle the quorum is offered: {flags:?}");
+}

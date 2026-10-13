@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import { formatAvailability } from '@/lib/nines'
 import type { LText } from '@/api/types'
 import ru from './ru'
 import en from './en'
@@ -60,6 +61,7 @@ function renderValue(v: unknown, format: string | undefined): string | null {
   if (v === undefined || v === null) return null
   if (format === 'dur' && typeof v === 'number') return durationText(v)
   if (format === 'pct' && typeof v === 'number') return `${Math.round(v * 100)}%`
+  if (format === 'avail' && typeof v === 'number') return formatAvailability(v)
   if (format?.startsWith('plural:') && typeof v === 'number') {
     // `{n|plural:площадка,площадки,площадок}` – the word form that agrees with the number
     const forms = format.slice('plural:'.length).split(',').map((x) => x.trim())
@@ -69,7 +71,7 @@ function renderValue(v: unknown, format: string | undefined): string | null {
   return String(v)
 }
 
-/** Replace `{name}` / `{name|dur}` / `{name|pct}` / `{name|plural:one,few,many}`; unknown placeholders stay visible. */
+/** Replace `{name}` / `{name|dur}` / `{name|pct}` / `{name|avail}` (an availability with its nines) / `{name|plural:one,few,many}`; unknown placeholders stay visible. */
 export function substitute(s: string, vars: Record<string, unknown>): string {
   return s.replace(/\{(\w+)(?:\|([^{}]+))?\}/g, (m, k: string, f: string | undefined) => (k in vars ? renderValue(vars[k], f) ?? m : m))
 }

@@ -4,7 +4,7 @@ import type { Need, Objective, Report, Scenario, ScenarioSummary } from '@/api/t
 export type ObjectiveAction =
   | { kind: 'scenario'; scenario: Scenario }
   | { kind: 'fill'; need: Need }
-  | { kind: 'tab'; tab: 'capacity' }
+  | { kind: 'tab'; tab: 'capacity' | 'availability' }
   | { kind: 'subjects'; subjects: { nodes: string[]; edges: string[]; zones: string[] } }
 
 export interface ObjectiveContext {
@@ -69,6 +69,9 @@ export function objectiveAction(o: Objective, report: Report, ctx: ObjectiveCont
     case 'capacity':
       if (ctx.rpsPeak === undefined || ctx.rpsPeak === null) return { kind: 'fill', need: { target: 'requirements', prop: 'rpsPeak' } }
       return { kind: 'tab', tab: 'capacity' }
+    // the estimate is there with or without a target; its panel is where the target is picked and where the number is explained
+    case 'availability':
+      return { kind: 'tab', tab: 'availability' }
     default:
       return null
   }

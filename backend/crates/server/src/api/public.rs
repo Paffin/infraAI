@@ -123,6 +123,7 @@ pub async fn bootstrap(State(state): State<AppState>, user: AuthUser, headers: H
             "defaultFailureTolerance": a.default_failure_tolerance,
             "toleranceLevels": cfg.engine.tolerance.levels,
             "maxSiteFailures": cfg.engine.scenarios.max_site_failures,
+            "availability": {"enabled": cfg.engine.reliability.enabled, "presets": cfg.engine.reliability.presets, "warnPercent": cfg.engine.reliability.warn_percent, "daysPerYear": cfg.engine.reliability.days_per_year},
         },
     });
     // conditional GET: the catalog is large and rarely changes

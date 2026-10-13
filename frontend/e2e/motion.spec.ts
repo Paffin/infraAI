@@ -24,8 +24,12 @@ test.describe('motion: full, reduced, off', () => {
 
   test('the choice is made in the menu, applies at once and is kept', async ({ page }) => {
     await login(page)
-    await page.locator('.motion-switch .trigger').click()
-    await expect(page.locator('.motion-switch .menu')).toBeVisible()
+    // the top bar is drawn again while the page finishes loading: open the menu until it stays open
+    await expect(page.getByRole('button', { name: 'Новый проект' }).first()).toBeVisible()
+    await expect(async () => {
+      await page.locator('.motion-switch .trigger').click()
+      await expect(page.locator('.motion-switch .menu')).toBeVisible({ timeout: 1500 })
+    }).toPass({ timeout: 10_000 })
     await page.locator('.motion-switch [data-pref="off"]').click()
     expect(await mode(page)).toBe('off')
     // off: buttons change at once
@@ -89,7 +93,8 @@ test.describe('motion: full, reduced, off', () => {
     const ink = page.locator('.right .ink')
     const x = () => ink.evaluate((el) => (el as HTMLElement).style.transform)
     const before = await x()
-    await page.locator('.right .tab', { hasText: 'Стоимость' }).click()
+    await page.locator('.right .tab', { hasText: 'Анализ' }).click()
+    await page.locator('.right .seg .segbtn', { hasText: 'Стоимость' }).click()
     await expect.poll(x).not.toBe(before)
     await expect(page.locator('.right .cost')).toBeVisible()
     await page.locator('.right .tab', { hasText: 'Проверки' }).click()

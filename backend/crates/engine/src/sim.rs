@@ -148,6 +148,34 @@ pub struct Frame {
     pub edges: BTreeMap<String, EdgeState>,
 }
 
+/// What interrupts the service after a failure.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum InterruptionKind {
+    /// A replica is promoted automatically.
+    Failover,
+    /// An operator promotes a replica.
+    ManualFailover,
+    /// A destroyed unit is restored from backup.
+    Restore,
+    /// Health checks of a balancer have not yet noticed that members are gone.
+    Reroute,
+    /// A standby grows to full size (it serves meanwhile, at reduced capacity).
+    ScaleOut,
+}
+
+/// A stretch of time after the failure in which a part of the requests fails: the time a promotion, a restore or the
+/// detection of a dead member takes, and the share of requests that go through what is not yet working.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct Interruption {
+    pub unit: String,
+    pub kind: InterruptionKind,
+    pub seconds: f64,
+    /// Share of the requests that fail meanwhile (1 = all of them).
+    pub share: f64,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UnitLoad {
@@ -195,6 +223,9 @@ pub struct SimResult {
     pub edge_states: BTreeMap<String, EdgeState>,
     /// Names of the failed zones / nodes for display.
     pub failed: Vec<String>,
+    /// What interrupts the service while the recovery runs, and how much of the traffic it touches.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub interruptions: Vec<Interruption>,
     /// How the picture changes while the recovery runs (only from [`simulate_timeline`], and only when something changes).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub timeline: Vec<Frame>,
@@ -220,6 +251,7 @@ struct Sim<'a, 'b> {
     auto_tracks: Vec<f64>,
     manual_tracks: Vec<f64>,
     restore_tracks: Vec<f64>,
+    interruptions: Vec<Interruption>,
     rpo_items: Vec<RpoItem>,
     split_brain: Vec<String>,
     data_lost: Vec<String>,
@@ -391,9 +423,12 @@ impl<'a, 'b> Sim<'a, 'b> {
         let nu = ix.units.len();
         let mut pre_events: Vec<Event> = vec![];
         let mut pre_tracks: Vec<f64> = vec![];
+        let mut pre_interruptions: Vec<Interruption> = vec![];
         for (i, secs) in &scale_out {
             if ix.on_path[ix.unit_of[*i]] {
                 pre_tracks.push(*secs);
+                // the standby serves while it grows: slowly, not interrupted
+                pre_interruptions.push(Interruption { unit: ix.units[ix.unit_of[*i]].key.clone(), kind: InterruptionKind::ScaleOut, seconds: *secs, share: 0.0 });
             }
             pre_events.push(ev_at(
                 "scale_out",
@@ -420,6 +455,7 @@ impl<'a, 'b> Sim<'a, 'b> {
             auto_tracks: pre_tracks,
             manual_tracks: vec![],
             restore_tracks: vec![],
+            interruptions: pre_interruptions,
             rpo_items: vec![],
             split_brain: vec![],
             data_lost: vec![],
@@ -657,6 +693,7 @@ impl<'a, 'b> Sim<'a, 'b> {
                     self.split_brain.push(unit.key.clone());
                     if ix.on_path[u] {
                         self.auto_tracks.push(secs);
+                        self.interruptions.push(Interruption { unit: unit.key.clone(), kind: InterruptionKind::Failover, seconds: secs, share: 1.0 });
                     }
                     self.note_rpo(u, linked, lag, assumed);
                     self.events.push(ev_at("split_brain", Some(&unit.key), Some(&ix.arch.nodes[r].id), json!({"node": self.name(p), "other": self.name(r), "unit": unit.name}), secs));
@@ -686,6 +723,7 @@ impl<'a, 'b> Sim<'a, 'b> {
                     if auto {
                         if ix.on_path[u] {
                             self.auto_tracks.push(secs);
+                            self.interruptions.push(Interruption { unit: unit.key.clone(), kind: InterruptionKind::Failover, seconds: secs, share: 1.0 });
                         }
                         self.events.push(ev_at(
                             "promoted",
@@ -699,6 +737,7 @@ impl<'a, 'b> Sim<'a, 'b> {
                         // without a reachable quorum)
                         if ix.on_path[u] {
                             self.manual_tracks.push(secs);
+                            self.interruptions.push(Interruption { unit: unit.key.clone(), kind: InterruptionKind::ManualFailover, seconds: secs, share: 1.0 });
                         }
                         self.events.push(ev_at(
                             "manual_failover",
@@ -821,6 +860,48 @@ impl<'a, 'b> Sim<'a, 'b> {
             self.auto_tracks.push(reroute);
             self.events.push(ev_at("reroute", None, None, json!({"seconds": reroute}), reroute));
         }
+        // the same window, unit by unit, with the share of the requests that still go to what is gone (also when only
+        // some instances of a member are lost: a balancer sends them requests until its health checks notice)
+        for u in 0..ix.units.len() {
+            if ix.units[u].behavior != Behavior::Stateless || self.serving[u].is_empty() || !ix.on_path[u] {
+                continue;
+            }
+            let mut window = 0.0f64;
+            let mut lost = 0.0f64;
+            let mut all = 0.0f64;
+            for &m in &ix.units[u].members {
+                if ix.is_witness(m) {
+                    continue;
+                }
+                let replicas = ix.replicas(m) as f64;
+                all += replicas;
+                let gone = if self.serving[u].contains(&m) { replicas - self.alive[m] as f64 } else { replicas };
+                if gone <= 0.0 {
+                    continue;
+                }
+                let mut behind = 0.0f64;
+                for &ei in &ix.in_edges[m] {
+                    if ix.sem(ei) != Some(Semantics::Dependency) {
+                        continue;
+                    }
+                    if let Some((src, _)) = ix.edge_ends[ei] {
+                        if self.alive[src] > 0 && ix.has_trait(src, "balancer") {
+                            let hc = ix.eff[src].num("healthCheckSeconds").unwrap_or(ix.settings.assumptions.default_health_check_seconds);
+                            let th = ix.eff[src].num("failThreshold").unwrap_or(ix.settings.assumptions.default_fail_threshold);
+                            let ttl = if ix.has_trait(src, "dns-routing") { ix.eff[src].num("dnsTtlSeconds").unwrap_or(0.0) } else { 0.0 };
+                            behind = behind.max(hc * th + ttl);
+                        }
+                    }
+                }
+                if behind > 0.0 {
+                    window = window.max(behind);
+                    lost += gone;
+                }
+            }
+            if window > 0.0 && all > 0.0 {
+                self.interruptions.push(Interruption { unit: ix.units[u].key.clone(), kind: InterruptionKind::Reroute, seconds: window, share: (lost / all).clamp(0.0, 1.0) });
+            }
+        }
 
         // --- data fate of destroyed stateful units
         if self.destructive {
@@ -885,6 +966,7 @@ impl<'a, 'b> Sim<'a, 'b> {
                     self.note_rpo(u, true, interval, assumed);
                     if ix.on_path[u] {
                         self.restore_tracks.push(restore);
+                        self.interruptions.push(Interruption { unit: ix.units[u].key.clone(), kind: InterruptionKind::Restore, seconds: restore, share: 1.0 });
                     }
                     self.events.push(ev_at("restore_from_backup", Some(&ix.units[u].key), None, json!({"unit": ix.units[u].name, "rpo": interval, "seconds": restore}), restore));
                 } else {
@@ -1033,6 +1115,7 @@ impl<'a, 'b> Sim<'a, 'b> {
             node_states,
             edge_states,
             failed: self.failed,
+            interruptions: self.interruptions,
             timeline: vec![],
         }
     }
