@@ -24,9 +24,9 @@ const rows = computed(() => (score.value?.breakdown ?? []).filter((b) => b.penal
       <table v-else class="table">
         <tbody>
           <tr v-for="b in rows" :key="b.ruleId">
-            <td class="mono">{{ b.ruleId }}</td>
+            <td class="mono nw">{{ b.ruleId }}</td>
             <td>{{ lt(app.rules.get(b.ruleId)?.title) }}</td>
-            <td><span class="tag" :class="statusTagClass(b.status)">{{ statusLabel(b.status) }}</span></td>
+            <td class="nw"><span class="tag" :class="statusTagClass(b.status)">{{ statusLabel(b.status) }}</span></td>
             <td class="mono right">−{{ Math.round(b.penalty * 10) / 10 }}</td>
           </tr>
         </tbody>
@@ -35,3 +35,7 @@ const rows = computed(() => (score.value?.breakdown ?? []).filter((b) => b.penal
     <div v-else class="empty"><span class="spinner" /></div>
   </Modal>
 </template>
+
+<style scoped>
+.nw { white-space: nowrap; }
+</style>

@@ -67,4 +67,17 @@ test.describe('what makes it feel like a product', () => {
     await expect(page.locator('.arch-node').first()).toBeVisible({ timeout: 15_000 })
     await expect(page.getByTestId('editor-skeleton')).toHaveCount(0)
   })
+
+  test('the score dialog keeps each label on one line, the rule ids and the status pills included', async ({ page }) => {
+    await login(page)
+    await createProject(page, uniqueName('score'), '10 площадок')
+    await page.locator('.eh .score').click()
+    await expect(page.locator('.modal table tr').first()).toBeVisible()
+    // how many lines the text of each label really takes (a pill has a fixed height, a cell takes the height of its row: neither says it)
+    const cramped = await page.evaluate(() => {
+      const lines = (el: Element) => { const r = document.createRange(); r.selectNodeContents(el); return new Set(Array.from(r.getClientRects()).map((x) => Math.round(x.top))).size }
+      return Array.from(document.querySelectorAll('.modal .tag, .modal td.mono')).filter((e) => lines(e) > 1).map((e) => e.textContent?.trim())
+    })
+    expect(cramped).toEqual([])
+  })
 })
