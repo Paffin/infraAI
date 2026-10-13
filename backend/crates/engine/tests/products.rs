@@ -5,7 +5,7 @@ use engine::catalog::Behavior;
 use engine::config::EngineConfig;
 use engine::defaults;
 use engine::evaluate::{evaluate, render_message, Report, Status};
-use engine::lifecycle::{parse_date, Phase};
+use engine::lifecycle::{format_date, parse_date, Phase};
 use engine::model::Architecture;
 use engine::text::LText;
 use serde_json::json;
@@ -15,8 +15,10 @@ fn october_2026() -> String {
     "2026-10-13".into()
 }
 
-fn june_2027() -> String {
-    "2027-06-01".into()
+/// A day on which every shipped table is too old to be trusted, whenever the tables were refreshed.
+fn long_after_the_tables() -> String {
+    let newest = defaults::versions().iter().filter_map(|v| parse_date(&v.as_of)).max().expect("the shipped tables are dated");
+    format_date(newest + defaults::engine_config("ru").settings.lifecycle.stale_days + 30)
 }
 
 fn cfg() -> EngineConfig {
@@ -208,7 +210,9 @@ fn lifecycle_is_judged_against_the_release_tables_and_the_clock() {
     assert_eq!(status(&rep, "VER-01"), Status::Critical);
     let f = rep.findings.iter().find(|f| f.rule_id == "VER-01").unwrap();
     let text = message(&c, &rep, "VER-01");
-    assert!(text.contains("PostgreSQL 12.19") && text.contains("Рекомендуемая линия: 18"), "{text}");
+    // the recommended line is whatever the table recommends on that day: the tables are refreshed every week
+    let recommended = c.versions.iter().find(|v| v.id == "postgresql").and_then(|v| v.recommended(today, true, 90)).map(|c| c.cycle.clone()).expect("PostgreSQL has a recommended line");
+    assert!(text.contains("PostgreSQL 12.19") && text.contains(&format!("Рекомендуемая линия: {recommended}")), "{text}");
     assert!(f.fixes.iter().any(|x| x.kind == "set_version"), "a move to the recommended line is offered");
     // a supported line is fine; an undeclared version is not judged
     assert_eq!(status(&evaluate(&single_node("postgresql", json!({"version": "17.2"})), &c, &[]), "VER-01"), Status::Ok);
@@ -268,8 +272,8 @@ fn recommended_lines_are_maintained_and_not_brand_new() {
 
 #[test]
 fn a_release_table_that_is_too_old_is_reported_instead_of_trusted() {
-    // the shipped tables are from October 2026: eight months later their dates are no basis for a verdict
-    let c = EngineConfig { today: june_2027, ..defaults::engine_config("ru") };
+    // months after the newest shipped table their dates are no basis for a verdict
+    let c = EngineConfig { today: long_after_the_tables, ..defaults::engine_config("ru") };
     let rep = evaluate(&single_node("postgresql", json!({"version": "17.2"})), &c, &[]);
     assert_eq!(status(&rep, "VER-01"), Status::NoData);
     let text = message(&c, &rep, "VER-01");

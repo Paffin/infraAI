@@ -102,7 +102,9 @@ describe('release tables of a node', () => {
     const v = viewVersion(vx, pg.set, '12.19')
     expect(v.verdict).toBe('eol')
     expect(v.lifecycle?.eol).toBe('2024-11-21')
-    expect(v.recommended?.cycle).toBe('18')
+    // the line the engine recommended for this node on the day the fixture was recorded (it moves when the tables are refreshed)
+    const recommended = fixture('report-versions').report.findings.find((f) => f.id === 'VER-01:pg1:version')!.vars.recommended
+    expect(v.recommended?.cycle).toBe(recommended)
     expect(viewVersion(vx, pg.set, '17.2').verdict).toBe('supported')
     expect(viewVersion(vx, pg.set, '99').verdict).toBe('unknown')
     expect(viewVersion(vx, pg.set, undefined).lifecycle).toBeNull()
@@ -113,9 +115,10 @@ describe('what the engine says about versions', () => {
   const { report } = fixture('report-versions')
   const rule = realRule('VER-01')!
   const find = (id: string) => report.findings.find((f) => f.id === id)!
+  const recommended = String(find('VER-01:pg1:version').vars.recommended)
 
   it('is worded per kind of problem, with the product named', () => {
-    expect(findingText(rule, find('VER-01:pg1:version'))).toBe('«PostgreSQL primary»: PostgreSQL 12.19 — линия 12 больше не получает исправлений безопасности (с 2024-11-21). Рекомендуемая линия: 18.')
+    expect(findingText(rule, find('VER-01:pg1:version'))).toBe(`«PostgreSQL primary»: PostgreSQL 12.19 — линия 12 больше не получает исправлений безопасности (с 2024-11-21). Рекомендуемая линия: ${recommended}.`)
     expect(findingText(rule, find('VER-01:app:osVersion'))).toContain('Ubuntu 20.04')
     expect(findingText(rule, find('VER-01:kafka:version'))).toContain('не найдена в таблице выпусков')
   })
@@ -123,7 +126,7 @@ describe('what the engine says about versions', () => {
   it('offers the move to the recommended line', () => {
     const f = find('VER-01:pg1:version')
     expect(f.fixes[0].kind).toBe('set_version')
-    expect(fixLabel(rule, f.fixes[0], f)).toBe('Перейти на 18 (PostgreSQL, «PostgreSQL primary»)')
+    expect(fixLabel(rule, f.fixes[0], f)).toBe(`Перейти на ${recommended} (PostgreSQL, «PostgreSQL primary»)`)
   })
 
   it('reports members on different lines', () => {

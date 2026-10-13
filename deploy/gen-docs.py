@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regenerates the tables of docs/RULES.md and docs/CONFIGURATION.md from the JSON registries.
+"""Regenerates the tables of docs/RULES.md, docs/CONFIGURATION.md, docs/IAC.md and docs/CATALOG.md from the JSON registries.
 
     python3 deploy/gen-docs.py            # rewrite the generated blocks
     python3 deploy/gen-docs.py --check    # exit 1 if the docs are out of date (used in CI)
@@ -16,9 +16,9 @@ ENGINE = ROOT / "backend/crates/engine/defaults"
 SERVER = ROOT / "backend/crates/server/defaults"
 
 CATEGORIES = {"ha": "Отказоустойчивость", "dr": "Катастрофоустойчивость", "net": "Сеть", "sec": "Безопасность", "cap": "Ёмкость",
-              "cost": "Стоимость", "gov": "Управление и согласованность", "obs": "Наблюдаемость"}
+              "cost": "Стоимость", "gov": "Управление и согласованность", "obs": "Наблюдаемость", "lifecycle": "Жизненный цикл продуктов"}
 GROUPS = {"general": "Общие", "auth": "Аутентификация", "llm": "ИИ / OpenRouter", "jobs": "Задачи ИИ", "limits": "Лимиты схемы",
-          "retention": "Хранение данных", "observability": "Наблюдаемость"}
+          "retention": "Хранение данных", "observability": "Наблюдаемость", "lifecycle": "Версии и жизненный цикл"}
 SEVERITY = {"critical": "критично", "risk": "риск"}
 
 
@@ -81,6 +81,41 @@ def settings_block():
     return "\n".join(out).rstrip()
 
 
+def catalog_block():
+    cat = json.loads((ENGINE / "catalog.json").read_text())
+    tables = {t["id"]: t for t in json.loads((ENGINE / "versions.json").read_text())}
+    kinds = cat["kinds"]
+    out = [f"Видов: **{len(kinds)}**, вариантов: **{sum(len(k.get('variants', [])) for k in kinds)}**, функций: **{sum(len(c.get('functions', [])) for c in cat['categories'])}**. "
+           "«Версии» — таблица выпусков, по которой проверяется срок поддержки (у варианта она может быть своей; прочерк — таблицы нет).", ""]
+    for c in sorted(cat["categories"], key=lambda c: c.get("order", 0)):
+        out += [f"### {ru(c['name'])}", ""]
+        for fn in c.get("functions", []):
+            ks = [k for k in kinds if k["category"] == c["id"] and k.get("function") == fn["id"]]
+            if not ks:
+                continue
+            out += [f"**{ru(fn['name'])}**", "", "| Вид | Поведение | Варианты | Версии |", "|---|---|---|---|"]
+            for k in ks:
+                vs = ", ".join(ru(v["name"]) + (" ★" if v.get("default") else "") for v in k.get("variants", [])) or "—"
+                default = next((v for v in k.get("variants", []) if v.get("default")), None)
+                table = (default or {}).get("versions", k.get("versions", k["id"]))
+                shown = ru(tables[table].get("name") or table) if table in tables else "—"
+                out.append(f"| `{k['id']}` — {cell(ru(k['name']))} | `{k['behavior']}` | {cell(vs)} | {cell(shown)} |")
+            out.append("")
+    return "\n".join(out).rstrip()
+
+
+def versions_block():
+    tables = json.loads((ENGINE / "versions.json").read_text())
+    as_of = sorted({t["asOf"] for t in tables if t.get("asOf")})
+    out = [f"Таблиц: **{len(tables)}**, данные на **{as_of[-1]}** (самая старая — {as_of[0]}). «LTS» — есть линия с долгой поддержкой.", "",
+           "| Таблица | Продукт | Линий | Новейшая линия | LTS |", "|---|---|---|---|---|"]
+    for t in tables:
+        newest = t["cycles"][0]["cycle"] if t["cycles"] else "—"
+        lts = "да" if any(c.get("lts") for c in t["cycles"]) else "—"
+        out.append(f"| `{t['id']}` | {cell(t.get('name') or t['id'])} | {len(t['cycles'])} | `{newest}` | {lts} |")
+    return "\n".join(out)
+
+
 def iac_kinds_block():
     d = ENGINE / "iac"
     catalog = {k["id"]: k for k in json.loads((ENGINE / "catalog.json").read_text())["kinds"]}
@@ -116,6 +151,8 @@ BLOCKS = {
     "settings": ("docs/CONFIGURATION.md", settings_block),
     "iac-kinds": ("docs/IAC.md", iac_kinds_block),
     "iac-operators": ("docs/IAC.md", iac_operators_block),
+    "catalog": ("docs/CATALOG.md", catalog_block),
+    "versions": ("docs/CATALOG.md", versions_block),
 }
 
 

@@ -1,0 +1,65 @@
+name: Release tables
+
+# The support dates of the products (catalog.versions) come from endoflife.date. Once a week this job fetches them again,
+# rebuilds what depends on them (recommended versions in the default catalog, generated documentation, the recorded
+# engine output the editor's tests run on), runs the tests and commits the result. A failing test or an unreachable
+# source leaves main as it was and fails the run.
+on:
+  schedule:
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: versions-refresh
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: backend
+      - name: Fetch the support dates
+        run: python3 deploy/versions-sync.py
+      - name: No table is older than three weeks
+        run: python3 deploy/versions-sync.py --check --max-stale-days 21
+      - name: Rebuild the default catalog and the generated documentation
+        run: |
+          python3 deploy/catalog/build.py
+          python3 deploy/gen-docs.py
+      - name: Record the engine's verdicts again for the editor's tests
+        run: deploy/rerecord-fixtures.sh
+      - name: Anything new?
+        id: diff
+        run: |
+          if git diff --quiet; then echo "changed=false" >> "$GITHUB_OUTPUT"; else echo "changed=true" >> "$GITHUB_OUTPUT"; fi
+      - name: The engine agrees with the new tables
+        if: steps.diff.outputs.changed == 'true'
+        working-directory: backend
+        run: cargo test -p engine --locked
+      - uses: actions/setup-node@v4
+        if: steps.diff.outputs.changed == 'true'
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: The editor agrees with the new tables
+        if: steps.diff.outputs.changed == 'true'
+        working-directory: frontend
+        run: |
+          npm ci
+          npm test
+      - name: Commit
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A backend/crates/engine/defaults docs frontend/tests/fixtures
+          git commit -m "Release tables: support dates refreshed from endoflife.date"
+          git push

@@ -37,23 +37,35 @@ answers `403 password_change_required`.
 ```
 { user, rev, version, engineVersion,
   app: {name, defaultLanguage, languages, theme, quickPrompts},   // quickPrompts: [{label: LText, prompt: LText}] (setting ui.quickPrompts)
-  catalog: Catalog,            // kinds, edgeTypes, zoneTypes, categories, commonProps
+  catalog: Catalog,            // kinds (products; each with function, variants, versions), edgeTypes, zoneTypes, categories (with functions), commonProps
   rules: Rule[],               // texts for rendering findings
   templates: [{id, name, description, badge, order, nodeCount, requirements}],
   exportFormats: [{id, group}],   // id: json|kubernetes|helm|terraform|adr|runbook|mermaid; group: iac|docs|data
   ai: {enabled, configured, maxPromptChars, plannerModel, fastModel},
+  editor: {…},                 // timings and thresholds of the web UI (settings group editor.*)
   limits: {maxNodes, maxEdges, maxZones, waiverMinReasonChars, waiverMaxDays},
-  engine: {currency, symbol, minCapacityDuringFailure, headroomPercent, defaultFailureTolerance} }
+  today: "YYYY-MM-DD",         // the date (UTC) the lifecycle verdicts are given for
+  engine: {currency, symbol, lifecycle: {warnDays, matureDays, preferLts, staleDays},
+           minCapacityDuringFailure, headroomPercent, defaultFailureTolerance, toleranceLevels, maxSiteFailures} }
 ```
 
 `LText` values (names, texts) are a string or `{ru, en, …}`; resolve with a fallback to `en`, then `ru`.
+
+### Products, variants and versions
+
+A catalog **kind is a product**. `kind.function` names the job it does (`rdbms`, `cache`, …; functions are declared in `categories[].functions`), `kind.variants[]` are the ways to deploy it
+(`{id, name, description, default?, behavior?, roles?, addTraits?, removeTraits?, defaults?, capacity?, cost?, versions?}`), `kind.versions` is the id of its release table (`""` = none). A node picks a variant
+and a version with `props.variant` / `props.version`; an unknown variant is rejected by validation (`unknown_variant`). See [CATALOG.md](CATALOG.md).
+
+`GET /versions` → `{today, tables: VersionSet[]}`, `VersionSet = {id, name?, source, asOf, cycles:[{cycle, releaseDate?, support?, eol?, latest?, latestReleaseDate?, lts}]}`
+(`support`/`eol` are `"YYYY-MM-DD"`, `true` or `false`). Supports `If-None-Match` → `304`. The editor judges versions from it with the same rules as the engine's `VER-01`.
 
 ## Projects
 
 | Method | Path | Notes |
 |---|---|---|
 | GET | `/projects` | `{projects:[{id,name,description,owner,updatedAt,createdAt,headVersion,draftRev,nodeCount,summary,thumb}]}`; `summary` = `ReportSummary` of the latest version; `thumb` = what a thumbnail needs, see below |
-| POST | `/projects` | `{name, description?, templateId? \| architecture?, lang?}` → `{id}` (editor) |
+| POST | `/projects` | `{name, description?, templateId? \| architecture? \| placement?, lang?}` → `{id}` (editor); `placement` is a `PlacementRequest` (see Placement below), `400 placement_failed` if it cannot be generated |
 | GET | `/projects/{id}` | `{project, architecture, rev, waivers}` |
 | PATCH | `/projects/{id}` | `{name?, description?}` |
 | DELETE | `/projects/{id}` | soft delete (owner or admin) |
@@ -91,8 +103,8 @@ around applied AI proposals).
 `scenario` is one of
 `{"type":"none"}`, `{"type":"instance","nodeId":"…","count":1}`, `{"type":"node","nodeId":"…"}`,
 `{"type":"unit","unit":"<group>"}`, `{"type":"zone","zoneId":"…"}`,
-`{"type":"link","a":"<zoneId>","b":"<zoneId>"}`, `{"type":"sites","zoneIds":["…","…"]}`,
-`{"type":"geo","geo":"<label>"}`.
+`{"type":"link","a":"<zoneId>","b":"<zoneId>"}`, `{"type":"isolate","zoneIds":["…","…"]}` (sites cut off from the rest but alive),
+`{"type":"sites","zoneIds":["…","…"]}`, `{"type":"geo","geo":"<label>"}`.
 
 ### Report
 
@@ -156,6 +168,19 @@ reroute scale_out capacity_overload soft_dependency_lost`.
 (zones), `type label source target props.<key>` (edges). `null` clears. Operations are atomic: either all
 apply and the result validates, or nothing changes (`400 ops_invalid`).
 
+## Placement
+
+The wizard that builds a complete design for any number of sites ([PLACEMENT.md](PLACEMENT.md)). Nothing is stored; a project is created with `POST /projects {placement}`.
+
+| Method | Path | Body → Response |
+|---|---|---|
+| GET | `/placement/options` | `{patterns, stacks:[{id,name,layers:[{id,name,kind,alternatives,function,scope,optional,default,dcs,products:[{kind,variants:[{id,default,managed}]}]}]}], siteTypes, maxSiteFailures, maxNodes}` |
+| POST | `/placement/preview` | `PlacementRequest` → `{architecture, sites:[{id,name,role,geo,racks}], siteFailures, notes:[{code,level,vars}], report, nodes, edges}`; `report` = `{score, coverage, counts, objectives, cost, scenarioStats, worstCapacity, findings}` |
+| POST | `/placement/compare` | `{base, variants:[…]}` → `{variants:[{ok:true, pattern, sites, siteFailures, nodes, zones, workingSites, arbiterSites, notes, report} \| {ok:false, pattern, sites, error:{code,message}}]}`; `400 invalid_variants` beyond `limits.placementCompareMax` |
+
+`PlacementRequest = {pattern, sites?, regions?, racks?, siteFailures?, stack?, layers?, kinds?, variants?, requirements?, siteType?, lang?, name?, maxNodes?}`: `kinds` maps a layer id to a product of the layer's function,
+`variants` maps a layer id to a variant of that product. Errors: `400 placement_failed` with `details.code` (`unknown_pattern`, `sites_out_of_range`, `unknown_stack`, `unknown_kind`, `bad_kind`, `unknown_variant`, `too_many_nodes`, …).
+
 ## AI
 
 Requires an OpenRouter key (`llm.apiKey` or `OPENROUTER_API_KEY`) and `llm.enabled`.
@@ -190,7 +215,7 @@ version first.
 | GET | `/admin/llm/usage?days=` | spend per day / model / user, month spend vs. budget |
 | GET | `/admin/config` | per-kind counters + items that failed to parse |
 | GET | `/admin/config/{kind}` | `{items:[{id,data,origin,modified,updateAvailable,hasDefault,updatedAt,updatedBy}]}` (jsonb: object keys come back sorted by length, not in the original order) |
-| POST | `/admin/config/{kind}` | `{id, data}` create a custom item. `data.id` must equal `id`. Not available for the single-document kinds `catalog.common_props` (id `common`) and `engine` (id `engine`): `400 invalid_kind` |
+| POST | `/admin/config/{kind}` | `{id, data}` create a custom item. `data.id` must equal `id`. Not available for the single-document kinds `catalog.common_props` (id `common`), `engine` (id `engine`) and `placement.settings` (id `placement`): `400 invalid_kind` |
 | PUT | `/admin/config/{kind}/{id}` | `{data}` (validated against the engine types; `data.id == id`). The audit event lists the changed top-level keys |
 | DELETE | `/admin/config/{kind}/{id}` | custom items only: `404` for an unknown id, `409 not_deletable` for a built-in one |
 | POST | `/admin/config/{kind}/{id}/reset` | back to the built-in default (also dismisses `updateAvailable`) |
@@ -198,8 +223,10 @@ version first.
 | GET/POST | `/admin/users` | create returns `temporaryPassword` if none was given (the user must change it on the first sign-in) |
 | PATCH | `/admin/users/{id}` | `{name?, role?, disabled?}`. The last active admin is protected (`409 last_admin`) and nobody can demote or disable their own account (`409 self_lockout`). `lockedUntil` is `null` once the lock expired |
 | POST | `/admin/users/{id}/reset-password` | `{password?}` (the user must change it again) |
+| GET | `/admin/versions/status` | `{today, tables, staleDays, stale:[id], oldestDays, autoSyncDays, sourceBases, last:{at, by: auto\|manual, ok, failed:[{id,error}]}\|null}` – how fresh the release tables are |
+| POST | `/admin/versions/sync` | `{ids?:[…]}` (all tables with an `http…` source when empty) → `{results:[{id,ok,cycles,asOf,error}], ok, failed}`. Fetches only addresses under `versions.sourceBases`; a bad answer never empties a table; audited as `versions.sync` |
 | GET | `/admin/audit?limit=&before=&action=&actor=` | `action` is a literal prefix (`config.` lists all configuration changes), `actor` a case-insensitive substring; `before` is the id cursor |
 | GET | `/admin/system` | version, db, migrations, config rev, jobs, env flags (never secrets) |
 
-Config `kind` values: `catalog.kind catalog.edge_type catalog.zone_type catalog.category catalog.common_props
-rule template prompt engine`. Prompt templates use `{{name}}` placeholders (double braces, exact spelling).
+Config `kind` values: `catalog.kind catalog.edge_type catalog.zone_type catalog.category catalog.common_props catalog.versions
+rule template iac prompt engine placement.pattern placement.stack placement.settings`. Prompt templates use `{{name}}` placeholders (double braces, exact spelling).
