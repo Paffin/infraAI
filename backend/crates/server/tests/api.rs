@@ -153,6 +153,71 @@ async fn demo_project_projects_versions_conflicts_and_diff() {
 }
 
 #[tokio::test]
+async fn project_list_carries_a_thumbnail_of_the_diagram() {
+    let app = TestApp::new().await;
+    let c = app.login_admin().await;
+    let (_, tpl) = app.get(&c, "/api/templates/two-dc-witness").await;
+    let arch = tpl["architecture"].clone();
+    let (s, created) = app.post(&c, "/api/projects", json!({"name": "thumb", "templateId": "two-dc-witness"})).await;
+    assert_eq!(s, StatusCode::OK, "{created}");
+    let (s, blank) = app.post(&c, "/api/projects", json!({"name": "blank"})).await;
+    assert_eq!(s, StatusCode::OK, "{blank}");
+
+    let (s, list) = app.get(&c, "/api/projects").await;
+    assert_eq!(s, StatusCode::OK);
+    let find = |id: &Value| list["projects"].as_array().unwrap().iter().find(|p| p["id"] == *id).unwrap().clone();
+
+    // everything a thumbnail needs, nothing else: ids, positions, kinds, zone rectangles, edge ends
+    let item = find(&created["id"]);
+    let thumb = &item["thumb"];
+    let nodes = thumb["nodes"].as_array().unwrap();
+    assert_eq!(nodes.len() as u64, item["nodeCount"].as_u64().unwrap());
+    assert_eq!(nodes.len(), arch["nodes"].as_array().unwrap().len());
+    assert_eq!(thumb["zones"].as_array().unwrap().len(), arch["zones"].as_array().unwrap().len());
+    assert_eq!(thumb["edges"].as_array().unwrap().len(), arch["edges"].as_array().unwrap().len());
+    let ids: Vec<&str> = nodes.iter().map(|n| n["i"].as_str().unwrap()).collect();
+    for n in nodes {
+        assert!(n["k"].is_string(), "kind: {n}");
+        // a template has no layout until the editor opens it: coordinates are null, not missing
+        assert!(n.get("x").is_some() && n.get("y").is_some(), "{n}");
+    }
+    for z in thumb["zones"].as_array().unwrap() {
+        assert!(z["t"].is_string(), "{z}");
+    }
+    for e in thumb["edges"].as_array().unwrap() {
+        assert!(ids.contains(&e[0].as_str().unwrap()) && ids.contains(&e[1].as_str().unwrap()) && e[2].is_string(), "{e}");
+    }
+
+    // once the editor has laid the diagram out and saved it, the thumbnail has the coordinates
+    let (_, p) = app.get(&c, &format!("/api/projects/{}", created["id"].as_str().unwrap())).await;
+    let mut laid = p["architecture"].clone();
+    for (i, n) in laid["nodes"].as_array_mut().unwrap().iter_mut().enumerate() {
+        n["ui"] = json!({"x": 40 + (i as i64 % 4) * 260, "y": 60 + (i as i64 / 4) * 120});
+    }
+    for (i, z) in laid["zones"].as_array_mut().unwrap().iter_mut().enumerate() {
+        z["ui"] = json!({"x": 20 + i as i64 * 600, "y": 10, "w": 560, "h": 900});
+    }
+    let (s, v) = app.put(&c, &format!("/api/projects/{}/draft", created["id"].as_str().unwrap()), json!({"architecture": laid, "expectedRev": p["rev"]})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    let (_, list) = app.get(&c, "/api/projects").await;
+    let item = list["projects"].as_array().unwrap().iter().find(|p| p["id"] == created["id"]).unwrap().clone();
+    let thumb = &item["thumb"];
+    for n in thumb["nodes"].as_array().unwrap() {
+        assert!(n["x"].is_number() && n["y"].is_number(), "{n}");
+    }
+    for z in thumb["zones"].as_array().unwrap() {
+        assert!(z["w"].as_f64().unwrap() > 0.0 && z["h"].as_f64().unwrap() > 0.0, "{z}");
+    }
+    // names and properties stay on the server: the list must not grow with the document
+    assert!(thumb["nodes"].as_array().unwrap().iter().all(|n| n.get("name").is_none() && n.get("props").is_none()));
+
+    // an empty project has an empty thumbnail
+    let item = find(&blank["id"]);
+    assert_eq!(item["thumb"], json!({"zones": [], "nodes": [], "edges": []}));
+    app.cleanup().await;
+}
+
+#[tokio::test]
 async fn waivers_require_a_real_finding_and_a_reason_and_affect_the_score() {
     let app = TestApp::new().await;
     let c = app.login_admin().await;

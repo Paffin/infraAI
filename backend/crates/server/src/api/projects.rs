@@ -31,18 +31,31 @@ pub struct ProjectRow {
     draft_rev: i64,
     node_count: i64,
     summary: Option<Value>,
+    /// Layout of the working copy, just enough to draw a thumbnail: `zones` (`i` id, `x y w h`, `t` type, `p` parent),
+    /// `nodes` (`i` id, `x y`, `k` kind, `z` zone) and `edges` (`[source, target, type]`). Coordinates are `null` until the
+    /// project has been laid out in the editor.
+    thumb: Option<Value>,
 }
 
+/// SQL that boils the draft down to the thumbnail (see `ProjectRow::thumb`) without shipping the whole document.
+const THUMB_SQL: &str = "(select jsonb_build_object(
+        'zones', coalesce((select jsonb_agg(jsonb_build_object('i', z->'id', 'x', z#>'{ui,x}', 'y', z#>'{ui,y}', 'w', z#>'{ui,w}', 'h', z#>'{ui,h}', 't', z->'type', 'p', z->'parentId'))
+                             from jsonb_array_elements(coalesce(p.draft->'zones', '[]'::jsonb)) z), '[]'::jsonb),
+        'nodes', coalesce((select jsonb_agg(jsonb_build_object('i', n->'id', 'x', n#>'{ui,x}', 'y', n#>'{ui,y}', 'k', n->'kind', 'z', n->'zoneId'))
+                             from jsonb_array_elements(coalesce(p.draft->'nodes', '[]'::jsonb)) n), '[]'::jsonb),
+        'edges', coalesce((select jsonb_agg(jsonb_build_array(e->'source', e->'target', e->'type'))
+                             from jsonb_array_elements(coalesce(p.draft->'edges', '[]'::jsonb)) e), '[]'::jsonb))) as thumb";
+
 pub async fn list(State(state): State<AppState>, _user: AuthUser) -> ApiResult<Json<Value>> {
-    let rows = sqlx::query(
+    let sql = format!(
         "select p.id, p.name, p.description, u.email as owner, p.updated_at, p.created_at, p.head_version, p.draft_rev,
                 jsonb_array_length(coalesce(p.draft->'nodes', '[]'::jsonb)) as node_count,
-                (select v.summary from versions v where v.project_id = p.id and v.n = p.head_version) as summary
+                (select v.summary from versions v where v.project_id = p.id and v.n = p.head_version) as summary,
+                {THUMB_SQL}
          from projects p left join users u on u.id = p.owner_id
-         where p.deleted_at is null order by p.updated_at desc limit 500",
-    )
-    .fetch_all(&state.pool)
-    .await?;
+         where p.deleted_at is null order by p.updated_at desc limit 500"
+    );
+    let rows = sqlx::query(&sql).fetch_all(&state.pool).await?;
     let items: Vec<ProjectRow> = rows
         .into_iter()
         .map(|r| ProjectRow {
@@ -56,6 +69,7 @@ pub async fn list(State(state): State<AppState>, _user: AuthUser) -> ApiResult<J
             draft_rev: r.get("draft_rev"),
             node_count: r.get::<Option<i32>, _>("node_count").unwrap_or(0) as i64,
             summary: r.get("summary"),
+            thumb: r.get("thumb"),
         })
         .collect();
     Ok(Json(json!({"projects": items})))
