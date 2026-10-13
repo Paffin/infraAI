@@ -35,3 +35,8 @@ export function realRule(id: string) {
   const rules: { id: string }[] = JSON.parse(readFileSync(join(process.cwd(), '..', 'backend', 'crates', 'engine', 'defaults', 'rules.json'), 'utf8'))
   return rules.find((r) => r.id === id) as import('../src/api/types').Rule | undefined
 }
+
+/** The shipped placement configuration (patterns, stacks, generator settings): the file the backend seeds `placement.*` from. */
+export function realPlacement(): { patterns: { id: string; stack: string; [k: string]: unknown }[]; stacks: { id: string; layers: { id: string; [k: string]: unknown }[] }[]; settings: Record<string, unknown> } {
+  return JSON.parse(readFileSync(join(process.cwd(), '..', 'backend', 'crates', 'engine', 'defaults', 'placement.json'), 'utf8'))
+}

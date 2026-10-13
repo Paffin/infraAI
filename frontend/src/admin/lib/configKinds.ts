@@ -21,6 +21,9 @@ export const CONFIG_KINDS: KindMeta[] = [
   { kind: 'catalog.category', section: 'catalog', sub: 'category', single: false },
   { kind: 'catalog.versions', section: 'catalog', sub: 'versions', single: false },
   { kind: 'catalog.common_props', section: 'catalog', sub: 'common_props', single: true },
+  { kind: 'placement.pattern', section: 'placement', sub: 'pattern', single: false },
+  { kind: 'placement.stack', section: 'placement', sub: 'stack', single: false },
+  { kind: 'placement.settings', section: 'placement', sub: 'settings', single: true },
   { kind: 'rule', section: 'rules', single: false },
   { kind: 'template', section: 'templates', single: false },
   { kind: 'iac', section: 'iac', single: false },
@@ -32,9 +35,13 @@ export function kindMeta(kind: string): KindMeta | undefined {
   return CONFIG_KINDS.find((k) => k.kind === kind)
 }
 
+/** Sections with several pages and the page that opens first. */
+export const SECTION_SUBS: Record<string, string> = { catalog: 'kind', placement: 'pattern' }
+
 export function kindFromRoute(section: string | undefined, sub: string | undefined): KindMeta | undefined {
   if (!section) return undefined
-  if (section === 'catalog') return CONFIG_KINDS.find((k) => k.section === 'catalog' && k.sub === (sub || 'kind'))
+  const first = SECTION_SUBS[section]
+  if (first) return CONFIG_KINDS.find((k) => k.section === section && k.sub === (sub || first))
   return CONFIG_KINDS.find((k) => k.section === section)
 }
 
@@ -45,8 +52,8 @@ export function kindPath(kind: string, itemId?: string): { path: string; query?:
   return itemId ? { path, query: { item: itemId } } : { path }
 }
 
-export const SECTION_IDS = ['settings', 'llm', 'catalog', 'rules', 'templates', 'iac', 'prompts', 'engine', 'backup', 'users', 'audit', 'system'] as const
-export const CONFIG_SECTIONS = ['catalog', 'rules', 'templates', 'iac', 'prompts', 'engine'] as const
+export const SECTION_IDS = ['settings', 'llm', 'catalog', 'placement', 'rules', 'templates', 'iac', 'prompts', 'engine', 'backup', 'users', 'audit', 'system'] as const
+export const CONFIG_SECTIONS = ['catalog', 'placement', 'rules', 'templates', 'iac', 'prompts', 'engine'] as const
 export type SectionId = typeof SECTION_IDS[number]
 
 export function normalizeSection(s: unknown): SectionId {
@@ -67,7 +74,7 @@ function pick(data: Record<string, unknown>, ...keys: string[]): LText | undefin
 
 /** Human title of a config item, derived from its data (names/titles are LText). */
 export function itemTitle(kind: string, id: string, data: unknown, lt: (x: LText | null | undefined) => string = defaultLt, fallbackTitle = ''): ItemTitle {
-  if (kind === 'catalog.common_props' || kind === 'engine') return { title: fallbackTitle || id, subtitle: '' }
+  if (kind === 'catalog.common_props' || kind === 'engine' || kind === 'placement.settings') return { title: fallbackTitle || id, subtitle: '' }
   if (!isPlainObject(data)) return { title: id, subtitle: '' }
   const title = lt(pick(data, 'title', 'name')) || id
   const s = (k: string) => (typeof data[k] === 'string' ? (data[k] as string) : '')
@@ -81,9 +88,19 @@ export function itemTitle(kind: string, id: string, data: unknown, lt: (x: LText
     case 'prompt': subtitle = [s('role'), s('system') ? t('admin.prompt.charsShort', { n: s('system').length }) : ''].filter(Boolean).join(' · '); break
     case 'template': subtitle = lt(pick(data, 'description')); break
     case 'iac': subtitle = [s('target'), s('granularity'), data.enabled === false ? t('admin.iac.disabled') : ''].filter(Boolean).join(' · '); break
+    case 'placement.pattern': subtitle = [sitesRange(data), s('tolerance'), s('stack'), data.enabled === false ? t('admin.iac.disabled') : ''].filter(Boolean).join(' · '); break
+    case 'placement.stack': subtitle = Array.isArray(data.layers) ? t('admin.placement.layersCount', { n: data.layers.length }) : ''; break
     default: break
   }
   return { title, subtitle }
+}
+
+/** `2–20 площадок` / `1 площадка` for the list of placement patterns. */
+function sitesRange(data: Record<string, unknown>): string {
+  const min = typeof data.minSites === 'number' ? data.minSites : 1
+  const max = typeof data.maxSites === 'number' ? data.maxSites : undefined
+  const range = max === undefined ? `${min}+` : min === max ? String(min) : `${min}–${max}`
+  return t('admin.placement.sitesCount', { range, n: max ?? min })
 }
 
 /** Search over id, title and the raw JSON of an item (so values like a `check` type are found too). */
@@ -147,7 +164,11 @@ const KEY_ORDER: Record<string, string[]> = {
   iac: ['id', 'title', 'enabled', 'target', 'reason', 'granularity', 'requires', 'unsupported', 'needs', 'vars', 'objects', 'releases', 'secrets', 'notes'],
   prompt: ['id', 'title', 'role', 'system'],
   engine: ['assumptions', 'scoring', 'scenarios', 'tolerance', 'authority', 'lifecycle', 'cost', 'export'],
+  'placement.pattern': ['id', 'name', 'description', 'badge', 'enabled', 'order', 'minSites', 'maxSites', 'defaultSites', 'siteType', 'regions', 'racks', 'tolerance', 'siteFailures', 'witness', 'standbySites', 'syncWithinGeo', 'offsiteBackupSite', 'requirements', 'stack', 'pros', 'cons'],
+  'placement.stack': ['id', 'name', 'description', 'order', 'layers'],
+  'placement.settings': ['intraSite', 'intraGeo', 'interGeo', 'siteNames', 'regionName', 'witnessName', 'rackName', 'rackShortName', 'backupSiteName', 'geoPrefix', 'witnessSiteType', 'regionZoneType', 'rackZoneType', 'minVoters', 'maxVoters', 'witnessProps', 'standbyScaleUpSeconds', 'standbyMinReplicas', 'maxNodes', 'tlsBetweenSites'],
 }
+const LAYER_ORDER = ['id', 'name', 'kind', 'alternatives', 'function', 'scope', 'optional', 'default', 'needs', 'props', 'sizing', 'copies', 'place', 'from', 'dcs']
 const PROP_ORDER = ['key', 'type', 'label', 'unit', 'min', 'max', 'options', 'default', 'group', 'help', 'refBehavior', 'refTrait', 'advanced', 'variants', 'lifecycle']
 const ARCH_ORDER = ['schemaVersion', 'meta', 'requirements', 'zones', 'nodes', 'edges']
 
@@ -169,6 +190,7 @@ export function orderedForEditor(kind: string, data: unknown): unknown {
   const out = reorder(data, KEY_ORDER[kind] ?? ['id'])
   if ('props' in out) out.props = orderProps(out.props)
   if (kind === 'template' && isPlainObject(out.architecture)) out.architecture = reorder(out.architecture, ARCH_ORDER)
+  if (kind === 'placement.stack' && Array.isArray(out.layers)) out.layers = out.layers.map((l) => (isPlainObject(l) ? reorder(l, LAYER_ORDER) : l))
   return out
 }
 
@@ -185,7 +207,7 @@ function cssVar(name: string): string {
 const empty = (): Record<string, string> => ({ ru: '', en: '' })
 
 /** A minimal valid document for a new custom item (the id is injected on creation). */
-export function skeleton(kind: string, id: string, ctx: { categories?: string[] } = {}): unknown {
+export function skeleton(kind: string, id: string, ctx: { categories?: string[]; stacks?: string[] } = {}): unknown {
   const color = cssVar('--accent')
   switch (kind) {
     case 'catalog.category': return { id, name: empty(), order: 100, functions: [] }
@@ -197,6 +219,13 @@ export function skeleton(kind: string, id: string, ctx: { categories?: string[] 
     case 'template': return { id, name: empty(), description: empty(), badge: '', enabled: true, order: 100, architecture: { schemaVersion: 1, meta: {}, requirements: {}, zones: [], nodes: [], edges: [] } }
     case 'prompt': return { id, title: empty(), system: '', role: 'planner' }
     case 'iac': return { id, title: empty(), enabled: true, target: 'kubernetes', granularity: 'unit', requires: [], objects: [] }
+    case 'placement.pattern':
+      return {
+        id, name: empty(), description: empty(), enabled: true, order: 100, minSites: 2, maxSites: null, defaultSites: 2, siteType: 'dc',
+        regions: { mode: 'single', default: 1, min: 1, max: 1 }, racks: { default: 1, min: 1, max: 1 }, tolerance: 'site',
+        siteFailures: { mode: 'fixed', value: 1, max: 1 }, witness: true, requirements: {}, stack: ctx.stacks?.[0] ?? '', pros: [], cons: [],
+      }
+    case 'placement.stack': return { id, name: empty(), description: empty(), order: 100, layers: [] }
     default: return { id }
   }
 }

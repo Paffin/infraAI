@@ -2,8 +2,9 @@
 
 import type { Component } from 'vue'
 import {
-  Activity, Bot, Boxes, DatabaseBackup, FileCode2, Gauge, LayoutTemplate, MessageSquareText, ScrollText, ShieldCheck, SlidersHorizontal, Users,
+  Activity, Bot, Boxes, DatabaseBackup, FileCode2, Gauge, LayoutTemplate, MapPinned, MessageSquareText, ScrollText, ShieldCheck, SlidersHorizontal, Users,
 } from 'lucide-vue-next'
+import { SECTION_SUBS } from './configKinds'
 
 export interface NavItem {
   id: string
@@ -42,6 +43,14 @@ export const NAV: NavGroup[] = [
           { id: 'catalog/common_props', to: '/admin/catalog/common_props', label: 'admin.nav.catalogCommon', kind: 'catalog.common_props' },
         ],
       },
+      {
+        id: 'placement', to: '/admin/placement/pattern', label: 'admin.nav.placement', icon: MapPinned,
+        children: [
+          { id: 'placement/pattern', to: '/admin/placement/pattern', label: 'admin.nav.placementPattern', kind: 'placement.pattern' },
+          { id: 'placement/stack', to: '/admin/placement/stack', label: 'admin.nav.placementStack', kind: 'placement.stack' },
+          { id: 'placement/settings', to: '/admin/placement/settings', label: 'admin.nav.placementSettings', kind: 'placement.settings' },
+        ],
+      },
       { id: 'rules', to: '/admin/rules', label: 'admin.nav.rules', icon: ShieldCheck, kind: 'rule' },
       { id: 'templates', to: '/admin/templates', label: 'admin.nav.templates', icon: LayoutTemplate, kind: 'template' },
       { id: 'iac', to: '/admin/iac', label: 'admin.nav.iac', icon: FileCode2, kind: 'iac' },
@@ -63,8 +72,8 @@ export const NAV: NavGroup[] = [
 
 /** Id of the nav item that is active for the given route params. */
 export function activeNavId(section: string, sub?: string): string {
-  if (section === 'catalog') return `catalog/${sub || 'kind'}`
-  return section
+  const first = SECTION_SUBS[section]
+  return first ? `${section}/${sub || first}` : section
 }
 
 /** Pending edits are tied to a nav item, except inside Settings where the drafts survive a group switch. */

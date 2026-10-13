@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { ArrowUpCircle } from 'lucide-vue-next'
 import { t } from '@/i18n'
+import { kindMeta } from '../lib/configKinds'
 import { activeNavId, NAV, type NavItem } from '../lib/nav'
 import { useAdminConfig } from '../store'
 
@@ -13,6 +14,10 @@ const parentOf = computed(() => current.value.split('/')[0])
 
 function counter(item: NavItem) {
   return item.kind ? store.counter(item.kind) : undefined
+}
+/** A single document (engine settings, common properties) is one item: a count of one tells nothing. */
+function counted(item: NavItem): boolean {
+  return !!item.kind && !kindMeta(item.kind)?.single
 }
 function errorsOf(item: NavItem): number {
   return item.kind ? store.errors.filter((e) => e.kind === item.kind).length : 0
@@ -34,7 +39,7 @@ function isActive(item: NavItem): boolean {
             <span v-if="errorsOf(item)" class="dot crit" :title="t('admin.nav.errors', { n: errorsOf(item) })" />
             <ArrowUpCircle v-if="counter(item)?.updatesAvailable" :size="13" class="subnav-upd" :title="t('admin.nav.updates', { n: counter(item)?.updatesAvailable })" />
             <span v-if="counter(item)?.modified" class="dot accent" :title="t('admin.nav.modified', { n: counter(item)?.modified })" />
-            <span v-if="counter(item) && !item.kind.endsWith('common_props') && item.kind !== 'engine'" class="subnav-count">{{ counter(item)?.count }}</span>
+            <span v-if="counter(item) && counted(item)" class="subnav-count">{{ counter(item)?.count }}</span>
           </template>
         </router-link>
         <div v-if="item.children" class="subnav-children">
@@ -43,7 +48,7 @@ function isActive(item: NavItem): boolean {
             <span v-if="errorsOf(c)" class="dot crit" :title="t('admin.nav.errors', { n: errorsOf(c) })" />
             <ArrowUpCircle v-if="counter(c)?.updatesAvailable" :size="13" class="subnav-upd" :title="t('admin.nav.updates', { n: counter(c)?.updatesAvailable })" />
             <span v-if="counter(c)?.modified" class="dot accent" :title="t('admin.nav.modified', { n: counter(c)?.modified })" />
-            <span v-if="counter(c) && c.kind !== 'catalog.common_props'" class="subnav-count">{{ counter(c)?.count }}</span>
+            <span v-if="counter(c) && counted(c)" class="subnav-count">{{ counter(c)?.count }}</span>
           </router-link>
         </div>
       </template>

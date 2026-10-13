@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest'
 import { setLang } from '../src/i18n'
+import { realPlacement } from './fixtures'
 import {
   CONFIG_KINDS, itemMatches, itemTitle, kindFromRoute, kindPath, normalizeSection, orderedForEditor, placeholdersIn, promptVars,
   skeleton, unknownPlaceholders, validItemId, withId,
@@ -15,6 +16,13 @@ describe('routing', () => {
     expect(kindFromRoute('rules', undefined)?.kind).toBe('rule')
     expect(kindFromRoute('engine', undefined)?.single).toBe(true)
     expect(kindFromRoute('users', undefined)).toBeUndefined()
+  })
+
+  it('opens the first page of a section with several pages', () => {
+    expect(kindFromRoute('placement', undefined)?.kind).toBe('placement.pattern')
+    expect(kindFromRoute('placement', 'stack')?.kind).toBe('placement.stack')
+    expect(kindFromRoute('placement', 'settings')?.single).toBe(true)
+    expect(kindFromRoute('placement', 'nope')).toBeUndefined()
   })
 
   it('builds links to items', () => {
@@ -44,6 +52,45 @@ describe('itemTitle', () => {
     expect(itemTitle('rule', 'R2', { check: 'x' }, lt).title).toBe('R2')
     expect(itemTitle('rule', 'R3', 'garbage', lt).title).toBe('R3')
     expect(itemTitle('engine', 'engine', {}, lt, 'Engine settings').title).toBe('Engine settings')
+  })
+})
+
+describe('placement items', () => {
+  beforeAll(() => setLang('en'))
+  const pc = realPlacement()
+
+  it('titles every shipped pattern and stack', () => {
+    for (const p of pc.patterns) {
+      const t = itemTitle('placement.pattern', p.id, p, (x) => lt(x, 'en'))
+      expect(t.title, p.id).not.toBe(p.id)
+      expect(t.subtitle, p.id).toContain(String(p.stack))
+    }
+    const single = pc.patterns.find((p) => p.minSites === 1 && p.maxSites === 1)!
+    expect(itemTitle('placement.pattern', single.id, single, (x) => lt(x, 'en')).subtitle).toMatch(/^1 site · /)
+    const many = pc.patterns.find((p) => typeof p.maxSites === 'number' && (p.maxSites as number) > 2)!
+    expect(itemTitle('placement.pattern', many.id, many, (x) => lt(x, 'en')).subtitle).toMatch(new RegExp(`^${many.minSites}–${many.maxSites} sites`))
+    const stack = pc.stacks[0]
+    expect(itemTitle('placement.stack', stack.id, stack, (x) => lt(x, 'en')).subtitle).toBe(`${stack.layers.length} layers`)
+    expect(itemTitle('placement.settings', 'placement', pc.settings, lt, 'Generator').title).toBe('Generator')
+  })
+
+  it('shows layer keys in a readable order without changing the content', () => {
+    const stack = pc.stacks[0]
+    const scrambled = { ...stack, layers: stack.layers.map((l) => Object.fromEntries(Object.entries(l).reverse())) }
+    const o = orderedForEditor('placement.stack', scrambled) as { layers: Record<string, unknown>[] }
+    expect(o).toEqual(scrambled)
+    for (const l of o.layers) {
+      const keys = Object.keys(l)
+      expect(keys.indexOf('id'), String(l.id)).toBe(0)
+      if ('kind' in l && 'scope' in l) expect(keys.indexOf('kind')).toBeLessThan(keys.indexOf('scope'))
+    }
+  })
+
+  it('starts a new pattern with a stack that exists and the settings with the ones shipped', () => {
+    const sk = skeleton('placement.pattern', 'p', { stacks: pc.stacks.map((s) => s.id) }) as Record<string, unknown>
+    expect(pc.stacks.map((s) => s.id)).toContain(sk.stack)
+    expect(sk.id).toBe('p')
+    expect(Object.keys(orderedForEditor('placement.settings', pc.settings) as object).slice(0, 3)).toEqual(['intraSite', 'intraGeo', 'interGeo'])
   })
 })
 

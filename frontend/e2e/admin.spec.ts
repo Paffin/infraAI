@@ -7,9 +7,11 @@ test.describe('admin panel', () => {
     page.on('pageerror', (e) => errors.push(e.message))
     page.on('console', (m) => { if (m.type() === 'error' && !m.text().includes('401')) errors.push(m.text()) })
     await login(page)
-    for (const path of ['settings', 'llm', 'catalog/catalog.kind', 'rules', 'templates', 'prompts', 'engine', 'backup', 'users', 'audit', 'system']) {
+    for (const path of ['settings', 'llm', 'catalog/kind', 'catalog/versions', 'catalog/category', 'placement/pattern', 'placement/stack', 'placement/settings', 'rules', 'templates', 'iac', 'prompts', 'engine', 'backup', 'users', 'audit', 'system']) {
       await page.goto('/admin/' + path)
       await expect(page.locator('#adm-main')).toBeVisible()
+      await expect(page.locator('#adm-main .cfg-section, #adm-main > *').first()).toBeVisible()
+      await expect(page.locator('#adm-main')).not.toHaveText(/^\s*404\s*$/)
       await expect(page.locator('body')).not.toContainText(/admin\.[a-z]+\.[a-z]/) // raw translation keys
     }
     expect(errors).toEqual([])
@@ -31,6 +33,37 @@ test.describe('admin panel', () => {
     await page.locator('.savebar .btn-primary, .adm-main .btn-primary', { hasText: 'Сохранить' }).first().click()
     await page.reload()
     await expect(page.locator('.brand span').first()).toHaveText(original)
+  })
+
+  test('placement patterns are data: an edit in the admin panel reaches the wizard and can be reset', async ({ page }) => {
+    await login(page)
+    await page.goto('/admin/placement/pattern')
+    const row = page.locator('.items-table tbody tr', { hasText: 'two-sites' })
+    await expect(row).toBeVisible()
+    await expect(row).toContainText('2 площадки')
+    await row.locator('.idcell button').click()
+    const editor = page.locator('.modal textarea').first()
+    const text = await editor.inputValue()
+    expect(text.indexOf('"id"')).toBeLessThan(text.indexOf('"minSites"')) // keys in a readable order
+    expect(text).toContain('"badge"')
+    const badge = `QA ${Date.now().toString(36)}`
+    await editor.fill(text.replace(/"badge": "[^"]*"/, `"badge": "${badge}"`))
+    await page.keyboard.press('Control+s')
+    await expect(page.locator('.items-table tbody tr', { hasText: 'two-sites' }).locator('.tag', { hasText: 'изменён' })).toBeVisible()
+
+    // the wizard offers the pattern with the new badge
+    await page.goto('/')
+    await page.getByRole('button', { name: 'Новый проект' }).first().click()
+    await page.locator('.wizard-card').click()
+    await expect(page.locator('.wiz .pat', { hasText: badge })).toBeVisible({ timeout: 20_000 })
+    await page.keyboard.press('Escape')
+
+    // reset to the built-in value
+    await page.goto('/admin/placement/pattern')
+    await page.locator('.items-table tbody tr', { hasText: 'two-sites' }).getByRole('button', { name: 'Сбросить к встроенному' }).click()
+    const confirm = page.locator('.modal-foot .btn-danger, .modal-foot .btn-primary').last()
+    if (await confirm.isVisible().catch(() => false)) await confirm.click()
+    await expect(page.locator('.items-table tbody tr', { hasText: 'two-sites' }).locator('.tag', { hasText: 'изменён' })).toHaveCount(0)
   })
 
   test('viewers cannot open the admin panel', async ({ page, request }) => {

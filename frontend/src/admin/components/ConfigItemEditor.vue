@@ -25,7 +25,10 @@ const store = useAdminConfig()
 
 const create = computed(() => !props.item)
 const categories = computed(() => [...new Set(props.items.map((i) => (isPlainObject(i.data) && typeof i.data.category === 'string' ? i.data.category : '')).filter(Boolean))])
-const initialText = props.item ? pretty(orderedForEditor(props.kind, props.item.data)) : pretty(skeleton(props.kind, '', { categories: categories.value }))
+/** The stacks the existing placement patterns use: a new pattern starts with one that exists. */
+const stacks = computed(() => [...new Set(props.items.map((i) => (isPlainObject(i.data) && typeof i.data.stack === 'string' ? i.data.stack : '')).filter(Boolean))])
+const blank = () => pretty(skeleton(props.kind, '', { categories: categories.value, stacks: stacks.value }))
+const initialText = props.item ? pretty(orderedForEditor(props.kind, props.item.data)) : blank()
 
 const newId = ref('')
 const startFrom = ref('')
@@ -56,7 +59,7 @@ onMounted(() => {
 
 function pickStart() {
   const src = props.items.find((i) => i.id === startFrom.value)
-  text.value = src ? pretty(orderedForEditor(props.kind, src.data)) : pretty(skeleton(props.kind, '', { categories: categories.value }))
+  text.value = src ? pretty(orderedForEditor(props.kind, src.data)) : blank()
   serverError.value = null
 }
 
