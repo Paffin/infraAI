@@ -332,7 +332,9 @@ pub fn validate(arch: &Architecture, cat: &crate::catalog::Catalog, limits: &Val
             )),
             Some(k) => {
                 if let Some(role) = &n.role {
-                    if !k.roles.is_empty() && !k.roles.iter().any(|r| &r.id == role) {
+                    let variant = cat.variant(&n.kind, n.props.get("variant").and_then(as_string).as_deref());
+                    let roles = cat.roles_of(k, variant);
+                    if !roles.is_empty() && !roles.iter().any(|r| &r.id == role) {
                         out.push(Issue::warn("unknown_role", Some(&n.id), format!("node '{}' role '{}' is not defined for kind '{}'", n.id, role, n.kind)));
                     }
                 }

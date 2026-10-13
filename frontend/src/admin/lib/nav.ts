@@ -38,6 +38,7 @@ export const NAV: NavGroup[] = [
           { id: 'catalog/edge_type', to: '/admin/catalog/edge_type', label: 'admin.nav.catalogEdge', kind: 'catalog.edge_type' },
           { id: 'catalog/zone_type', to: '/admin/catalog/zone_type', label: 'admin.nav.catalogZone', kind: 'catalog.zone_type' },
           { id: 'catalog/category', to: '/admin/catalog/category', label: 'admin.nav.catalogCategory', kind: 'catalog.category' },
+          { id: 'catalog/versions', to: '/admin/catalog/versions', label: 'admin.nav.catalogVersions', kind: 'catalog.versions' },
           { id: 'catalog/common_props', to: '/admin/catalog/common_props', label: 'admin.nav.catalogCommon', kind: 'catalog.common_props' },
         ],
       },

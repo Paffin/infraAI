@@ -3,16 +3,20 @@ import { computed, nextTick, ref, watch } from 'vue'
 import { ArrowLeftRight, ChevronDown, ChevronRight, Copy, Trash2, X } from 'lucide-vue-next'
 import type { PropDef, Scalar } from '@/api/types'
 import { lt, t } from '@/i18n'
-import { edgeEffectiveProps, effectiveProps, kindPropDefs } from '@/lib/catalog'
+import { behaviorOf, edgeEffectiveProps, effectiveProps, functionGroups, kindPropDefs, traitsOf, variantOf } from '@/lib/catalog'
 import { findingTitle, statusTagClass, statusLabel } from '@/lib/findings'
 import { useApp } from '@/stores/app'
 import { useEditor } from '@/stores/editor'
 import { useUi } from '@/stores/ui'
+import { isManaged, versionRefs } from '@/lib/product'
+import { useToasts } from '@/stores/toasts'
 import PropControl from './PropControl.vue'
+import VersionField from './VersionField.vue'
 
 const app = useApp()
 const editor = useEditor()
 const ui = useUi()
+const toasts = useToasts()
 const advanced = ref(false)
 /** Property groups beyond the first two start collapsed so that the card stays compact. */
 const groupState = ref<Record<string, boolean>>({})
@@ -31,7 +35,13 @@ const dis = computed(() => editor.readonly)
 
 const title = computed(() => node.value?.name ?? (edge.value ? t('inspector.edge') : zone.value?.name ?? ''))
 
-const nodeDefs = computed<PropDef[]>(() => (node.value ? kindPropDefs(ix.value, node.value.kind) : []))
+const variant = computed(() => variantOf(kind.value, node.value?.props.variant))
+const nodeDefs = computed<PropDef[]>(() => (node.value ? kindPropDefs(ix.value, node.value.kind, node.value.props.variant) : []))
+/** The version of the product is part of choosing it: it sits with the product, not in a collapsible group. */
+const versionDef = computed(() => nodeDefs.value.find((d) => d.key === 'version'))
+/** Release tables that judge the versions of this node (own version and OS / runtime). */
+const refs = computed(() => (node.value ? versionRefs(ix.value, app.versions, node.value.kind, node.value.props) : []))
+const refOf = (key: string) => refs.value.find((r) => r.prop === key)
 const nodeEff = computed(() => (node.value ? effectiveProps(ix.value, node.value.kind, node.value.props) : {}))
 const edgeEff = computed(() => (edge.value ? edgeEffectiveProps(ix.value, edge.value.type, edge.value.props) : {}))
 
@@ -47,15 +57,18 @@ function split(defs: PropDef[]) {
   }
   return { groups, adv }
 }
-const nodeSplit = computed(() => split(nodeDefs.value))
+const nodeSplit = computed(() => split(nodeDefs.value.filter((d) => d.key !== 'version')))
 const edgeSplit = computed(() => split(edgeDef.value?.props ?? []))
 
-/** Units (groups of nodes) that a `unit_ref` property may point to. */
+/** Units (groups of nodes) that a `unit_ref` property may point to: the right behavior (a consensus cluster) and, when
+ * the property asks for it, the right trait (only some consensus products can be a DCS). */
 function refsFor(def: PropDef): [string, string][] {
   const out = new Map<string, string>()
   for (const n of editor.arch.nodes) {
     const k = ix.value.kinds.get(n.kind)
-    if (def.refBehavior && k?.behavior !== def.refBehavior) continue
+    const v = variantOf(k, n.props.variant)
+    if (def.refBehavior && behaviorOf(k, v) !== def.refBehavior) continue
+    if (def.refTrait && !traitsOf(k, v).has(def.refTrait)) continue
     const key = n.group || n.id
     if (!out.has(key)) out.set(key, editor.report?.units[key] ?? n.name)
   }
@@ -64,7 +77,19 @@ function refsFor(def: PropDef): [string, string][] {
 
 const zoneOptions = computed(() => editor.arch.zones.map((z) => ({ id: z.id, name: z.name })))
 const nodeOptions = computed(() => editor.arch.nodes.map((n) => ({ id: n.id, name: n.name })))
-const kindOptions = computed(() => (app.boot?.catalog.kinds ?? []).filter((k) => !k.hidden || k.id === node.value?.kind))
+/** Products grouped by what they do, in the library's order: the user picks "a relational database", then the product. */
+const kindGroups = computed(() => {
+  const cat = app.boot?.catalog
+  if (!cat) return []
+  const keep = (k: { id: string; hidden?: boolean }) => !k.hidden || k.id === node.value?.kind
+  return [...cat.categories].sort((a, b) => a.order - b.order).flatMap((c) => functionGroups(cat, c.id, keep).map((g) => ({ key: c.id + '/' + g.id, name: g.id ? lt(g.name) : lt(c.name), kinds: g.kinds })))
+})
+const managed = computed(() => isManaged(variant.value, kind.value))
+function changeKind(e: Event) {
+  const id = (e.target as HTMLSelectElement).value
+  const dropped = editor.changeKind(node.value!.id, id)
+  if (dropped.length) toasts.info(t('product.switch.dropped', { keys: dropped.join(', ') }))
+}
 const edgeTypes = computed(() => app.boot?.catalog.edgeTypes ?? [])
 const zoneTypes = computed(() => app.boot?.catalog.zoneTypes ?? [])
 const containedNodes = computed(() => (zone.value ? editor.arch.nodes.filter((n) => n.zoneId === zone.value!.id).length : 0))
@@ -126,12 +151,24 @@ watch(() => ui.focusRequest, () => void nextTick(applyFocus), { immediate: true 
         <label class="prop"><span class="lbl">{{ t('inspector.name') }}</span>
           <input class="in" :disabled="dis" :value="node.name" @input="editor.updateNode(node!.id, { name: ($event.target as HTMLInputElement).value })" />
         </label>
-        <label class="prop"><span class="lbl">{{ t('inspector.kind') }}</span>
-          <select class="in" :disabled="dis" :value="node.kind" @change="editor.updateNode(node!.id, { kind: ($event.target as HTMLSelectElement).value, role: null })">
-            <option v-for="k in kindOptions" :key="k.id" :value="k.id">{{ lt(k.name) }}</option>
+        <label class="prop"><span class="lbl">{{ t('product.title') }}</span>
+          <select class="in" :disabled="dis" :value="node.kind" @change="changeKind">
+            <optgroup v-for="g in kindGroups" :key="g.key" :label="g.name">
+              <option v-for="k in g.kinds" :key="k.id" :value="k.id">{{ lt(k.name) }}</option>
+            </optgroup>
             <option v-if="!kind" :value="node.kind">{{ node.kind }}</option>
           </select>
         </label>
+        <template v-if="kind?.variants?.length">
+          <label class="prop"><span class="lbl">{{ t('product.variant') }}</span>
+            <select class="in" :disabled="dis" :value="node.props.variant ? String(node.props.variant) : ''" data-prop="variant" @change="setNodeProp('variant', (($event.target as HTMLSelectElement).value || undefined))">
+              <option value="">{{ t('product.variant.default', { name: lt(kind.variants.find((v) => v.default)?.name ?? kind.name) }) }}</option>
+              <option v-for="v in kind.variants" :key="v.id" :value="v.id">{{ lt(v.name) }}</option>
+            </select>
+          </label>
+          <p v-if="variant?.description" class="vdesc">{{ lt(variant.description) }}<span v-if="managed" class="tag tag-nodata mgd" :title="t('product.variant.managedHint')">{{ t('product.variant.managed') }}</span></p>
+        </template>
+        <VersionField v-if="versionDef" :def="versionDef" :value="node.props.version" :fallback="nodeEff.version" :disabled="dis" :flash="flashKey === 'version'" :table="refOf('version')" :versions="app.versions" @change="setNodeProp('version', $event)" />
         <label class="prop"><span class="lbl">{{ t('inspector.zoneOf') }}</span>
           <select class="in" :disabled="dis" :value="node.zoneId ?? ''" @change="editor.updateNode(node!.id, { zoneId: ($event.target as HTMLSelectElement).value || null })">
             <option value="">{{ t('inspector.global') }}</option>
@@ -152,13 +189,19 @@ watch(() => ui.focusRequest, () => void nextTick(applyFocus), { immediate: true 
         <template v-for="(g, gi) in nodeSplit.groups" :key="g.id">
           <button v-if="hasGroupTitle(g.id)" class="gh" :aria-expanded="isOpen(g.id, gi)" @click="toggleGroup(g.id, gi)"><component :is="isOpen(g.id, gi) ? ChevronDown : ChevronRight" :size="13" />{{ groupTitle(g.id) }}<span class="cnt">{{ g.defs.length }}</span></button>
           <template v-if="!hasGroupTitle(g.id) || isOpen(g.id, gi)">
-            <PropControl v-for="d in g.defs" :key="d.key" :def="d" :value="node.props[d.key]" :fallback="nodeEff[d.key]" :disabled="dis" :flash="flashKey === d.key" :refs="d.type === 'unit_ref' ? refsFor(d) : undefined" @change="setNodeProp(d.key, $event)" />
+            <template v-for="d in g.defs" :key="d.key">
+              <VersionField v-if="d.lifecycle" :def="d" :value="node.props[d.key]" :fallback="nodeEff[d.key]" :disabled="dis" :flash="flashKey === d.key" :table="refOf(d.key)" :versions="app.versions" @change="setNodeProp(d.key, $event)" />
+              <PropControl v-else :def="d" :value="node.props[d.key]" :fallback="nodeEff[d.key]" :disabled="dis" :flash="flashKey === d.key" :refs="d.type === 'unit_ref' ? refsFor(d) : undefined" @change="setNodeProp(d.key, $event)" />
+            </template>
           </template>
         </template>
         <template v-if="nodeSplit.adv.length">
           <button class="more" @click="advanced = !advanced"><component :is="advanced ? ChevronDown : ChevronRight" :size="14" />{{ t('inspector.advanced') }}</button>
           <template v-if="advanced">
-            <PropControl v-for="d in nodeSplit.adv" :key="d.key" :def="d" :value="node.props[d.key]" :fallback="nodeEff[d.key]" :disabled="dis" :flash="flashKey === d.key" :refs="d.type === 'unit_ref' ? refsFor(d) : undefined" @change="setNodeProp(d.key, $event)" />
+            <template v-for="d in nodeSplit.adv" :key="d.key">
+              <VersionField v-if="d.lifecycle" :def="d" :value="node.props[d.key]" :fallback="nodeEff[d.key]" :disabled="dis" :flash="flashKey === d.key" :table="refOf(d.key)" :versions="app.versions" @change="setNodeProp(d.key, $event)" />
+              <PropControl v-else :def="d" :value="node.props[d.key]" :fallback="nodeEff[d.key]" :disabled="dis" :flash="flashKey === d.key" :refs="d.type === 'unit_ref' ? refsFor(d) : undefined" @change="setNodeProp(d.key, $event)" />
+            </template>
           </template>
         </template>
       </template>
@@ -263,6 +306,8 @@ select.in { text-align-last: right; padding-right: 2px; }
 .more { flex: none; display: inline-flex; align-items: center; gap: 5px; align-self: flex-start; margin-top: 8px; padding: 2px 4px; border: 0; background: transparent; color: var(--muted); font-size: 12px; border-radius: 4px; }
 .more:hover:not(:disabled) { color: var(--text); background: var(--surface-sunken); }
 .note { flex: none; margin: 6px 0 2px; font-size: 12px; color: var(--muted); }
+.vdesc { flex: none; margin: 0 0 4px; font-size: 11.5px; line-height: 1.4; color: var(--muted); }
+.mgd { margin-left: 6px; font-size: 10.5px; vertical-align: 1px; }
 .finds { flex: none; list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; }
 .finds li { display: flex; align-items: flex-start; gap: 8px; }
 footer { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-top: 1px solid var(--line); }

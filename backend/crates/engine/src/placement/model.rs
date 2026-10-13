@@ -209,6 +209,9 @@ pub struct Layer {
     /// Other kinds the user may pick for this layer (same role, different product).
     #[serde(default)]
     pub alternatives: Vec<String>,
+    /// Catalog function of the layer (`rdbms`, `cache`…): every product of it may be picked, not only the listed alternatives.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub function: Option<String>,
     #[serde(default)]
     pub scope: LayerScope,
     /// Offered in the wizard as a switch; mandatory layers are always placed.
@@ -360,8 +363,11 @@ pub struct PlacementRequest {
     pub stack: Option<String>,
     /// Optional layers to place; `None` = the stack's defaults.
     pub layers: Option<Vec<String>>,
-    /// Layer id → catalog kind (one of its alternatives).
+    /// Layer id → catalog kind (one of its alternatives or of its function).
     pub kinds: BTreeMap<String, String>,
+    /// Layer id → variant of the layer's product (an HA topology, a managed offering); the product's default when absent.
+    #[serde(default)]
+    pub variants: BTreeMap<String, String>,
     /// Requirement values that replace the pattern's.
     pub requirements: Option<Requirements>,
     /// Zone type of the working sites (`dc`, `az`, `cloud`) instead of the pattern's.

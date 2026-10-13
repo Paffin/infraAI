@@ -550,9 +550,13 @@ impl<'a, 'b> Sim<'a, 'b> {
 
         // can member/observer m see the quorum authority?
         let total_votes: f64 = members.iter().map(|&m| self.vote_w(m)).sum();
+        // a provider's control plane (or a shared lock store) is modelled on the larger part of the network: the primary on the
+        // smaller side is fenced and a replica on the larger side may take over; in a tie only the primary keeps writing
+        let sited: Vec<usize> = (0..ix.arch.nodes.len()).filter(|&k| self.alive[k] > 0 && ix.site_of[k].is_some()).collect();
         let has_q: Vec<bool> = (0..ix.arch.nodes.len())
             .map(|m| match authority {
-                Authority::None | Authority::Provider => true,
+                Authority::None => true,
+                Authority::Provider => ix.site_of[m].is_none() || sited.iter().filter(|&&k| self.reach(m, k)).count() as f64 * 2.0 >= sited.len() as f64,
                 Authority::External(du) => !self.done[du] || self.serving[du].iter().any(|&s| self.reach(m, s)),
                 Authority::SelfVotes => self.seen_weight(m, &members, |k| if self.alive[k] > 0 { self.vote_w(k) } else { 0.0 }) * 2.0 > total_votes,
             })

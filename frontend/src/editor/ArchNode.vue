@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Handle, Position, type NodeProps } from '@vue-flow/core'
+import { Cloud } from 'lucide-vue-next'
 import { lt, t } from '@/i18n'
-import { nodeSubtitle } from '@/lib/catalog'
+import { nodeSubtitle, variantOf } from '@/lib/catalog'
+import { isManaged } from '@/lib/product'
 import { statusColor } from '@/lib/findings'
 import { useApp } from '@/stores/app'
 import { useEditor } from '@/stores/editor'
@@ -16,6 +18,10 @@ const id = computed(() => props.data.id as string)
 const node = computed(() => editor.nodeById.get(id.value))
 const kind = computed(() => (node.value ? app.index?.kinds.get(node.value.kind) : undefined))
 const subtitle = computed(() => (node.value && app.index ? nodeSubtitle(app.index, node.value) : ''))
+const variant = computed(() => variantOf(kind.value, node.value?.props.variant))
+/** A managed service is run by a provider: the card says so with a cloud, the tooltip names the offering. */
+const managed = computed(() => isManaged(variant.value, kind.value))
+const tip = computed(() => (proposed.value ? t('inspector.proposed') : kind.value?.variants?.length && variant.value ? `${lt(kind.value.name)} · ${lt(variant.value.name)}` : undefined))
 const selected = computed(() => editor.selection?.type === 'node' && editor.selection.id === id.value)
 const status = computed(() => editor.nodeStatus.get(id.value))
 const simState = computed(() => editor.sim?.result?.nodeStates[id.value])
@@ -49,7 +55,7 @@ function onClick(e: MouseEvent) {
       selected && 'selected', inMulti && 'multi', status && !proposed && 'st-' + status, proposed && 'proposed', ghost && 'ghost', changed && 'changed', lit && 'lit', dim && 'dim', connecting && 'connecting',
       simState && 'sim-' + simState, editor.pickingNode && 'pickable', editor.tool === 'connect' && 'connectable',
     ]"
-    :title="proposed ? t('inspector.proposed') : undefined"
+    :title="tip"
     @click="onClick"
   >
     <span class="badge-abbr badge" :style="{ background: kind?.color ?? '#4c596c' }">{{ kind?.abbr ?? '?' }}</span>
@@ -58,6 +64,7 @@ function onClick(e: MouseEvent) {
       <div class="sub truncate mono">{{ proposed && !subtitle ? t('inspector.proposed.short') : subtitle || (kind ? lt(kind.name) : t('kind.unknown', { kind: node.kind })) }}</div>
     </div>
     <span v-if="dot" class="dot" :style="{ background: dot }" />
+    <span v-if="managed" class="mgd" aria-hidden="true"><Cloud :size="11" /></span>
     <span v-if="stateLabel" class="state-tag">{{ stateLabel }}</span>
     <template v-for="s in SIDES" :key="s">
       <Handle :id="s" type="source" :position="sides[s]" class="h" />
@@ -78,6 +85,7 @@ function onClick(e: MouseEvent) {
 .name { font-weight: 600; font-size: 14px; line-height: 1.25; color: var(--text); }
 .sub { font-size: 11.5px; color: var(--muted); line-height: 1.3; margin-top: 2px; }
 .dot { position: absolute; top: -4px; right: -4px; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--surface); box-sizing: content-box; }
+.mgd { position: absolute; top: -8px; left: 10px; height: 16px; padding: 0 5px; display: inline-flex; align-items: center; border-radius: 8px; background: var(--surface); border: 1px solid var(--line-strong); color: var(--muted); }
 .selected { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow-2); }
 .st-risk { border-color: var(--risk-dot); box-shadow: 0 0 0 3px var(--risk-bg), var(--shadow-1); }
 .st-critical { border-color: var(--crit); box-shadow: 0 0 0 3px var(--crit-bg), var(--shadow-1); }

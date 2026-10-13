@@ -7,6 +7,7 @@ import ConfigErrorsBanner from '../components/ConfigErrorsBanner.vue'
 import ConfigItems from './ConfigItems.vue'
 import RulesSection from './RulesSection.vue'
 import SingleDocEditor from './SingleDocEditor.vue'
+import VersionsSection from './VersionsSection.vue'
 
 const route = useRoute()
 const store = useAdminConfig()
@@ -19,6 +20,7 @@ onMounted(() => { if (!store.loaded) store.load() })
     <ConfigErrorsBanner class="cfg-banner" />
     <SingleDocEditor v-if="meta.single" :key="meta.kind" :kind="meta.kind" />
     <RulesSection v-else-if="meta.kind === 'rule'" />
+    <VersionsSection v-else-if="meta.kind === 'catalog.versions'" />
     <ConfigItems v-else :key="meta.kind" :kind="meta.kind" />
   </div>
   <div v-else class="empty">404</div>

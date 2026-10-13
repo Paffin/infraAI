@@ -81,6 +81,8 @@ struct Gen<'a> {
     site_type: Option<String>,
     /// The requirement reaches whole sites (not just racks): arbiters go to other sites.
     site_level: bool,
+    /// Layer id → the variant of its product the user picked.
+    variants: BTreeMap<String, String>,
 }
 
 fn note(code: &str, level: &str, vars: Value) -> Note {
@@ -100,6 +102,34 @@ fn tpl(t: &crate::text::LText, lang: &str, vars: &[(&str, String)]) -> String {
 }
 
 /// Odd number ≥ `n`.
+/// The products a layer can be built from: its own, the listed alternatives and every product of its function that fits how
+/// the layer is placed (a layer spread over the sites one node each takes only products that serve from any member; a
+/// cluster layer takes any behavior).
+pub fn layer_products<'a>(catalog: &'a crate::catalog::Catalog, layer: &Layer) -> Vec<&'a crate::catalog::KindDef> {
+    let mut out: Vec<&crate::catalog::KindDef> = vec![];
+    let mut push = |k: &'a crate::catalog::KindDef| {
+        if !out.iter().any(|x| x.id == k.id) {
+            out.push(k);
+        }
+    };
+    if let Some(k) = catalog.kind(&layer.kind) {
+        push(k);
+    }
+    for a in &layer.alternatives {
+        if let Some(k) = catalog.kind(a) {
+            push(k);
+        }
+    }
+    if let Some(f) = &layer.function {
+        for k in catalog.kinds_of_function(f) {
+            if layer.scope == LayerScope::Cluster || k.behavior == Behavior::Stateless {
+                push(k);
+            }
+        }
+    }
+    out
+}
+
 fn odd_up(n: u32) -> u32 {
     if n % 2 == 0 {
         n + 1
@@ -167,14 +197,20 @@ pub fn generate(cfg: &EngineConfig, pc: &PlacementConfig, req: &PlacementRequest
     let mut kinds: BTreeMap<String, String> = BTreeMap::new();
     for l in &stack.layers {
         let kind = req.kinds.get(&l.id).cloned().unwrap_or_else(|| l.kind.clone());
-        if kind != l.kind && !l.alternatives.contains(&kind) {
+        let Some(def) = cfg.catalog.kind(&kind) else {
+            return Err(err("unknown_kind", format!("kind '{kind}' is not in the catalog")));
+        };
+        if kind != l.kind && !layer_products(&cfg.catalog, l).iter().any(|k| k.id == kind) {
             return Err(err("bad_kind", format!("layer '{}' cannot use kind '{}'", l.id, kind)));
         }
-        if cfg.catalog.kind(&kind).is_none() {
-            return Err(err("unknown_kind", format!("kind '{kind}' is not in the catalog")));
+        if let Some(v) = req.variants.get(&l.id) {
+            if !def.variants.iter().any(|x| &x.id == v) {
+                return Err(err("unknown_variant", format!("kind '{kind}' of layer '{}' has no variant '{v}'", l.id)));
+            }
         }
         kinds.insert(l.id.clone(), kind);
     }
+    let variants: BTreeMap<String, String> = req.variants.iter().filter(|(l, _)| enabled.contains(*l)).map(|(l, v)| (l.clone(), v.clone())).collect();
 
     let mut requirements = pattern.requirements.clone();
     if let Some(r) = &req.requirements {
@@ -206,6 +242,7 @@ pub fn generate(cfg: &EngineConfig, pc: &PlacementConfig, req: &PlacementRequest
         max_nodes: req.max_nodes.unwrap_or(pc.settings.max_nodes),
         site_type: req.site_type.clone(),
         site_level: wants_sites || cfg.settings.tolerance.covers(&tolerance, crate::catalog::ZoneLevel::Site),
+        variants,
     };
     g.build_topology(n, regions, racks, &tolerance)?;
     for layer in &stack.layers {
@@ -219,6 +256,7 @@ pub fn generate(cfg: &EngineConfig, pc: &PlacementConfig, req: &PlacementRequest
         }
     }
     g.place_singles(stack, &enabled, &kinds)?;
+    g.apply_variants();
     g.wire(stack, &enabled)?;
     g.apply_dcs(stack, &enabled);
     g.secure_links();
@@ -557,6 +595,9 @@ impl<'a> Gen<'a> {
         let def = self.cfg.catalog.kind(kind).ok_or_else(|| err("unknown_kind", kind))?.clone();
         let name = layer.name.get(&self.lang);
         let props = self.layer_props(layer, kind);
+        // the way the product is deployed may change how it behaves (Vault on Raft is a consensus cluster, not primary/replica)
+        let variant = self.cfg.catalog.variant(kind, self.variants.get(&layer.id).map(String::as_str));
+        let behavior = self.cfg.catalog.behavior_of(kind, variant).unwrap_or(def.behavior);
         let entry = def.traits.iter().any(|t| t == "entry");
         match layer.scope {
             LayerScope::Global => {
@@ -591,7 +632,7 @@ impl<'a> Gen<'a> {
                 }
                 self.placed.insert(layer.id.clone(), Placed { members, group: layer.id.clone(), backup_src: None });
             }
-            LayerScope::Cluster => match def.behavior {
+            LayerScope::Cluster => match behavior {
                 Behavior::Stateless => self.place_stateless_cluster(layer, kind, &name, props),
                 Behavior::PrimaryReplica => self.place_primary_replica(layer, kind, &name, props, enabled, kinds)?,
                 Behavior::Consensus => self.place_consensus(layer, kind, &name, props),
@@ -682,7 +723,11 @@ impl<'a> Gen<'a> {
             }
         }
         let def = self.cfg.catalog.kind(kind).cloned().ok_or_else(|| err("unknown_kind", kind))?;
-        let has_dcs_prop = def.props.iter().any(|p| p.key == "dcs");
+        // the way the product is deployed decides who holds its quorum: a provider, the members themselves, or a DCS / arbiter
+        let variant = self.cfg.catalog.variant(kind, self.variants.get(&layer.id).map(String::as_str));
+        let traits = self.cfg.catalog.traits_of(kind, variant);
+        let provider = self.cfg.settings.authority.provider_traits.iter().any(|t| traits.contains(t));
+        let has_dcs_prop = def.props.iter().any(|p| p.key == "dcs" && (p.variants.is_empty() || variant.map(|v| p.variants.contains(&v.id)).unwrap_or(false)));
         let dcs_layer =
             layer.dcs.as_ref().filter(|d| enabled.contains(*d) && has_dcs_prop && kinds.get(*d).and_then(|k| self.cfg.catalog.kind(k)).map(|k| k.behavior == Behavior::Consensus).unwrap_or(false));
         let mut members: Vec<Member> = vec![];
@@ -718,12 +763,12 @@ impl<'a> Gen<'a> {
         }
         // a quorum authority: the layer's DCS, or arbiters in places of their own (an odd number of votes in all)
         let mut backup_src = if members.len() > 1 { Some(members.len() - 1) } else { Some(0) };
-        let defaults = self.cfg.catalog.default_props(kind);
+        let defaults = self.cfg.catalog.default_props_for(kind, variant);
         let auto = members.iter().any(|m| {
             let p = &self.nodes[m.node].props;
             p.get("failover").or_else(|| defaults.get("failover")).and_then(|v| v.as_str()) == Some("auto")
         });
-        if dcs_layer.is_none() && copies >= 2 && auto {
+        if !provider && dcs_layer.is_none() && copies >= 2 && auto {
             let used: Vec<usize> = members.iter().filter_map(|m| m.slot).collect();
             let want = if copies % 2 == 0 { 1 } else { 2 };
             let spots = self.independent_slots(&used, want);
@@ -1040,9 +1085,26 @@ impl<'a> Gen<'a> {
             let members: Vec<usize> = p.members.iter().filter(|m| !m.witness).map(|m| m.node).collect();
             for ni in members {
                 let kind = self.nodes[ni].kind.clone();
-                if self.cfg.catalog.prop_def(&kind, "dcs").is_some() {
+                let variant = self.variants.get(&layer.id).map(String::as_str);
+                let fits = self
+                    .cfg
+                    .catalog
+                    .prop_def(&kind, "dcs")
+                    .map(|d| d.variants.is_empty() || self.cfg.catalog.variant(&kind, variant).map(|v| d.variants.contains(&v.id)).unwrap_or(false))
+                    .unwrap_or(false);
+                if fits {
                     self.nodes[ni].props.insert("dcs".into(), Value::String(group.clone()));
                 }
+            }
+        }
+    }
+
+    /// The variants the user picked become the `variant` prop of every node of their layers (arbiters included).
+    fn apply_variants(&mut self) {
+        for (layer, variant) in self.variants.clone() {
+            let Some(p) = self.placed.get(&layer) else { continue };
+            for m in p.members.clone() {
+                self.nodes[m.node].props.insert("variant".into(), Value::String(variant.clone()));
             }
         }
     }

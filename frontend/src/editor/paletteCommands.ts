@@ -112,8 +112,15 @@ export function usePaletteCommands(): ComputedRef<Command[]> {
         const cat = ix.catalog.categories.find((c) => c.id === k.category)
         out.push({
           id: 'add:' + k.id, group: 'add', title: t('cmd.add', { name: lt(k.name) }), hint: cat ? lt(cat.name) : undefined,
-          keywords: [k.id, k.abbr, lt(k.description), 'add', 'добавить', 'создать'], badge: { text: k.abbr, color: k.color }, run: () => { editor.addNode(k.id) },
+          keywords: [k.id, k.abbr, lt(k.description), k.function ?? '', 'add', 'добавить', 'создать'], badge: { text: k.abbr, color: k.color }, run: () => { editor.addNode(k.id) },
         })
+        // a way to deploy the product is found by its name too ("Aurora", "Patroni", "Galera"): add the node with it
+        for (const v of k.variants ?? []) {
+          out.push({
+            id: `add:${k.id}:${v.id}`, group: 'add', title: t('cmd.add', { name: `${lt(k.name)} — ${lt(v.name)}` }), hint: cat ? lt(cat.name) : undefined,
+            keywords: [v.id, k.id, lt(v.description), 'add', 'добавить', 'создать'], badge: { text: k.abbr, color: k.color }, run: () => { editor.addNode(k.id, undefined, undefined, { variant: v.id }) },
+          })
+        }
       }
       for (const z of ix.catalog.zoneTypes) {
         out.push({ id: 'addzone:' + z.id, group: 'add', title: t('cmd.addzone', { name: lt(z.name) }), keywords: [z.id, 'zone', 'зона', 'add', 'добавить'], icon: Square, color: z.color, run: () => { editor.addZone(z.id) } })

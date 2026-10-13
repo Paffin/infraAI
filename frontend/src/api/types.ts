@@ -84,7 +84,29 @@ export interface PropDef {
   group?: string | null
   help?: LText | null
   refBehavior?: Behavior | null
+  /** For unit_ref: only units whose kind has this trait are offered (`dcs-capable`). */
+  refTrait?: string | null
   advanced?: boolean
+  /** Only for these variants of the kind (empty = every variant). */
+  variants?: string[]
+  /** The prop holds a version of a product with a release table: the table id, or `@key` to take it from another prop. */
+  lifecycle?: string | null
+}
+
+/** A way to deploy a product: an HA topology or a managed offering. Everything it does not say is inherited from the kind. */
+export interface VariantDef {
+  id: string
+  name: LText
+  description?: LText | null
+  default?: boolean
+  behavior?: Behavior | null
+  addTraits?: string[]
+  removeTraits?: string[]
+  defaults?: Props
+  capacity?: { rpsPerReplica?: number; rpsPerVcpu?: number } | null
+  cost?: { monthlyFixed?: number; multiplier?: number } | null
+  /** Release table of this variant when it differs from the kind's; '' = none. */
+  versions?: string | null
 }
 
 export interface KindDef {
@@ -101,6 +123,11 @@ export interface KindDef {
   subtitle?: LText | null
   capacity?: { rpsPerReplica?: number; rpsPerVcpu?: number } | null
   hidden?: boolean
+  /** What the product is for (`rdbms`, `cache`…): products of one function replace each other. */
+  function?: string | null
+  variants?: VariantDef[]
+  /** Release table id when it differs from the kind id; '' = none. */
+  versions?: string | null
 }
 
 export interface EdgeTypeDef {
@@ -116,7 +143,8 @@ export interface EdgeTypeDef {
 }
 
 export interface ZoneTypeDef { id: string; name: LText; level: ZoneLevel; color: string; props: PropDef[] }
-export interface Category { id: string; name: LText; order: number }
+export interface FunctionDef { id: string; name: LText; description?: LText | null }
+export interface Category { id: string; name: LText; order: number; functions?: FunctionDef[] }
 
 export interface Catalog {
   categories: Category[]
@@ -137,6 +165,8 @@ export interface Rule {
   title: LText
   message: LText
   noDataMessage?: LText | null
+  /** Texts for one kind of problem of the rule, keyed by the finding's `variant` var. */
+  variantMessages?: Record<string, LText>
   requirementMessage?: LText | null
   dataLostMessage?: LText | null
   ok: LText
@@ -378,7 +408,51 @@ export interface Bootstrap {
   editor?: Partial<EditorSettings>
   ai: { enabled: boolean; configured: boolean; maxPromptChars: number; plannerModel: string; fastModel: string }
   limits: { maxNodes: number; maxEdges: number; maxZones: number; waiverMinReasonChars: number; waiverMaxDays: number }
-  engine: { currency: string; symbol: string; minCapacityDuringFailure: number; headroomPercent: number; defaultFailureTolerance: string; toleranceLevels?: ToleranceLevel[]; maxSiteFailures?: number }
+  /** Today's date on the server (`YYYY-MM-DD`): support dates are judged against it. */
+  today?: string
+  engine: { currency: string; symbol: string; minCapacityDuringFailure: number; headroomPercent: number; defaultFailureTolerance: string; toleranceLevels?: ToleranceLevel[]; maxSiteFailures?: number; lifecycle?: LifecycleSettings }
+}
+
+// ---------------------------------------------------------------------------- lifecycle
+
+/** How the lifecycle tables are read (`engine.lifecycle` settings). */
+export interface LifecycleSettings { warnDays: number; matureDays: number; preferLts: boolean; staleDays: number }
+
+/** A date (`YYYY-MM-DD`) or a flag, the way endoflife.date reports the end of support. */
+export type DateOrFlag = string | boolean
+
+/** One release line of a product. */
+export interface Cycle {
+  cycle: string
+  releaseDate?: string
+  support?: DateOrFlag
+  eol?: DateOrFlag
+  latest?: string
+  latestReleaseDate?: string
+  lts?: boolean
+}
+
+/** The release table of one product (`catalog.versions`). */
+export interface VersionSet { id: string; name?: string; source: string; asOf: string; cycles: Cycle[] }
+
+export interface VersionsPayload { today: string; tables: VersionSet[] }
+
+export type Phase = 'supported' | 'maintenance' | 'eol' | 'unknown'
+
+/** What a table says about one version on one day. */
+export interface Lifecycle { cycle: string; phase: Phase; eol: string | null; daysToEol: number | null; latest: string | null; lts: boolean }
+
+export interface SyncOutcome { id: string; ok: boolean; cycles: number; asOf: string | null; error: string | null }
+export interface SyncResult { results: SyncOutcome[]; ok: number; failed: number }
+export interface VersionsStatus {
+  today: string
+  tables: number
+  staleDays: number
+  stale: string[]
+  oldestDays: number | null
+  autoSyncDays: number
+  sourceBases: string[]
+  last: { at: string; by: string; ok: number; failed: { id: string; error: string | null }[] } | null
 }
 
 /** One step of the failure ladder a requirement can ask for (data of the engine settings). */

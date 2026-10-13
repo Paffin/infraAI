@@ -1,0 +1,4572 @@
+{
+  "dates": [
+    "2025-01-01",
+    "2026-10-13",
+    "2027-06-01"
+  ],
+  "cases": [
+    {
+      "table": "activemq",
+      "version": "6.3",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "6.3",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "6.3.2",
+        "lts": false
+      }
+    },
+    {
+      "table": "activemq",
+      "version": "6.3.5",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "6.3",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "6.3.2",
+        "lts": false
+      }
+    },
+    {
+      "table": "activemq",
+      "version": "6.0",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "6.0",
+        "phase": "eol",
+        "eol": "2024-03-17",
+        "daysToEol": -290,
+        "latest": "6.0.1",
+        "lts": false
+      }
+    },
+    {
+      "table": "activemq",
+      "version": "6.0.5",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "6.0",
+        "phase": "eol",
+        "eol": "2024-03-17",
+        "daysToEol": -290,
+        "latest": "6.0.1",
+        "lts": false
+      }
+    },
+    {
+      "table": "activemq",
+      "version": "5.16",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "5.16",
+        "phase": "eol",
+        "eol": "2023-03-18",
+        "daysToEol": -655,
+        "latest": "5.16.8",
+        "lts": false
+      }
+    },
+    {
+      "table": "activemq",
+      "version": "5.16.5",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "5.16",
+        "phase": "eol",
+        "eol": "2023-03-18",
+        "daysToEol": -655,
+        "latest": "5.16.8",
+        "lts": false
+      }
+    },
+    {
+      "table": "activemq",
+      "version": "v6.3",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "6.3",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "6.3.2",
+        "lts": false
+      }
+    },
+    {
+      "table": "activemq",
+      "version": "0.0.1",
+      "today": "2025-01-01",
+      "lifecycle": null
+    },
+    {
+      "table": "activemq",
+      "version": "9999",
+      "today": "2025-01-01",
+      "lifecycle": null
+    },
+    {
+      "table": "activemq",
+      "today": "2025-01-01",
+      "preferLts": true,
+      "matureDays": 90,
+      "recommended": "6.1"
+    },
+    {
+      "table": "activemq",
+      "today": "2025-01-01",
+      "preferLts": false,
+      "matureDays": 0,
+      "recommended": "6.1"
+    },
+    {
+      "table": "activemq",
+      "version": "6.3",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "6.3",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "6.3.2",
+        "lts": false
+      }
+    },
+    {
+      "table": "activemq",
+      "version": "6.3.5",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "6.3",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "6.3.2",
+        "lts": false
+      }
+    },
+    {
+      "table": "activemq",
+      "version": "6.0",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "6.0",
+        "phase": "eol",
+        "eol": "2024-03-17",
+        "daysToEol": -940,
+        "latest": "6.0.1",
+        "lts": false
+      }
+    },
+    {
+      "table": "activemq",
+      "version": "6.0.5",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "6.0",
+        "phase": "eol",
+        "eol": "2024-03-17",
+        "daysToEol": -940,
+        "latest": "6.0.1",
+        "lts": false
+      }
+    },
+    {
+      "table": "activemq",
+      "version": "5.16",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "5.16",
+        "phase": "eol",
+        "eol": "2023-03-18",
+        "daysToEol": -1305,
+        "latest": "5.16.8",
+        "lts": false
+      }
+    },
+    {
+      "table": "activemq",
+      "version": "5.16.5",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "5.16",
+        "phase": "eol",
+        "eol": "2023-03-18",
+        "daysToEol": -1305,
+        "latest": "5.16.8",
+        "lts": false
+      }
+    },
+    {
+      "table": "activemq",
+      "version": "v6.3",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "6.3",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "6.3.2",
+        "lts": false
+      }
+    },
+    {
+      "table": "activemq",
+      "version": "0.0.1",
+      "today": "2026-10-13",
+      "lifecycle": null
+    },
+    {
+      "table": "activemq",
+      "version": "9999",
+      "today": "2026-10-13",
+      "lifecycle": null
+    },
+    {
+      "table": "activemq",
+      "today": "2026-10-13",
+      "preferLts": true,
+      "matureDays": 90,
+      "recommended": "6.2"
+    },
+    {
+      "table": "activemq",
+      "today": "2026-10-13",
+      "preferLts": false,
+      "matureDays": 0,
+      "recommended": "6.3"
+    },
+    {
+      "table": "activemq",
+      "version": "6.3",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "6.3",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "6.3.2",
+        "lts": false
+      }
+    },
+    {
+      "table": "activemq",
+      "version": "6.3.5",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "6.3",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "6.3.2",
+        "lts": false
+      }
+    },
+    {
+      "table": "activemq",
+      "version": "6.0",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "6.0",
+        "phase": "eol",
+        "eol": "2024-03-17",
+        "daysToEol": -1171,
+        "latest": "6.0.1",
+        "lts": false
+      }
+    },
+    {
+      "table": "activemq",
+      "version": "6.0.5",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "6.0",
+        "phase": "eol",
+        "eol": "2024-03-17",
+        "daysToEol": -1171,
+        "latest": "6.0.1",
+        "lts": false
+      }
+    },
+    {
+      "table": "activemq",
+      "version": "5.16",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "5.16",
+        "phase": "eol",
+        "eol": "2023-03-18",
+        "daysToEol": -1536,
+        "latest": "5.16.8",
+        "lts": false
+      }
+    },
+    {
+      "table": "activemq",
+      "version": "5.16.5",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "5.16",
+        "phase": "eol",
+        "eol": "2023-03-18",
+        "daysToEol": -1536,
+        "latest": "5.16.8",
+        "lts": false
+      }
+    },
+    {
+      "table": "activemq",
+      "version": "v6.3",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "6.3",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "6.3.2",
+        "lts": false
+      }
+    },
+    {
+      "table": "activemq",
+      "version": "0.0.1",
+      "today": "2027-06-01",
+      "lifecycle": null
+    },
+    {
+      "table": "activemq",
+      "version": "9999",
+      "today": "2027-06-01",
+      "lifecycle": null
+    },
+    {
+      "table": "activemq",
+      "today": "2027-06-01",
+      "preferLts": true,
+      "matureDays": 90,
+      "recommended": "6.3"
+    },
+    {
+      "table": "activemq",
+      "today": "2027-06-01",
+      "preferLts": false,
+      "matureDays": 0,
+      "recommended": "6.3"
+    },
+    {
+      "table": "amazon-mq-rabbitmq",
+      "version": "4.3",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "4.3",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": null,
+        "lts": false
+      }
+    },
+    {
+      "table": "amazon-mq-rabbitmq",
+      "version": "4.3.5",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "4.3",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": null,
+        "lts": false
+      }
+    },
+    {
+      "table": "amazon-mq-rabbitmq",
+      "version": "3.13",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "3.13",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": null,
+        "lts": false
+      }
+    },
+    {
+      "table": "amazon-mq-rabbitmq",
+      "version": "3.13.5",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "3.13",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": null,
+        "lts": false
+      }
+    },
+    {
+      "table": "amazon-mq-rabbitmq",
+      "version": "3.12",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "3.12",
+        "phase": "supported",
+        "eol": "2025-03-17",
+        "daysToEol": 75,
+        "latest": null,
+        "lts": false
+      }
+    },
+    {
+      "table": "amazon-mq-rabbitmq",
+      "version": "3.12.5",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "3.12",
+        "phase": "supported",
+        "eol": "2025-03-17",
+        "daysToEol": 75,
+        "latest": null,
+        "lts": false
+      }
+    },
+    {
+      "table": "amazon-mq-rabbitmq",
+      "version": "v4.3",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "4.3",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": null,
+        "lts": false
+      }
+    },
+    {
+      "table": "amazon-mq-rabbitmq",
+      "version": "0.0.1",
+      "today": "2025-01-01",
+      "lifecycle": null
+    },
+    {
+      "table": "amazon-mq-rabbitmq",
+      "version": "9999",
+      "today": "2025-01-01",
+      "lifecycle": null
+    },
+    {
+      "table": "amazon-mq-rabbitmq",
+      "today": "2025-01-01",
+      "preferLts": true,
+      "matureDays": 90,
+      "recommended": "3.13"
+    },
+    {
+      "table": "amazon-mq-rabbitmq",
+      "today": "2025-01-01",
+      "preferLts": false,
+      "matureDays": 0,
+      "recommended": "3.13"
+    },
+    {
+      "table": "amazon-mq-rabbitmq",
+      "version": "4.3",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "4.3",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": null,
+        "lts": false
+      }
+    },
+    {
+      "table": "amazon-mq-rabbitmq",
+      "version": "4.3.5",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "4.3",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": null,
+        "lts": false
+      }
+    },
+    {
+      "table": "amazon-mq-rabbitmq",
+      "version": "3.13",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "3.13",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": null,
+        "lts": false
+      }
+    },
+    {
+      "table": "amazon-mq-rabbitmq",
+      "version": "3.13.5",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "3.13",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": null,
+        "lts": false
+      }
+    },
+    {
+      "table": "amazon-mq-rabbitmq",
+      "version": "3.12",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "3.12",
+        "phase": "eol",
+        "eol": "2025-03-17",
+        "daysToEol": -575,
+        "latest": null,
+        "lts": false
+      }
+    },
+    {
+      "table": "amazon-mq-rabbitmq",
+      "version": "3.12.5",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "3.12",
+        "phase": "eol",
+        "eol": "2025-03-17",
+        "daysToEol": -575,
+        "latest": null,
+        "lts": false
+      }
+    },
+    {
+      "table": "amazon-mq-rabbitmq",
+      "version": "v4.3",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "4.3",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": null,
+        "lts": false
+      }
+    },
+    {
+      "table": "amazon-mq-rabbitmq",
+      "version": "0.0.1",
+      "today": "2026-10-13",
+      "lifecycle": null
+    },
+    {
+      "table": "amazon-mq-rabbitmq",
+      "version": "9999",
+      "today": "2026-10-13",
+      "lifecycle": null
+    },
+    {
+      "table": "amazon-mq-rabbitmq",
+      "today": "2026-10-13",
+      "preferLts": true,
+      "matureDays": 90,
+      "recommended": "4.2"
+    },
+    {
+      "table": "amazon-mq-rabbitmq",
+      "today": "2026-10-13",
+      "preferLts": false,
+      "matureDays": 0,
+      "recommended": "4.3"
+    },
+    {
+      "table": "amazon-mq-rabbitmq",
+      "version": "4.3",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "4.3",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": null,
+        "lts": false
+      }
+    },
+    {
+      "table": "amazon-mq-rabbitmq",
+      "version": "4.3.5",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "4.3",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": null,
+        "lts": false
+      }
+    },
+    {
+      "table": "amazon-mq-rabbitmq",
+      "version": "3.13",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "3.13",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": null,
+        "lts": false
+      }
+    },
+    {
+      "table": "amazon-mq-rabbitmq",
+      "version": "3.13.5",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "3.13",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": null,
+        "lts": false
+      }
+    },
+    {
+      "table": "amazon-mq-rabbitmq",
+      "version": "3.12",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "3.12",
+        "phase": "eol",
+        "eol": "2025-03-17",
+        "daysToEol": -806,
+        "latest": null,
+        "lts": false
+      }
+    },
+    {
+      "table": "amazon-mq-rabbitmq",
+      "version": "3.12.5",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "3.12",
+        "phase": "eol",
+        "eol": "2025-03-17",
+        "daysToEol": -806,
+        "latest": null,
+        "lts": false
+      }
+    },
+    {
+      "table": "amazon-mq-rabbitmq",
+      "version": "v4.3",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "4.3",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": null,
+        "lts": false
+      }
+    },
+    {
+      "table": "amazon-mq-rabbitmq",
+      "version": "0.0.1",
+      "today": "2027-06-01",
+      "lifecycle": null
+    },
+    {
+      "table": "amazon-mq-rabbitmq",
+      "version": "9999",
+      "today": "2027-06-01",
+      "lifecycle": null
+    },
+    {
+      "table": "amazon-mq-rabbitmq",
+      "today": "2027-06-01",
+      "preferLts": true,
+      "matureDays": 90,
+      "recommended": "4.3"
+    },
+    {
+      "table": "amazon-mq-rabbitmq",
+      "today": "2027-06-01",
+      "preferLts": false,
+      "matureDays": 0,
+      "recommended": "4.3"
+    },
+    {
+      "table": "artifactory",
+      "version": "7.161",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "7.161",
+        "phase": "supported",
+        "eol": "2028-01-27",
+        "daysToEol": 1121,
+        "latest": "7.161.32",
+        "lts": false
+      }
+    },
+    {
+      "table": "artifactory",
+      "version": "7.161.5",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "7.161",
+        "phase": "supported",
+        "eol": "2028-01-27",
+        "daysToEol": 1121,
+        "latest": "7.161.32",
+        "lts": false
+      }
+    },
+    {
+      "table": "artifactory",
+      "version": "7.55",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "7.55",
+        "phase": "eol",
+        "eol": "2024-08-28",
+        "daysToEol": -126,
+        "latest": "7.55.17",
+        "lts": false
+      }
+    },
+    {
+      "table": "artifactory",
+      "version": "7.55.5",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "7.55",
+        "phase": "eol",
+        "eol": "2024-08-28",
+        "daysToEol": -126,
+        "latest": "7.55.17",
+        "lts": false
+      }
+    },
+    {
+      "table": "artifactory",
+      "version": "7.24",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "7.24",
+        "phase": "eol",
+        "eol": "2023-02-11",
+        "daysToEol": -690,
+        "latest": "7.24.7",
+        "lts": false
+      }
+    },
+    {
+      "table": "artifactory",
+      "version": "7.24.5",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "7.24",
+        "phase": "eol",
+        "eol": "2023-02-11",
+        "daysToEol": -690,
+        "latest": "7.24.7",
+        "lts": false
+      }
+    },
+    {
+      "table": "artifactory",
+      "version": "v7.161",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "7.161",
+        "phase": "supported",
+        "eol": "2028-01-27",
+        "daysToEol": 1121,
+        "latest": "7.161.32",
+        "lts": false
+      }
+    },
+    {
+      "table": "artifactory",
+      "version": "0.0.1",
+      "today": "2025-01-01",
+      "lifecycle": null
+    },
+    {
+      "table": "artifactory",
+      "version": "9999",
+      "today": "2025-01-01",
+      "lifecycle": null
+    },
+    {
+      "table": "artifactory",
+      "today": "2025-01-01",
+      "preferLts": true,
+      "matureDays": 90,
+      "recommended": "7.90"
+    },
+    {
+      "table": "artifactory",
+      "today": "2025-01-01",
+      "preferLts": false,
+      "matureDays": 0,
+      "recommended": "7.98"
+    },
+    {
+      "table": "artifactory",
+      "version": "7.161",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "7.161",
+        "phase": "supported",
+        "eol": "2028-01-27",
+        "daysToEol": 471,
+        "latest": "7.161.32",
+        "lts": false
+      }
+    },
+    {
+      "table": "artifactory",
+      "version": "7.161.5",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "7.161",
+        "phase": "supported",
+        "eol": "2028-01-27",
+        "daysToEol": 471,
+        "latest": "7.161.32",
+        "lts": false
+      }
+    },
+    {
+      "table": "artifactory",
+      "version": "7.55",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "7.55",
+        "phase": "eol",
+        "eol": "2024-08-28",
+        "daysToEol": -776,
+        "latest": "7.55.17",
+        "lts": false
+      }
+    },
+    {
+      "table": "artifactory",
+      "version": "7.55.5",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "7.55",
+        "phase": "eol",
+        "eol": "2024-08-28",
+        "daysToEol": -776,
+        "latest": "7.55.17",
+        "lts": false
+      }
+    },
+    {
+      "table": "artifactory",
+      "version": "7.24",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "7.24",
+        "phase": "eol",
+        "eol": "2023-02-11",
+        "daysToEol": -1340,
+        "latest": "7.24.7",
+        "lts": false
+      }
+    },
+    {
+      "table": "artifactory",
+      "version": "7.24.5",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "7.24",
+        "phase": "eol",
+        "eol": "2023-02-11",
+        "daysToEol": -1340,
+        "latest": "7.24.7",
+        "lts": false
+      }
+    },
+    {
+      "table": "artifactory",
+      "version": "v7.161",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "7.161",
+        "phase": "supported",
+        "eol": "2028-01-27",
+        "daysToEol": 471,
+        "latest": "7.161.32",
+        "lts": false
+      }
+    },
+    {
+      "table": "artifactory",
+      "version": "0.0.1",
+      "today": "2026-10-13",
+      "lifecycle": null
+    },
+    {
+      "table": "artifactory",
+      "version": "9999",
+      "today": "2026-10-13",
+      "lifecycle": null
+    },
+    {
+      "table": "artifactory",
+      "today": "2026-10-13",
+      "preferLts": true,
+      "matureDays": 90,
+      "recommended": "7.146"
+    },
+    {
+      "table": "artifactory",
+      "today": "2026-10-13",
+      "preferLts": false,
+      "matureDays": 0,
+      "recommended": "7.161"
+    },
+    {
+      "table": "artifactory",
+      "version": "7.161",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "7.161",
+        "phase": "supported",
+        "eol": "2028-01-27",
+        "daysToEol": 240,
+        "latest": "7.161.32",
+        "lts": false
+      }
+    },
+    {
+      "table": "artifactory",
+      "version": "7.161.5",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "7.161",
+        "phase": "supported",
+        "eol": "2028-01-27",
+        "daysToEol": 240,
+        "latest": "7.161.32",
+        "lts": false
+      }
+    },
+    {
+      "table": "artifactory",
+      "version": "7.55",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "7.55",
+        "phase": "eol",
+        "eol": "2024-08-28",
+        "daysToEol": -1007,
+        "latest": "7.55.17",
+        "lts": false
+      }
+    },
+    {
+      "table": "artifactory",
+      "version": "7.55.5",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "7.55",
+        "phase": "eol",
+        "eol": "2024-08-28",
+        "daysToEol": -1007,
+        "latest": "7.55.17",
+        "lts": false
+      }
+    },
+    {
+      "table": "artifactory",
+      "version": "7.24",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "7.24",
+        "phase": "eol",
+        "eol": "2023-02-11",
+        "daysToEol": -1571,
+        "latest": "7.24.7",
+        "lts": false
+      }
+    },
+    {
+      "table": "artifactory",
+      "version": "7.24.5",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "7.24",
+        "phase": "eol",
+        "eol": "2023-02-11",
+        "daysToEol": -1571,
+        "latest": "7.24.7",
+        "lts": false
+      }
+    },
+    {
+      "table": "artifactory",
+      "version": "v7.161",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "7.161",
+        "phase": "supported",
+        "eol": "2028-01-27",
+        "daysToEol": 240,
+        "latest": "7.161.32",
+        "lts": false
+      }
+    },
+    {
+      "table": "artifactory",
+      "version": "0.0.1",
+      "today": "2027-06-01",
+      "lifecycle": null
+    },
+    {
+      "table": "artifactory",
+      "version": "9999",
+      "today": "2027-06-01",
+      "lifecycle": null
+    },
+    {
+      "table": "artifactory",
+      "today": "2027-06-01",
+      "preferLts": true,
+      "matureDays": 90,
+      "recommended": "7.161"
+    },
+    {
+      "table": "artifactory",
+      "today": "2027-06-01",
+      "preferLts": false,
+      "matureDays": 0,
+      "recommended": "7.161"
+    },
+    {
+      "table": "cert_manager",
+      "version": "1.21",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "1.21",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "1.21.2",
+        "lts": false
+      }
+    },
+    {
+      "table": "cert_manager",
+      "version": "1.21.5",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "1.21",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "1.21.2",
+        "lts": false
+      }
+    },
+    {
+      "table": "cert_manager",
+      "version": "1.15",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "1.15",
+        "phase": "supported",
+        "eol": "2025-02-03",
+        "daysToEol": 33,
+        "latest": "1.15.5",
+        "lts": false
+      }
+    },
+    {
+      "table": "cert_manager",
+      "version": "1.15.5",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "1.15",
+        "phase": "supported",
+        "eol": "2025-02-03",
+        "daysToEol": 33,
+        "latest": "1.15.5",
+        "lts": false
+      }
+    },
+    {
+      "table": "cert_manager",
+      "version": "1.10",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "1.10",
+        "phase": "eol",
+        "eol": "2023-05-19",
+        "daysToEol": -593,
+        "latest": "1.10.2",
+        "lts": false
+      }
+    },
+    {
+      "table": "cert_manager",
+      "version": "1.10.5",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "1.10",
+        "phase": "eol",
+        "eol": "2023-05-19",
+        "daysToEol": -593,
+        "latest": "1.10.2",
+        "lts": false
+      }
+    },
+    {
+      "table": "cert_manager",
+      "version": "v1.21",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "1.21",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "1.21.2",
+        "lts": false
+      }
+    },
+    {
+      "table": "cert_manager",
+      "version": "0.0.1",
+      "today": "2025-01-01",
+      "lifecycle": null
+    },
+    {
+      "table": "cert_manager",
+      "version": "9999",
+      "today": "2025-01-01",
+      "lifecycle": null
+    },
+    {
+      "table": "cert_manager",
+      "today": "2025-01-01",
+      "preferLts": true,
+      "matureDays": 90,
+      "recommended": "1.12"
+    },
+    {
+      "table": "cert_manager",
+      "today": "2025-01-01",
+      "preferLts": false,
+      "matureDays": 0,
+      "recommended": "1.16"
+    },
+    {
+      "table": "cert_manager",
+      "version": "1.21",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "1.21",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "1.21.2",
+        "lts": false
+      }
+    },
+    {
+      "table": "cert_manager",
+      "version": "1.21.5",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "1.21",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "1.21.2",
+        "lts": false
+      }
+    },
+    {
+      "table": "cert_manager",
+      "version": "1.15",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "1.15",
+        "phase": "eol",
+        "eol": "2025-02-03",
+        "daysToEol": -617,
+        "latest": "1.15.5",
+        "lts": false
+      }
+    },
+    {
+      "table": "cert_manager",
+      "version": "1.15.5",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "1.15",
+        "phase": "eol",
+        "eol": "2025-02-03",
+        "daysToEol": -617,
+        "latest": "1.15.5",
+        "lts": false
+      }
+    },
+    {
+      "table": "cert_manager",
+      "version": "1.10",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "1.10",
+        "phase": "eol",
+        "eol": "2023-05-19",
+        "daysToEol": -1243,
+        "latest": "1.10.2",
+        "lts": false
+      }
+    },
+    {
+      "table": "cert_manager",
+      "version": "1.10.5",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "1.10",
+        "phase": "eol",
+        "eol": "2023-05-19",
+        "daysToEol": -1243,
+        "latest": "1.10.2",
+        "lts": false
+      }
+    },
+    {
+      "table": "cert_manager",
+      "version": "v1.21",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "1.21",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "1.21.2",
+        "lts": false
+      }
+    },
+    {
+      "table": "cert_manager",
+      "version": "0.0.1",
+      "today": "2026-10-13",
+      "lifecycle": null
+    },
+    {
+      "table": "cert_manager",
+      "version": "9999",
+      "today": "2026-10-13",
+      "lifecycle": null
+    },
+    {
+      "table": "cert_manager",
+      "today": "2026-10-13",
+      "preferLts": true,
+      "matureDays": 90,
+      "recommended": "1.21"
+    },
+    {
+      "table": "cert_manager",
+      "today": "2026-10-13",
+      "preferLts": false,
+      "matureDays": 0,
+      "recommended": "1.21"
+    },
+    {
+      "table": "cert_manager",
+      "version": "1.21",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "1.21",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "1.21.2",
+        "lts": false
+      }
+    },
+    {
+      "table": "cert_manager",
+      "version": "1.21.5",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "1.21",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "1.21.2",
+        "lts": false
+      }
+    },
+    {
+      "table": "cert_manager",
+      "version": "1.15",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "1.15",
+        "phase": "eol",
+        "eol": "2025-02-03",
+        "daysToEol": -848,
+        "latest": "1.15.5",
+        "lts": false
+      }
+    },
+    {
+      "table": "cert_manager",
+      "version": "1.15.5",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "1.15",
+        "phase": "eol",
+        "eol": "2025-02-03",
+        "daysToEol": -848,
+        "latest": "1.15.5",
+        "lts": false
+      }
+    },
+    {
+      "table": "cert_manager",
+      "version": "1.10",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "1.10",
+        "phase": "eol",
+        "eol": "2023-05-19",
+        "daysToEol": -1474,
+        "latest": "1.10.2",
+        "lts": false
+      }
+    },
+    {
+      "table": "cert_manager",
+      "version": "1.10.5",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "1.10",
+        "phase": "eol",
+        "eol": "2023-05-19",
+        "daysToEol": -1474,
+        "latest": "1.10.2",
+        "lts": false
+      }
+    },
+    {
+      "table": "cert_manager",
+      "version": "v1.21",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "1.21",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "1.21.2",
+        "lts": false
+      }
+    },
+    {
+      "table": "cert_manager",
+      "version": "0.0.1",
+      "today": "2027-06-01",
+      "lifecycle": null
+    },
+    {
+      "table": "cert_manager",
+      "version": "9999",
+      "today": "2027-06-01",
+      "lifecycle": null
+    },
+    {
+      "table": "cert_manager",
+      "today": "2027-06-01",
+      "preferLts": true,
+      "matureDays": 90,
+      "recommended": "1.21"
+    },
+    {
+      "table": "cert_manager",
+      "today": "2027-06-01",
+      "preferLts": false,
+      "matureDays": 0,
+      "recommended": "1.21"
+    },
+    {
+      "table": "dotnet",
+      "version": "10",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "10",
+        "phase": "supported",
+        "eol": "2028-11-14",
+        "daysToEol": 1413,
+        "latest": "10.0.12",
+        "lts": true
+      }
+    },
+    {
+      "table": "dotnet",
+      "version": "10.5",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "10",
+        "phase": "supported",
+        "eol": "2028-11-14",
+        "daysToEol": 1413,
+        "latest": "10.0.12",
+        "lts": true
+      }
+    },
+    {
+      "table": "dotnet",
+      "version": "6",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "6",
+        "phase": "eol",
+        "eol": "2024-11-12",
+        "daysToEol": -50,
+        "latest": "6.0.36",
+        "lts": true
+      }
+    },
+    {
+      "table": "dotnet",
+      "version": "6.5",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "6",
+        "phase": "eol",
+        "eol": "2024-11-12",
+        "daysToEol": -50,
+        "latest": "6.0.36",
+        "lts": true
+      }
+    },
+    {
+      "table": "dotnet",
+      "version": "2.2",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "2.2",
+        "phase": "eol",
+        "eol": "2019-12-23",
+        "daysToEol": -1836,
+        "latest": "2.2.8",
+        "lts": false
+      }
+    },
+    {
+      "table": "dotnet",
+      "version": "2.2.5",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "2.2",
+        "phase": "eol",
+        "eol": "2019-12-23",
+        "daysToEol": -1836,
+        "latest": "2.2.8",
+        "lts": false
+      }
+    },
+    {
+      "table": "dotnet",
+      "version": "v10",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "10",
+        "phase": "supported",
+        "eol": "2028-11-14",
+        "daysToEol": 1413,
+        "latest": "10.0.12",
+        "lts": true
+      }
+    },
+    {
+      "table": "dotnet",
+      "version": "0.0.1",
+      "today": "2025-01-01",
+      "lifecycle": null
+    },
+    {
+      "table": "dotnet",
+      "version": "9999",
+      "today": "2025-01-01",
+      "lifecycle": null
+    },
+    {
+      "table": "dotnet",
+      "today": "2025-01-01",
+      "preferLts": true,
+      "matureDays": 90,
+      "recommended": "8"
+    },
+    {
+      "table": "dotnet",
+      "today": "2025-01-01",
+      "preferLts": false,
+      "matureDays": 0,
+      "recommended": "9"
+    },
+    {
+      "table": "dotnet",
+      "version": "10",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "10",
+        "phase": "supported",
+        "eol": "2028-11-14",
+        "daysToEol": 763,
+        "latest": "10.0.12",
+        "lts": true
+      }
+    },
+    {
+      "table": "dotnet",
+      "version": "10.5",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "10",
+        "phase": "supported",
+        "eol": "2028-11-14",
+        "daysToEol": 763,
+        "latest": "10.0.12",
+        "lts": true
+      }
+    },
+    {
+      "table": "dotnet",
+      "version": "6",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "6",
+        "phase": "eol",
+        "eol": "2024-11-12",
+        "daysToEol": -700,
+        "latest": "6.0.36",
+        "lts": true
+      }
+    },
+    {
+      "table": "dotnet",
+      "version": "6.5",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "6",
+        "phase": "eol",
+        "eol": "2024-11-12",
+        "daysToEol": -700,
+        "latest": "6.0.36",
+        "lts": true
+      }
+    },
+    {
+      "table": "dotnet",
+      "version": "2.2",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "2.2",
+        "phase": "eol",
+        "eol": "2019-12-23",
+        "daysToEol": -2486,
+        "latest": "2.2.8",
+        "lts": false
+      }
+    },
+    {
+      "table": "dotnet",
+      "version": "2.2.5",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "2.2",
+        "phase": "eol",
+        "eol": "2019-12-23",
+        "daysToEol": -2486,
+        "latest": "2.2.8",
+        "lts": false
+      }
+    },
+    {
+      "table": "dotnet",
+      "version": "v10",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "10",
+        "phase": "supported",
+        "eol": "2028-11-14",
+        "daysToEol": 763,
+        "latest": "10.0.12",
+        "lts": true
+      }
+    },
+    {
+      "table": "dotnet",
+      "version": "0.0.1",
+      "today": "2026-10-13",
+      "lifecycle": null
+    },
+    {
+      "table": "dotnet",
+      "version": "9999",
+      "today": "2026-10-13",
+      "lifecycle": null
+    },
+    {
+      "table": "dotnet",
+      "today": "2026-10-13",
+      "preferLts": true,
+      "matureDays": 90,
+      "recommended": "10"
+    },
+    {
+      "table": "dotnet",
+      "today": "2026-10-13",
+      "preferLts": false,
+      "matureDays": 0,
+      "recommended": "10"
+    },
+    {
+      "table": "dotnet",
+      "version": "10",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "10",
+        "phase": "supported",
+        "eol": "2028-11-14",
+        "daysToEol": 532,
+        "latest": "10.0.12",
+        "lts": true
+      }
+    },
+    {
+      "table": "dotnet",
+      "version": "10.5",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "10",
+        "phase": "supported",
+        "eol": "2028-11-14",
+        "daysToEol": 532,
+        "latest": "10.0.12",
+        "lts": true
+      }
+    },
+    {
+      "table": "dotnet",
+      "version": "6",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "6",
+        "phase": "eol",
+        "eol": "2024-11-12",
+        "daysToEol": -931,
+        "latest": "6.0.36",
+        "lts": true
+      }
+    },
+    {
+      "table": "dotnet",
+      "version": "6.5",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "6",
+        "phase": "eol",
+        "eol": "2024-11-12",
+        "daysToEol": -931,
+        "latest": "6.0.36",
+        "lts": true
+      }
+    },
+    {
+      "table": "dotnet",
+      "version": "2.2",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "2.2",
+        "phase": "eol",
+        "eol": "2019-12-23",
+        "daysToEol": -2717,
+        "latest": "2.2.8",
+        "lts": false
+      }
+    },
+    {
+      "table": "dotnet",
+      "version": "2.2.5",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "2.2",
+        "phase": "eol",
+        "eol": "2019-12-23",
+        "daysToEol": -2717,
+        "latest": "2.2.8",
+        "lts": false
+      }
+    },
+    {
+      "table": "dotnet",
+      "version": "v10",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "10",
+        "phase": "supported",
+        "eol": "2028-11-14",
+        "daysToEol": 532,
+        "latest": "10.0.12",
+        "lts": true
+      }
+    },
+    {
+      "table": "dotnet",
+      "version": "0.0.1",
+      "today": "2027-06-01",
+      "lifecycle": null
+    },
+    {
+      "table": "dotnet",
+      "version": "9999",
+      "today": "2027-06-01",
+      "lifecycle": null
+    },
+    {
+      "table": "dotnet",
+      "today": "2027-06-01",
+      "preferLts": true,
+      "matureDays": 90,
+      "recommended": "10"
+    },
+    {
+      "table": "dotnet",
+      "today": "2027-06-01",
+      "preferLts": false,
+      "matureDays": 0,
+      "recommended": "10"
+    },
+    {
+      "table": "foundationdb",
+      "version": "7.3",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "7.3",
+        "phase": "maintenance",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "7.3.77",
+        "lts": false
+      }
+    },
+    {
+      "table": "foundationdb",
+      "version": "7.3.5",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "7.3",
+        "phase": "maintenance",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "7.3.77",
+        "lts": false
+      }
+    },
+    {
+      "table": "foundationdb",
+      "version": "7.1",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "7.1",
+        "phase": "maintenance",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "7.1.61",
+        "lts": false
+      }
+    },
+    {
+      "table": "foundationdb",
+      "version": "7.1.5",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "7.1",
+        "phase": "maintenance",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "7.1.61",
+        "lts": false
+      }
+    },
+    {
+      "table": "foundationdb",
+      "version": "6.3",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "6.3",
+        "phase": "eol",
+        "eol": "2022-11-02",
+        "daysToEol": -791,
+        "latest": "6.3.25",
+        "lts": false
+      }
+    },
+    {
+      "table": "foundationdb",
+      "version": "6.3.5",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "6.3",
+        "phase": "eol",
+        "eol": "2022-11-02",
+        "daysToEol": -791,
+        "latest": "6.3.25",
+        "lts": false
+      }
+    },
+    {
+      "table": "foundationdb",
+      "version": "v7.3",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "7.3",
+        "phase": "maintenance",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "7.3.77",
+        "lts": false
+      }
+    },
+    {
+      "table": "foundationdb",
+      "version": "0.0.1",
+      "today": "2025-01-01",
+      "lifecycle": null
+    },
+    {
+      "table": "foundationdb",
+      "version": "9999",
+      "today": "2025-01-01",
+      "lifecycle": null
+    },
+    {
+      "table": "foundationdb",
+      "today": "2025-01-01",
+      "preferLts": true,
+      "matureDays": 90,
+      "recommended": "7.3"
+    },
+    {
+      "table": "foundationdb",
+      "today": "2025-01-01",
+      "preferLts": false,
+      "matureDays": 0,
+      "recommended": "7.3"
+    },
+    {
+      "table": "foundationdb",
+      "version": "7.3",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "7.3",
+        "phase": "maintenance",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "7.3.77",
+        "lts": false
+      }
+    },
+    {
+      "table": "foundationdb",
+      "version": "7.3.5",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "7.3",
+        "phase": "maintenance",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "7.3.77",
+        "lts": false
+      }
+    },
+    {
+      "table": "foundationdb",
+      "version": "7.1",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "7.1",
+        "phase": "maintenance",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "7.1.61",
+        "lts": false
+      }
+    },
+    {
+      "table": "foundationdb",
+      "version": "7.1.5",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "7.1",
+        "phase": "maintenance",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "7.1.61",
+        "lts": false
+      }
+    },
+    {
+      "table": "foundationdb",
+      "version": "6.3",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "6.3",
+        "phase": "eol",
+        "eol": "2022-11-02",
+        "daysToEol": -1441,
+        "latest": "6.3.25",
+        "lts": false
+      }
+    },
+    {
+      "table": "foundationdb",
+      "version": "6.3.5",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "6.3",
+        "phase": "eol",
+        "eol": "2022-11-02",
+        "daysToEol": -1441,
+        "latest": "6.3.25",
+        "lts": false
+      }
+    },
+    {
+      "table": "foundationdb",
+      "version": "v7.3",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "7.3",
+        "phase": "maintenance",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "7.3.77",
+        "lts": false
+      }
+    },
+    {
+      "table": "foundationdb",
+      "version": "0.0.1",
+      "today": "2026-10-13",
+      "lifecycle": null
+    },
+    {
+      "table": "foundationdb",
+      "version": "9999",
+      "today": "2026-10-13",
+      "lifecycle": null
+    },
+    {
+      "table": "foundationdb",
+      "today": "2026-10-13",
+      "preferLts": true,
+      "matureDays": 90,
+      "recommended": "7.3"
+    },
+    {
+      "table": "foundationdb",
+      "today": "2026-10-13",
+      "preferLts": false,
+      "matureDays": 0,
+      "recommended": "7.3"
+    },
+    {
+      "table": "foundationdb",
+      "version": "7.3",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "7.3",
+        "phase": "maintenance",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "7.3.77",
+        "lts": false
+      }
+    },
+    {
+      "table": "foundationdb",
+      "version": "7.3.5",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "7.3",
+        "phase": "maintenance",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "7.3.77",
+        "lts": false
+      }
+    },
+    {
+      "table": "foundationdb",
+      "version": "7.1",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "7.1",
+        "phase": "maintenance",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "7.1.61",
+        "lts": false
+      }
+    },
+    {
+      "table": "foundationdb",
+      "version": "7.1.5",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "7.1",
+        "phase": "maintenance",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "7.1.61",
+        "lts": false
+      }
+    },
+    {
+      "table": "foundationdb",
+      "version": "6.3",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "6.3",
+        "phase": "eol",
+        "eol": "2022-11-02",
+        "daysToEol": -1672,
+        "latest": "6.3.25",
+        "lts": false
+      }
+    },
+    {
+      "table": "foundationdb",
+      "version": "6.3.5",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "6.3",
+        "phase": "eol",
+        "eol": "2022-11-02",
+        "daysToEol": -1672,
+        "latest": "6.3.25",
+        "lts": false
+      }
+    },
+    {
+      "table": "foundationdb",
+      "version": "v7.3",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "7.3",
+        "phase": "maintenance",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "7.3.77",
+        "lts": false
+      }
+    },
+    {
+      "table": "foundationdb",
+      "version": "0.0.1",
+      "today": "2027-06-01",
+      "lifecycle": null
+    },
+    {
+      "table": "foundationdb",
+      "version": "9999",
+      "today": "2027-06-01",
+      "lifecycle": null
+    },
+    {
+      "table": "foundationdb",
+      "today": "2027-06-01",
+      "preferLts": true,
+      "matureDays": 90,
+      "recommended": "7.3"
+    },
+    {
+      "table": "foundationdb",
+      "today": "2027-06-01",
+      "preferLts": false,
+      "matureDays": 0,
+      "recommended": "7.3"
+    },
+    {
+      "table": "icinga",
+      "version": "2.16",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "2.16",
+        "phase": "maintenance",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "2.16.5",
+        "lts": false
+      }
+    },
+    {
+      "table": "icinga",
+      "version": "2.16.5",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "2.16",
+        "phase": "maintenance",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "2.16.5",
+        "lts": false
+      }
+    },
+    {
+      "table": "icinga",
+      "version": "2.13",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "2.13",
+        "phase": "maintenance",
+        "eol": "2025-06-17",
+        "daysToEol": 167,
+        "latest": "2.13.14",
+        "lts": false
+      }
+    },
+    {
+      "table": "icinga",
+      "version": "2.13.5",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "2.13",
+        "phase": "maintenance",
+        "eol": "2025-06-17",
+        "daysToEol": 167,
+        "latest": "2.13.14",
+        "lts": false
+      }
+    },
+    {
+      "table": "icinga",
+      "version": "2.11",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "2.11",
+        "phase": "eol",
+        "eol": "2021-08-02",
+        "daysToEol": -1248,
+        "latest": "2.11.12",
+        "lts": false
+      }
+    },
+    {
+      "table": "icinga",
+      "version": "2.11.5",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "2.11",
+        "phase": "eol",
+        "eol": "2021-08-02",
+        "daysToEol": -1248,
+        "latest": "2.11.12",
+        "lts": false
+      }
+    },
+    {
+      "table": "icinga",
+      "version": "v2.16",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "2.16",
+        "phase": "maintenance",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "2.16.5",
+        "lts": false
+      }
+    },
+    {
+      "table": "icinga",
+      "version": "0.0.1",
+      "today": "2025-01-01",
+      "lifecycle": null
+    },
+    {
+      "table": "icinga",
+      "version": "9999",
+      "today": "2025-01-01",
+      "lifecycle": null
+    },
+    {
+      "table": "icinga",
+      "today": "2025-01-01",
+      "preferLts": true,
+      "matureDays": 90,
+      "recommended": "2.14"
+    },
+    {
+      "table": "icinga",
+      "today": "2025-01-01",
+      "preferLts": false,
+      "matureDays": 0,
+      "recommended": "2.14"
+    },
+    {
+      "table": "icinga",
+      "version": "2.16",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "2.16",
+        "phase": "maintenance",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "2.16.5",
+        "lts": false
+      }
+    },
+    {
+      "table": "icinga",
+      "version": "2.16.5",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "2.16",
+        "phase": "maintenance",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "2.16.5",
+        "lts": false
+      }
+    },
+    {
+      "table": "icinga",
+      "version": "2.13",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "2.13",
+        "phase": "eol",
+        "eol": "2025-06-17",
+        "daysToEol": -483,
+        "latest": "2.13.14",
+        "lts": false
+      }
+    },
+    {
+      "table": "icinga",
+      "version": "2.13.5",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "2.13",
+        "phase": "eol",
+        "eol": "2025-06-17",
+        "daysToEol": -483,
+        "latest": "2.13.14",
+        "lts": false
+      }
+    },
+    {
+      "table": "icinga",
+      "version": "2.11",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "2.11",
+        "phase": "eol",
+        "eol": "2021-08-02",
+        "daysToEol": -1898,
+        "latest": "2.11.12",
+        "lts": false
+      }
+    },
+    {
+      "table": "icinga",
+      "version": "2.11.5",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "2.11",
+        "phase": "eol",
+        "eol": "2021-08-02",
+        "daysToEol": -1898,
+        "latest": "2.11.12",
+        "lts": false
+      }
+    },
+    {
+      "table": "icinga",
+      "version": "v2.16",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "2.16",
+        "phase": "maintenance",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "2.16.5",
+        "lts": false
+      }
+    },
+    {
+      "table": "icinga",
+      "version": "0.0.1",
+      "today": "2026-10-13",
+      "lifecycle": null
+    },
+    {
+      "table": "icinga",
+      "version": "9999",
+      "today": "2026-10-13",
+      "lifecycle": null
+    },
+    {
+      "table": "icinga",
+      "today": "2026-10-13",
+      "preferLts": true,
+      "matureDays": 90,
+      "recommended": "2.16"
+    },
+    {
+      "table": "icinga",
+      "today": "2026-10-13",
+      "preferLts": false,
+      "matureDays": 0,
+      "recommended": "2.16"
+    },
+    {
+      "table": "icinga",
+      "version": "2.16",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "2.16",
+        "phase": "maintenance",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "2.16.5",
+        "lts": false
+      }
+    },
+    {
+      "table": "icinga",
+      "version": "2.16.5",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "2.16",
+        "phase": "maintenance",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "2.16.5",
+        "lts": false
+      }
+    },
+    {
+      "table": "icinga",
+      "version": "2.13",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "2.13",
+        "phase": "eol",
+        "eol": "2025-06-17",
+        "daysToEol": -714,
+        "latest": "2.13.14",
+        "lts": false
+      }
+    },
+    {
+      "table": "icinga",
+      "version": "2.13.5",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "2.13",
+        "phase": "eol",
+        "eol": "2025-06-17",
+        "daysToEol": -714,
+        "latest": "2.13.14",
+        "lts": false
+      }
+    },
+    {
+      "table": "icinga",
+      "version": "2.11",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "2.11",
+        "phase": "eol",
+        "eol": "2021-08-02",
+        "daysToEol": -2129,
+        "latest": "2.11.12",
+        "lts": false
+      }
+    },
+    {
+      "table": "icinga",
+      "version": "2.11.5",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "2.11",
+        "phase": "eol",
+        "eol": "2021-08-02",
+        "daysToEol": -2129,
+        "latest": "2.11.12",
+        "lts": false
+      }
+    },
+    {
+      "table": "icinga",
+      "version": "v2.16",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "2.16",
+        "phase": "maintenance",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "2.16.5",
+        "lts": false
+      }
+    },
+    {
+      "table": "icinga",
+      "version": "0.0.1",
+      "today": "2027-06-01",
+      "lifecycle": null
+    },
+    {
+      "table": "icinga",
+      "version": "9999",
+      "today": "2027-06-01",
+      "lifecycle": null
+    },
+    {
+      "table": "icinga",
+      "today": "2027-06-01",
+      "preferLts": true,
+      "matureDays": 90,
+      "recommended": "2.16"
+    },
+    {
+      "table": "icinga",
+      "today": "2027-06-01",
+      "preferLts": false,
+      "matureDays": 0,
+      "recommended": "2.16"
+    },
+    {
+      "table": "logstash",
+      "version": "9.5",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "9.5",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "9.5.5",
+        "lts": false
+      }
+    },
+    {
+      "table": "logstash",
+      "version": "9.5.5",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "9.5",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "9.5.5",
+        "lts": false
+      }
+    },
+    {
+      "table": "logstash",
+      "version": "8.19",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "8.19",
+        "phase": "supported",
+        "eol": "2027-07-15",
+        "daysToEol": 925,
+        "latest": "8.19.23",
+        "lts": false
+      }
+    },
+    {
+      "table": "logstash",
+      "version": "8.19.5",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "8.19",
+        "phase": "supported",
+        "eol": "2027-07-15",
+        "daysToEol": 925,
+        "latest": "8.19.23",
+        "lts": false
+      }
+    },
+    {
+      "table": "logstash",
+      "version": "7",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "7",
+        "phase": "supported",
+        "eol": "2026-01-15",
+        "daysToEol": 379,
+        "latest": "7.17.29",
+        "lts": false
+      }
+    },
+    {
+      "table": "logstash",
+      "version": "7.5",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "7",
+        "phase": "supported",
+        "eol": "2026-01-15",
+        "daysToEol": 379,
+        "latest": "7.17.29",
+        "lts": false
+      }
+    },
+    {
+      "table": "logstash",
+      "version": "v9.5",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "9.5",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "9.5.5",
+        "lts": false
+      }
+    },
+    {
+      "table": "logstash",
+      "version": "0.0.1",
+      "today": "2025-01-01",
+      "lifecycle": null
+    },
+    {
+      "table": "logstash",
+      "version": "9999",
+      "today": "2025-01-01",
+      "lifecycle": null
+    },
+    {
+      "table": "logstash",
+      "today": "2025-01-01",
+      "preferLts": true,
+      "matureDays": 90,
+      "recommended": "7"
+    },
+    {
+      "table": "logstash",
+      "today": "2025-01-01",
+      "preferLts": false,
+      "matureDays": 0,
+      "recommended": "8.17"
+    },
+    {
+      "table": "logstash",
+      "version": "9.5",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "9.5",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "9.5.5",
+        "lts": false
+      }
+    },
+    {
+      "table": "logstash",
+      "version": "9.5.5",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "9.5",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "9.5.5",
+        "lts": false
+      }
+    },
+    {
+      "table": "logstash",
+      "version": "8.19",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "8.19",
+        "phase": "supported",
+        "eol": "2027-07-15",
+        "daysToEol": 275,
+        "latest": "8.19.23",
+        "lts": false
+      }
+    },
+    {
+      "table": "logstash",
+      "version": "8.19.5",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "8.19",
+        "phase": "supported",
+        "eol": "2027-07-15",
+        "daysToEol": 275,
+        "latest": "8.19.23",
+        "lts": false
+      }
+    },
+    {
+      "table": "logstash",
+      "version": "7",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "7",
+        "phase": "eol",
+        "eol": "2026-01-15",
+        "daysToEol": -271,
+        "latest": "7.17.29",
+        "lts": false
+      }
+    },
+    {
+      "table": "logstash",
+      "version": "7.5",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "7",
+        "phase": "eol",
+        "eol": "2026-01-15",
+        "daysToEol": -271,
+        "latest": "7.17.29",
+        "lts": false
+      }
+    },
+    {
+      "table": "logstash",
+      "version": "v9.5",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "9.5",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "9.5.5",
+        "lts": false
+      }
+    },
+    {
+      "table": "logstash",
+      "version": "0.0.1",
+      "today": "2026-10-13",
+      "lifecycle": null
+    },
+    {
+      "table": "logstash",
+      "version": "9999",
+      "today": "2026-10-13",
+      "lifecycle": null
+    },
+    {
+      "table": "logstash",
+      "today": "2026-10-13",
+      "preferLts": true,
+      "matureDays": 90,
+      "recommended": "9.4"
+    },
+    {
+      "table": "logstash",
+      "today": "2026-10-13",
+      "preferLts": false,
+      "matureDays": 0,
+      "recommended": "9.5"
+    },
+    {
+      "table": "logstash",
+      "version": "9.5",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "9.5",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "9.5.5",
+        "lts": false
+      }
+    },
+    {
+      "table": "logstash",
+      "version": "9.5.5",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "9.5",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "9.5.5",
+        "lts": false
+      }
+    },
+    {
+      "table": "logstash",
+      "version": "8.19",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "8.19",
+        "phase": "supported",
+        "eol": "2027-07-15",
+        "daysToEol": 44,
+        "latest": "8.19.23",
+        "lts": false
+      }
+    },
+    {
+      "table": "logstash",
+      "version": "8.19.5",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "8.19",
+        "phase": "supported",
+        "eol": "2027-07-15",
+        "daysToEol": 44,
+        "latest": "8.19.23",
+        "lts": false
+      }
+    },
+    {
+      "table": "logstash",
+      "version": "7",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "7",
+        "phase": "eol",
+        "eol": "2026-01-15",
+        "daysToEol": -502,
+        "latest": "7.17.29",
+        "lts": false
+      }
+    },
+    {
+      "table": "logstash",
+      "version": "7.5",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "7",
+        "phase": "eol",
+        "eol": "2026-01-15",
+        "daysToEol": -502,
+        "latest": "7.17.29",
+        "lts": false
+      }
+    },
+    {
+      "table": "logstash",
+      "version": "v9.5",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "9.5",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "9.5.5",
+        "lts": false
+      }
+    },
+    {
+      "table": "logstash",
+      "version": "0.0.1",
+      "today": "2027-06-01",
+      "lifecycle": null
+    },
+    {
+      "table": "logstash",
+      "version": "9999",
+      "today": "2027-06-01",
+      "lifecycle": null
+    },
+    {
+      "table": "logstash",
+      "today": "2027-06-01",
+      "preferLts": true,
+      "matureDays": 90,
+      "recommended": "9.5"
+    },
+    {
+      "table": "logstash",
+      "today": "2027-06-01",
+      "preferLts": false,
+      "matureDays": 0,
+      "recommended": "9.5"
+    },
+    {
+      "table": "netapp-ontap",
+      "version": "9.19.1",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "9.19.1",
+        "phase": "supported",
+        "eol": "2029-07-31",
+        "daysToEol": 1672,
+        "latest": null,
+        "lts": false
+      }
+    },
+    {
+      "table": "netapp-ontap",
+      "version": "9.19.1.5",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "9.19.1",
+        "phase": "supported",
+        "eol": "2029-07-31",
+        "daysToEol": 1672,
+        "latest": null,
+        "lts": false
+      }
+    },
+    {
+      "table": "netapp-ontap",
+      "version": "9.12.1",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "9.12.1",
+        "phase": "supported",
+        "eol": "2026-02-28",
+        "daysToEol": 423,
+        "latest": null,
+        "lts": false
+      }
+    },
+    {
+      "table": "netapp-ontap",
+      "version": "9.12.1.5",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "9.12.1",
+        "phase": "supported",
+        "eol": "2026-02-28",
+        "daysToEol": 423,
+        "latest": null,
+        "lts": false
+      }
+    },
+    {
+      "table": "netapp-ontap",
+      "version": "9.5",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "9.5",
+        "phase": "eol",
+        "eol": "2022-01-31",
+        "daysToEol": -1066,
+        "latest": null,
+        "lts": false
+      }
+    },
+    {
+      "table": "netapp-ontap",
+      "version": "9.5.5",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "9.5",
+        "phase": "eol",
+        "eol": "2022-01-31",
+        "daysToEol": -1066,
+        "latest": null,
+        "lts": false
+      }
+    },
+    {
+      "table": "netapp-ontap",
+      "version": "v9.19.1",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "9.19.1",
+        "phase": "supported",
+        "eol": "2029-07-31",
+        "daysToEol": 1672,
+        "latest": null,
+        "lts": false
+      }
+    },
+    {
+      "table": "netapp-ontap",
+      "version": "0.0.1",
+      "today": "2025-01-01",
+      "lifecycle": null
+    },
+    {
+      "table": "netapp-ontap",
+      "version": "9999",
+      "today": "2025-01-01",
+      "lifecycle": null
+    },
+    {
+      "table": "netapp-ontap",
+      "today": "2025-01-01",
+      "preferLts": true,
+      "matureDays": 90,
+      "recommended": "9.15.1"
+    },
+    {
+      "table": "netapp-ontap",
+      "today": "2025-01-01",
+      "preferLts": false,
+      "matureDays": 0,
+      "recommended": "9.16.1"
+    },
+    {
+      "table": "netapp-ontap",
+      "version": "9.19.1",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "9.19.1",
+        "phase": "supported",
+        "eol": "2029-07-31",
+        "daysToEol": 1022,
+        "latest": null,
+        "lts": false
+      }
+    },
+    {
+      "table": "netapp-ontap",
+      "version": "9.19.1.5",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "9.19.1",
+        "phase": "supported",
+        "eol": "2029-07-31",
+        "daysToEol": 1022,
+        "latest": null,
+        "lts": false
+      }
+    },
+    {
+      "table": "netapp-ontap",
+      "version": "9.12.1",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "9.12.1",
+        "phase": "eol",
+        "eol": "2026-02-28",
+        "daysToEol": -227,
+        "latest": null,
+        "lts": false
+      }
+    },
+    {
+      "table": "netapp-ontap",
+      "version": "9.12.1.5",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "9.12.1",
+        "phase": "eol",
+        "eol": "2026-02-28",
+        "daysToEol": -227,
+        "latest": null,
+        "lts": false
+      }
+    },
+    {
+      "table": "netapp-ontap",
+      "version": "9.5",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "9.5",
+        "phase": "eol",
+        "eol": "2022-01-31",
+        "daysToEol": -1716,
+        "latest": null,
+        "lts": false
+      }
+    },
+    {
+      "table": "netapp-ontap",
+      "version": "9.5.5",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "9.5",
+        "phase": "eol",
+        "eol": "2022-01-31",
+        "daysToEol": -1716,
+        "latest": null,
+        "lts": false
+      }
+    },
+    {
+      "table": "netapp-ontap",
+      "version": "v9.19.1",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "9.19.1",
+        "phase": "supported",
+        "eol": "2029-07-31",
+        "daysToEol": 1022,
+        "latest": null,
+        "lts": false
+      }
+    },
+    {
+      "table": "netapp-ontap",
+      "version": "0.0.1",
+      "today": "2026-10-13",
+      "lifecycle": null
+    },
+    {
+      "table": "netapp-ontap",
+      "version": "9999",
+      "today": "2026-10-13",
+      "lifecycle": null
+    },
+    {
+      "table": "netapp-ontap",
+      "today": "2026-10-13",
+      "preferLts": true,
+      "matureDays": 90,
+      "recommended": "9.19.1"
+    },
+    {
+      "table": "netapp-ontap",
+      "today": "2026-10-13",
+      "preferLts": false,
+      "matureDays": 0,
+      "recommended": "9.19.1"
+    },
+    {
+      "table": "netapp-ontap",
+      "version": "9.19.1",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "9.19.1",
+        "phase": "supported",
+        "eol": "2029-07-31",
+        "daysToEol": 791,
+        "latest": null,
+        "lts": false
+      }
+    },
+    {
+      "table": "netapp-ontap",
+      "version": "9.19.1.5",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "9.19.1",
+        "phase": "supported",
+        "eol": "2029-07-31",
+        "daysToEol": 791,
+        "latest": null,
+        "lts": false
+      }
+    },
+    {
+      "table": "netapp-ontap",
+      "version": "9.12.1",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "9.12.1",
+        "phase": "eol",
+        "eol": "2026-02-28",
+        "daysToEol": -458,
+        "latest": null,
+        "lts": false
+      }
+    },
+    {
+      "table": "netapp-ontap",
+      "version": "9.12.1.5",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "9.12.1",
+        "phase": "eol",
+        "eol": "2026-02-28",
+        "daysToEol": -458,
+        "latest": null,
+        "lts": false
+      }
+    },
+    {
+      "table": "netapp-ontap",
+      "version": "9.5",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "9.5",
+        "phase": "eol",
+        "eol": "2022-01-31",
+        "daysToEol": -1947,
+        "latest": null,
+        "lts": false
+      }
+    },
+    {
+      "table": "netapp-ontap",
+      "version": "9.5.5",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "9.5",
+        "phase": "eol",
+        "eol": "2022-01-31",
+        "daysToEol": -1947,
+        "latest": null,
+        "lts": false
+      }
+    },
+    {
+      "table": "netapp-ontap",
+      "version": "v9.19.1",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "9.19.1",
+        "phase": "supported",
+        "eol": "2029-07-31",
+        "daysToEol": 791,
+        "latest": null,
+        "lts": false
+      }
+    },
+    {
+      "table": "netapp-ontap",
+      "version": "0.0.1",
+      "today": "2027-06-01",
+      "lifecycle": null
+    },
+    {
+      "table": "netapp-ontap",
+      "version": "9999",
+      "today": "2027-06-01",
+      "lifecycle": null
+    },
+    {
+      "table": "netapp-ontap",
+      "today": "2027-06-01",
+      "preferLts": true,
+      "matureDays": 90,
+      "recommended": "9.19.1"
+    },
+    {
+      "table": "netapp-ontap",
+      "today": "2027-06-01",
+      "preferLts": false,
+      "matureDays": 0,
+      "recommended": "9.19.1"
+    },
+    {
+      "table": "opnsense",
+      "version": "26.7",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "26.7",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "26.7.6",
+        "lts": false
+      }
+    },
+    {
+      "table": "opnsense",
+      "version": "26.7.5",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "26.7",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "26.7.6",
+        "lts": false
+      }
+    },
+    {
+      "table": "opnsense",
+      "version": "22.7",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "22.7",
+        "phase": "eol",
+        "eol": "2023-01-25",
+        "daysToEol": -707,
+        "latest": "22.7.11",
+        "lts": false
+      }
+    },
+    {
+      "table": "opnsense",
+      "version": "22.7.5",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "22.7",
+        "phase": "eol",
+        "eol": "2023-01-25",
+        "daysToEol": -707,
+        "latest": "22.7.11",
+        "lts": false
+      }
+    },
+    {
+      "table": "opnsense",
+      "version": "19.1",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "19.1",
+        "phase": "eol",
+        "eol": "2019-07-15",
+        "daysToEol": -1997,
+        "latest": "19.1.10",
+        "lts": false
+      }
+    },
+    {
+      "table": "opnsense",
+      "version": "19.1.5",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "19.1",
+        "phase": "eol",
+        "eol": "2019-07-15",
+        "daysToEol": -1997,
+        "latest": "19.1.10",
+        "lts": false
+      }
+    },
+    {
+      "table": "opnsense",
+      "version": "v26.7",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "26.7",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "26.7.6",
+        "lts": false
+      }
+    },
+    {
+      "table": "opnsense",
+      "version": "0.0.1",
+      "today": "2025-01-01",
+      "lifecycle": null
+    },
+    {
+      "table": "opnsense",
+      "version": "9999",
+      "today": "2025-01-01",
+      "lifecycle": null
+    },
+    {
+      "table": "opnsense",
+      "today": "2025-01-01",
+      "preferLts": true,
+      "matureDays": 90,
+      "recommended": "24.7"
+    },
+    {
+      "table": "opnsense",
+      "today": "2025-01-01",
+      "preferLts": false,
+      "matureDays": 0,
+      "recommended": "24.7"
+    },
+    {
+      "table": "opnsense",
+      "version": "26.7",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "26.7",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "26.7.6",
+        "lts": false
+      }
+    },
+    {
+      "table": "opnsense",
+      "version": "26.7.5",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "26.7",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "26.7.6",
+        "lts": false
+      }
+    },
+    {
+      "table": "opnsense",
+      "version": "22.7",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "22.7",
+        "phase": "eol",
+        "eol": "2023-01-25",
+        "daysToEol": -1357,
+        "latest": "22.7.11",
+        "lts": false
+      }
+    },
+    {
+      "table": "opnsense",
+      "version": "22.7.5",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "22.7",
+        "phase": "eol",
+        "eol": "2023-01-25",
+        "daysToEol": -1357,
+        "latest": "22.7.11",
+        "lts": false
+      }
+    },
+    {
+      "table": "opnsense",
+      "version": "19.1",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "19.1",
+        "phase": "eol",
+        "eol": "2019-07-15",
+        "daysToEol": -2647,
+        "latest": "19.1.10",
+        "lts": false
+      }
+    },
+    {
+      "table": "opnsense",
+      "version": "19.1.5",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "19.1",
+        "phase": "eol",
+        "eol": "2019-07-15",
+        "daysToEol": -2647,
+        "latest": "19.1.10",
+        "lts": false
+      }
+    },
+    {
+      "table": "opnsense",
+      "version": "v26.7",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "26.7",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "26.7.6",
+        "lts": false
+      }
+    },
+    {
+      "table": "opnsense",
+      "version": "0.0.1",
+      "today": "2026-10-13",
+      "lifecycle": null
+    },
+    {
+      "table": "opnsense",
+      "version": "9999",
+      "today": "2026-10-13",
+      "lifecycle": null
+    },
+    {
+      "table": "opnsense",
+      "today": "2026-10-13",
+      "preferLts": true,
+      "matureDays": 90,
+      "recommended": "26.7"
+    },
+    {
+      "table": "opnsense",
+      "today": "2026-10-13",
+      "preferLts": false,
+      "matureDays": 0,
+      "recommended": "26.7"
+    },
+    {
+      "table": "opnsense",
+      "version": "26.7",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "26.7",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "26.7.6",
+        "lts": false
+      }
+    },
+    {
+      "table": "opnsense",
+      "version": "26.7.5",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "26.7",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "26.7.6",
+        "lts": false
+      }
+    },
+    {
+      "table": "opnsense",
+      "version": "22.7",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "22.7",
+        "phase": "eol",
+        "eol": "2023-01-25",
+        "daysToEol": -1588,
+        "latest": "22.7.11",
+        "lts": false
+      }
+    },
+    {
+      "table": "opnsense",
+      "version": "22.7.5",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "22.7",
+        "phase": "eol",
+        "eol": "2023-01-25",
+        "daysToEol": -1588,
+        "latest": "22.7.11",
+        "lts": false
+      }
+    },
+    {
+      "table": "opnsense",
+      "version": "19.1",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "19.1",
+        "phase": "eol",
+        "eol": "2019-07-15",
+        "daysToEol": -2878,
+        "latest": "19.1.10",
+        "lts": false
+      }
+    },
+    {
+      "table": "opnsense",
+      "version": "19.1.5",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "19.1",
+        "phase": "eol",
+        "eol": "2019-07-15",
+        "daysToEol": -2878,
+        "latest": "19.1.10",
+        "lts": false
+      }
+    },
+    {
+      "table": "opnsense",
+      "version": "v26.7",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "26.7",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "26.7.6",
+        "lts": false
+      }
+    },
+    {
+      "table": "opnsense",
+      "version": "0.0.1",
+      "today": "2027-06-01",
+      "lifecycle": null
+    },
+    {
+      "table": "opnsense",
+      "version": "9999",
+      "today": "2027-06-01",
+      "lifecycle": null
+    },
+    {
+      "table": "opnsense",
+      "today": "2027-06-01",
+      "preferLts": true,
+      "matureDays": 90,
+      "recommended": "26.7"
+    },
+    {
+      "table": "opnsense",
+      "today": "2027-06-01",
+      "preferLts": false,
+      "matureDays": 0,
+      "recommended": "26.7"
+    },
+    {
+      "table": "python",
+      "version": "3.15",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "3.15",
+        "phase": "supported",
+        "eol": "2031-10-31",
+        "daysToEol": 2494,
+        "latest": "3.15.0",
+        "lts": false
+      }
+    },
+    {
+      "table": "python",
+      "version": "3.15.5",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "3.15",
+        "phase": "supported",
+        "eol": "2031-10-31",
+        "daysToEol": 2494,
+        "latest": "3.15.0",
+        "lts": false
+      }
+    },
+    {
+      "table": "python",
+      "version": "3.11",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "3.11",
+        "phase": "maintenance",
+        "eol": "2027-10-31",
+        "daysToEol": 1033,
+        "latest": "3.11.17",
+        "lts": false
+      }
+    },
+    {
+      "table": "python",
+      "version": "3.11.5",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "3.11",
+        "phase": "maintenance",
+        "eol": "2027-10-31",
+        "daysToEol": 1033,
+        "latest": "3.11.17",
+        "lts": false
+      }
+    },
+    {
+      "table": "python",
+      "version": "3.8",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "3.8",
+        "phase": "eol",
+        "eol": "2024-10-07",
+        "daysToEol": -86,
+        "latest": "3.8.20",
+        "lts": false
+      }
+    },
+    {
+      "table": "python",
+      "version": "3.8.5",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "3.8",
+        "phase": "eol",
+        "eol": "2024-10-07",
+        "daysToEol": -86,
+        "latest": "3.8.20",
+        "lts": false
+      }
+    },
+    {
+      "table": "python",
+      "version": "v3.15",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "3.15",
+        "phase": "supported",
+        "eol": "2031-10-31",
+        "daysToEol": 2494,
+        "latest": "3.15.0",
+        "lts": false
+      }
+    },
+    {
+      "table": "python",
+      "version": "0.0.1",
+      "today": "2025-01-01",
+      "lifecycle": null
+    },
+    {
+      "table": "python",
+      "version": "9999",
+      "today": "2025-01-01",
+      "lifecycle": null
+    },
+    {
+      "table": "python",
+      "today": "2025-01-01",
+      "preferLts": true,
+      "matureDays": 90,
+      "recommended": "3.12"
+    },
+    {
+      "table": "python",
+      "today": "2025-01-01",
+      "preferLts": false,
+      "matureDays": 0,
+      "recommended": "3.13"
+    },
+    {
+      "table": "python",
+      "version": "3.15",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "3.15",
+        "phase": "supported",
+        "eol": "2031-10-31",
+        "daysToEol": 1844,
+        "latest": "3.15.0",
+        "lts": false
+      }
+    },
+    {
+      "table": "python",
+      "version": "3.15.5",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "3.15",
+        "phase": "supported",
+        "eol": "2031-10-31",
+        "daysToEol": 1844,
+        "latest": "3.15.0",
+        "lts": false
+      }
+    },
+    {
+      "table": "python",
+      "version": "3.11",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "3.11",
+        "phase": "maintenance",
+        "eol": "2027-10-31",
+        "daysToEol": 383,
+        "latest": "3.11.17",
+        "lts": false
+      }
+    },
+    {
+      "table": "python",
+      "version": "3.11.5",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "3.11",
+        "phase": "maintenance",
+        "eol": "2027-10-31",
+        "daysToEol": 383,
+        "latest": "3.11.17",
+        "lts": false
+      }
+    },
+    {
+      "table": "python",
+      "version": "3.8",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "3.8",
+        "phase": "eol",
+        "eol": "2024-10-07",
+        "daysToEol": -736,
+        "latest": "3.8.20",
+        "lts": false
+      }
+    },
+    {
+      "table": "python",
+      "version": "3.8.5",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "3.8",
+        "phase": "eol",
+        "eol": "2024-10-07",
+        "daysToEol": -736,
+        "latest": "3.8.20",
+        "lts": false
+      }
+    },
+    {
+      "table": "python",
+      "version": "v3.15",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "3.15",
+        "phase": "supported",
+        "eol": "2031-10-31",
+        "daysToEol": 1844,
+        "latest": "3.15.0",
+        "lts": false
+      }
+    },
+    {
+      "table": "python",
+      "version": "0.0.1",
+      "today": "2026-10-13",
+      "lifecycle": null
+    },
+    {
+      "table": "python",
+      "version": "9999",
+      "today": "2026-10-13",
+      "lifecycle": null
+    },
+    {
+      "table": "python",
+      "today": "2026-10-13",
+      "preferLts": true,
+      "matureDays": 90,
+      "recommended": "3.14"
+    },
+    {
+      "table": "python",
+      "today": "2026-10-13",
+      "preferLts": false,
+      "matureDays": 0,
+      "recommended": "3.15"
+    },
+    {
+      "table": "python",
+      "version": "3.15",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "3.15",
+        "phase": "supported",
+        "eol": "2031-10-31",
+        "daysToEol": 1613,
+        "latest": "3.15.0",
+        "lts": false
+      }
+    },
+    {
+      "table": "python",
+      "version": "3.15.5",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "3.15",
+        "phase": "supported",
+        "eol": "2031-10-31",
+        "daysToEol": 1613,
+        "latest": "3.15.0",
+        "lts": false
+      }
+    },
+    {
+      "table": "python",
+      "version": "3.11",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "3.11",
+        "phase": "maintenance",
+        "eol": "2027-10-31",
+        "daysToEol": 152,
+        "latest": "3.11.17",
+        "lts": false
+      }
+    },
+    {
+      "table": "python",
+      "version": "3.11.5",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "3.11",
+        "phase": "maintenance",
+        "eol": "2027-10-31",
+        "daysToEol": 152,
+        "latest": "3.11.17",
+        "lts": false
+      }
+    },
+    {
+      "table": "python",
+      "version": "3.8",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "3.8",
+        "phase": "eol",
+        "eol": "2024-10-07",
+        "daysToEol": -967,
+        "latest": "3.8.20",
+        "lts": false
+      }
+    },
+    {
+      "table": "python",
+      "version": "3.8.5",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "3.8",
+        "phase": "eol",
+        "eol": "2024-10-07",
+        "daysToEol": -967,
+        "latest": "3.8.20",
+        "lts": false
+      }
+    },
+    {
+      "table": "python",
+      "version": "v3.15",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "3.15",
+        "phase": "supported",
+        "eol": "2031-10-31",
+        "daysToEol": 1613,
+        "latest": "3.15.0",
+        "lts": false
+      }
+    },
+    {
+      "table": "python",
+      "version": "0.0.1",
+      "today": "2027-06-01",
+      "lifecycle": null
+    },
+    {
+      "table": "python",
+      "version": "9999",
+      "today": "2027-06-01",
+      "lifecycle": null
+    },
+    {
+      "table": "python",
+      "today": "2027-06-01",
+      "preferLts": true,
+      "matureDays": 90,
+      "recommended": "3.15"
+    },
+    {
+      "table": "python",
+      "today": "2027-06-01",
+      "preferLts": false,
+      "matureDays": 0,
+      "recommended": "3.15"
+    },
+    {
+      "table": "spring-boot",
+      "version": "4.1",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "4.1",
+        "phase": "supported",
+        "eol": "2027-07-31",
+        "daysToEol": 941,
+        "latest": "4.1.1",
+        "lts": false
+      }
+    },
+    {
+      "table": "spring-boot",
+      "version": "4.1.5",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "4.1",
+        "phase": "supported",
+        "eol": "2027-07-31",
+        "daysToEol": 941,
+        "latest": "4.1.1",
+        "lts": false
+      }
+    },
+    {
+      "table": "spring-boot",
+      "version": "3.0",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "3.0",
+        "phase": "eol",
+        "eol": "2023-12-31",
+        "daysToEol": -367,
+        "latest": "3.0.13",
+        "lts": false
+      }
+    },
+    {
+      "table": "spring-boot",
+      "version": "3.0.5",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "3.0",
+        "phase": "eol",
+        "eol": "2023-12-31",
+        "daysToEol": -367,
+        "latest": "3.0.13",
+        "lts": false
+      }
+    },
+    {
+      "table": "spring-boot",
+      "version": "2.1",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "2.1",
+        "phase": "eol",
+        "eol": "2019-10-30",
+        "daysToEol": -1890,
+        "latest": "2.1.18",
+        "lts": false
+      }
+    },
+    {
+      "table": "spring-boot",
+      "version": "2.1.5",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "2.1",
+        "phase": "eol",
+        "eol": "2019-10-30",
+        "daysToEol": -1890,
+        "latest": "2.1.18",
+        "lts": false
+      }
+    },
+    {
+      "table": "spring-boot",
+      "version": "v4.1",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "4.1",
+        "phase": "supported",
+        "eol": "2027-07-31",
+        "daysToEol": 941,
+        "latest": "4.1.1",
+        "lts": false
+      }
+    },
+    {
+      "table": "spring-boot",
+      "version": "0.0.1",
+      "today": "2025-01-01",
+      "lifecycle": null
+    },
+    {
+      "table": "spring-boot",
+      "version": "9999",
+      "today": "2025-01-01",
+      "lifecycle": null
+    },
+    {
+      "table": "spring-boot",
+      "today": "2025-01-01",
+      "preferLts": true,
+      "matureDays": 90,
+      "recommended": "3.3"
+    },
+    {
+      "table": "spring-boot",
+      "today": "2025-01-01",
+      "preferLts": false,
+      "matureDays": 0,
+      "recommended": "3.4"
+    },
+    {
+      "table": "spring-boot",
+      "version": "4.1",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "4.1",
+        "phase": "supported",
+        "eol": "2027-07-31",
+        "daysToEol": 291,
+        "latest": "4.1.1",
+        "lts": false
+      }
+    },
+    {
+      "table": "spring-boot",
+      "version": "4.1.5",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "4.1",
+        "phase": "supported",
+        "eol": "2027-07-31",
+        "daysToEol": 291,
+        "latest": "4.1.1",
+        "lts": false
+      }
+    },
+    {
+      "table": "spring-boot",
+      "version": "3.0",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "3.0",
+        "phase": "eol",
+        "eol": "2023-12-31",
+        "daysToEol": -1017,
+        "latest": "3.0.13",
+        "lts": false
+      }
+    },
+    {
+      "table": "spring-boot",
+      "version": "3.0.5",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "3.0",
+        "phase": "eol",
+        "eol": "2023-12-31",
+        "daysToEol": -1017,
+        "latest": "3.0.13",
+        "lts": false
+      }
+    },
+    {
+      "table": "spring-boot",
+      "version": "2.1",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "2.1",
+        "phase": "eol",
+        "eol": "2019-10-30",
+        "daysToEol": -2540,
+        "latest": "2.1.18",
+        "lts": false
+      }
+    },
+    {
+      "table": "spring-boot",
+      "version": "2.1.5",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "2.1",
+        "phase": "eol",
+        "eol": "2019-10-30",
+        "daysToEol": -2540,
+        "latest": "2.1.18",
+        "lts": false
+      }
+    },
+    {
+      "table": "spring-boot",
+      "version": "v4.1",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "4.1",
+        "phase": "supported",
+        "eol": "2027-07-31",
+        "daysToEol": 291,
+        "latest": "4.1.1",
+        "lts": false
+      }
+    },
+    {
+      "table": "spring-boot",
+      "version": "0.0.1",
+      "today": "2026-10-13",
+      "lifecycle": null
+    },
+    {
+      "table": "spring-boot",
+      "version": "9999",
+      "today": "2026-10-13",
+      "lifecycle": null
+    },
+    {
+      "table": "spring-boot",
+      "today": "2026-10-13",
+      "preferLts": true,
+      "matureDays": 90,
+      "recommended": "4.1"
+    },
+    {
+      "table": "spring-boot",
+      "today": "2026-10-13",
+      "preferLts": false,
+      "matureDays": 0,
+      "recommended": "4.1"
+    },
+    {
+      "table": "spring-boot",
+      "version": "4.1",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "4.1",
+        "phase": "supported",
+        "eol": "2027-07-31",
+        "daysToEol": 60,
+        "latest": "4.1.1",
+        "lts": false
+      }
+    },
+    {
+      "table": "spring-boot",
+      "version": "4.1.5",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "4.1",
+        "phase": "supported",
+        "eol": "2027-07-31",
+        "daysToEol": 60,
+        "latest": "4.1.1",
+        "lts": false
+      }
+    },
+    {
+      "table": "spring-boot",
+      "version": "3.0",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "3.0",
+        "phase": "eol",
+        "eol": "2023-12-31",
+        "daysToEol": -1248,
+        "latest": "3.0.13",
+        "lts": false
+      }
+    },
+    {
+      "table": "spring-boot",
+      "version": "3.0.5",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "3.0",
+        "phase": "eol",
+        "eol": "2023-12-31",
+        "daysToEol": -1248,
+        "latest": "3.0.13",
+        "lts": false
+      }
+    },
+    {
+      "table": "spring-boot",
+      "version": "2.1",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "2.1",
+        "phase": "eol",
+        "eol": "2019-10-30",
+        "daysToEol": -2771,
+        "latest": "2.1.18",
+        "lts": false
+      }
+    },
+    {
+      "table": "spring-boot",
+      "version": "2.1.5",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "2.1",
+        "phase": "eol",
+        "eol": "2019-10-30",
+        "daysToEol": -2771,
+        "latest": "2.1.18",
+        "lts": false
+      }
+    },
+    {
+      "table": "spring-boot",
+      "version": "v4.1",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "4.1",
+        "phase": "supported",
+        "eol": "2027-07-31",
+        "daysToEol": 60,
+        "latest": "4.1.1",
+        "lts": false
+      }
+    },
+    {
+      "table": "spring-boot",
+      "version": "0.0.1",
+      "today": "2027-06-01",
+      "lifecycle": null
+    },
+    {
+      "table": "spring-boot",
+      "version": "9999",
+      "today": "2027-06-01",
+      "lifecycle": null
+    },
+    {
+      "table": "spring-boot",
+      "today": "2027-06-01",
+      "preferLts": true,
+      "matureDays": 90,
+      "recommended": "4.1"
+    },
+    {
+      "table": "spring-boot",
+      "today": "2027-06-01",
+      "preferLts": false,
+      "matureDays": 0,
+      "recommended": "4.1"
+    },
+    {
+      "table": "vault",
+      "version": "2.1",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "2.1",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "2.1.2",
+        "lts": false
+      }
+    },
+    {
+      "table": "vault",
+      "version": "2.1.5",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "2.1",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "2.1.2",
+        "lts": false
+      }
+    },
+    {
+      "table": "vault",
+      "version": "1.16",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "1.16",
+        "phase": "eol",
+        "eol": "2024-06-10",
+        "daysToEol": -205,
+        "latest": "1.16.3",
+        "lts": true
+      }
+    },
+    {
+      "table": "vault",
+      "version": "1.16.5",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "1.16",
+        "phase": "eol",
+        "eol": "2024-06-10",
+        "daysToEol": -205,
+        "latest": "1.16.3",
+        "lts": true
+      }
+    },
+    {
+      "table": "vault",
+      "version": "1.9",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "1.9",
+        "phase": "eol",
+        "eol": "2022-10-10",
+        "daysToEol": -814,
+        "latest": "1.9.10",
+        "lts": false
+      }
+    },
+    {
+      "table": "vault",
+      "version": "1.9.5",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "1.9",
+        "phase": "eol",
+        "eol": "2022-10-10",
+        "daysToEol": -814,
+        "latest": "1.9.10",
+        "lts": false
+      }
+    },
+    {
+      "table": "vault",
+      "version": "v2.1",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "2.1",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "2.1.2",
+        "lts": false
+      }
+    },
+    {
+      "table": "vault",
+      "version": "0.0.1",
+      "today": "2025-01-01",
+      "lifecycle": null
+    },
+    {
+      "table": "vault",
+      "version": "9999",
+      "today": "2025-01-01",
+      "lifecycle": null
+    },
+    {
+      "table": "vault",
+      "today": "2025-01-01",
+      "preferLts": true,
+      "matureDays": 90,
+      "recommended": "1.19"
+    },
+    {
+      "table": "vault",
+      "today": "2025-01-01",
+      "preferLts": false,
+      "matureDays": 0,
+      "recommended": "1.18"
+    },
+    {
+      "table": "vault",
+      "version": "2.1",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "2.1",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "2.1.2",
+        "lts": false
+      }
+    },
+    {
+      "table": "vault",
+      "version": "2.1.5",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "2.1",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "2.1.2",
+        "lts": false
+      }
+    },
+    {
+      "table": "vault",
+      "version": "1.16",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "1.16",
+        "phase": "eol",
+        "eol": "2024-06-10",
+        "daysToEol": -855,
+        "latest": "1.16.3",
+        "lts": true
+      }
+    },
+    {
+      "table": "vault",
+      "version": "1.16.5",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "1.16",
+        "phase": "eol",
+        "eol": "2024-06-10",
+        "daysToEol": -855,
+        "latest": "1.16.3",
+        "lts": true
+      }
+    },
+    {
+      "table": "vault",
+      "version": "1.9",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "1.9",
+        "phase": "eol",
+        "eol": "2022-10-10",
+        "daysToEol": -1464,
+        "latest": "1.9.10",
+        "lts": false
+      }
+    },
+    {
+      "table": "vault",
+      "version": "1.9.5",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "1.9",
+        "phase": "eol",
+        "eol": "2022-10-10",
+        "daysToEol": -1464,
+        "latest": "1.9.10",
+        "lts": false
+      }
+    },
+    {
+      "table": "vault",
+      "version": "v2.1",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "2.1",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "2.1.2",
+        "lts": false
+      }
+    },
+    {
+      "table": "vault",
+      "version": "0.0.1",
+      "today": "2026-10-13",
+      "lifecycle": null
+    },
+    {
+      "table": "vault",
+      "version": "9999",
+      "today": "2026-10-13",
+      "lifecycle": null
+    },
+    {
+      "table": "vault",
+      "today": "2026-10-13",
+      "preferLts": true,
+      "matureDays": 90,
+      "recommended": "2.1"
+    },
+    {
+      "table": "vault",
+      "today": "2026-10-13",
+      "preferLts": false,
+      "matureDays": 0,
+      "recommended": "2.1"
+    },
+    {
+      "table": "vault",
+      "version": "2.1",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "2.1",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "2.1.2",
+        "lts": false
+      }
+    },
+    {
+      "table": "vault",
+      "version": "2.1.5",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "2.1",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "2.1.2",
+        "lts": false
+      }
+    },
+    {
+      "table": "vault",
+      "version": "1.16",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "1.16",
+        "phase": "eol",
+        "eol": "2024-06-10",
+        "daysToEol": -1086,
+        "latest": "1.16.3",
+        "lts": true
+      }
+    },
+    {
+      "table": "vault",
+      "version": "1.16.5",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "1.16",
+        "phase": "eol",
+        "eol": "2024-06-10",
+        "daysToEol": -1086,
+        "latest": "1.16.3",
+        "lts": true
+      }
+    },
+    {
+      "table": "vault",
+      "version": "1.9",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "1.9",
+        "phase": "eol",
+        "eol": "2022-10-10",
+        "daysToEol": -1695,
+        "latest": "1.9.10",
+        "lts": false
+      }
+    },
+    {
+      "table": "vault",
+      "version": "1.9.5",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "1.9",
+        "phase": "eol",
+        "eol": "2022-10-10",
+        "daysToEol": -1695,
+        "latest": "1.9.10",
+        "lts": false
+      }
+    },
+    {
+      "table": "vault",
+      "version": "v2.1",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "2.1",
+        "phase": "supported",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "2.1.2",
+        "lts": false
+      }
+    },
+    {
+      "table": "vault",
+      "version": "0.0.1",
+      "today": "2027-06-01",
+      "lifecycle": null
+    },
+    {
+      "table": "vault",
+      "version": "9999",
+      "today": "2027-06-01",
+      "lifecycle": null
+    },
+    {
+      "table": "vault",
+      "today": "2027-06-01",
+      "preferLts": true,
+      "matureDays": 90,
+      "recommended": "2.1"
+    },
+    {
+      "table": "vault",
+      "today": "2027-06-01",
+      "preferLts": false,
+      "matureDays": 0,
+      "recommended": "2.1"
+    }
+  ]
+}

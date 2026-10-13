@@ -19,6 +19,7 @@ use std::sync::Arc;
 pub async fn options(State(state): State<AppState>, _user: AuthUser) -> ApiResult<Json<Value>> {
     let cfg = state.cfg().await?;
     let p = &cfg.placement;
+    let managed_traits = &cfg.engine.authority.provider_traits;
     let patterns: Vec<Value> = p.patterns.iter().filter(|x| x.enabled).map(|x| serde_json::to_value(x).unwrap_or(Value::Null)).collect();
     let stacks: Vec<Value> = p
         .stacks
@@ -27,8 +28,13 @@ pub async fn options(State(state): State<AppState>, _user: AuthUser) -> ApiResul
             json!({
                 "id": s.id, "name": s.name, "description": s.description,
                 "layers": s.layers.iter().map(|l| json!({
-                    "id": l.id, "name": l.name, "kind": l.kind, "alternatives": l.alternatives, "scope": l.scope,
-                    "optional": l.optional, "default": l.default,
+                    "id": l.id, "name": l.name, "kind": l.kind, "alternatives": l.alternatives, "function": l.function, "scope": l.scope,
+                    "optional": l.optional, "default": l.default, "dcs": l.dcs,
+                    // every product the layer can be built from, with the ways to deploy each (the wizard offers them)
+                    "products": engine::placement::layer_products(&cfg.catalog, l).iter().map(|k| json!({
+                        "kind": k.id,
+                        "variants": k.variants.iter().map(|v| json!({"id": v.id, "default": v.default, "managed": v.add_traits.iter().any(|t| managed_traits.contains(t))})).collect::<Vec<_>>(),
+                    })).collect::<Vec<_>>(),
                 })).collect::<Vec<_>>(),
             })
         })

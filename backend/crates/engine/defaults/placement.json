@@ -87,6 +87,7 @@
       "en": "Users"
      },
      "kind": "users",
+     "function": "users",
      "scope": "global"
     },
     {
@@ -96,6 +97,7 @@
       "en": "GSLB / DNS"
      },
      "kind": "gslb",
+     "function": "gslb",
      "scope": "global",
      "props": {
       "replicas": 3,
@@ -116,6 +118,7 @@
       "en": "WAF"
      },
      "kind": "waf",
+     "function": "waf",
      "scope": "global",
      "optional": true,
      "default": true,
@@ -138,6 +141,7 @@
      "alternatives": [
       "l4"
      ],
+     "function": "l7",
      "scope": "site",
      "props": {
       "healthCheckSeconds": 3,
@@ -211,6 +215,7 @@
       "en": "Consensus (DCS)"
      },
      "kind": "etcd",
+     "function": "consensus",
      "scope": "cluster",
      "optional": true,
      "default": true,
@@ -227,6 +232,7 @@
       "en": "Database"
      },
      "kind": "postgresql",
+     "function": "rdbms",
      "scope": "cluster",
      "optional": true,
      "default": true,
@@ -265,6 +271,7 @@
       "en": "Cache"
      },
      "kind": "redis",
+     "function": "cache",
      "scope": "cluster",
      "optional": true,
      "default": true,
@@ -294,7 +301,12 @@
       "en": "Message queue"
      },
      "kind": "kafka",
+     "function": "mq",
      "scope": "cluster",
+     "copies": {
+      "min": 2,
+      "max": 5
+     },
      "optional": true,
      "default": false,
      "props": {
@@ -324,6 +336,7 @@
       "en": "Object storage"
      },
      "kind": "object_storage",
+     "function": "object-store",
      "scope": "cluster",
      "optional": true,
      "default": false,
@@ -350,7 +363,12 @@
       "en": "Search"
      },
      "kind": "opensearch",
+     "function": "search",
      "scope": "cluster",
+     "copies": {
+      "min": 2,
+      "max": 5
+     },
      "optional": true,
      "default": false,
      "props": {
@@ -378,6 +396,7 @@
       "en": "Analytics"
      },
      "kind": "clickhouse",
+     "function": "olap",
      "scope": "cluster",
      "optional": true,
      "default": false,
@@ -403,6 +422,7 @@
       "en": "Secrets"
      },
      "kind": "vault",
+     "function": "secrets",
      "scope": "cluster",
      "optional": true,
      "default": true,
@@ -434,6 +454,7 @@
       "en": "Monitoring"
      },
      "kind": "monitoring",
+     "function": "monitoring",
      "scope": "site",
      "optional": true,
      "default": true,
@@ -451,6 +472,7 @@
       "en": "GitOps"
      },
      "kind": "gitops",
+     "function": "gitops",
      "scope": "single",
      "place": "witness",
      "optional": true,
@@ -468,6 +490,7 @@
       "en": "Backups"
      },
      "kind": "backup_storage",
+     "function": "backup",
      "scope": "single",
      "place": "offsite",
      "optional": true,

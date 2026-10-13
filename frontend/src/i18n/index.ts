@@ -6,12 +6,14 @@ import ruAdmin from './ru.admin'
 import enAdmin from './en.admin'
 import ruPlacement from './ru.placement'
 import enPlacement from './en.placement'
+import ruCatalog from './ru.catalog'
+import enCatalog from './en.catalog'
 
 // Two flat dictionaries per language: the editor/common one and the admin panel one (kept apart so
 // that they can evolve independently). Missing keys fall back to English, then to the key itself.
 const dicts: Record<string, Record<string, string>> = {
-  ru: { ...ru, ...ruAdmin, ...ruPlacement },
-  en: { ...en, ...enAdmin, ...enPlacement },
+  ru: { ...ru, ...ruAdmin, ...ruPlacement, ...ruCatalog },
+  en: { ...en, ...enAdmin, ...enPlacement, ...enCatalog },
 }
 
 function initialLang(): string {

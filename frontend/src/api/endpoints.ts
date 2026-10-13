@@ -2,7 +2,7 @@ import { http, qs } from './client'
 import type {
   AdminUser, AiJob, ArchDiff, Architecture, AuditEvent, Bootstrap, ChatMessage, ConfigError, ConfigExport, ConfigImportResult,
   ConfigItem, ConfigKindCounter, ExportFile, IacReport, LlmModel, LlmTestResult, LlmUsage, Op, ProjectDetail, ProjectListItem, Proposal,
-  PlacementOptions, PlacementPreview, PlacementRequest, PlacementVariant, Report, ReportSummary, Scenario, SettingDef, SimResult, SystemInfo, Template, User, VersionItem,
+  PlacementOptions, PlacementPreview, PlacementRequest, PlacementVariant, Report, ReportSummary, Scenario, SettingDef, SimResult, SyncResult, SystemInfo, Template, User, VersionItem, VersionsPayload, VersionsStatus,
 } from './types'
 
 export const auth = {
@@ -14,6 +14,9 @@ export const auth = {
 }
 
 export const bootstrap = () => http.get<Bootstrap>('/bootstrap')
+
+/** Release tables of the catalog's products (support dates), with today's date. */
+export const versions = () => http.get<VersionsPayload>('/versions')
 
 export const projects = {
   list: () => http.get<{ projects: ProjectListItem[] }>('/projects'),
@@ -80,4 +83,6 @@ export const admin = {
   resetPassword: (id: string, password?: string) => http.post<{ temporaryPassword?: string }>(`/admin/users/${id}/reset-password`, { password }),
   audit: (p: { limit?: number; before?: number; action?: string; actor?: string } = {}) => http.get<{ events: AuditEvent[] }>(`/admin/audit${qs(p)}`),
   system: () => http.get<SystemInfo>('/admin/system'),
+  versionsStatus: () => http.get<VersionsStatus>('/admin/versions/status'),
+  versionsSync: (ids: string[] = []) => http.post<SyncResult>('/admin/versions/sync', { ids }),
 }

@@ -12,6 +12,9 @@ function withProblemWords(vars: Record<string, unknown>): Record<string, unknown
 export function findingText(rule: Rule | undefined, f: Finding): string {
   if (!rule) return f.ruleId
   const vars = withProblemWords(f.vars ?? {})
+  // a rule may word one kind of problem on its own (a version past its end of life reads differently from one about to be)
+  const kindOfProblem = typeof vars.variant === 'string' ? rule.variantMessages?.[vars.variant] : undefined
+  if (kindOfProblem) return ltf(kindOfProblem, vars)
   if (f.id.endsWith(':lost') && f.status !== 'no_data' && rule.dataLostMessage) return ltf(rule.dataLostMessage, vars)
   if (f.status === 'no_data') {
     const m = rule.noDataMessage ?? rule.message

@@ -148,7 +148,7 @@ async function run(id: string, fn: () => Promise<void>): Promise<boolean> {
 onMounted(() => load())
 watch(() => props.kind, () => { items.value = []; query.value = ''; filter.value = 'all'; editing.value = null; load() })
 watch(() => route.query.item, () => openFromRoute())
-defineExpose({ reload: load })
+defineExpose({ reload: (spinner = true) => load(spinner) })
 </script>
 
 <template>

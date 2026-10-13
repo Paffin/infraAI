@@ -4916,6 +4916,22 @@
       "en": "Three to five nodes with a Raft leader: automatic failover without an external DCS."
      },
      "behavior": "consensus",
+     "roles": [
+      {
+       "id": "voter",
+       "name": {
+        "ru": "Голосующий",
+        "en": "Voter"
+       }
+      },
+      {
+       "id": "witness",
+       "name": {
+        "ru": "Witness (арбитр)",
+        "en": "Witness (arbiter)"
+       }
+      }
+     ],
      "defaults": {
       "electionSeconds": 10
      }
@@ -7310,7 +7326,7 @@
    },
    "subtitle": "{version} · {vcpu} vCPU",
    "capacity": {
-    "rpsPerReplica": 3000
+    "rpsPerReplica": 4000
    },
    "roles": [
     {
@@ -7678,7 +7694,7 @@
    },
    "subtitle": "{version} · {vcpu} vCPU",
    "capacity": {
-    "rpsPerReplica": 3000
+    "rpsPerReplica": 4000
    },
    "roles": [
     {
@@ -7979,7 +7995,7 @@
    },
    "subtitle": "{version} · {vcpu} vCPU",
    "capacity": {
-    "rpsPerReplica": 3000
+    "rpsPerReplica": 4000
    },
    "roles": [
     {
@@ -8251,7 +8267,7 @@
    },
    "subtitle": "{version} · {vcpu} vCPU",
    "capacity": {
-    "rpsPerReplica": 3000
+    "rpsPerReplica": 4000
    },
    "roles": [
     {

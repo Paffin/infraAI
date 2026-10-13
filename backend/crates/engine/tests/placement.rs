@@ -272,3 +272,98 @@ fn rack_tolerance_alone_does_not_demand_site_rules() {
         assert_eq!(r.status, Status::Ok, "{id}");
     }
 }
+
+/// Products that cannot meet the generated requirements by their nature: Meilisearch has no clustering, so a lost node
+/// is a manual restore – the engine is right to say so, and the wizard shows it.
+const KNOWN_LIMITS: &[&str] = &["meilisearch"];
+
+#[test]
+fn every_product_a_layer_offers_gives_a_clean_design_at_any_size() {
+    let c = cfg();
+    let stack = c.placement.stack("web-platform").unwrap();
+    let defaults: Vec<String> = stack.layers.iter().filter(|l| l.optional && l.default).map(|l| l.id.clone()).collect();
+    let mut tried = 0;
+    for (pattern, sites) in [("single-dc", 1), ("two-sites", 2), ("n-sites", 3), ("n-sites", 5), ("n-sites", 10)] {
+        for layer in stack.layers.iter().filter(|l| l.optional) {
+            for k in engine::placement::layer_products(&c.catalog, layer) {
+                // every way to deploy the product, and the default one
+                let mut variants: Vec<Option<String>> = vec![None];
+                variants.extend(k.variants.iter().map(|v| Some(v.id.clone())));
+                for v in variants {
+                    let mut req = make(&c, pattern, sites);
+                    let mut on = defaults.clone();
+                    if !on.contains(&layer.id) {
+                        on.push(layer.id.clone());
+                    }
+                    req.layers = Some(on);
+                    req.kinds.insert(layer.id.clone(), k.id.clone());
+                    if let Some(v) = &v {
+                        req.variants.insert(layer.id.clone(), v.clone());
+                    }
+                    let what = format!("{pattern}/{sites}: layer {} with {} / {:?}", layer.id, k.id, v);
+                    let res = generate(&c, &c.placement, &req).unwrap_or_else(|e| panic!("{what}: {e}"));
+                    let issues = validate(&res.architecture, &c.catalog, &Default::default());
+                    assert!(issues.iter().all(|i| i.level != IssueLevel::Error), "{what}: {issues:?}");
+                    let rep = evaluate(&res.architecture, &c, &[]);
+                    if !KNOWN_LIMITS.contains(&k.id.as_str()) {
+                        assert!(bad(&rep).is_empty(), "{what}: {:#?}\nnotes: {:?}", bad(&rep), res.notes);
+                    }
+                    if let Some(v) = &v {
+                        assert!(
+                            res.architecture.nodes.iter().filter(|n| n.kind == k.id).all(|n| n.props.get("variant").and_then(|x| x.as_str()) == Some(v.as_str())),
+                            "{what}: the variant is a prop of every node"
+                        );
+                    }
+                    tried += 1;
+                }
+            }
+        }
+    }
+    assert!(tried >= 500, "only {tried} product choices were tried");
+}
+
+#[test]
+fn a_managed_database_holds_its_own_quorum_and_needs_neither_dcs_nor_arbiter() {
+    let c = cfg();
+    let mut req = make(&c, "two-sites", 2);
+    req.layers = Some(vec!["db".into(), "backup".into()]);
+    let (plain, plain_rep) = run(&c, &req);
+    assert!(plain.architecture.nodes.iter().any(|n| n.role.as_deref() == Some("witness")), "self-hosted PostgreSQL across two sites needs an arbiter");
+    assert!(plain_rep.findings.iter().all(|f| f.rule_id != "HA-DB-02" || f.status == Status::Ok));
+
+    req.variants.insert("db".into(), "rds".into());
+    let (managed, rep) = run(&c, &req);
+    let db: Vec<_> = managed.architecture.nodes.iter().filter(|n| n.kind == "postgresql").collect();
+    assert!(db.iter().all(|n| n.role.as_deref() != Some("witness")), "the provider is the arbiter");
+    assert!(db.iter().all(|n| !n.props.contains_key("dcs")), "no DCS for a managed service");
+    assert!(db.iter().all(|n| n.props.get("variant").and_then(|v| v.as_str()) == Some("rds")));
+    assert!(db.len() >= 2, "a standby in another site is still the design");
+    assert_eq!(rep.rules.iter().find(|r| r.rule_id == "HA-DB-02").unwrap().status, Status::Ok);
+    assert_eq!(rep.rules.iter().find(|r| r.rule_id == "DR-NET-01").unwrap().status, Status::Ok);
+}
+
+#[test]
+fn the_product_of_a_layer_is_chosen_from_its_function_and_nothing_else() {
+    let c = cfg();
+    let mut req = make(&c, "n-sites", 3);
+    req.layers = Some(vec!["db".into()]);
+    req.kinds.insert("db".into(), "mysql".into());
+    let (res, _) = run(&c, &req);
+    assert!(res.architecture.nodes.iter().any(|n| n.kind == "mysql") && !res.architecture.nodes.iter().any(|n| n.kind == "postgresql"));
+
+    // a cache is not a database
+    req.kinds.insert("db".into(), "valkey".into());
+    assert_eq!(generate(&c, &c.placement, &req).unwrap_err().code, "bad_kind");
+    // a product that serves from any member only (a balancer) is not offered for a layer spread over sites... but a database is not
+    let mut req = make(&c, "n-sites", 3);
+    req.kinds.insert("ingress".into(), "nginx".into());
+    req.variants.insert("ingress".into(), "ingress".into());
+    let (res, _) = run(&c, &req);
+    assert!(res.architecture.nodes.iter().any(|n| n.kind == "nginx"));
+    req.variants.insert("ingress".into(), "no-such-variant".into());
+    assert_eq!(generate(&c, &c.placement, &req).unwrap_err().code, "unknown_variant");
+    // the primary/replica monitoring product is not offered for the layer that puts one node per site
+    let monitoring = c.placement.stack("web-platform").unwrap().layers.iter().find(|l| l.id == "monitoring").unwrap();
+    let ids: Vec<&str> = engine::placement::layer_products(&c.catalog, monitoring).iter().map(|k| k.id.as_str()).collect();
+    assert!(ids.contains(&"monitoring") && !ids.contains(&"zabbix"), "{ids:?}");
+}

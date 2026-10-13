@@ -49,7 +49,7 @@ describe('admin i18n', () => {
 
   it('defines the dynamic key families', () => {
     const need: string[] = []
-    for (const g of ['general', 'auth', 'llm', 'jobs', 'limits', 'retention', 'observability']) need.push(`admin.group.${g}`)
+    for (const g of ['general', 'auth', 'llm', 'jobs', 'limits', 'retention', 'observability', 'lifecycle']) need.push(`admin.group.${g}`)
     for (const k of CONFIG_KINDS) need.push(`admin.kind.${k.kind}.title`, `admin.kind.${k.kind}.desc`)
     for (const c of ['string', 'number', 'min', 'max', 'enum', 'boolean', 'list', 'json', 'json_object']) need.push(`admin.settings.err.${c}`)
     for (const c of ['unexpected_token', 'unexpected_end', 'expected_comma', 'expected_colon', 'expected_key', 'trailing_comma', 'trailing_data', 'bad_number', 'bad_escape', 'unterminated_string', 'control_char', 'too_deep', 'syntax']) need.push(`admin.json.err.${c}`)

@@ -6,5 +6,5 @@
 mod gen;
 mod model;
 
-pub use gen::generate;
+pub use gen::{generate, layer_products};
 pub use model::*;

@@ -7,7 +7,7 @@ import type {
 } from '@/api/types'
 import { CARD_H, CARD_W, DEFAULT_ZONE_H, DEFAULT_ZONE_W, boundsOf, layoutAll, mergeArchitecture, nodeRect, placeInZone, placeMissing, zoneAt, zoneChain, zoneDescendants, zoneRect } from '@/editor/layout'
 import { lang, lt, t } from '@/i18n'
-import { effectiveProps } from '@/lib/catalog'
+import { effectiveProps, kindPropDefs } from '@/lib/catalog'
 import { errorMessage, newId } from '@/lib/format'
 import { statusRank } from '@/lib/findings'
 import { useApp } from './app'
@@ -389,7 +389,7 @@ export const useEditor = defineStore('editor', () => {
     return `${base} ${i}`
   }
 
-  function addNode(kindId: string, at?: { x: number; y: number }, zoneId?: string | null): string | null {
+  function addNode(kindId: string, at?: { x: number; y: number }, zoneId?: string | null, props?: Props): string | null {
     const ix = app.index
     const kind = ix?.kinds.get(kindId)
     if (!ix || !kind || readonly.value || !underLimit('nodes')) return null
@@ -397,7 +397,7 @@ export const useEditor = defineStore('editor', () => {
     const zone = zoneId !== undefined ? arch.value.zones.find((z) => z.id === zoneId) : zoneAt(arch.value, center.x, center.y)
     const id = newId(kindId.replace(/_/g, '-'))
     const node: ArchNode = {
-      id, kind: kindId, name: uniqueName(lt(kind.name)), zoneId: zone?.id ?? null, group: null, role: null, props: {},
+      id, kind: kindId, name: uniqueName(lt(kind.name)), zoneId: zone?.id ?? null, group: null, role: null, props: { ...(props ?? {}) },
       ui: { x: Math.round(center.x - CARD_W / 2), y: Math.round(center.y - CARD_H / 2) },
     }
     edit((a) => { a.nodes.push(node) })
@@ -442,6 +442,33 @@ export const useEditor = defineStore('editor', () => {
     }, { coalesce: coalesce ?? `node:${id}:${Object.keys(patch).join(',')}` })
   }
 
+  /**
+   * Replace the product of a node (PostgreSQL → MySQL) as ONE step of the history: what still fits stays (sizing, notes), what
+   * belonged to the old product (its variant, version, failover settings…) goes. Returns the keys that were dropped.
+   */
+  function changeKind(id: string, kindId: string): string[] {
+    const ix = app.index
+    if (!ix || !ix.kinds.has(kindId)) return []
+    const dropped: string[] = []
+    edit((a) => {
+      const n = a.nodes.find((x) => x.id === id)
+      if (!n || n.kind === kindId) return
+      const oldDefs = new Set(kindPropDefs(ix, n.kind).map((p) => p.key))
+      const common = new Set(ix.catalog.commonProps.map((p) => p.key))
+      const known = new Set(kindPropDefs(ix, kindId).map((p) => p.key))
+      n.kind = kindId
+      n.role = null
+      for (const key of Object.keys(n.props)) {
+        const own = oldDefs.has(key) && !common.has(key)
+        // the version and the variant mean something only for the product they were chosen for
+        if (key === 'variant' || key === 'version' || (own && !known.has(key))) {
+          delete n.props[key]
+          if (key !== 'variant') dropped.push(key)
+        }
+      }
+    }, { coalesce: `node:${id}:kind` })
+    return dropped
+  }
   function setProp(type: 'node' | 'edge' | 'zone', id: string, key: string, value: Scalar | undefined) {
     edit((a) => {
       const target: { props: Props } | undefined = type === 'node' ? a.nodes.find((x) => x.id === id) : type === 'edge' ? a.edges.find((x) => x.id === id) : a.zones.find((x) => x.id === id)
@@ -834,7 +861,7 @@ export const useEditor = defineStore('editor', () => {
     readonly, canUndo, canRedo, isEmpty, shown, previewSets, nodeById, edgeById, zoneById, openFindings, nodeStatus, edgeStatus, zoneStatus, findingsOf, groups, siteZones, rackZones,
     load, reset, flushSave, touchSave, reloadFromServer, evaluateNow, scheduleEvaluate,
     runScenario, exitSim, undo, redo, edit, commit,
-    addNode, addZone, updateNode, setProp, updateEdge, reverseEdge, updateZone, connect, removeNode, removeEdge, removeZone, removeSelection, duplicateNode,
+    addNode, addZone, updateNode, changeKind, setProp, updateEdge, reverseEdge, updateZone, connect, removeNode, removeEdge, removeZone, removeSelection, duplicateNode,
     setMulti, selectNodes, removeNodes, duplicateNodes, groupNodes, moveNodesToZone, commitMoves, resizeZone, setRequirement, setMeta, autoLayout, replaceArchitecture, addTemplate, applyFix, applyOps,
     acceptRisk, revokeWaiver, select, setTool, clickNode, showSubjects, revealElements, revealSelection, setPreview, boundsOfShown, effective,
   }

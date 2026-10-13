@@ -120,9 +120,9 @@ function onDrop(e: DragEvent) {
   if (!raw || editor.readonly) return
   e.preventDefault()
   try {
-    const item = JSON.parse(raw) as { type: 'kind' | 'zone'; id: string }
+    const item = JSON.parse(raw) as { type: 'kind' | 'zone'; id: string; variant?: string }
     const p = screenToFlowCoordinate({ x: e.clientX, y: e.clientY })
-    if (item.type === 'kind') editor.addNode(item.id, p)
+    if (item.type === 'kind') editor.addNode(item.id, p, undefined, item.variant ? { variant: item.variant } : undefined)
     else editor.addZone(item.id, { x: p.x - 260, y: p.y - 40, w: 520, h: 420 })
   } catch { /* foreign drag payload */ }
 }

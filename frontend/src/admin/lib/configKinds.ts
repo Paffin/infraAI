@@ -19,6 +19,7 @@ export const CONFIG_KINDS: KindMeta[] = [
   { kind: 'catalog.edge_type', section: 'catalog', sub: 'edge_type', single: false },
   { kind: 'catalog.zone_type', section: 'catalog', sub: 'zone_type', single: false },
   { kind: 'catalog.category', section: 'catalog', sub: 'category', single: false },
+  { kind: 'catalog.versions', section: 'catalog', sub: 'versions', single: false },
   { kind: 'catalog.common_props', section: 'catalog', sub: 'common_props', single: true },
   { kind: 'rule', section: 'rules', single: false },
   { kind: 'template', section: 'templates', single: false },
@@ -73,7 +74,8 @@ export function itemTitle(kind: string, id: string, data: unknown, lt: (x: LText
   let subtitle = ''
   switch (kind) {
     case 'rule': subtitle = [s('category'), s('check')].filter(Boolean).join(' · '); break
-    case 'catalog.kind': subtitle = [s('category'), s('behavior')].filter(Boolean).join(' · '); break
+    case 'catalog.kind': subtitle = [s('category'), s('function'), s('behavior')].filter(Boolean).join(' · '); break
+    case 'catalog.versions': subtitle = [s('asOf'), Array.isArray(data.cycles) ? t('admin.versions.linesCount', { n: data.cycles.length }) : ''].filter(Boolean).join(' · '); break
     case 'catalog.edge_type': subtitle = s('semantics'); break
     case 'catalog.zone_type': subtitle = s('level'); break
     case 'prompt': subtitle = [s('role'), s('system') ? t('admin.prompt.charsShort', { n: s('system').length }) : ''].filter(Boolean).join(' · '); break
@@ -136,16 +138,17 @@ export function unknownPlaceholders(text: string, allowed: string[]): string[] {
 // in the order of the engine types (the order the defaults are written in).
 const KEY_ORDER: Record<string, string[]> = {
   rule: ['id', 'category', 'check', 'enabled', 'severity', 'weight', 'params', 'title', 'message', 'noDataMessage', 'requirementMessage', 'ok', 'rationale', 'remediation', 'fixLabels', 'references'],
-  'catalog.kind': ['id', 'category', 'name', 'description', 'abbr', 'color', 'behavior', 'traits', 'roles', 'props', 'subtitle', 'capacity', 'cost', 'runbook', 'hidden'],
+  'catalog.kind': ['id', 'category', 'function', 'name', 'description', 'abbr', 'color', 'behavior', 'traits', 'roles', 'props', 'subtitle', 'capacity', 'cost', 'runbook', 'variants', 'versions', 'hidden'],
+  'catalog.versions': ['id', 'name', 'source', 'asOf', 'cycles'],
   'catalog.edge_type': ['id', 'name', 'semantics', 'style', 'directed', 'defaultProps', 'props', 'layer'],
   'catalog.zone_type': ['id', 'name', 'level', 'color', 'props'],
-  'catalog.category': ['id', 'name', 'order'],
+  'catalog.category': ['id', 'name', 'order', 'functions'],
   template: ['id', 'name', 'description', 'badge', 'enabled', 'order', 'architecture'],
   iac: ['id', 'title', 'enabled', 'target', 'reason', 'granularity', 'requires', 'unsupported', 'needs', 'vars', 'objects', 'releases', 'secrets', 'notes'],
   prompt: ['id', 'title', 'role', 'system'],
-  engine: ['assumptions', 'scoring', 'scenarios', 'cost', 'export'],
+  engine: ['assumptions', 'scoring', 'scenarios', 'tolerance', 'authority', 'lifecycle', 'cost', 'export'],
 }
-const PROP_ORDER = ['key', 'type', 'label', 'unit', 'min', 'max', 'options', 'default', 'group', 'help', 'refBehavior', 'advanced']
+const PROP_ORDER = ['key', 'type', 'label', 'unit', 'min', 'max', 'options', 'default', 'group', 'help', 'refBehavior', 'refTrait', 'advanced', 'variants', 'lifecycle']
 const ARCH_ORDER = ['schemaVersion', 'meta', 'requirements', 'zones', 'nodes', 'edges']
 
 function reorder(o: Record<string, unknown>, order: string[]): Record<string, unknown> {
@@ -185,7 +188,8 @@ const empty = (): Record<string, string> => ({ ru: '', en: '' })
 export function skeleton(kind: string, id: string, ctx: { categories?: string[] } = {}): unknown {
   const color = cssVar('--accent')
   switch (kind) {
-    case 'catalog.category': return { id, name: empty(), order: 100 }
+    case 'catalog.category': return { id, name: empty(), order: 100, functions: [] }
+    case 'catalog.versions': return { id, name: '', source: 'manual', asOf: new Date().toISOString().slice(0, 10), cycles: [{ cycle: '1.0', eol: false }] }
     case 'catalog.zone_type': return { id, name: empty(), level: 'site', color, props: [] }
     case 'catalog.edge_type': return { id, name: empty(), semantics: 'dependency', style: { color, width: 1.6 }, directed: true, defaultProps: {}, props: [] }
     case 'catalog.kind': return { id, category: ctx.categories?.[0] ?? '', name: empty(), description: empty(), abbr: 'NEW', color, behavior: 'stateless', traits: [], roles: [], props: [] }

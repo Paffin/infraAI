@@ -167,6 +167,9 @@ pub struct VariantDef {
     pub default: bool,
     #[serde(default)]
     pub behavior: Option<Behavior>,
+    /// Roles of a node in this variant when they differ from the kind's (a Raft cluster has voters, not primaries).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub roles: Vec<RoleDef>,
     #[serde(default)]
     pub add_traits: Vec<String>,
     #[serde(default)]
@@ -388,6 +391,14 @@ impl Catalog {
 
     pub fn kind_has_trait(&self, kind: &str, tr: &str) -> bool {
         self.kind(kind).map(|k| k.traits.iter().any(|t| t == tr)).unwrap_or(false)
+    }
+
+    /// Roles a node of `kind` can take in `variant`: the variant's own, else the kind's.
+    pub fn roles_of<'a>(&'a self, kind: &'a KindDef, variant: Option<&'a VariantDef>) -> &'a [RoleDef] {
+        match variant {
+            Some(v) if !v.roles.is_empty() => &v.roles,
+            _ => &kind.roles,
+        }
     }
 
     /// Basic catalog self-consistency: unique ids and valid cross references.

@@ -5,6 +5,7 @@ import * as api from '@/api/endpoints'
 import type { Bootstrap, Rule, User } from '@/api/types'
 import { setLang, supportedLangs } from '@/i18n'
 import { indexCatalog, type CatalogIndex } from '@/lib/catalog'
+import { indexVersions, type VersionIndex } from '@/lib/lifecycle'
 import { editorSettings } from '@/lib/uiConfig'
 
 interface PublicConfig { appName: string; defaultLanguage: string; languages: string[]; theme: Record<string, string> }
@@ -30,6 +31,8 @@ export const useApp = defineStore('app', () => {
   const boot = shallowRef<Bootstrap | null>(null)
   const index = shallowRef<CatalogIndex | null>(null)
   const rules = shallowRef<Map<string, Rule>>(new Map())
+  /** Release tables (support dates of every product); loaded after the bootstrap so that the first paint does not wait for them. */
+  const versions = shallowRef<VersionIndex | null>(null)
   const ready = ref(false)
   const bootError = ref<string | null>(null)
 
@@ -87,6 +90,15 @@ export const useApp = defineStore('app', () => {
     const b = await api.bootstrap()
     applyBootstrap(b)
     bootError.value = null
+    void loadVersions()
+  }
+
+  /** The editor works without them (no chips, no hints); a failure is not worth an error message. */
+  async function loadVersions() {
+    try {
+      const v = await api.versions()
+      versions.value = indexVersions(v.tables, v.today, boot.value?.engine.lifecycle)
+    } catch { /* lifecycle hints are optional */ }
   }
 
   async function login(email: string, password: string) {
@@ -101,8 +113,9 @@ export const useApp = defineStore('app', () => {
     user.value = null
     boot.value = null
     index.value = null
+    versions.value = null
     await loadPublic()
   }
 
-  return { user, publicConfig, boot, index, rules, ready, bootError, isAdmin, canEdit, editorCfg, appName, languages, init, loadPublic, loadBootstrap, login, logout }
+  return { user, publicConfig, boot, index, rules, versions, ready, bootError, isAdmin, canEdit, editorCfg, appName, languages, init, loadPublic, loadBootstrap, loadVersions, login, logout }
 })
