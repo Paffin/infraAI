@@ -84,6 +84,10 @@ pub async fn bootstrap(State(state): State<AppState>, user: AuthUser, headers: H
         "layoutZonesPerRow",
         "quietEdgesSites",
         "playbackStepMs",
+        "failureLeadMs",
+        "flowSpeed",
+        "flowSpacing",
+        "flowParticlesMax",
     ]
     .iter()
     .map(|k| (k.to_string(), cfg.settings.get(&format!("editor.{k}"))))

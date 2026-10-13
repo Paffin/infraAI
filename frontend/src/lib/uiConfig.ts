@@ -24,6 +24,10 @@ export const FALLBACK_EDITOR_SETTINGS: EditorSettings = {
   layoutZonesPerRow: 5,
   quietEdgesSites: 4,
   playbackStepMs: 1600,
+  failureLeadMs: 2400,
+  flowSpeed: 120,
+  flowSpacing: 56,
+  flowParticlesMax: 480,
 }
 
 /** Settings from the server, with the fallback for whatever it did not send. */

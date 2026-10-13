@@ -4,7 +4,7 @@ import {
   Activity, Boxes, Coins, Copy, Download, Gauge, History, Keyboard, Languages, Layers, LayoutDashboard, ListChecks, Maximize, MousePointer2, PanelLeft, Play, Plus, Redo2, Save, ShieldCheck,
   MapPinned, Network, Sparkles, Spline, Square, Trash2, Undo2, Zap, Folder, Users,
 } from 'lucide-vue-next'
-import type { Status } from '@/api/types'
+import type { KindDef, Status } from '@/api/types'
 import { lang, lt, setLang, t } from '@/i18n'
 import { findingText, findingTitle, statusColor, statusLabel } from '@/lib/findings'
 import { shortcutText } from '@/lib/shortcuts'
@@ -25,7 +25,9 @@ export interface Command {
   /** more words that find the command */
   keywords?: string[]
   shortcut?: string
-  /** abbreviation on a coloured tile (components) */
+  /** the kind of component the command is about: it is shown by its icon (components) */
+  kind?: KindDef
+  /** abbreviation on a coloured tile, for a command whose component is not in the catalog */
   badge?: { text: string; color: string }
   icon?: Component
   /** colour of the icon */
@@ -38,7 +40,7 @@ export interface Command {
 }
 
 const TABS: RightTab[] = ['checks', 'requirements', 'chat']
-const TAB_ICON: Record<RightTab, Component> = { checks: ListChecks, requirements: ShieldCheck, analysis: Gauge, chat: Sparkles }
+const TAB_ICON: Record<RightTab, Component> = { checks: ListChecks, requirements: ShieldCheck, analysis: Gauge, chat: Sparkles, sim: Zap }
 const ANALYSIS_ICON: Record<AnalysisView, Component> = { capacity: Gauge, availability: Activity, cost: Coins, sites: MapPinned }
 
 /** Everything the command palette (Ctrl/⌘+K) can find or do for the open project; rebuilt when the project, the report or the language changes. */
@@ -68,7 +70,7 @@ export function usePaletteCommands(): ComputedRef<Command[]> {
         id: 'node:' + n.id, group: 'element', title: n.name,
         hint: [kind ? lt(kind.name) : n.kind, zone?.name].filter(Boolean).join(' · '),
         keywords: [n.kind, n.group ?? '', kind?.abbr ?? ''],
-        badge: { text: kind?.abbr ?? '?', color: kind?.color ?? '#4c596c' },
+        kind, badge: { text: kind?.abbr ?? '?', color: kind?.color ?? '#4c596c' },
         dot: status ? statusColor(status) : undefined,
         run: () => { editor.select({ type: 'node', id: n.id }); editor.revealSelection() },
       })
@@ -113,13 +115,13 @@ export function usePaletteCommands(): ComputedRef<Command[]> {
         const cat = ix.catalog.categories.find((c) => c.id === k.category)
         out.push({
           id: 'add:' + k.id, group: 'add', title: t('cmd.add', { name: lt(k.name) }), hint: cat ? lt(cat.name) : undefined,
-          keywords: [k.id, k.abbr, lt(k.description), k.function ?? '', 'add', 'добавить', 'создать'], badge: { text: k.abbr, color: k.color }, run: () => { editor.addNode(k.id) },
+          keywords: [k.id, k.abbr, lt(k.description), k.function ?? '', 'add', 'добавить', 'создать'], kind: k, badge: { text: k.abbr, color: k.color }, run: () => { editor.addNode(k.id) },
         })
         // a way to deploy the product is found by its name too ("Aurora", "Patroni", "Galera"): add the node with it
         for (const v of k.variants ?? []) {
           out.push({
             id: `add:${k.id}:${v.id}`, group: 'add', title: t('cmd.add', { name: `${lt(k.name)} — ${lt(v.name)}` }), hint: cat ? lt(cat.name) : undefined,
-            keywords: [v.id, k.id, lt(v.description), 'add', 'добавить', 'создать'], badge: { text: k.abbr, color: k.color }, run: () => { editor.addNode(k.id, undefined, undefined, { variant: v.id }) },
+            keywords: [v.id, k.id, lt(v.description), 'add', 'добавить', 'создать'], kind: k, badge: { text: k.abbr, color: k.color }, run: () => { editor.addNode(k.id, undefined, undefined, { variant: v.id }) },
           })
         }
       }

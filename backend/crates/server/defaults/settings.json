@@ -1164,6 +1164,70 @@
   }
  },
  {
+  "key": "editor.failureLeadMs",
+  "group": "editor",
+  "type": "number",
+  "default": 2400,
+  "min": 0,
+  "max": 20000,
+  "label": {
+   "ru": "Отказ: сколько показывать работу без отказа, мс",
+   "en": "Failure: how long to show the normal operation, ms"
+  },
+  "help": {
+   "ru": "Когда запускается сценарий отказа, схема сначала показывает, как идёт трафик без отказа, и через столько миллисекунд отказ наступает и проигрывается по шагам до итога. 0 — не проигрывать само: показывается итог, а ▶ в карточке отказа запускает рассказ. Само проигрывается только при полной анимации.",
+   "en": "When a failure scenario is run, the diagram first shows how the traffic goes without the failure; after this many milliseconds the failure strikes and is played step by step to the outcome. 0 means it does not play by itself: the outcome is shown and ▶ in the failure card starts the story. It plays by itself only with full animation."
+  }
+ },
+ {
+  "key": "editor.flowSpeed",
+  "group": "editor",
+  "type": "number",
+  "default": 120,
+  "min": 20,
+  "max": 800,
+  "label": {
+   "ru": "Трафик на схеме: скорость частиц, пикс/с",
+   "en": "Traffic on the diagram: speed of the particles, px/s"
+  },
+  "help": {
+   "ru": "С какой скоростью бегут по связям частицы, которые изображают запросы, когда показывается отказ. Одинакова на всех связях: длинная связь просто дольше.",
+   "en": "How fast the particles that stand for requests run along the links while a failure is shown. It is the same on every link: a long link simply takes longer."
+  }
+ },
+ {
+  "key": "editor.flowSpacing",
+  "group": "editor",
+  "type": "number",
+  "default": 56,
+  "min": 12,
+  "max": 400,
+  "label": {
+   "ru": "Трафик на схеме: расстояние между частицами, пикс",
+   "en": "Traffic on the diagram: distance between particles, px"
+  },
+  "help": {
+   "ru": "Расстояние между частицами на связи, которая несёт всю нагрузку. Чем слабее поток по связи, тем реже частицы. Меньше число — гуще поток.",
+   "en": "The distance between particles on a link that carries the whole load. The weaker the flow on a link, the sparser the particles. A smaller number is a denser flow."
+  }
+ },
+ {
+  "key": "editor.flowParticlesMax",
+  "group": "editor",
+  "type": "number",
+  "default": 480,
+  "min": 0,
+  "max": 5000,
+  "label": {
+   "ru": "Трафик на схеме: предел частиц на экране",
+   "en": "Traffic on the diagram: most particles on screen"
+  },
+  "help": {
+   "ru": "Сколько частиц анимируется одновременно. У большой схемы поток разрежается, чтобы браузер не тормозил. 0 — без частиц: остаются толщина и цвет линий.",
+   "en": "How many particles are animated at once. In a big diagram the flow thins out so that the browser keeps up. 0 means no particles: the width and colour of the lines remain."
+  }
+ },
+ {
   "key": "retention.auditDays",
   "group": "retention",
   "type": "number",

@@ -3,10 +3,15 @@ import { test } from './fixtures'
 import { createProject, login, uniqueName } from './helpers'
 
 test.describe('playback of a failure', () => {
+  // a failure that has just been run plays itself (editor.failureLeadMs); these tests look at the steps one by one, so it is switched off
   test.beforeEach(async ({ page }) => {
     await login(page)
+    expect((await page.request.put('/api/admin/settings', { data: { changes: { 'editor.failureLeadMs': 0 } } })).ok()).toBeTruthy()
     await createProject(page, uniqueName('play'), '2 ЦОД + witness')
     await expect(page.locator('.arch-node').first()).toBeVisible()
+  })
+  test.afterEach(async ({ page }) => {
+    await page.request.put('/api/admin/settings', { data: { changes: { 'editor.failureLeadMs': 2400 } } })
   })
 
   const replica = (page: import('@playwright/test').Page) => page.locator('.arch-node', { hasText: 'PostgreSQL replica' })
@@ -16,14 +21,20 @@ test.describe('playback of a failure', () => {
     const card = page.locator('[data-testid="simcard"]')
     await expect(card).toBeVisible({ timeout: 15_000 })
     const steps = card.locator('.steps > li')
-    expect(await steps.count()).toBeGreaterThanOrEqual(3)
+    // normal operation, the moment of the failure, and what the recovery does after it
+    expect(await steps.count()).toBeGreaterThanOrEqual(4)
 
-    // a failure is shown settled: the last step, the replica is the writer
+    // a failure is shown settled (the administrator's lead is 0 in these tests): the last step, the replica is the writer
     await expect(card.locator('.steps > li.cur')).toHaveAttribute('data-step', String((await steps.count()) - 1))
     await expect(replica(page)).toHaveClass(/sim-promoted/)
 
-    // the moment of the failure: the service is down and nobody is the writer yet
+    // before the failure: everything works
     await steps.first().click()
+    await expect(card.locator('[data-testid="clock"]')).toHaveText('до отказа')
+    await expect(page.locator('.arch-node:is(.sim-down, .sim-stalled, .sim-partial, .sim-promoted)')).toHaveCount(0)
+
+    // the moment of the failure: the service is down and nobody is the writer yet
+    await steps.nth(1).click()
     await expect(card.locator('[data-testid="sim-state"]')).toHaveClass(/down/)
     await expect(replica(page)).not.toHaveClass(/sim-promoted/)
     await expect(card.locator('[data-testid="clock"]')).toHaveText('отказ')
@@ -52,6 +63,8 @@ test.describe('playback of a failure', () => {
     await track.focus()
     await page.keyboard.press('Home')
     await expect(card.locator('.steps > li.cur')).toHaveAttribute('data-step', '0')
+    await page.keyboard.press('ArrowRight')
+    await expect(card.locator('.steps > li.cur')).toHaveAttribute('data-step', '1')
     await expect(replica(page)).not.toHaveClass(/sim-promoted/)
     await page.keyboard.press('End')
     await expect(replica(page)).toHaveClass(/sim-promoted/)

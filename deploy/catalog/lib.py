@@ -131,8 +131,11 @@ def managed(id="managed", ru="Управляемый сервис облака",
                    add_traits=["managed"], defaults=d, mult=mult, versions=versions if versions is not None else "")
 
 
-def kind(id, category, function, abbr, color, ru, en, behavior, traits, props, desc=None, capacity=None, roles=None, subtitle=None, variants=None, versions=None, runbook=None):
+def kind(id, category, function, abbr, color, ru, en, behavior, traits, props, desc=None, capacity=None, roles=None, subtitle=None, variants=None, versions=None, runbook=None, icon=None):
+    """`icon` is the kind's own picture; without it the kind wears the icon of its function (build.py)."""
     k = {"id": id, "category": category, "abbr": abbr, "color": color, "behavior": behavior, "traits": traits, "name": L(ru, en)}
+    if icon:
+        k["icon"] = icon
     if desc:
         k["description"] = L(*desc)
     if subtitle:

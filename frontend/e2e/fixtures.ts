@@ -6,8 +6,11 @@ import { test as base } from '@playwright/test'
  *
  * The tests create projects through the UI; on a long-lived stack they would pile up until the per-user project limit
  * (`limits.maxProjectsPerUser`) stops the next run. Every test cleans up after itself: whatever `POST /api/projects`
- * created while it ran is deleted when it ends.
+ * created while it ran is deleted when it ends. What the page's own requests created is seen on the wire; what a helper created
+ * through the API (`projectWith`) is announced by the helper (`madeByApi`), because requests of the API client are not the page's.
  */
+export const madeByApi: string[] = []
+
 export const test = base.extend<{ cleanup: void }>({
   cleanup: [
     async ({ page }, use) => {
@@ -18,7 +21,7 @@ export const test = base.extend<{ cleanup: void }>({
         try { created.push((await res.json()).id) } catch { /* not JSON: not ours */ }
       })
       await use()
-      for (const id of created) await page.request.delete(`/api/projects/${id}`).catch(() => undefined)
+      for (const id of [...created, ...madeByApi.splice(0)]) await page.request.delete(`/api/projects/${id}`).catch(() => undefined)
     },
     { auto: true },
   ],

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regenerates the tables of docs/RULES.md, docs/CONFIGURATION.md, docs/IAC.md and docs/CATALOG.md from the JSON registries.
+"""Regenerates the tables of docs/RULES.md, docs/CONFIGURATION.md, docs/IAC.md and docs/CATALOG.md from the JSON registries (and the icon set of the UI).
 
     python3 deploy/gen-docs.py            # rewrite the generated blocks
     python3 deploy/gen-docs.py --check    # exit 1 if the docs are out of date (used in CI)
@@ -104,6 +104,24 @@ def catalog_block():
     return "\n".join(out).rstrip()
 
 
+def icons_block():
+    """The icon names the UI knows (frontend/src/lib/icons.ts) and which of them the shipped catalog uses."""
+    src = (ROOT / "frontend/src/lib/icons.ts").read_text()
+    body = src.split("export const ICONS", 1)[1].split("= {", 1)[1].split("\n}\n", 1)[0]
+    known = [a or b for a, b in re.findall(r"'([a-z0-9-]+)'\s*:\s*[A-Z]|\b([a-z][a-z0-9]*)\s*:\s*[A-Z]", body)]
+    cat = json.loads((ENGINE / "catalog.json").read_text())
+    used = {x["icon"] for group in (cat["kinds"], cat["categories"], cat["zoneTypes"]) for x in group if x.get("icon")}
+    unknown = sorted(used - set(known))
+    if unknown:
+        sys.exit("catalog.json names icons the UI does not know (frontend/src/lib/icons.ts): " + ", ".join(unknown))
+    by_use = [n for n in known if n in used]
+    spare = [n for n in known if n not in used]
+    return "\n".join([f"Интерфейс знает **{len(known)}** имён, каталог по умолчанию использует **{len(by_use)}**.", "",
+                      "| Значки | Имена |", "|---|---|",
+                      f"| Используются в каталоге по умолчанию | {', '.join(f'`{n}`' for n in by_use)} |",
+                      f"| Про запас, для ваших видов | {', '.join(f'`{n}`' for n in spare)} |"])
+
+
 def versions_block():
     tables = json.loads((ENGINE / "versions.json").read_text())
     as_of = sorted({t["asOf"] for t in tables if t.get("asOf")})
@@ -153,6 +171,7 @@ BLOCKS = {
     "iac-operators": ("docs/IAC.md", iac_operators_block),
     "catalog": ("docs/CATALOG.md", catalog_block),
     "versions": ("docs/CATALOG.md", versions_block),
+    "icons": ("docs/CATALOG.md", icons_block),
 }
 
 

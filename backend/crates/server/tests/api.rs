@@ -416,9 +416,20 @@ async fn simulate_and_ops_preview() {
     assert!(frames[0]["nodes"].as_object().unwrap().len() >= 10, "the first frame holds every node");
     let promoted_at = r["events"].as_array().unwrap().iter().find(|e| e["code"] == "promoted").and_then(|e| e["at"].as_f64()).expect("a promotion has a time");
     assert!(frames.iter().any(|f| (f["at"].as_f64().unwrap() - promoted_at).abs() < 1e-9 && f["nodes"]["pg-replica"] == "promoted"), "the replica is promoted in the frame of its promotion");
-    // a request without waiting steps has no story
+    // where the traffic goes: in normal operation (nothing is lost), the moment the data centre is gone (requests sent into it are lost
+    // until the balancers notice) and once everything has settled; every figure is relative to the load that enters (1 = all of it)
+    let before = &r["trafficBefore"];
+    assert!(before["served"].as_f64().unwrap() > 0.999, "nothing is lost in normal operation: {before}");
+    assert!(before["flows"].as_object().unwrap().len() >= 10 && before.get("lost").is_none(), "{before}");
+    assert!(frames[0]["traffic"]["flows"].is_object(), "every picture of the story says where the traffic goes");
+    assert!(!frames[0]["traffic"]["lost"].as_object().expect("requests sent into the dead data centre are lost at first").is_empty());
+    assert!(frames[0]["traffic"]["served"].as_f64().unwrap() < before["served"].as_f64().unwrap());
+    assert!(r["traffic"]["served"].as_f64().unwrap() > 0.5, "once settled most of the requests are served again: {}", r["traffic"]);
+    // a request without waiting steps has no story, but it has the traffic of normal operation (it is also what it compares with)
     let (_, none) = app.post(&c, "/api/simulate", json!({"architecture": p["architecture"], "scenario": {"type": "none"}})).await;
     assert!(none.get("timeline").is_none(), "{none}");
+    assert_eq!(none["trafficBefore"], none["traffic"]);
+    assert_eq!(none["trafficBefore"], *before, "the picture of normal operation does not depend on the failure it is compared with");
 
     let ops = json!([{"op": "update_node", "id": "app-dc1", "set": {"props.replicas": 10}}]);
     let (s, v) = app.post(&c, "/api/ops/apply", json!({"architecture": p["architecture"], "ops": ops, "preview": true})).await;

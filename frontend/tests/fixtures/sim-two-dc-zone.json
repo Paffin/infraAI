@@ -936,6 +936,14 @@
   "failed": [
    "ЦОД-1 · Москва"
   ],
+  "interruptions": [
+   {
+    "unit": "pg",
+    "kind": "failover",
+    "seconds": 35.0,
+    "share": 1.0
+   }
+  ],
   "timeline": [
    {
     "at": 0.0,
@@ -996,6 +1004,20 @@
      "e-vault-dc1--vault-site3": "dead",
      "e-waf--ingress-dc1": "dead",
      "e-waf--ingress-dc2": "ok"
+    },
+    "traffic": {
+     "flows": {
+      "e-app-dc2--kafka-dc2": 0.2,
+      "e-gslb--waf": 1.0,
+      "e-ingress-dc2--app-dc2": 1.0,
+      "e-users--gslb": 1.0,
+      "e-waf--ingress-dc2": 1.0
+     },
+     "lost": {
+      "e-app-dc2--pg-replica": 0.8,
+      "e-app-dc2--redis-replica": 1.0
+     },
+     "served": 0.0
     }
    },
    {
@@ -1010,7 +1032,22 @@
      "users": "up",
      "waf": "up"
     },
-    "edges": {}
+    "edges": {},
+    "traffic": {
+     "flows": {
+      "e-app-dc2--kafka-dc2": 0.192,
+      "e-app-dc2--pg-replica": 0.768,
+      "e-gslb--waf": 1.0,
+      "e-ingress-dc2--app-dc2": 0.96,
+      "e-users--gslb": 1.0,
+      "e-waf--ingress-dc2": 1.0
+     },
+     "lost": {
+      "e-app-dc2--redis-replica": 0.96,
+      "e-ingress-dc2--app-dc2": 0.04
+     },
+     "served": 0.96
+    }
    },
    {
     "at": 1800.0,
@@ -1019,8 +1056,55 @@
     "nodes": {
      "vault-site3": "promoted"
     },
-    "edges": {}
+    "edges": {},
+    "traffic": {
+     "flows": {
+      "e-app-dc2--kafka-dc2": 0.192,
+      "e-app-dc2--pg-replica": 0.768,
+      "e-gslb--waf": 1.0,
+      "e-ingress-dc2--app-dc2": 0.96,
+      "e-users--gslb": 1.0,
+      "e-waf--ingress-dc2": 1.0
+     },
+     "lost": {
+      "e-app-dc2--redis-replica": 0.96,
+      "e-ingress-dc2--app-dc2": 0.04
+     },
+     "served": 0.96
+    }
    }
-  ]
+  ],
+  "traffic": {
+   "flows": {
+    "e-app-dc2--kafka-dc2": 0.192,
+    "e-app-dc2--pg-replica": 0.768,
+    "e-gslb--waf": 1.0,
+    "e-ingress-dc2--app-dc2": 0.96,
+    "e-users--gslb": 1.0,
+    "e-waf--ingress-dc2": 1.0
+   },
+   "lost": {
+    "e-app-dc2--redis-replica": 0.96,
+    "e-ingress-dc2--app-dc2": 0.04
+   },
+   "served": 0.96
+  },
+  "trafficBefore": {
+   "flows": {
+    "e-app-dc1--kafka-dc1": 0.1,
+    "e-app-dc1--pg-primary": 0.15,
+    "e-app-dc1--redis-primary": 0.5,
+    "e-app-dc2--kafka-dc2": 0.1,
+    "e-app-dc2--pg-replica": 0.15,
+    "e-app-dc2--redis-replica": 0.5,
+    "e-gslb--waf": 1.0,
+    "e-ingress-dc1--app-dc1": 0.5,
+    "e-ingress-dc2--app-dc2": 0.5,
+    "e-users--gslb": 1.0,
+    "e-waf--ingress-dc1": 0.5,
+    "e-waf--ingress-dc2": 0.5
+   },
+   "served": 1.0
+  }
  }
 }

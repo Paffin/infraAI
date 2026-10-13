@@ -159,7 +159,10 @@ so a client can answer "what if traffic doubles" by multiplying (the editor's *C
   unitLoads, downUnits:[name], events:[{code,unit?,node?,vars,at?}], failed:[names],
   nodeStates:{<nodeId>: up|partial|down|stalled|fenced|promoted|isolated},
   edgeStates:{<edgeId>: ok|cut|dead},
-  timeline?: [{at, state, capacityRatio, nodes:{<nodeId>: state}, edges:{<edgeId>: state}}] }
+  timeline?: [{at, state, capacityRatio, nodes:{<nodeId>: state}, edges:{<edgeId>: state}, traffic?: Traffic}],
+  traffic?: Traffic, trafficBefore?: Traffic }
+
+Traffic = { flows:{<edgeId>: share}, lost?:{<edgeId>: share}, missed?:{<edgeId>: share}, detours?:[{from:<nodeId>, to:<nodeId>, flow, lost?}], served: 0..1 }
 ```
 
 `interruptions: [{unit, kind: failover|manual_failover|restore|reroute|scale_out, seconds, share}]` – what interrupts the service while the recovery runs and what share of the requests it touches (the input of the availability estimate).
@@ -170,6 +173,11 @@ reroute scale_out capacity_overload soft_dependency_lost`.
 
 `events[].at` (seconds after the failure) and `timeline: [{at, state, capacityRatio, nodes, edges}]` tell how the picture changes while the recovery runs (only when some step takes time; the first
 frame holds every node and edge, the next ones only what changed, the last equals the settled `nodeStates` / `edgeStates`). See [SIMULATION.md](SIMULATION.md).
+
+`traffic` / `trafficBefore` / `timeline[].traffic` (only from `POST /simulate`) say where the load goes: normal operation, once everything has settled, and in every frame (a whole picture, not a difference). Every figure is relative to the
+load entering an entry point (1 = all of it; multiply by `requirements.rpsPeak` for requests per second). `flows` — what each dependency link carries; `lost` — sent into a link and dropped there, the requests behind it fail; `missed` — the same
+for an optional dependency (a cache), the requests survive it; `detours` — routes no drawn link leads along (a member whose links are gone sends to whoever serves); `served` — the share of the requests that complete. Links that carry nothing are absent.
+The links add up to the unit loads of `unitLoads` (the same load, laid on the links).
 
 ### Patch operations
 

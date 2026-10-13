@@ -49,11 +49,24 @@ test.describe('the canvas keeps the diagram clear of the panels over it', () => 
     expect(g.cards.every((c) => c.l >= g.host.l - 1 && c.r <= g.host.r + 1 && c.t >= g.host.t - 1 && c.b <= g.host.b + 1)).toBe(true)
   })
 
+  test('the caption of a failure takes room like the other panels: no card is behind it, even in a small window', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 720 })
+    await createProject(page, uniqueName('caption'), '2 ЦОД + witness')
+    await expect(page.locator('.arch-node').first()).toBeVisible()
+    await expect.poll(async () => hidden(await geometry(page)), { timeout: 15_000 }).toBe(0)
+    const before = (await geometry(page)).overlays.length
+    await page.locator('.whatif .w', { hasText: 'ЦОД-1' }).first().click()
+    await expect(page.getByTestId('story-caption')).toBeVisible({ timeout: 15_000 })
+    // the caption is one more panel over the canvas, and the diagram that was still at its fit makes room for it
+    expect((await geometry(page)).overlays.length).toBe(before + 1)
+    await expect.poll(async () => hidden(await geometry(page)), { timeout: 15_000, message: 'no card is behind the caption' }).toBe(0)
+  })
+
   test('"Fit" brings the diagram back from wherever it was taken, clear of the panels', async ({ page }) => {
     await createProject(page, uniqueName('refit'), '3 AZ в одном регионе')
     await expect(page.locator('.arch-node').first()).toBeVisible()
-    await page.locator('.zoom button[aria-label="+"]').click()
-    await page.locator('.zoom button[aria-label="+"]').click()
+    await page.locator('.zoom button[aria-label="Приблизить"]').click()
+    await page.locator('.zoom button[aria-label="Приблизить"]').click()
     await page.locator('.zoom .fit').click()
     await expect.poll(async () => hidden(await geometry(page)), { timeout: 10_000 }).toBe(0)
   })
@@ -61,8 +74,8 @@ test.describe('the canvas keeps the diagram clear of the panels over it', () => 
   test('a view the user has chosen is not moved for them when a card is added', async ({ page }) => {
     await createProject(page, uniqueName('own'), '2 ЦОД + witness')
     await expect(page.locator('.arch-node').first()).toBeVisible()
-    await page.locator('.zoom button[aria-label="−"]').click()
-    await page.locator('.zoom button[aria-label="−"]').click()
+    await page.locator('.zoom button[aria-label="Отдалить"]').click()
+    await page.locator('.zoom button[aria-label="Отдалить"]').click()
     const chosen = await settledZoom(page)
     expect(chosen).toBeLessThan(60)
     const before = await page.locator('.arch-node').count()
@@ -84,8 +97,8 @@ test.describe('the canvas keeps the diagram clear of the panels over it', () => 
     expect(g.cards.every((c) => c.l >= g.host.l - 1 && c.r <= g.host.r + 1 && c.t >= g.host.t - 1 && c.b <= g.host.b + 1)).toBe(true)
   })
   test('the notices under the toolbar hang below it however many rows it takes', async ({ page }) => {
-    // a window as narrow as a laptop's: the tools, the layers, the focus button and the legend do not fit on one row
-    await page.setViewportSize({ width: 1280, height: 800 })
+    // a window narrow enough that the tools, the layers, the focus button and the legend button do not fit on one row
+    await page.setViewportSize({ width: 1100, height: 800 })
     await createProject(page, uniqueName('bars'), '2 ЦОД + witness')
     await expect(page.locator('.arch-node').first()).toBeVisible()
     await page.getByRole('button', { name: 'Связь', exact: true }).click()

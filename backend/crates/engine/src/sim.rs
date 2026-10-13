@@ -23,6 +23,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use std::collections::BTreeMap;
 
+mod traffic;
+pub use traffic::{Detour, Traffic};
+
 fn one_u32() -> u32 {
     1
 }
@@ -146,6 +149,9 @@ pub struct Frame {
     pub capacity_ratio: Option<f64>,
     pub nodes: BTreeMap<String, NodeState>,
     pub edges: BTreeMap<String, EdgeState>,
+    /// Where the traffic goes at this moment (the whole picture, not a difference).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub traffic: Option<Traffic>,
 }
 
 /// What interrupts the service after a failure.
@@ -229,6 +235,12 @@ pub struct SimResult {
     /// How the picture changes while the recovery runs (only from [`simulate_timeline`], and only when something changes).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub timeline: Vec<Frame>,
+    /// Where the traffic goes once everything has settled (only from [`simulate_timeline`]).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub traffic: Option<Traffic>,
+    /// Where it goes in normal operation, to compare with (only from [`simulate_timeline`]).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub traffic_before: Option<Traffic>,
 }
 
 // -------------------------------------------------------------------------------------------
@@ -259,6 +271,8 @@ struct Sim<'a, 'b> {
     failed: Vec<String>,
     /// The moment after the failure the picture is drawn for; `None` = once all recovery has run.
     horizon: Option<f64>,
+    /// Follow the traffic through the links too (costs one more walk over the graph).
+    want_traffic: bool,
 }
 
 fn ev(code: &str, unit: Option<&str>, node: Option<&str>, vars: Value) -> Event {
@@ -462,6 +476,7 @@ impl<'a, 'b> Sim<'a, 'b> {
             cut,
             failed,
             horizon,
+            want_traffic: false,
         }
     }
 
@@ -1076,27 +1091,13 @@ impl<'a, 'b> Sim<'a, 'b> {
         }
         let mut edge_states = BTreeMap::new();
         for (ei, e) in ix.arch.edges.iter().enumerate() {
-            let st = match ix.edge_ends[ei] {
-                Some((s, t)) => {
-                    if self.alive[s] == 0 || self.alive[t] == 0 {
-                        EdgeState::Dead
-                    } else if let (Some(a), Some(b)) = (ix.site_of[s], ix.site_of[t]) {
-                        if a != b && !self.link[a][b] {
-                            EdgeState::Cut
-                        } else {
-                            EdgeState::Ok
-                        }
-                    } else {
-                        EdgeState::Ok
-                    }
-                }
-                None => EdgeState::Dead,
-            };
-            edge_states.insert(e.id.clone(), st);
+            edge_states.insert(e.id.clone(), self.edge_state(ei));
         }
         let _ = &self.cut;
         let rpo_total = rpo_filtered(&self.rpo_items, &[]);
         let down_units: Vec<String> = ix.unit_order.iter().filter(|&&u| self.serving[u].is_empty() && !ix.unit_has_trait(u, "entry")).map(|&u| ix.units[u].name.clone()).collect();
+
+        let traffic = if self.want_traffic { Some(self.traffic()) } else { None };
 
         SimResult {
             scenario: sc.clone(),
@@ -1117,12 +1118,15 @@ impl<'a, 'b> Sim<'a, 'b> {
             failed: self.failed,
             interruptions: self.interruptions,
             timeline: vec![],
+            traffic,
+            traffic_before: None,
         }
     }
 }
 
-fn run(ix: &Index<'_>, sc: &Scenario, horizon: Option<f64>) -> SimResult {
+fn run(ix: &Index<'_>, sc: &Scenario, horizon: Option<f64>, traffic: bool) -> SimResult {
     let mut sim = Sim::new(ix, sc, horizon);
+    sim.want_traffic = traffic;
     for &u in &ix.unit_order {
         sim.eval_unit(u);
     }
@@ -1136,7 +1140,7 @@ fn run(ix: &Index<'_>, sc: &Scenario, horizon: Option<f64>) -> SimResult {
 
 /// Simulate one scenario: the settled state after all automatic recovery.
 pub fn simulate(ix: &Index<'_>, sc: &Scenario) -> SimResult {
-    run(ix, sc, None)
+    run(ix, sc, None, false)
 }
 
 /// What changed between two maps of states: the entries of `now` that differ from `before` (or are new).
@@ -1147,9 +1151,11 @@ fn changed<T: Copy + PartialEq>(before: &BTreeMap<String, T>, now: &BTreeMap<Str
 /// [`simulate`] plus the story of the recovery: the picture at the moment of the failure and after every step that
 /// takes time (promotion, manual failover, rerouting, scale-out, restore). Each frame is the same simulation with
 /// the steps that are not done yet at that moment held back, so the frames agree with the settled result by
-/// construction. There is nothing to tell when no step takes time.
+/// construction. There is nothing to tell when no step takes time. Every picture also says where the traffic goes
+/// (see [`Traffic`]), and the result carries the traffic of normal operation to compare with.
 pub fn simulate_timeline(ix: &Index<'_>, sc: &Scenario) -> SimResult {
-    let mut res = simulate(ix, sc);
+    let mut res = run(ix, sc, None, true);
+    res.traffic_before = if matches!(sc, Scenario::None) { res.traffic.clone() } else { run(ix, &Scenario::None, None, true).traffic };
     let mut times: Vec<f64> = res.events.iter().filter_map(|e| e.at).filter(|t| *t > 0.0 && t.is_finite()).collect();
     times.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
     times.dedup_by(|a, b| (*a - *b).abs() < 1e-9);
@@ -1159,12 +1165,12 @@ pub fn simulate_timeline(ix: &Index<'_>, sc: &Scenario) -> SimResult {
     let mut frames: Vec<Frame> = Vec::with_capacity(times.len() + 1);
     let mut prev: Option<(BTreeMap<String, NodeState>, BTreeMap<String, EdgeState>)> = None;
     for at in std::iter::once(0.0).chain(times) {
-        let f = run(ix, sc, Some(at));
+        let f = run(ix, sc, Some(at), true);
         let (nodes, edges) = match &prev {
             None => (f.node_states.clone(), f.edge_states.clone()),
             Some((pn, pe)) => (changed(pn, &f.node_states), changed(pe, &f.edge_states)),
         };
-        frames.push(Frame { at, state: f.state, capacity_ratio: f.capacity_ratio, nodes, edges });
+        frames.push(Frame { at, state: f.state, capacity_ratio: f.capacity_ratio, nodes, edges, traffic: f.traffic });
         prev = Some((f.node_states, f.edge_states));
     }
     res.timeline = frames;

@@ -69,8 +69,9 @@ const isZoneActive = (id: string) => sameScenario(active.value, { type: 'zone', 
 function outside(e: MouseEvent) {
   if (menu.value && bar.value && !bar.value.contains(e.target as Node)) menu.value = null
 }
-onMounted(() => document.addEventListener('mousedown', outside))
-onBeforeUnmount(() => document.removeEventListener('mousedown', outside))
+// capture phase: the canvas stops the mouse events of its own area, so a click on the diagram would never close a menu that waits for it to bubble
+onMounted(() => document.addEventListener('mousedown', outside, true))
+onBeforeUnmount(() => document.removeEventListener('mousedown', outside, true))
 </script>
 
 <template>

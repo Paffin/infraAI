@@ -10,10 +10,13 @@ import { lt, t } from '@/i18n'
 import { useApp } from '@/stores/app'
 import { useEditor, type Layer } from '@/stores/editor'
 import { useMotion } from '@/stores/motion'
+import { usePlayback } from '@/stores/playback'
 import { useUi } from '@/stores/ui'
+import ArchDetour from './ArchDetour.vue'
 import ArchEdge from './ArchEdge.vue'
 import ArchNode from './ArchNode.vue'
 import ArchZone from './ArchZone.vue'
+import LegendPopover from './LegendPopover.vue'
 import { createFlowBuilder, nodeFlowId, zoneFlowId } from './flowModel'
 import { lodOf } from '@/lib/lod'
 import { DURATIONS } from '@/lib/motion'
@@ -23,8 +26,9 @@ const app = useApp()
 const editor = useEditor()
 const ui = useUi()
 const motion = useMotion()
+const playback = usePlayback()
 const nodeTypes = { card: markRaw(ArchNode), zone: markRaw(ArchZone) } as any
-const edgeTypes = { arch: markRaw(ArchEdge) } as any
+const edgeTypes = { arch: markRaw(ArchEdge), detour: markRaw(ArchDetour) } as any
 
 const { screenToFlowCoordinate, fitView, zoomIn, zoomOut, viewport, onNodesInitialized, addSelectedNodes, removeSelectedElements, findNode, getSelectedNodes } = useVueFlow()
 const wrap = ref<HTMLElement | null>(null)
@@ -43,7 +47,7 @@ const siteOf = computed(() => {
     return zoneId
   }
 })
-const flow = computed(() => build(editor.shown, !editor.readonly, siteOf.value))
+const flow = computed(() => build(editor.shown, !editor.readonly, siteOf.value, editor.sim?.result ? playback.detours : []))
 /** Many sites: the links between them step back when the diagram is zoomed out (`editor.quietEdgesSites`). */
 const dense = computed(() => editor.siteZones.length >= app.editorCfg.quietEdgesSites)
 
@@ -60,9 +64,10 @@ const glide = (ms: number) => (motion.full ? Math.round(ms * motion.factor) : 0)
 const GAP = 16
 /**
  * What floats over the canvas (the toolbar above; the zoom controls and the what-if bar below, marked `data-overlay`) takes room
- * from it: the diagram is fit into what is left, so that no card ends up behind a panel.
+ * from it: the diagram is fit into what is left, so that no card ends up behind a panel. The caption of a failure on screen hangs under the
+ * toolbar (`caption`): it takes room too, but the notices that hang under the toolbar are placed below the toolbar alone (`withCaption` off).
  */
-function clearance(): { top: number; bottom: number } {
+function clearance(withCaption = true): { top: number; bottom: number } {
   const host = wrap.value?.getBoundingClientRect()
   let top = 0
   let bottom = 0
@@ -70,8 +75,9 @@ function clearance(): { top: number; bottom: number } {
     for (const el of wrap.value?.parentElement?.querySelectorAll<HTMLElement>('[data-overlay]') ?? []) {
       const r = el.getBoundingClientRect()
       if (!r.height) continue
-      if (el.dataset.overlay === 'top') top = Math.max(top, r.bottom - host.top)
-      else bottom = Math.max(bottom, host.bottom - r.top)
+      const side = el.dataset.overlay
+      if (side === 'top' || (side === 'caption' && withCaption)) top = Math.max(top, r.bottom - host.top)
+      else if (side === 'bottom') bottom = Math.max(bottom, host.bottom - r.top)
     }
   }
   return { top, bottom }
@@ -117,7 +123,7 @@ function covered(): boolean {
  */
 function placeBars() {
   const host = wrap.value?.parentElement
-  if (host) host.style.setProperty('--bars-top', `${clearance().top + 8}px`)
+  if (host) host.style.setProperty('--bars-top', `${clearance(false).top + 8}px`)
 }
 
 // the panels change size (the what-if bar grows a row once the scenarios are known): a diagram still at its fit that has
@@ -131,6 +137,8 @@ const resized = new ResizeObserver(() => {
 function watchOverlays() {
   for (const el of wrap.value?.parentElement?.querySelectorAll<HTMLElement>('[data-overlay]') ?? []) resized.observe(el)
 }
+// the caption of a failure comes and goes with it
+watch(() => !!editor.sim?.result, () => void nextTick(watchOverlays))
 
 onNodesInitialized(() => { if (autoFit) void fit() })
 onMounted(() => { void fit(); watchOverlays(); placeBars() })
@@ -268,7 +276,6 @@ const layers: Layer[] = ['network', 'data', 'dr']
 function toggleLayer(l: Layer) {
   editor.layer = editor.layer === l ? 'all' : l
 }
-const legend = computed(() => (app.boot?.catalog.edgeTypes ?? []).map((e) => ({ id: e.id, label: lt(e.short ?? e.name), color: e.style.color, dash: e.style.dash ?? '', width: Math.max(1.5, e.style.width ?? 1.6) })))
 /**
  * Cards and zones that disagree (a card outside the zone it belongs to, a rack drawn beside its data center): what a change that
  * rearranged the zones used to leave behind. The notice offers the layout again; it is not forced, a hand-made picture is the user's.
@@ -324,11 +331,7 @@ function nodeColor(n: { id: string; type?: string }) {
         <button v-for="l in layers" :key="l" class="lay" :class="{ on: editor.layer === l }" @click="toggleLayer(l)">{{ t('layer.' + l) }}</button>
       </span>
       <button class="tool" :class="{ on: editor.focusOn }" :aria-pressed="editor.focusOn" :title="t('tool.focus.hint')" data-testid="focus-toggle" @click="editor.setFocusOn(!editor.focusOn)"><Focus :size="14" />{{ t('tool.focus') }}</button>
-      <span class="legend">
-        <span v-for="l in legend" :key="l.id" class="leg">
-          <svg width="22" height="8" aria-hidden="true"><line x1="0" y1="4" x2="22" y2="4" :stroke="l.color" :stroke-width="l.width" :stroke-dasharray="l.dash" /></svg>{{ l.label }}
-        </span>
-      </span>
+      <LegendPopover />
     </div>
     <div v-if="hint" class="hint-bar">{{ hint }}</div>
     <div v-else-if="driftNote" class="drift-bar" role="status" data-testid="drift-note">
@@ -343,9 +346,9 @@ function nodeColor(n: { id: string; type?: string }) {
         <button :disabled="!editor.canUndo" :title="t('tool.undo') + ' (Ctrl+Z)'" :aria-label="t('tool.undo')" @click="editor.undo()"><Undo2 :size="14" /></button>
         <button :disabled="!editor.canRedo" :title="t('tool.redo') + ' (Ctrl+Shift+Z)'" :aria-label="t('tool.redo')" class="redo" @click="editor.redo()"><Redo2 :size="14" /></button>
       </template>
-      <button :aria-label="'−'" @click="zoomBy(-1)"><Minus :size="14" /></button>
+      <button :aria-label="t('canvas.zoomOut')" :title="t('canvas.zoomOut')" @click="zoomBy(-1)"><Minus :size="14" /></button>
       <span class="pct">{{ zoomPct }}%</span>
-      <button :aria-label="'+'" @click="zoomBy(1)"><Plus :size="14" /></button>
+      <button :aria-label="t('canvas.zoomIn')" :title="t('canvas.zoomIn')" @click="zoomBy(1)"><Plus :size="14" /></button>
       <button class="fit" @click="fit(glide(DURATIONS.base))">{{ t('canvas.fit') }}</button>
     </div>
 
@@ -374,11 +377,18 @@ function nodeColor(n: { id: string; type?: string }) {
 .canvas .vue-flow__node { font-family: var(--font); }
 /* semantic zoom (see lib/lod.ts): what stays legible when the diagram is zoomed out */
 .canvas[data-lod='compact'] .arch-node .sub, .canvas[data-lod='mini'] .arch-node .sub { display: none; }
-.canvas[data-lod='compact'] .arch-node .name { font-size: clamp(14px, calc(10.5px / var(--zoom, 1)), 26px); white-space: normal; line-height: 1.12; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; overflow-wrap: anywhere; hyphens: auto; }
+/* the card gives its room to the name: a smaller face, and the name is as large as the longest of its words allows (`--wem`, ems; see lib/textFit.ts) */
+.canvas[data-lod='compact'] .arch-node { gap: 8px; padding: 0 8px; }
+.canvas[data-lod='compact'] .arch-node .chip { width: 28px !important; height: 28px !important; border-radius: 8px !important; }
+.canvas[data-lod='compact'] .arch-node .chip .ic { width: 15px; height: 15px; }
+.canvas[data-lod='compact'] .arch-node .name { --room: 152px; font-size: min(clamp(14px, calc(10.5px / var(--zoom, 1)), 26px), calc(var(--room) / var(--wem, 6))); white-space: normal; line-height: 1.12; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; overflow-wrap: normal; }
 .canvas[data-lod='compact'] .zone-head .zname, .canvas[data-lod='mini'] .zone-head .zname { font-size: clamp(14px, calc(11.5px / var(--zoom, 1)), 30px); }
-.canvas[data-lod='compact'] .zone-head .ztag, .canvas[data-lod='mini'] .zone-head .ztag, .canvas[data-lod='compact'] .edge-label, .canvas[data-lod='mini'] .edge-label { display: none; }
+.canvas[data-lod='compact'] .zone-head .ztag, .canvas[data-lod='mini'] .zone-head .ztag, .canvas[data-lod='compact'] .zone-head .zmeta, .canvas[data-lod='mini'] .zone-head .zmeta, .canvas[data-lod='compact'] .zone-head .zico, .canvas[data-lod='mini'] .zone-head .zico, .canvas[data-lod='compact'] .edge-label, .canvas[data-lod='mini'] .edge-label { display: none; }
 .canvas[data-lod='mini'] .arch-node .txt { display: none; }
-.canvas[data-lod='mini'] .arch-node .badge { position: absolute; inset: 0; width: auto; height: auto; border-radius: inherit; font-size: 26px; }
+.canvas[data-lod='mini'] .arch-node .chip { position: absolute; inset: 0; width: auto !important; height: auto !important; border-radius: inherit !important; background: var(--kc); color: #fff; box-shadow: none; }
+.canvas[data-lod='mini'] .arch-node .chip .ic { display: none; }
+.canvas[data-lod='mini'] .arch-node .chip .ab { display: inline; font-size: 26px; }
+.canvas[data-lod='mini'] .arch-node { --deck: 0 0 0 0 transparent !important; }
 .canvas[data-lod='mini'] .arch-node .dot { width: 18px; height: 18px; top: -8px; right: -8px; z-index: 2; }
 /* what is selected stays visible however far the diagram is zoomed out: its outline keeps its size on the screen */
 .canvas[data-lod='compact'] .arch-node.selected, .canvas[data-lod='mini'] .arch-node.selected { outline: calc(2.5px / var(--zoom, 1)) solid var(--accent); outline-offset: calc(1.5px / var(--zoom, 1)); }
@@ -403,13 +413,11 @@ function nodeColor(n: { id: string; type?: string }) {
 .tool.on { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent); font-weight: 600; }
 .toolbar .sep { width: 1px; height: 20px; background: var(--line-strong); margin: 0 4px; }
 .zsel { width: 140px; }
-.layers, .legend { display: inline-flex; align-items: center; gap: 4px; height: 32px; padding: 0 9px; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); background: var(--surface); font-size: 12.5px; color: var(--muted); }
+.layers { display: inline-flex; align-items: center; gap: 4px; height: 32px; padding: 0 9px; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); background: var(--surface); font-size: 12.5px; color: var(--muted); }
 .layers .lbl { margin-right: 2px; }
 .lay { border: 0; background: transparent; padding: 2px 6px; border-radius: 4px; color: var(--text-2); font-size: 12.5px; }
 .lay:hover { background: var(--surface-sunken); }
 .lay.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
-.legend { gap: 11px; }
-.leg { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 .drift-bar { position: absolute; top: var(--bars-top, 58px); left: 50%; transform: translateX(-50%); width: max-content; max-width: calc(100% - 32px); display: flex; align-items: center; gap: 10px; background: var(--surface); color: var(--text); border: 1px solid var(--risk-line, var(--line-strong)); font-size: 12.5px; padding: 5px 6px 5px 12px; border-radius: var(--radius-sm); z-index: 60; box-shadow: var(--shadow-1); animation: drift-in var(--dur-base, .22s) var(--ease-out, ease-out); }
 .drift-bar svg { color: var(--risk, #b45309); flex: none; }
 .drift-bar .x { border: 0; background: transparent; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; color: var(--muted); }

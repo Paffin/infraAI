@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { CornerDownLeft, Search } from 'lucide-vue-next'
+import KindChip from '@/components/KindChip.vue'
 import { t } from '@/i18n'
 import { rank } from '@/lib/fuzzy'
 import { useApp } from '@/stores/app'
@@ -77,7 +78,8 @@ onMounted(() => input.value?.focus())
               v-for="c in s.items" :id="'pal-' + c.id" :key="c.id" class="item" :class="{ on: indexOf(c) === active }" role="option" :aria-selected="indexOf(c) === active"
               @mousemove="active = indexOf(c)" @click="run(c)"
             >
-              <span v-if="c.badge" class="badge-abbr tile" :style="{ background: c.badge.color }">{{ c.badge.text }}</span>
+              <KindChip v-if="c.kind" class="tile" :kind="c.kind" :size="28" />
+              <span v-else-if="c.badge" class="badge-abbr tile" :style="{ background: c.badge.color }">{{ c.badge.text }}</span>
               <span v-else class="tile ico" :style="{ color: c.color }"><component :is="c.icon" v-if="c.icon" :size="16" /></span>
               <span class="txt">
                 <span class="ti truncate">{{ c.title }}</span>
@@ -112,7 +114,9 @@ onMounted(() => input.value?.focus())
 .gh { padding: 10px 10px 4px; font-size: 10.5px; letter-spacing: .09em; text-transform: uppercase; color: var(--label); font-weight: 600; }
 .item { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 44px; padding: 6px 10px; border: 0; border-radius: var(--radius); background: transparent; text-align: left; color: var(--text); }
 .item.on { background: var(--accent-soft); }
-.tile { width: 30px; height: 30px; border-radius: 7px; flex: none; font-size: 9.5px; }
+.tile { flex: none; }
+.badge-abbr.tile { width: 28px; height: 28px; border-radius: 8px; font-size: 9.5px; }
+.tile.ico { width: 28px; height: 28px; border-radius: 8px; }
 .tile.ico { display: inline-flex; align-items: center; justify-content: center; background: var(--surface-sunken); color: var(--text-2); }
 .txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .ti { font-size: 14px; font-weight: 550; }

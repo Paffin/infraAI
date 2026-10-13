@@ -2,17 +2,32 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { t } from '@/i18n'
 import { useAi } from '@/stores/ai'
+import { useEditor } from '@/stores/editor'
 import { useUi, type RightTab } from '@/stores/ui'
 import AnalysisPanel from './AnalysisPanel.vue'
 import ChatPanel from './ChatPanel.vue'
 import ChecksPanel from './ChecksPanel.vue'
 import RequirementsPanel from './RequirementsPanel.vue'
+import SimDetails from './SimDetails.vue'
 
 const ui = useUi()
 const ai = useAi()
-const tabs: RightTab[] = ['checks', 'requirements', 'analysis', 'chat']
-const panels = { checks: ChecksPanel, requirements: RequirementsPanel, analysis: AnalysisPanel, chat: ChatPanel }
+const editor = useEditor()
+/** The failure on the diagram has a tab of its own (its story and the traffic) while it is on screen. */
+const tabs = computed<RightTab[]>(() => (editor.sim ? ['sim', 'checks', 'requirements', 'analysis', 'chat'] : ['checks', 'requirements', 'analysis', 'chat']))
+const panels = { checks: ChecksPanel, requirements: RequirementsPanel, analysis: AnalysisPanel, chat: ChatPanel, sim: SimDetails }
 const panel = computed(() => panels[ui.tab] ?? ChatPanel)
+
+// Running a failure opens its tab; closing it (or the project) goes back to the tab the user was on.
+let before: RightTab = 'checks'
+watch(() => !!editor.sim, (on) => {
+  if (on) {
+    if (ui.tab !== 'sim') before = ui.tab
+    ui.tab = 'sim'
+  } else if (ui.tab === 'sim') {
+    ui.tab = before
+  }
+})
 
 // The underline slides to the active tab; where it is comes from the tab's own box, so any font or language fits.
 const bar = ref<HTMLElement | null>(null)
@@ -34,7 +49,7 @@ watch(() => ui.tab, () => nextTick(place))
   <aside class="right" data-tour="checks">
     <div ref="bar" class="tabs" role="tablist">
       <button v-for="x in tabs" :key="x" class="tab" :class="{ active: ui.tab === x }" role="tab" :aria-selected="ui.tab === x" @click="ui.tab = x">
-        {{ t('tab.' + x) }}<span v-if="x === 'chat' && ai.busy" class="spinner pip" />
+        {{ t('tab.' + x) }}<span v-if="x === 'chat' && ai.busy" class="spinner pip" /><i v-if="x === 'sim'" class="rec" aria-hidden="true" />
       </button>
       <span class="ink" :class="{ ready: ink.ready }" :style="{ width: ink.w + 'px', transform: `translateX(${ink.x}px)` }" aria-hidden="true" />
     </div>
@@ -53,4 +68,5 @@ watch(() => ui.tab, () => nextTick(place))
 .ink { position: absolute; left: 0; bottom: -1px; height: 2px; background: var(--accent); border-radius: 2px 2px 0 0; pointer-events: none; }
 .ink.ready { transition: transform var(--dur-base) var(--ease-out), width var(--dur-base) var(--ease-out); }
 .pip { margin-left: 6px; width: 11px; height: 11px; }
+.rec { display: inline-block; width: 7px; height: 7px; margin-left: 6px; border-radius: 50%; background: var(--crit); box-shadow: 0 0 0 3px var(--crit-bg); vertical-align: 1px; }
 </style>

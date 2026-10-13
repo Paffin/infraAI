@@ -159,10 +159,10 @@ def rb(failover=None, restore=None, verify=None):
     return d or None
 
 
-def k(id, cat, fn, abbr, color, ru, en, beh, traits, props, desc, sub=None, cap=None, roles=None, variants=None, versions=None, runbook=None):
+def k(id, cat, fn, abbr, color, ru, en, beh, traits, props, desc, sub=None, cap=None, roles=None, variants=None, versions=None, runbook=None, icon=None):
     """kind() with the description given as one (ru, en) pair and the capacity as a plain rps number."""
     capacity = {"rpsPerReplica": cap} if cap else None
     subtitle = sub
     if isinstance(sub, tuple):
         subtitle = L(*sub)
-    return kind(id, cat, fn, abbr, color, ru, en, beh, traits, props, desc=desc, capacity=capacity, roles=roles, subtitle=subtitle, variants=variants, versions=versions, runbook=runbook)
+    return kind(id, cat, fn, abbr, color, ru, en, beh, traits, props, desc=desc, capacity=capacity, roles=roles, subtitle=subtitle, variants=variants, versions=versions, runbook=runbook, icon=icon)

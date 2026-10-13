@@ -3,7 +3,8 @@ import { computed, ref, watch } from 'vue'
 import type { Need } from '@/api/types'
 import { useAi } from './ai'
 
-export type RightTab = 'checks' | 'requirements' | 'analysis' | 'chat'
+/** `sim`: the failure that is on the diagram (its story, the traffic); the tab is there only while a failure is shown. */
+export type RightTab = 'checks' | 'requirements' | 'analysis' | 'chat' | 'sim'
 /** What the analysis tab shows: the numbers about the design (what it carries, how often it is up, what it costs) and where it runs. */
 export type AnalysisView = 'capacity' | 'availability' | 'cost' | 'sites'
 export const ANALYSIS_VIEWS: AnalysisView[] = ['capacity', 'availability', 'cost', 'sites']
@@ -25,7 +26,6 @@ export const useUi = defineStore('ui', () => {
   const promptFocus = ref(0)
   /** A field the user was sent to ("fill in the RTO"): the inspector / requirements form opens, focuses and flashes it once. */
   const focusRequest = ref<{ need: Need; token: number } | null>(null)
-  const showSimDetails = ref(true)
   // on small screens the library starts collapsed (an explicit choice is remembered)
   const stored = read('ia_library')
   const libraryOpen = ref(stored ? stored === 'open' : window.innerWidth >= 1500)
@@ -41,5 +41,5 @@ export const useUi = defineStore('ui', () => {
   /** AI features are usable: the server has a key, the user did not switch to manual mode. */
   const aiOn = computed(() => aiMode.value === 'ai' && ai.enabled)
 
-  return { aiMode, tab, analysis, showAnalysis, modal, palette, promptFocus, focusRequest, showSimDetails, libraryOpen, aiOn }
+  return { aiMode, tab, analysis, showAnalysis, modal, palette, promptFocus, focusRequest, libraryOpen, aiOn }
 })

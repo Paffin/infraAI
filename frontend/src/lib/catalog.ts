@@ -1,9 +1,10 @@
-import type { ArchNode, Behavior, Catalog, EdgeTypeDef, FunctionDef, KindDef, LText, PropDef, Props, Scalar, VariantDef, ZoneTypeDef } from '@/api/types'
+import type { ArchNode, Behavior, Catalog, Category, EdgeTypeDef, FunctionDef, KindDef, LText, PropDef, Props, Scalar, VariantDef, ZoneTypeDef } from '@/api/types'
 import { lt } from '@/i18n'
 
 export interface CatalogIndex {
   catalog: Catalog
   kinds: Map<string, KindDef>
+  categories: Map<string, Category>
   edgeTypes: Map<string, EdgeTypeDef>
   zoneTypes: Map<string, ZoneTypeDef>
   commonDefaults: Props
@@ -15,6 +16,7 @@ export function indexCatalog(catalog: Catalog): CatalogIndex {
   return {
     catalog,
     kinds: new Map(catalog.kinds.map((k) => [k.id, k])),
+    categories: new Map(catalog.categories.map((c) => [c.id, c])),
     edgeTypes: new Map(catalog.edgeTypes.map((e) => [e.id, e])),
     zoneTypes: new Map(catalog.zoneTypes.map((z) => [z.id, z])),
     commonDefaults,

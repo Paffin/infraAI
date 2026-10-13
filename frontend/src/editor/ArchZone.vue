@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useVueFlow, type NodeProps } from '@vue-flow/core'
-import { lt } from '@/i18n'
+import { lt, t } from '@/i18n'
 import { statusColor } from '@/lib/findings'
-import { t } from '@/i18n'
+import { iconFor } from '@/lib/icons'
 import { useApp } from '@/stores/app'
 import { useEditor } from '@/stores/editor'
 import { DEFAULT_ZONE_H, DEFAULT_ZONE_W } from './layout'
@@ -27,14 +27,24 @@ const live = ref<{ w: number; h: number } | null>(null)
 const w = computed(() => live.value?.w ?? zone.value?.ui?.w ?? DEFAULT_ZONE_W)
 const h = computed(() => live.value?.h ?? zone.value?.ui?.h ?? DEFAULT_ZONE_H)
 
+const icon = computed(() => iconFor(def.value?.icon))
+/** How many cards stand in the zone, those of the zones inside it included. */
+const count = computed(() => {
+  const inside = new Set([id.value])
+  for (let grew = true; grew; ) {
+    grew = false
+    for (const z of editor.shown.zones) if (z.parentId && inside.has(z.parentId) && !inside.has(z.id)) { inside.add(z.id); grew = true }
+  }
+  return editor.shown.nodes.filter((n) => n.zoneId && inside.has(n.zoneId)).length
+})
+
+/** The role of the zone (active, standby, witness) and its tier, each a pill of its own. */
 const tags = computed(() => {
   const z = zone.value
   if (!z) return []
   const out: { text: string; cls: string }[] = []
-  const role = z.role
-  const tier = z.props.tier ? `Tier ${z.props.tier}` : ''
-  if (role) out.push({ text: [role.toUpperCase(), tier].filter(Boolean).join(' · '), cls: 'role-' + role })
-  else if (tier) out.push({ text: tier, cls: 'role-none' })
+  if (z.role) out.push({ text: z.role, cls: 'role-' + z.role })
+  if (z.props.tier) out.push({ text: `Tier ${z.props.tier}`, cls: 'tier' })
   return out
 })
 
@@ -71,8 +81,10 @@ function startResize(e: PointerEvent) {
 <template>
   <div v-if="zone" class="arch-zone" :class="{ selected, added, ghost, lit, down: simDown }" :style="{ width: w + 'px', height: h + 'px', '--zc': def?.color ?? 'var(--line-strong)' }">
     <div class="zone-head" :title="def ? lt(def.name) : zone.type" @click="onClick">
+      <span class="zico" aria-hidden="true"><component :is="icon" :size="14" :stroke-width="2" /></span>
       <span class="zname truncate">{{ zone.name }}</span>
       <span v-for="g in tags" :key="g.text" class="ztag" :class="g.cls">{{ g.text }}</span>
+      <span v-if="count" class="zmeta">{{ t('projects.nodes', { n: count }) }}</span>
       <span v-if="status" class="zdot" :style="{ background: statusColor(status) }" />
       <span v-if="simDown" class="zfail">{{ t('node.state.down') }}</span>
     </div>
@@ -82,21 +94,26 @@ function startResize(e: PointerEvent) {
 
 <style scoped>
 .arch-zone {
-  position: relative; border: 1px solid var(--line-strong); border-radius: 14px; background: rgba(255, 255, 255, .55); pointer-events: none;
+  position: relative; border: 1px solid color-mix(in srgb, var(--zc) 28%, var(--line-strong)); border-radius: 16px; pointer-events: none;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--zc) 6%, rgba(255, 255, 255, .72)), color-mix(in srgb, var(--zc) 2%, rgba(255, 255, 255, .5)));
+  box-shadow: 0 1px 2px rgba(20, 23, 31, .03); transition: border-color var(--dur-base), background-color var(--dur-base), box-shadow var(--dur-fast);
 }
 .arch-zone.selected { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .arch-zone.added { border: 1.5px dashed var(--info-dot); }
 .arch-zone.ghost { opacity: .5; border: 1.5px dashed var(--crit); }
 .arch-zone.lit { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
-.arch-zone.down { background: rgba(253, 237, 238, .7); border-color: var(--crit); }
-.zone-head { position: absolute; left: 18px; top: 14px; max-width: calc(100% - 36px); display: flex; align-items: center; gap: 9px; pointer-events: auto; cursor: grab; padding: 2px 4px; margin: -2px -4px; border-radius: 6px; }
-.zone-head:hover { background: rgba(20, 23, 31, .04); }
+/* the zone that has failed: red, hatched */
+.arch-zone.down { border-color: var(--crit); background: repeating-linear-gradient(135deg, rgba(192, 38, 45, .045) 0 11px, rgba(192, 38, 45, .09) 11px 22px), rgba(253, 237, 238, .78); }
+.zone-head { position: absolute; left: 14px; top: 12px; max-width: calc(100% - 28px); display: flex; align-items: center; gap: 8px; pointer-events: auto; cursor: grab; padding: 3px 8px 3px 4px; margin: -3px -8px -3px -4px; border-radius: 999px; transition: background-color var(--dur-fast); }
+.zone-head:hover { background: rgba(255, 255, 255, .7); }
+.zico { width: 24px; height: 24px; border-radius: 8px; flex: none; display: inline-flex; align-items: center; justify-content: center; color: color-mix(in srgb, var(--zc) 80%, #000); background: color-mix(in srgb, var(--zc) 13%, #fff); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--zc) 26%, #fff); }
 .zname { font-weight: 650; font-size: 14px; letter-spacing: -0.005em; color: var(--text); }
-.ztag { font-family: var(--mono); font-size: 10.5px; letter-spacing: .05em; padding: 2px 8px; border-radius: 5px; white-space: nowrap; }
+.ztag { font-size: 10px; font-weight: 650; letter-spacing: .07em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; white-space: nowrap; line-height: 1.3; }
+.ztag.tier { font-family: var(--mono); font-weight: 500; letter-spacing: .03em; text-transform: none; font-size: 10.5px; color: var(--muted); background: var(--surface-sunken); }
 .role-active { color: var(--ok); background: var(--ok-bg); }
 .role-standby { color: var(--accent); background: var(--accent-soft); }
 .role-witness { color: var(--edge-quorum); background: #f0e9fb; }
-.role-none { color: var(--muted); background: var(--surface-sunken); }
+.zmeta { font-size: 11.5px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .zdot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
 .zfail { font-size: 10.5px; font-weight: 700; color: #fff; background: var(--crit); border-radius: 9px; padding: 1px 8px; }
 .zone-resize { position: absolute; right: 2px; bottom: 2px; width: 18px; height: 18px; cursor: nwse-resize; pointer-events: auto; opacity: 0; transition: opacity var(--dur-fast); background: linear-gradient(135deg, transparent 50%, var(--faint) 50%, var(--faint) 58%, transparent 58%, transparent 72%, var(--faint) 72%, var(--faint) 80%, transparent 80%); border-bottom-right-radius: 12px; }

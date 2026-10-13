@@ -116,6 +116,8 @@ export interface KindDef {
   description?: LText | null
   abbr: string
   color: string
+  /** Name of the icon on the card (see `lib/icons.ts`); the category's icon when absent. */
+  icon?: string | null
   behavior: Behavior
   traits: string[]
   roles: { id: string; name: LText }[]
@@ -134,6 +136,8 @@ export interface EdgeTypeDef {
   id: string
   name: LText
   short?: LText | null
+  /** what a link of this type means (the legend says it); without it the legend says what its semantics mean */
+  description?: LText | null
   semantics: Semantics
   style: { color: string; dash?: string | null; width?: number | null }
   directed: boolean
@@ -142,9 +146,9 @@ export interface EdgeTypeDef {
   layer?: string | null
 }
 
-export interface ZoneTypeDef { id: string; name: LText; level: ZoneLevel; color: string; props: PropDef[] }
+export interface ZoneTypeDef { id: string; name: LText; level: ZoneLevel; color: string; icon?: string | null; props: PropDef[] }
 export interface FunctionDef { id: string; name: LText; description?: LText | null }
-export interface Category { id: string; name: LText; order: number; functions?: FunctionDef[] }
+export interface Category { id: string; name: LText; order: number; icon?: string | null; functions?: FunctionDef[] }
 
 export interface Catalog {
   categories: Category[]
@@ -427,6 +431,25 @@ export interface SimFrame {
   capacityRatio: number | null
   nodes: Record<string, NodeState>
   edges: Record<string, EdgeState>
+  /** Where the traffic goes at this moment: the whole picture, not a difference. */
+  traffic?: Traffic
+}
+
+/** A route no drawn link leads along: the traffic of `from` goes to `to` because every link it has to that unit is gone. */
+export interface Detour { from: string; to: string; flow: number; lost?: number }
+
+/**
+ * The traffic at one moment, relative to the load that enters at an entry point (1 = all of it; times `requirements.rpsPeak`
+ * when that is declared). `flows`: what each dependency link carries, by edge id (links that carry nothing are absent).
+ * `lost`: what was sent into a link and dropped there, so that the requests behind it fail. `served`: the share of the entry requests that complete.
+ */
+export interface Traffic {
+  flows: Record<string, number>
+  lost?: Record<string, number>
+  /** like `lost`, but the requests survive it: a call to a dependency the service can do without (a cache) */
+  missed?: Record<string, number>
+  detours?: Detour[]
+  served: number
 }
 export type NodeState = 'up' | 'partial' | 'down' | 'stalled' | 'fenced' | 'promoted' | 'isolated'
 export type EdgeState = 'ok' | 'cut' | 'dead'
@@ -450,6 +473,9 @@ export interface SimResult {
   edgeStates: Record<string, EdgeState>
   /** How the picture changes while the recovery runs; absent when nothing takes time. */
   timeline?: SimFrame[]
+  /** Where the traffic goes once everything has settled, and in normal operation to compare with (absent from a backend that predates it). */
+  traffic?: Traffic
+  trafficBefore?: Traffic
 }
 
 export interface ReportSummary {
@@ -498,6 +524,10 @@ export interface EditorSettings {
   layoutZonesPerRow: number
   quietEdgesSites: number
   playbackStepMs: number
+  failureLeadMs: number
+  flowSpeed: number
+  flowSpacing: number
+  flowParticlesMax: number
 }
 
 export interface Bootstrap {

@@ -230,6 +230,10 @@
     "ru": "трафик",
     "en": "traffic"
    },
+   "description": {
+    "ru": "Запросы идут от источника к цели; без цели источник не работает (или деградирует, если связь мягкая).",
+    "en": "Requests go from the source to the target; without the target the source does not work (or degrades, if the link is soft)."
+   },
    "style": {
     "color": "#14171f",
     "width": 1.6
@@ -310,6 +314,10 @@
    "short": {
     "ru": "sync-репл.",
     "en": "sync repl."
+   },
+   "description": {
+    "ru": "Запись подтверждается, когда её приняла реплика: при отказе данные не теряются, но каждая запись ждёт сеть.",
+    "en": "A write is acknowledged once the replica has taken it: no data is lost in a failure, but every write waits for the network."
    },
    "style": {
     "color": "#1f9d55",
@@ -405,6 +413,10 @@
     "ru": "async",
     "en": "async"
    },
+   "description": {
+    "ru": "Реплика отстаёт на время лага: при отказе источника то, что не успело доехать, теряется — это и есть RPO.",
+    "en": "The replica lags by the replication lag: when the source fails, what had not arrived is lost — that is the RPO."
+   },
    "style": {
     "color": "#e08a00",
     "dash": "6 4",
@@ -497,6 +509,10 @@
     "ru": "кворум",
     "en": "quorum"
    },
+   "description": {
+    "ru": "Участник кворума или арбитр: от него зависит, кто может быть главным.",
+    "en": "A quorum member or an arbiter: it decides who may be the leader."
+   },
    "style": {
     "color": "#7a42d7",
     "dash": "2 5",
@@ -546,6 +562,10 @@
     "ru": "бэкап",
     "en": "backup"
    },
+   "description": {
+    "ru": "Резервная копия: от неё зависят потеря данных (RPO) и время восстановления.",
+    "en": "A backup: the data loss (RPO) and the recovery time depend on it."
+   },
    "style": {
     "color": "#7c8594",
     "dash": "8 5",
@@ -584,6 +604,10 @@
    "short": {
     "ru": "управление",
     "en": "control"
+   },
+   "description": {
+    "ru": "Управление и наблюдение: мониторинг, деплой. Запросы пользователей по ней не идут.",
+    "en": "Control and observation: monitoring, deployment. User requests do not go through it."
    },
    "style": {
     "color": "#3b82f6",

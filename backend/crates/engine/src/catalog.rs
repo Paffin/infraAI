@@ -33,6 +33,9 @@ pub struct Category {
     pub name: LText,
     #[serde(default)]
     pub order: i32,
+    /// Icon of the category (a name from the icon set of the UI, `network`, `database`…); the cards of a kind without an icon of its own wear it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub icon: Option<String>,
     /// What the products of the category are for, in the order the library shows them.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub functions: Vec<FunctionDef>,
@@ -116,9 +119,12 @@ pub struct KindDef {
     pub name: LText,
     #[serde(default)]
     pub description: Option<LText>,
-    /// 2–4 letter badge shown on the node card.
+    /// 2–4 letter badge: shown where there is no room for an icon (a diagram zoomed far out, the exported SVG, chips).
     pub abbr: String,
     pub color: String,
+    /// Icon on the node card (a name from the icon set of the UI: `database`, `shield-check`…); the category's icon when absent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub icon: Option<String>,
     #[serde(default)]
     pub behavior: Behavior,
     #[serde(default)]
@@ -314,6 +320,10 @@ pub struct EdgeTypeDef {
     /// Short caption for the canvas legend (`sync`, `кворум`); falls back to `name`.
     #[serde(default)]
     pub short: Option<LText>,
+    /// What a link of this type means, in a sentence: the legend of the canvas says it next to the way the link is drawn. Without it the
+    /// legend says what the semantics mean.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<LText>,
     pub semantics: Semantics,
     pub style: EdgeStyle,
     #[serde(default = "yes")]
@@ -352,6 +362,9 @@ pub struct ZoneTypeDef {
     pub name: LText,
     pub level: ZoneLevel,
     pub color: String,
+    /// Icon in the header of the zone (a name from the icon set of the UI).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub icon: Option<String>,
     #[serde(default)]
     pub props: Vec<PropDef>,
 }

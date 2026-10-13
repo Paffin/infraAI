@@ -12,6 +12,8 @@ const WAVE_ROW = 150
 export const nodeFlowId = (id: string) => 'n:' + id
 export const zoneFlowId = (id: string) => 'z:' + id
 export const edgeFlowId = (id: string) => 'e:' + id
+/** The id of the canvas edge of a detour: traffic that goes from one node to another where no link is drawn (see `lib/traffic.ts`). */
+export const detourFlowId = (from: string, to: string) => `d:${from}>${to}`
 
 export type Side = 't' | 'b' | 'l' | 'r'
 export const SIDES: Side[] = ['t', 'b', 'l', 'r']
@@ -41,7 +43,7 @@ export function createFlowBuilder() {
    * `siteOf` says which site a zone belongs to (the zone itself, or the first of its ancestors that is a site); an edge between two
    * different sites is `cross` (the canvas can quiet those when many sites make a hairball of them).
    */
-  return function build(arch: Architecture, draggable: boolean, siteOf: (zoneId: string | null) => string | null = () => null): FlowModel {
+  return function build(arch: Architecture, draggable: boolean, siteOf: (zoneId: string | null) => string | null = () => null, detours: { from: string; to: string }[] = []): FlowModel {
     const used = new Set<string>()
     const zones = new Map(arch.zones.map((z) => [z.id, z]))
     const zoneAbs = (id: string | null | undefined) => {
@@ -107,6 +109,18 @@ export function createFlowBuilder() {
       edges.push(reuse<FlowEdge>(id, sig, () => ({
         id, type: 'arch', source: nodeFlowId(e.source), target: nodeFlowId(e.target), sourceHandle: s, targetHandle: t, zIndex: 10, selectable: false, focusable: false,
         data: { id: e.id, lane, lanes, horizontal: s === 'l' || s === 'r', cross }, interactionWidth: 20,
+      })))
+    }
+    // the detours of a failure on screen: each is an edge of its own, drawn only in the pictures that have it
+    for (const d of detours) {
+      const a = abs.get(d.from)
+      const b = abs.get(d.to)
+      if (!a || !b) continue
+      const id = detourFlowId(d.from, d.to)
+      used.add(id)
+      const [s, t] = sidesFor(a, b)
+      edges.push(reuse<FlowEdge>(id, `${s}|${t}`, () => ({
+        id, type: 'detour', source: nodeFlowId(d.from), target: nodeFlowId(d.to), sourceHandle: s, targetHandle: t, zIndex: 11, selectable: false, focusable: false, data: { from: d.from, to: d.to },
       })))
     }
     for (const k of [...cache.keys()]) if (!used.has(k)) cache.delete(k)

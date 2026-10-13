@@ -84,6 +84,9 @@ test.describe('expected availability: how many nines the design gives and what e
     await expect(page.locator('.whatif .res')).toHaveCount(0)
     await page.locator('.av .top .fail').first().getByRole('button', { name: 'Показать отказ на схеме' }).click()
     await expect(page.locator('.whatif .res')).toBeVisible({ timeout: 15_000 })
+    // the failure has a tab of its own now; the analysis is one click away
+    await expect(page.getByTestId('simcard')).toBeVisible()
+    await page.locator('.right .tab', { hasText: 'Анализ' }).click()
     await page.locator('.av .units .name').first().click()
     await expect(page.locator('.arch-node.lit').first()).toBeVisible()
   })

@@ -3,9 +3,11 @@ import { computed, ref } from 'vue'
 import { ChevronDown, ChevronRight, PanelLeftClose, Search } from 'lucide-vue-next'
 import * as api from '@/api/endpoints'
 import type { KindDef, TemplateMeta, Architecture, VariantDef } from '@/api/types'
+import KindChip from '@/components/KindChip.vue'
 import Modal from '@/components/Modal.vue'
 import { lt, t } from '@/i18n'
 import { functionGroups } from '@/lib/catalog'
+import { iconFor } from '@/lib/icons'
 import { errorMessage } from '@/lib/format'
 import { useApp } from '@/stores/app'
 import { useEditor } from '@/stores/editor'
@@ -134,7 +136,7 @@ defineExpose({ focus: () => { ui.libraryOpen = true; setTimeout(() => input.valu
             v-for="x in singles(c)" :key="x.kind.id" class="kind" :disabled="editor.readonly" draggable="true" :title="tileTitle(x.kind)"
             @dragstart="dragKind($event, 'kind', x.kind.id, x.variant?.id)" @click="addKind(x)"
           >
-            <span class="badge-abbr" :style="{ background: x.kind.color }">{{ x.kind.abbr }}</span>
+            <KindChip :kind="x.kind" :size="28" />
             <span class="two">
               <span class="truncate">{{ lt(x.kind.name) }}</span>
               <span v-if="x.variant" class="sub">{{ lt(x.variant.name) }}</span>
@@ -153,7 +155,7 @@ defineExpose({ focus: () => { ui.libraryOpen = true; setTimeout(() => input.valu
               v-for="x in (isOpen(g.key, g.tiles.length) ? g.tiles : g.tiles.slice(0, PEEK))" :key="x.kind.id" class="kind" :disabled="editor.readonly" draggable="true" :title="tileTitle(x.kind)"
               @dragstart="dragKind($event, 'kind', x.kind.id, x.variant?.id)" @click="addKind(x)"
             >
-              <span class="badge-abbr" :style="{ background: x.kind.color }">{{ x.kind.abbr }}</span>
+              <KindChip :kind="x.kind" :size="28" />
               <span class="two">
                 <span class="truncate">{{ lt(x.kind.name) }}</span>
                 <span v-if="x.variant" class="sub">{{ lt(x.variant.name) }}</span>
@@ -168,7 +170,7 @@ defineExpose({ focus: () => { ui.libraryOpen = true; setTimeout(() => input.valu
         <h2>{{ t('library.zones') }}</h2>
         <div class="grid">
           <button v-for="z in zoneTypes" :key="z.id" class="kind" :disabled="editor.readonly" draggable="true" :title="t('library.hint')" @dragstart="dragKind($event, 'zone', z.id)" @click="editor.addZone(z.id)">
-            <span class="zsw" :style="{ borderColor: z.color }" />
+            <span class="zchip" :style="{ '--zc': z.color }" aria-hidden="true"><component :is="iconFor(z.icon)" :size="15" :stroke-width="1.9" /></span>
             <span class="truncate">{{ lt(z.name) }}</span>
           </button>
         </div>
@@ -218,9 +220,8 @@ h2 + .grid { margin-top: 0; }
 .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 2px 0 8px; }
 .two { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
 .two .sub { font-size: 10.5px; color: var(--accent); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.kind { display: flex; align-items: center; gap: 7px; min-height: 40px; padding: 0 7px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius); font-size: 12.5px; text-align: left; min-width: 0; cursor: grab; }
+.kind { display: flex; align-items: center; gap: 8px; min-height: 42px; padding: 0 8px 0 7px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius); font-size: 12.5px; text-align: left; min-width: 0; cursor: grab; }
 .kind:hover:not(:disabled) { background: var(--surface-2); border-color: #b8c2d4; }
 .kind:disabled { opacity: .55; cursor: not-allowed; }
-.kind .badge-abbr { flex: none; min-width: 26px; height: 24px; font-size: 9px; }
-.zsw { width: 26px; height: 18px; border: 2px solid; border-radius: 5px; flex: none; }
+.zchip { --zc: var(--line-strong); width: 28px; height: 28px; border-radius: 8px; flex: none; display: inline-flex; align-items: center; justify-content: center; color: color-mix(in srgb, var(--zc) 82%, #000); background: linear-gradient(180deg, color-mix(in srgb, var(--zc) 8%, #fff), color-mix(in srgb, var(--zc) 17%, #fff)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--zc) 28%, #fff); }
 </style>

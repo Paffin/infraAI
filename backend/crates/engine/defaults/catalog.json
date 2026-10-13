@@ -3,6 +3,7 @@
   {
    "id": "edge",
    "order": 1,
+   "icon": "network",
    "name": {
     "ru": "Сеть и вход",
     "en": "Network & edge"
@@ -97,6 +98,7 @@
   {
    "id": "compute",
    "order": 2,
+   "icon": "cpu",
    "name": {
     "ru": "Вычисления",
     "en": "Compute"
@@ -149,6 +151,7 @@
   {
    "id": "data",
    "order": 3,
+   "icon": "database",
    "name": {
     "ru": "Данные",
     "en": "Data"
@@ -257,6 +260,7 @@
   {
    "id": "platform",
    "order": 4,
+   "icon": "blocks",
    "name": {
     "ru": "Платформа",
     "en": "Platform"
@@ -389,6 +393,7 @@
    "id": "dc",
    "level": "site",
    "color": "#2e5bec",
+   "icon": "building-2",
    "name": {
     "ru": "ЦОД",
     "en": "Data center"
@@ -455,6 +460,7 @@
    "id": "cloud",
    "level": "site",
    "color": "#7a42d7",
+   "icon": "cloud",
    "name": {
     "ru": "Облако / регион",
     "en": "Cloud / region site"
@@ -491,6 +497,7 @@
    "id": "az",
    "level": "site",
    "color": "#0e766e",
+   "icon": "layers",
    "name": {
     "ru": "Зона доступности (AZ)",
     "en": "Availability zone"
@@ -531,6 +538,7 @@
    "id": "region",
    "level": "geo",
    "color": "#4c596c",
+   "icon": "globe",
    "name": {
     "ru": "Регион",
     "en": "Region"
@@ -550,6 +558,7 @@
    "id": "rack",
    "level": "rack",
    "color": "#8b93a1",
+   "icon": "server",
    "name": {
     "ru": "Стойка",
     "en": "Rack"
@@ -560,6 +569,7 @@
    "id": "group",
    "level": "group",
    "color": "#8b93a1",
+   "icon": "box",
    "name": {
     "ru": "Группа (визуальная)",
     "en": "Group (visual)"
@@ -580,6 +590,10 @@
    "short": {
     "ru": "трафик",
     "en": "traffic"
+   },
+   "description": {
+    "ru": "Запросы идут от источника к цели; без цели источник не работает (или деградирует, если связь мягкая).",
+    "en": "Requests go from the source to the target; without the target the source does not work (or degrades, if the link is soft)."
    },
    "style": {
     "color": "#14171f",
@@ -661,6 +675,10 @@
    "short": {
     "ru": "sync-репл.",
     "en": "sync repl."
+   },
+   "description": {
+    "ru": "Запись подтверждается, когда её приняла реплика: при отказе данные не теряются, но каждая запись ждёт сеть.",
+    "en": "A write is acknowledged once the replica has taken it: no data is lost in a failure, but every write waits for the network."
    },
    "style": {
     "color": "#1f9d55",
@@ -756,6 +774,10 @@
     "ru": "async",
     "en": "async"
    },
+   "description": {
+    "ru": "Реплика отстаёт на время лага: при отказе источника то, что не успело доехать, теряется — это и есть RPO.",
+    "en": "The replica lags by the replication lag: when the source fails, what had not arrived is lost — that is the RPO."
+   },
    "style": {
     "color": "#e08a00",
     "dash": "6 4",
@@ -848,6 +870,10 @@
     "ru": "кворум",
     "en": "quorum"
    },
+   "description": {
+    "ru": "Участник кворума или арбитр: от него зависит, кто может быть главным.",
+    "en": "A quorum member or an arbiter: it decides who may be the leader."
+   },
    "style": {
     "color": "#7a42d7",
     "dash": "2 5",
@@ -897,6 +923,10 @@
     "ru": "бэкап",
     "en": "backup"
    },
+   "description": {
+    "ru": "Резервная копия: от неё зависят потеря данных (RPO) и время восстановления.",
+    "en": "A backup: the data loss (RPO) and the recovery time depend on it."
+   },
    "style": {
     "color": "#7c8594",
     "dash": "8 5",
@@ -935,6 +965,10 @@
    "short": {
     "ru": "управление",
     "en": "control"
+   },
+   "description": {
+    "ru": "Управление и наблюдение: мониторинг, деплой. Запросы пользователей по ней не идут.",
+    "en": "Control and observation: monitoring, deployment. User requests do not go through it."
    },
    "style": {
     "color": "#3b82f6",
@@ -1119,6 +1153,7 @@
    "category": "edge",
    "abbr": "USR",
    "color": "#524fb9",
+   "icon": "users",
    "behavior": "stateless",
    "traits": [
     "entry",
@@ -1141,6 +1176,7 @@
    "category": "edge",
    "abbr": "DNS",
    "color": "#3a58c4",
+   "icon": "globe",
    "behavior": "stateless",
    "traits": [
     "balancer",
@@ -1317,6 +1353,7 @@
    "category": "edge",
    "abbr": "CDN",
    "color": "#2d6cdf",
+   "icon": "cloud-download",
    "behavior": "stateless",
    "traits": [
     "edge",
@@ -1479,6 +1516,7 @@
    "category": "edge",
    "abbr": "WAF",
    "color": "#bf1340",
+   "icon": "shield-check",
    "behavior": "stateless",
    "traits": [
     "waf",
@@ -1622,6 +1660,7 @@
    "category": "edge",
    "abbr": "L7",
    "color": "#bf1340",
+   "icon": "split",
    "behavior": "stateless",
    "traits": [
     "balancer",
@@ -1814,6 +1853,7 @@
    "category": "edge",
    "abbr": "L4",
    "color": "#2d6cdf",
+   "icon": "git-fork",
    "behavior": "stateless",
    "traits": [
     "balancer",
@@ -1991,6 +2031,7 @@
    "category": "edge",
    "abbr": "VPN",
    "color": "#4c596c",
+   "icon": "route",
    "behavior": "stateless",
    "traits": [
     "network-link"
@@ -2121,6 +2162,7 @@
    "category": "compute",
    "abbr": "K8s",
    "color": "#2a64e0",
+   "icon": "boxes",
    "behavior": "stateless",
    "traits": [
     "workload",
@@ -2480,6 +2522,7 @@
    "category": "compute",
    "abbr": "VM",
    "color": "#3a58c4",
+   "icon": "server",
    "behavior": "stateless",
    "traits": [
     "workload"
@@ -2759,6 +2802,7 @@
    "category": "compute",
    "abbr": "FN",
    "color": "#3a58c4",
+   "icon": "square-function",
    "behavior": "stateless",
    "traits": [
     "workload",
@@ -2961,6 +3005,7 @@
    "category": "compute",
    "abbr": "GW",
    "color": "#3a58c4",
+   "icon": "plug",
    "behavior": "stateless",
    "traits": [
     "gateway",
@@ -3053,6 +3098,7 @@
    "category": "data",
    "abbr": "PG",
    "color": "#0e766e",
+   "icon": "database",
    "behavior": "primary_replica",
    "traits": [
     "datastore",
@@ -3438,6 +3484,7 @@
    "category": "data",
    "abbr": "RDS",
    "color": "#12756c",
+   "icon": "database-zap",
    "behavior": "primary_replica",
    "traits": [
     "datastore",
@@ -3739,6 +3786,7 @@
    "category": "data",
    "abbr": "KFK",
    "color": "#0e766e",
+   "icon": "messages-square",
    "behavior": "quorum_log",
    "traits": [
     "datastore",
@@ -3932,6 +3980,7 @@
    "category": "data",
    "abbr": "CH",
    "color": "#0e766e",
+   "icon": "chart-column",
    "behavior": "quorum_log",
    "traits": [
     "datastore",
@@ -4083,6 +4132,7 @@
    "category": "data",
    "abbr": "S3",
    "color": "#4c596c",
+   "icon": "hard-drive",
    "behavior": "stateless",
    "traits": [
     "datastore",
@@ -4240,6 +4290,7 @@
    "category": "data",
    "abbr": "ES",
    "color": "#0e766e",
+   "icon": "search",
    "behavior": "quorum_log",
    "traits": [
     "datastore",
@@ -4391,6 +4442,7 @@
    "category": "data",
    "abbr": "S3",
    "color": "#4c596c",
+   "icon": "archive-restore",
    "behavior": "stateless",
    "traits": [
     "backup-target"
@@ -4628,6 +4680,7 @@
    "category": "platform",
    "abbr": "ETC",
    "color": "#7a42d7",
+   "icon": "vote",
    "behavior": "consensus",
    "traits": [
     "consensus",
@@ -4773,6 +4826,7 @@
    "category": "platform",
    "abbr": "VLT",
    "color": "#c2410c",
+   "icon": "key-round",
    "behavior": "primary_replica",
    "traits": [
     "secrets",
@@ -4970,6 +5024,7 @@
    "category": "platform",
    "abbr": "OBS",
    "color": "#7a42d7",
+   "icon": "activity",
    "behavior": "stateless",
    "traits": [
     "monitoring",
@@ -5103,6 +5158,7 @@
    "category": "platform",
    "abbr": "CI",
    "color": "#6d3fc4",
+   "icon": "git-pull-request",
    "behavior": "stateless",
    "traits": [
     "gitops",
@@ -5214,6 +5270,7 @@
    "category": "edge",
    "abbr": "NGX",
    "color": "#bf1340",
+   "icon": "split",
    "behavior": "stateless",
    "traits": [
     "balancer",
@@ -5354,6 +5411,7 @@
    "category": "edge",
    "abbr": "HAP",
    "color": "#bf1340",
+   "icon": "split",
    "behavior": "stateless",
    "traits": [
     "balancer",
@@ -5494,6 +5552,7 @@
    "category": "edge",
    "abbr": "ENV",
    "color": "#bf1340",
+   "icon": "split",
    "behavior": "stateless",
    "traits": [
     "balancer",
@@ -5634,6 +5693,7 @@
    "category": "edge",
    "abbr": "TRF",
    "color": "#bf1340",
+   "icon": "split",
    "behavior": "stateless",
    "traits": [
     "balancer",
@@ -5774,6 +5834,7 @@
    "category": "edge",
    "abbr": "CDY",
    "color": "#bf1340",
+   "icon": "split",
    "behavior": "stateless",
    "traits": [
     "balancer",
@@ -5883,6 +5944,7 @@
    "category": "edge",
    "abbr": "HTD",
    "color": "#bf1340",
+   "icon": "split",
    "behavior": "stateless",
    "traits": [
     "balancer",
@@ -5992,6 +6054,7 @@
    "category": "edge",
    "abbr": "VCL",
    "color": "#2d6cdf",
+   "icon": "zap",
    "behavior": "stateless",
    "traits": [
     "proxy",
@@ -6101,6 +6164,7 @@
    "category": "edge",
    "abbr": "SQD",
    "color": "#2d6cdf",
+   "icon": "arrow-right-left",
    "behavior": "stateless",
    "traits": [
     "proxy",
@@ -6184,6 +6248,7 @@
    "category": "edge",
    "abbr": "MLB",
    "color": "#2d6cdf",
+   "icon": "git-fork",
    "behavior": "stateless",
    "traits": [
     "balancer",
@@ -6283,6 +6348,7 @@
    "category": "edge",
    "abbr": "FW",
    "color": "#9d2235",
+   "icon": "brick-wall",
    "behavior": "stateless",
    "traits": [
     "firewall",
@@ -6455,6 +6521,7 @@
    "category": "edge",
    "abbr": "NET",
    "color": "#4c596c",
+   "icon": "router",
    "behavior": "stateless",
    "traits": [
     "network-device",
@@ -6550,6 +6617,7 @@
    "category": "edge",
    "abbr": "NS",
    "color": "#3a58c4",
+   "icon": "signpost",
    "behavior": "stateless",
    "traits": [
     "dns",
@@ -6690,6 +6758,7 @@
    "category": "compute",
    "abbr": "NMD",
    "color": "#2a64e0",
+   "icon": "workflow",
    "behavior": "stateless",
    "traits": [
     "workload",
@@ -6793,6 +6862,7 @@
    "category": "compute",
    "abbr": "KNG",
    "color": "#3a58c4",
+   "icon": "plug",
    "behavior": "stateless",
    "traits": [
     "gateway",
@@ -6901,6 +6971,7 @@
    "category": "compute",
    "abbr": "APX",
    "color": "#3a58c4",
+   "icon": "plug",
    "behavior": "stateless",
    "traits": [
     "gateway",
@@ -6997,6 +7068,7 @@
    "category": "compute",
    "abbr": "AFW",
    "color": "#7a42d7",
+   "icon": "cpu",
    "behavior": "stateless",
    "traits": [
     "workload",
@@ -7068,6 +7140,7 @@
    "category": "compute",
    "abbr": "SPK",
    "color": "#7a42d7",
+   "icon": "cpu",
    "behavior": "stateless",
    "traits": [
     "workload",
@@ -7151,6 +7224,7 @@
    "category": "compute",
    "abbr": "FLK",
    "color": "#7a42d7",
+   "icon": "cpu",
    "behavior": "stateless",
    "traits": [
     "workload",
@@ -7234,6 +7308,7 @@
    "category": "compute",
    "abbr": "NIF",
    "color": "#7a42d7",
+   "icon": "cpu",
    "behavior": "stateless",
    "traits": [
     "workload",
@@ -7317,6 +7392,7 @@
    "category": "data",
    "abbr": "MYS",
    "color": "#0e766e",
+   "icon": "database",
    "behavior": "primary_replica",
    "traits": [
     "datastore",
@@ -7686,6 +7762,7 @@
    "category": "data",
    "abbr": "MRD",
    "color": "#0e766e",
+   "icon": "database",
    "behavior": "primary_replica",
    "traits": [
     "datastore",
@@ -7989,6 +8066,7 @@
    "category": "data",
    "abbr": "MSQ",
    "color": "#0e766e",
+   "icon": "database",
    "behavior": "primary_replica",
    "traits": [
     "datastore",
@@ -8262,6 +8340,7 @@
    "category": "data",
    "abbr": "ORA",
    "color": "#0e766e",
+   "icon": "database",
    "behavior": "primary_replica",
    "traits": [
     "datastore",
@@ -8520,6 +8599,7 @@
    "category": "data",
    "abbr": "CRDB",
    "color": "#0e766e",
+   "icon": "database",
    "behavior": "quorum_log",
    "traits": [
     "datastore",
@@ -8687,6 +8767,7 @@
    "category": "data",
    "abbr": "YB",
    "color": "#0e766e",
+   "icon": "database",
    "behavior": "quorum_log",
    "traits": [
     "datastore",
@@ -8839,6 +8920,7 @@
    "category": "data",
    "abbr": "TDB",
    "color": "#0e766e",
+   "icon": "database",
    "behavior": "quorum_log",
    "traits": [
     "datastore",
@@ -8991,6 +9073,7 @@
    "category": "data",
    "abbr": "VTS",
    "color": "#0e766e",
+   "icon": "database",
    "behavior": "primary_replica",
    "traits": [
     "datastore",
@@ -9200,6 +9283,7 @@
    "category": "data",
    "abbr": "MNG",
    "color": "#12756c",
+   "icon": "file-braces",
    "behavior": "primary_replica",
    "traits": [
     "datastore",
@@ -9502,6 +9586,7 @@
    "category": "data",
    "abbr": "CBS",
    "color": "#12756c",
+   "icon": "file-braces",
    "behavior": "quorum_log",
    "traits": [
     "datastore",
@@ -9619,6 +9704,7 @@
    "category": "data",
    "abbr": "CDB",
    "color": "#12756c",
+   "icon": "file-braces",
    "behavior": "quorum_log",
    "traits": [
     "datastore",
@@ -9736,6 +9822,7 @@
    "category": "data",
    "abbr": "ARG",
    "color": "#12756c",
+   "icon": "file-braces",
    "behavior": "quorum_log",
    "traits": [
     "datastore",
@@ -9854,6 +9941,7 @@
    "category": "data",
    "abbr": "N4J",
    "color": "#12756c",
+   "icon": "share-2",
    "behavior": "quorum_log",
    "traits": [
     "datastore",
@@ -9971,6 +10059,7 @@
    "category": "data",
    "abbr": "CAS",
    "color": "#12756c",
+   "icon": "columns-3",
    "behavior": "quorum_log",
    "traits": [
     "datastore",
@@ -10152,6 +10241,7 @@
    "category": "data",
    "abbr": "SCY",
    "color": "#12756c",
+   "icon": "columns-3",
    "behavior": "quorum_log",
    "traits": [
     "datastore",
@@ -10304,6 +10394,7 @@
    "category": "data",
    "abbr": "HBS",
    "color": "#12756c",
+   "icon": "columns-3",
    "behavior": "quorum_log",
    "traits": [
     "datastore",
@@ -10421,6 +10512,7 @@
    "category": "data",
    "abbr": "FDB",
    "color": "#12756c",
+   "icon": "hash",
    "behavior": "quorum_log",
    "traits": [
     "datastore",
@@ -10538,6 +10630,7 @@
    "category": "data",
    "abbr": "TNT",
    "color": "#12756c",
+   "icon": "hash",
    "behavior": "primary_replica",
    "traits": [
     "datastore",
@@ -10737,6 +10830,7 @@
    "category": "data",
    "abbr": "INF",
    "color": "#12756c",
+   "icon": "chart-line",
    "behavior": "primary_replica",
    "traits": [
     "datastore",
@@ -10921,6 +11015,7 @@
    "category": "data",
    "abbr": "VLK",
    "color": "#12756c",
+   "icon": "database-zap",
    "behavior": "primary_replica",
    "traits": [
     "datastore",
@@ -11193,6 +11288,7 @@
    "category": "data",
    "abbr": "MCD",
    "color": "#12756c",
+   "icon": "database-zap",
    "behavior": "stateless",
    "traits": [
     "datastore",
@@ -11301,6 +11397,7 @@
    "category": "data",
    "abbr": "RMQ",
    "color": "#0e766e",
+   "icon": "messages-square",
    "behavior": "quorum_log",
    "traits": [
     "datastore",
@@ -11462,6 +11559,7 @@
    "category": "data",
    "abbr": "PLS",
    "color": "#0e766e",
+   "icon": "messages-square",
    "behavior": "quorum_log",
    "traits": [
     "datastore",
@@ -11604,6 +11702,7 @@
    "category": "data",
    "abbr": "AMQ",
    "color": "#0e766e",
+   "icon": "messages-square",
    "behavior": "primary_replica",
    "traits": [
     "datastore",
@@ -11854,6 +11953,7 @@
    "category": "data",
    "abbr": "IMQ",
    "color": "#0e766e",
+   "icon": "messages-square",
    "behavior": "primary_replica",
    "traits": [
     "datastore",
@@ -12089,6 +12189,7 @@
    "category": "data",
    "abbr": "NATS",
    "color": "#0e766e",
+   "icon": "messages-square",
    "behavior": "quorum_log",
    "traits": [
     "datastore",
@@ -12183,6 +12284,7 @@
    "category": "data",
    "abbr": "RPD",
    "color": "#0e766e",
+   "icon": "messages-square",
    "behavior": "quorum_log",
    "traits": [
     "datastore",
@@ -12324,6 +12426,7 @@
    "category": "data",
    "abbr": "ELA",
    "color": "#0e766e",
+   "icon": "search",
    "behavior": "quorum_log",
    "traits": [
     "datastore",
@@ -12490,6 +12593,7 @@
    "category": "data",
    "abbr": "SLR",
    "color": "#0e766e",
+   "icon": "search",
    "behavior": "quorum_log",
    "traits": [
     "datastore",
@@ -12606,6 +12710,7 @@
    "category": "data",
    "abbr": "MEI",
    "color": "#0e766e",
+   "icon": "search",
    "behavior": "primary_replica",
    "traits": [
     "datastore",
@@ -12757,6 +12862,7 @@
    "category": "data",
    "abbr": "CPH",
    "color": "#4c596c",
+   "icon": "hard-drive",
    "behavior": "quorum_log",
    "traits": [
     "datastore",
@@ -12912,6 +13018,7 @@
    "category": "data",
    "abbr": "LHN",
    "color": "#4c596c",
+   "icon": "hard-drive",
    "behavior": "stateless",
    "traits": [
     "storage",
@@ -12993,6 +13100,7 @@
    "category": "data",
    "abbr": "NAS",
    "color": "#4c596c",
+   "icon": "hard-drive",
    "behavior": "primary_replica",
    "traits": [
     "datastore",
@@ -13193,6 +13301,7 @@
    "category": "platform",
    "abbr": "CNS",
    "color": "#7a42d7",
+   "icon": "vote",
    "behavior": "consensus",
    "traits": [
     "consensus",
@@ -13318,6 +13427,7 @@
    "category": "platform",
    "abbr": "ZK",
    "color": "#7a42d7",
+   "icon": "vote",
    "behavior": "consensus",
    "traits": [
     "consensus",
@@ -13436,6 +13546,7 @@
    "category": "platform",
    "abbr": "OBA",
    "color": "#c2410c",
+   "icon": "key-round",
    "behavior": "consensus",
    "traits": [
     "secrets",
@@ -13557,6 +13668,7 @@
    "category": "platform",
    "abbr": "ZBX",
    "color": "#7a42d7",
+   "icon": "activity",
    "behavior": "primary_replica",
    "traits": [
     "monitoring",
@@ -13730,6 +13842,7 @@
    "category": "platform",
    "abbr": "ICG",
    "color": "#7a42d7",
+   "icon": "activity",
    "behavior": "stateless",
    "traits": [
     "platform",
@@ -13798,6 +13911,7 @@
    "category": "platform",
    "abbr": "CMK",
    "color": "#7a42d7",
+   "icon": "activity",
    "behavior": "stateless",
    "traits": [
     "platform",
@@ -13866,6 +13980,7 @@
    "category": "platform",
    "abbr": "TLG",
    "color": "#7a42d7",
+   "icon": "radar",
    "behavior": "stateless",
    "traits": [
     "platform",
@@ -13934,6 +14049,7 @@
    "category": "platform",
    "abbr": "FLB",
    "color": "#7a42d7",
+   "icon": "radar",
    "behavior": "stateless",
    "traits": [
     "platform",
@@ -14003,6 +14119,7 @@
    "category": "platform",
    "abbr": "OTL",
    "color": "#7a42d7",
+   "icon": "radar",
    "behavior": "stateless",
    "traits": [
     "platform",
@@ -14070,6 +14187,7 @@
    "category": "platform",
    "abbr": "GRF",
    "color": "#7a42d7",
+   "icon": "layout-dashboard",
    "behavior": "stateless",
    "traits": [
     "platform",
@@ -14170,6 +14288,7 @@
    "category": "platform",
    "abbr": "LOK",
    "color": "#7a42d7",
+   "icon": "scroll-text",
    "behavior": "stateless",
    "traits": [
     "platform",
@@ -14250,6 +14369,7 @@
    "category": "platform",
    "abbr": "GLG",
    "color": "#7a42d7",
+   "icon": "scroll-text",
    "behavior": "stateless",
    "traits": [
     "platform",
@@ -14330,6 +14450,7 @@
    "category": "platform",
    "abbr": "LSH",
    "color": "#7a42d7",
+   "icon": "scroll-text",
    "behavior": "stateless",
    "traits": [
     "platform",
@@ -14410,6 +14531,7 @@
    "category": "platform",
    "abbr": "KIB",
    "color": "#7a42d7",
+   "icon": "scroll-text",
    "behavior": "stateless",
    "traits": [
     "platform",
@@ -14479,6 +14601,7 @@
    "category": "platform",
    "abbr": "JGR",
    "color": "#7a42d7",
+   "icon": "route",
    "behavior": "stateless",
    "traits": [
     "platform",
@@ -14547,6 +14670,7 @@
    "category": "platform",
    "abbr": "JNK",
    "color": "#6d3fc4",
+   "icon": "git-branch",
    "behavior": "stateless",
    "traits": [
     "platform",
@@ -14629,6 +14753,7 @@
    "category": "platform",
    "abbr": "GL",
    "color": "#6d3fc4",
+   "icon": "git-branch",
    "behavior": "stateless",
    "traits": [
     "platform",
@@ -14742,6 +14867,7 @@
    "category": "platform",
    "abbr": "FJO",
    "color": "#6d3fc4",
+   "icon": "git-branch",
    "behavior": "stateless",
    "traits": [
     "platform",
@@ -14823,6 +14949,7 @@
    "category": "platform",
    "abbr": "SNR",
    "color": "#6d3fc4",
+   "icon": "badge-check",
    "behavior": "stateless",
    "traits": [
     "platform",
@@ -14903,6 +15030,7 @@
    "category": "platform",
    "abbr": "ART",
    "color": "#6d3fc4",
+   "icon": "package",
    "behavior": "stateless",
    "traits": [
     "platform",
@@ -14985,6 +15113,7 @@
    "category": "platform",
    "abbr": "NXS",
    "color": "#6d3fc4",
+   "icon": "package",
    "behavior": "stateless",
    "traits": [
     "platform",
@@ -15067,6 +15196,7 @@
    "category": "platform",
    "abbr": "HRB",
    "color": "#6d3fc4",
+   "icon": "package",
    "behavior": "stateless",
    "traits": [
     "platform",
@@ -15164,6 +15294,7 @@
    "category": "platform",
    "abbr": "KC",
    "color": "#4c596c",
+   "icon": "fingerprint-pattern",
    "behavior": "stateless",
    "traits": [
     "platform",
@@ -15257,6 +15388,7 @@
    "category": "platform",
    "abbr": "ATK",
    "color": "#4c596c",
+   "icon": "fingerprint-pattern",
    "behavior": "stateless",
    "traits": [
     "platform",
@@ -15325,6 +15457,7 @@
    "category": "platform",
    "abbr": "TLP",
    "color": "#4c596c",
+   "icon": "log-in",
    "behavior": "stateless",
    "traits": [
     "platform",
@@ -15425,6 +15558,7 @@
    "category": "platform",
    "abbr": "BND",
    "color": "#4c596c",
+   "icon": "log-in",
    "behavior": "stateless",
    "traits": [
     "platform",
@@ -15493,6 +15627,7 @@
    "category": "platform",
    "abbr": "CM",
    "color": "#4c596c",
+   "icon": "id-card",
    "behavior": "stateless",
    "traits": [
     "platform",
@@ -15561,6 +15696,7 @@
    "category": "platform",
    "abbr": "KYV",
    "color": "#4c596c",
+   "icon": "scale",
    "behavior": "stateless",
    "traits": [
     "platform",
@@ -15629,6 +15765,7 @@
    "category": "platform",
    "abbr": "GK",
    "color": "#4c596c",
+   "icon": "scale",
    "behavior": "stateless",
    "traits": [
     "platform",
@@ -15697,6 +15834,7 @@
    "category": "platform",
    "abbr": "CNI",
    "color": "#2a64e0",
+   "icon": "cable",
    "behavior": "stateless",
    "traits": [
     "platform",
@@ -15796,6 +15934,7 @@
    "category": "platform",
    "abbr": "MSH",
    "color": "#2a64e0",
+   "icon": "waypoints",
    "behavior": "stateless",
    "traits": [
     "platform",

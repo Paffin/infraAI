@@ -38,6 +38,9 @@ test.describe('the sites of a design: where things run and what the loss of each
     await expect(page.locator('.whatif .res')).toHaveCount(0)
     await site.getByRole('button', { name: 'Отказ' }).click()
     await expect(page.locator('.whatif .res')).toBeVisible({ timeout: 15_000 })
+    // the failure opens its own tab (its story and the traffic); the list of sites, one tab over, still knows which of them is on the diagram
+    await expect(page.getByTestId('simcard')).toBeVisible()
+    await page.locator('.right .tab', { hasText: 'Анализ' }).click()
     await expect(site).toHaveClass(/\bon\b/)
     await page.locator('.whatif .x').click()
     await expect(site).not.toHaveClass(/\bon\b/)

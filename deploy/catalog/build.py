@@ -50,6 +50,39 @@ FUNCTIONS = {
 for cat in base["categories"]:
     cat["functions"] = [{"id": i, "name": L(ru, en)} for i, ru, en in FUNCTIONS[cat["id"]]]
 
+# ---- icons ----------------------------------------------------------------------------------------------------------
+# The picture on a card, in the library and on a zone is a name from the icon set of the UI (frontend/src/lib/icons.ts, the names are
+# listed in docs/CATALOG.md). A kind wears the icon of its function unless its source names its own (`icon=` in kind(), or "icon" in
+# base.json); a name the UI does not know is drawn as a plain box, so the check below keeps the shipped catalog complete.
+FUNCTION_ICON = {
+    "users": "users", "gslb": "globe", "dns-server": "signpost", "cdn": "cloud-download", "http-cache": "zap", "waf": "shield-check", "l7": "split",
+    "l4": "git-fork", "proxy": "arrow-right-left", "firewall": "brick-wall", "network": "router", "vpn": "route",
+    "k8s": "boxes", "orchestrator": "workflow", "vm": "server", "functions": "square-function", "api-gateway": "plug", "data-processing": "cpu",
+    "rdbms": "database", "newsql": "database", "nosql-doc": "file-braces", "graph": "share-2", "wide-column": "columns-3", "kv": "hash", "timeseries": "chart-line",
+    "cache": "database-zap", "mq": "messages-square", "search": "search", "olap": "chart-column", "object-store": "hard-drive", "sds": "hard-drive", "backup": "archive-restore",
+    "consensus": "vote", "secrets": "key-round", "monitoring": "activity", "telemetry": "radar", "logging": "scroll-text", "tracing": "route", "dashboards": "layout-dashboard",
+    "gitops": "git-pull-request", "ci": "git-branch", "quality": "badge-check", "registry": "package", "identity": "fingerprint-pattern", "access": "log-in", "pki": "id-card",
+    "policy": "scale", "cni": "cable", "mesh": "waypoints",
+}
+CATEGORY_ICON = {"edge": "network", "compute": "cpu", "data": "database", "platform": "blocks"}
+ZONE_ICON = {"dc": "building-2", "cloud": "cloud", "az": "layers", "region": "globe", "rack": "server", "group": "box"}
+
+
+def put_after(item, after, key, value):
+    """The item with `key` right after `after`, so that the generated file reads the same way as the hand-written part of it."""
+    out = {}
+    for k_, v in item.items():
+        if k_ != key:
+            out[k_] = v
+        if k_ == after:
+            out[key] = value
+    out.setdefault(key, value)
+    return out
+
+
+base["categories"] = [put_after(c, "order", "icon", CATEGORY_ICON.get(c["id"])) for c in base["categories"]]
+base["zoneTypes"] = [put_after(z, "color", "icon", ZONE_ICON.get(z["id"])) for z in base["zoneTypes"]]
+
 # ---- existing kinds -------------------------------------------------------------------------------------------------
 VARIANTS = {}
 for src in (A.VARIANTS, B.VARIANTS_B, C.VARIANTS_C):
@@ -137,6 +170,7 @@ dup = {i for i in ids if ids.count(i) > 1}
 if dup:
     sys.exit(f"duplicate kind ids: {sorted(dup)}")
 kinds += new_kinds
+kinds = [put_after(kd, "color", "icon", kd.get("icon") or FUNCTION_ICON.get(kd.get("function"))) for kd in kinds]
 base["kinds"] = kinds
 
 # ---- checks ---------------------------------------------------------------------------------------------------------
@@ -155,6 +189,13 @@ for kd in kinds:
             errs.append(f"{kd['id']}: version table {t!r} does not exist")
         else:
             USED_TABLES.add(t)
+for kd in kinds:
+    if not kd.get("icon"):
+        errs.append(f"{kd['id']}: no icon (name one with icon=, or add the function {kd.get('function')!r} to FUNCTION_ICON)")
+for owner, items in (("category", base["categories"]), ("zone type", base["zoneTypes"])):
+    for it in items:
+        if not it.get("icon"):
+            errs.append(f"{owner} {it['id']}: no icon")
 for kd in kinds:
     pk = [p["key"] for p in kd["props"]]
     if len(pk) != len(set(pk)):

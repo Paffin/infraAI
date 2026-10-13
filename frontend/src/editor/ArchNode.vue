@@ -2,10 +2,14 @@
 import { computed } from 'vue'
 import { Handle, Position, type NodeProps } from '@vue-flow/core'
 import { Cloud } from 'lucide-vue-next'
+import KindChip from '@/components/KindChip.vue'
 import { lt, t } from '@/i18n'
 import { nodeSubtitle, variantOf } from '@/lib/catalog'
 import { isManaged } from '@/lib/product'
 import { statusColor } from '@/lib/findings'
+import { fmtNumber } from '@/lib/format'
+import { longestWordEm } from '@/lib/textFit'
+import { amountText, FLOW_EPS } from '@/lib/traffic'
 import { useApp } from '@/stores/app'
 import { useEditor } from '@/stores/editor'
 import { usePlayback } from '@/stores/playback'
@@ -37,7 +41,14 @@ const dim = computed(() => !!editor.highlight && !lit.value)
 /** Something is selected and this card is not what it touches: it steps back (the links of the selection and the cards at their ends stay). */
 const faded = computed(() => !!editor.focus && !editor.focus.nodes.has(id.value))
 const connecting = computed(() => editor.connectFrom === id.value)
+/** Several instances: the card is drawn as a stack, one layer behind it for two, two for three or more. */
+const instances = computed(() => {
+  const r = node.value?.props.replicas
+  return typeof r === 'number' && r > 1 ? r : 1
+})
 const inMulti = computed(() => editor.multi.includes(id.value))
+/** The room the longest word of the name needs (ems): zoomed out, the name is drawn only as large as that word allows, so that no word is cut in the middle. */
+const wordEm = computed(() => longestWordEm(node.value?.name ?? ''))
 /** The row of the first build this card belongs to: the cards of a freshly opened diagram appear row by row. */
 const wave = computed(() => (typeof props.data.wave === 'number' ? props.data.wave : 0))
 
@@ -47,6 +58,29 @@ const dot = computed(() => {
 })
 
 const stateLabel = computed(() => (simState.value && simState.value !== 'up' ? t('node.state.' + simState.value) : ''))
+
+/** While a failure is shown: how the load on this card differs from normal operation (×2 = twice as much arrives at it). */
+const load = computed(() => (editor.sim?.result && simState.value !== 'down' ? playback.loads[id.value] : undefined))
+const loadTone = computed(() => {
+  const l = load.value
+  return !l ? '' : l.before <= FLOW_EPS ? 'new' : l.now <= FLOW_EPS ? 'none' : l.ratio > 1 ? 'up' : 'down'
+})
+const loadText = computed(() => {
+  const l = load.value
+  if (!l) return ''
+  if (loadTone.value === 'new') return t('traffic.load.new')
+  if (loadTone.value === 'none') return '—'
+  return '×' + String(Math.round(l.ratio * 10) / 10)
+})
+const loadTip = computed(() => {
+  const l = load.value
+  if (!l || !node.value) return undefined
+  const amount = (v: number) => {
+    const a = amountText(v, editor.arch.requirements.rpsPeak, fmtNumber)
+    return a.unit === 'rps' ? `${a.value} ${t('traffic.unit.rps')}` : `${a.value}%`
+  }
+  return l.now <= FLOW_EPS ? t('traffic.load.zero', { name: node.value.name, before: amount(l.before) }) : t('traffic.load.tip', { name: node.value.name, before: amount(l.before), now: amount(l.now) })
+})
 const sides = { t: Position.Top, b: Position.Bottom, l: Position.Left, r: Position.Right }
 
 // the click must reach the flow's node wrapper: that is what selects a card (Shift+click extends the selection)
@@ -60,14 +94,14 @@ function onClick(e: MouseEvent) {
     v-if="node"
     class="arch-node"
     :class="[
-      selected && 'selected', inMulti && 'multi', status && !proposed && 'st-' + status, proposed && 'proposed', ghost && 'ghost', changed && 'changed', lit && 'lit', dim && 'dim', faded && 'faded', connecting && 'connecting',
+      instances > 1 && (instances > 2 ? 'stack-3' : 'stack-2'), selected && 'selected', inMulti && 'multi', status && !proposed && 'st-' + status, proposed && 'proposed', ghost && 'ghost', changed && 'changed', lit && 'lit', dim && 'dim', faded && 'faded', connecting && 'connecting',
       simState && 'sim-' + simState, stepPulse, editor.pickingNode && 'pickable', editor.tool === 'connect' && 'connectable',
     ]"
     :title="tip"
-    :style="{ '--i': wave }"
+    :style="{ '--i': wave, '--wem': wordEm }"
     @click="onClick"
   >
-    <span class="badge-abbr badge" :style="{ background: kind?.color ?? '#4c596c' }">{{ kind?.abbr ?? '?' }}</span>
+    <KindChip class="chip" :kind="kind" :size="38" />
     <div class="txt">
       <div class="name truncate">{{ node.name }}</div>
       <div class="sub truncate mono">{{ proposed && !subtitle ? t('inspector.proposed.short') : subtitle || (kind ? lt(kind.name) : t('kind.unknown', { kind: node.kind })) }}</div>
@@ -75,6 +109,7 @@ function onClick(e: MouseEvent) {
     <span v-if="dot" class="dot" :style="{ background: dot }" />
     <span v-if="managed" class="mgd" aria-hidden="true"><Cloud :size="11" /></span>
     <span v-if="stateLabel" class="state-tag">{{ stateLabel }}</span>
+    <span v-if="loadText" class="load-tag" :class="loadTone" :title="loadTip">{{ loadText }}</span>
     <template v-for="s in SIDES" :key="s">
       <Handle :id="s" type="source" :position="sides[s]" class="h" />
       <Handle :id="s" type="target" :position="sides[s]" class="h" />
@@ -83,44 +118,53 @@ function onClick(e: MouseEvent) {
 </template>
 
 <style scoped>
+/* The card's shadows are three layers kept in variables, so that a state changes one of them and keeps the others: the ring (selection,
+   findings), the stack (several instances: layers peek out under the card) and the lift. */
 .arch-node {
-  position: relative; width: 212px; height: 64px; display: flex; align-items: center; gap: 11px; padding: 0 14px 0 12px;
-  background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius); box-shadow: var(--shadow-1);
+  --ring: 0 0 0 0 transparent; --deck: 0 0 0 0 transparent; --lift: 0 1px 1px rgba(20, 23, 31, .04), 0 3px 10px rgba(20, 23, 31, .06); --edge: color-mix(in srgb, var(--line-strong) 85%, #fff);
+  position: relative; width: 212px; height: 64px; display: flex; align-items: center; gap: 11px; padding: 0 12px;
+  background: var(--surface); border: 1px solid color-mix(in srgb, var(--line-strong) 80%, #fff); border-radius: 11px;
+  box-shadow: var(--ring), var(--deck), var(--lift);
   cursor: pointer; transition: box-shadow var(--dur-fast), border-color var(--dur-fast), opacity var(--dur-fast), background-color var(--dur-base);
   animation: pop-in var(--dur-base) var(--ease-spring) both; animation-delay: calc(min(var(--i, 0), 8) * var(--stagger) * 1.4);
 }
-.arch-node:hover { box-shadow: var(--shadow-2); }
-.badge { width: 34px; height: 34px; border-radius: 7px; font-size: 10px; flex: none; }
+.arch-node:hover { --lift: 0 1px 1px rgba(20, 23, 31, .05), 0 8px 22px rgba(20, 23, 31, .11); border-color: var(--line-strong); }
+.stack-2 { --deck: 0 4px 0 -3px var(--surface), 0 5px 0 -3px var(--edge); }
+.stack-3 { --deck: 0 4px 0 -3px var(--surface), 0 5px 0 -3px var(--edge), 0 9px 0 -6px var(--surface), 0 10px 0 -6px var(--edge); }
 .txt { min-width: 0; flex: 1; }
-.name { font-weight: 600; font-size: 14px; line-height: 1.25; color: var(--text); }
-.sub { font-size: 11.5px; color: var(--muted); line-height: 1.3; margin-top: 2px; }
-.dot { position: absolute; top: -4px; right: -4px; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--surface); box-sizing: content-box; }
-.mgd { position: absolute; top: -8px; left: 10px; height: 16px; padding: 0 5px; display: inline-flex; align-items: center; border-radius: 8px; background: var(--surface); border: 1px solid var(--line-strong); color: var(--muted); }
-.selected { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow-2); }
-.st-risk { border-color: var(--risk-dot); box-shadow: 0 0 0 3px var(--risk-bg), var(--shadow-1); }
-.st-critical { border-color: var(--crit); box-shadow: 0 0 0 3px var(--crit-bg), var(--shadow-1); }
-.selected.st-risk, .selected.st-critical { box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow-2); border-color: var(--accent); }
+.name { font-weight: 620; font-size: 13.5px; line-height: 1.25; color: var(--text); letter-spacing: -.005em; }
+.sub { font-size: 11px; color: var(--muted); line-height: 1.3; margin-top: 3px; }
+.dot { position: absolute; top: -4px; right: -4px; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--surface); box-sizing: content-box; box-shadow: 0 1px 3px rgba(20, 23, 31, .25); }
+.mgd { position: absolute; top: -8px; left: 11px; height: 16px; padding: 0 6px; display: inline-flex; align-items: center; border-radius: 8px; background: var(--surface); border: 1px solid var(--line-strong); color: var(--muted); }
+.selected { border-color: var(--accent); --ring: 0 0 0 3px var(--accent-soft); --lift: var(--shadow-2); }
+.st-risk { border-color: var(--risk-dot); --ring: 0 0 0 3px var(--risk-bg); }
+.st-critical { border-color: var(--crit); --ring: 0 0 0 3px var(--crit-bg); }
+.selected.st-risk, .selected.st-critical { --ring: 0 0 0 3px var(--accent-soft); --lift: var(--shadow-2); border-color: var(--accent); }
 .proposed { border: 1.5px dashed var(--info-dot); background: var(--accent-soft); }
 .changed { border-color: var(--accent); }
 .ghost { opacity: .5; border: 1.5px dashed var(--crit); background: var(--crit-bg); }
 .ghost .name { text-decoration: line-through; }
 .dim { opacity: .35; }
 .faded { opacity: .5; }
-.lit { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
-.step-a::before, .step-b::before { content: ''; position: absolute; inset: -1px; border-radius: var(--radius); pointer-events: none; }
+.lit { border-color: var(--accent); --ring: 0 0 0 4px var(--accent-soft); }
+.step-a::before, .step-b::before { content: ''; position: absolute; inset: -1px; border-radius: 11px; pointer-events: none; }
 .step-a::before { animation: step-a var(--dur-slower) var(--ease-out) 1; }
 .step-b::before { animation: step-b var(--dur-slower) var(--ease-out) 1; }
 @keyframes step-a { from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 50%, transparent); } to { box-shadow: 0 0 0 16px color-mix(in srgb, var(--accent) 0%, transparent); } }
 @keyframes step-b { from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 50%, transparent); } to { box-shadow: 0 0 0 16px color-mix(in srgb, var(--accent) 0%, transparent); } }
-.lit::after { content: ''; position: absolute; inset: -1px; border-radius: var(--radius); pointer-events: none; animation: pulse-ring 1.1s ease-in-out 3; }
+.lit::after { content: ''; position: absolute; inset: -1px; border-radius: 11px; pointer-events: none; animation: pulse-ring 1.1s ease-in-out 3; }
 @keyframes pulse-ring { 50% { box-shadow: 0 0 0 9px color-mix(in srgb, var(--accent) 14%, transparent); } }
-.connecting { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
-.multi { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow-2); }
+.connecting { border-color: var(--accent); --ring: 0 0 0 3px var(--accent-soft); }
+.multi { border-color: var(--accent); --ring: 0 0 0 3px var(--accent-soft); --lift: var(--shadow-2); }
 .multi .h { opacity: 0 !important; }
 .pickable { cursor: crosshair; }
-.pickable:hover { border-color: var(--crit); box-shadow: 0 0 0 3px var(--crit-bg); }
+.pickable:hover { border-color: var(--crit); --ring: 0 0 0 3px var(--crit-bg); }
 .connectable { cursor: crosshair; }
 .state-tag { position: absolute; left: 10px; bottom: -9px; padding: 0 7px; height: 18px; line-height: 18px; border-radius: 9px; font-size: 10.5px; font-weight: 700; letter-spacing: .03em; background: var(--ink); color: #fff; }
+.load-tag { position: absolute; right: 10px; bottom: -9px; padding: 0 7px; height: 18px; line-height: 18px; border-radius: 9px; font-size: 10.5px; font-weight: 700; letter-spacing: .02em; font-variant-numeric: tabular-nums; background: var(--surface); border: 1px solid var(--line-strong); color: var(--text-2); animation: pop-in var(--dur-base) var(--ease-spring) both; }
+.load-tag.up { background: var(--risk-bg); border-color: var(--risk-line); color: var(--risk); }
+.load-tag.new { background: color-mix(in srgb, var(--flow-detour) 10%, #fff); border-color: color-mix(in srgb, var(--flow-detour) 40%, #fff); color: #0f6b63; }
+.load-tag.none { color: var(--muted); }
 .sim-down { background: var(--crit-bg); border-color: var(--crit); }
 .sim-down .name { color: var(--crit); }
 .sim-down .state-tag { background: var(--crit); }

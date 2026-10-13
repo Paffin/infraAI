@@ -58,6 +58,7 @@ describe('translations', () => {
       'placement.error.': ['sites_out_of_range', 'unknown_pattern', 'unknown_stack', 'bad_kind', 'unknown_kind', 'unknown_variant', 'too_many_nodes', 'unknown_tolerance', 'unknown_zone_type'],
       'placement.note.': ['witness_sites', 'site_failures_clamped', 'copies_limited', 'single_copy', 'no_authority', 'arbiters_share_locations', 'voters_share_locations', 'cluster_per_domain'],
       'node.state.': ['up', 'partial', 'down', 'stalled', 'fenced', 'promoted', 'isolated'],
+      'legend.sem.': ['dependency', 'replication', 'membership', 'backup', 'control'],
       'job.': ['preparing', 'calling_model', 'repairing', 'evaluating', 'refining', 'autofix', 'previewing'],
       'ai.error.': ['llm_not_configured', 'llm_disabled', 'llm_budget', 'llm_auth', 'llm_credits', 'llm_rate_limited', 'llm_http', 'llm_timeout', 'llm_empty', 'llm_truncated', 'invalid_output', 'interrupted', 'ai_rate_limited', 'job_running', 'prompt_too_long'],
       'event.': ['promoted', 'manual_failover', 'primary_lost', 'fenced', 'split_brain', 'quorum_lost', 'quorum_ok', 'no_candidate', 'no_failover', 'writes_blocked', 'async_fallback', 'restore_from_backup', 'data_lost', 'replicated_elsewhere', 'reroute', 'scale_out', 'capacity_overload', 'soft_dependency_lost'],

@@ -59,6 +59,18 @@
   --edge-backup: #7c8594;
   --edge-control: #3b82f6;
 
+  /* traffic while a failure is shown: what goes through, what is dropped, what goes around */
+  --flow: #2e5bec;
+  --flow-band: color-mix(in srgb, var(--flow) 30%, #fff);
+  --flow-lost: #d6303a;
+  --flow-lost-band: color-mix(in srgb, var(--flow-lost) 38%, #fff);
+  --flow-missed: #d98a00;
+  --flow-missed-band: color-mix(in srgb, var(--flow-missed) 40%, #fff);
+  --flow-detour: #0d9488;
+  --flow-detour-band: color-mix(in srgb, var(--flow-detour) 55%, #fff);
+  --flow-up: #b45309;
+  --flow-down: #5b6270;
+
   /* geometry */
   --radius: 8px;
   --radius-sm: 6px;

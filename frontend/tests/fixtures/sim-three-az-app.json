@@ -952,6 +952,14 @@
   "failed": [
    "Kubernetes · app"
   ],
+  "interruptions": [
+   {
+    "unit": "app",
+    "kind": "reroute",
+    "seconds": 6.0,
+    "share": 0.3333333333333333
+   }
+  ],
   "timeline": [
    {
     "at": 0.0,
@@ -1022,6 +1030,39 @@
      "e-waf--lb-a": "ok",
      "e-waf--lb-b": "ok",
      "e-waf--lb-c": "ok"
+    },
+    "traffic": {
+     "flows": {
+      "e-app-b--kafka-b": 0.044444444,
+      "e-app-b--pg-b": 0.1,
+      "e-app-b--redis-b": 0.333333333,
+      "e-app-c--kafka-c": 0.044444444,
+      "e-app-c--pg-c": 0.1,
+      "e-app-c--redis-c": 0.333333333,
+      "e-cdn--waf": 1.0,
+      "e-lb-b--app-b": 0.333333333,
+      "e-lb-c--app-c": 0.333333333,
+      "e-users--cdn": 1.0,
+      "e-waf--lb-a": 0.333333333,
+      "e-waf--lb-b": 0.333333333,
+      "e-waf--lb-c": 0.333333333
+     },
+     "lost": {
+      "e-lb-a--app-a": 0.333333333
+     },
+     "detours": [
+      {
+       "from": "app-b",
+       "to": "kafka-a",
+       "flow": 0.022222222
+      },
+      {
+       "from": "app-c",
+       "to": "kafka-a",
+       "flow": 0.022222222
+      }
+     ],
+     "served": 0.666666667
     }
    },
    {
@@ -1029,8 +1070,110 @@
     "state": "up",
     "capacityRatio": 1.4,
     "nodes": {},
-    "edges": {}
+    "edges": {},
+    "traffic": {
+     "flows": {
+      "e-app-b--kafka-b": 0.066666667,
+      "e-app-b--pg-b": 0.15,
+      "e-app-b--redis-b": 0.5,
+      "e-app-c--kafka-c": 0.066666667,
+      "e-app-c--pg-c": 0.15,
+      "e-app-c--redis-c": 0.5,
+      "e-cdn--waf": 1.0,
+      "e-lb-b--app-b": 0.333333333,
+      "e-lb-c--app-c": 0.333333333,
+      "e-users--cdn": 1.0,
+      "e-waf--lb-a": 0.333333333,
+      "e-waf--lb-b": 0.333333333,
+      "e-waf--lb-c": 0.333333333
+     },
+     "detours": [
+      {
+       "from": "lb-a",
+       "to": "app-b",
+       "flow": 0.166666667
+      },
+      {
+       "from": "lb-a",
+       "to": "app-c",
+       "flow": 0.166666667
+      },
+      {
+       "from": "app-b",
+       "to": "kafka-a",
+       "flow": 0.033333333
+      },
+      {
+       "from": "app-c",
+       "to": "kafka-a",
+       "flow": 0.033333333
+      }
+     ],
+     "served": 1.0
+    }
    }
-  ]
+  ],
+  "traffic": {
+   "flows": {
+    "e-app-b--kafka-b": 0.066666667,
+    "e-app-b--pg-b": 0.15,
+    "e-app-b--redis-b": 0.5,
+    "e-app-c--kafka-c": 0.066666667,
+    "e-app-c--pg-c": 0.15,
+    "e-app-c--redis-c": 0.5,
+    "e-cdn--waf": 1.0,
+    "e-lb-b--app-b": 0.333333333,
+    "e-lb-c--app-c": 0.333333333,
+    "e-users--cdn": 1.0,
+    "e-waf--lb-a": 0.333333333,
+    "e-waf--lb-b": 0.333333333,
+    "e-waf--lb-c": 0.333333333
+   },
+   "detours": [
+    {
+     "from": "lb-a",
+     "to": "app-b",
+     "flow": 0.166666667
+    },
+    {
+     "from": "lb-a",
+     "to": "app-c",
+     "flow": 0.166666667
+    },
+    {
+     "from": "app-b",
+     "to": "kafka-a",
+     "flow": 0.033333333
+    },
+    {
+     "from": "app-c",
+     "to": "kafka-a",
+     "flow": 0.033333333
+    }
+   ],
+   "served": 1.0
+  },
+  "trafficBefore": {
+   "flows": {
+    "e-app-a--kafka-a": 0.066666667,
+    "e-app-a--pg-a": 0.1,
+    "e-app-a--redis-a": 0.333333333,
+    "e-app-b--kafka-b": 0.066666667,
+    "e-app-b--pg-b": 0.1,
+    "e-app-b--redis-b": 0.333333333,
+    "e-app-c--kafka-c": 0.066666667,
+    "e-app-c--pg-c": 0.1,
+    "e-app-c--redis-c": 0.333333333,
+    "e-cdn--waf": 1.0,
+    "e-lb-a--app-a": 0.333333333,
+    "e-lb-b--app-b": 0.333333333,
+    "e-lb-c--app-c": 0.333333333,
+    "e-users--cdn": 1.0,
+    "e-waf--lb-a": 0.333333333,
+    "e-waf--lb-b": 0.333333333,
+    "e-waf--lb-c": 0.333333333
+   },
+   "served": 1.0
+  }
  }
 }

@@ -15,7 +15,7 @@ import PromptBar from '@/editor/PromptBar.vue'
 import RightPanel from '@/editor/RightPanel.vue'
 import ScoreModal from '@/editor/ScoreModal.vue'
 import ShortcutsModal from '@/editor/ShortcutsModal.vue'
-import SimDetails from '@/editor/SimDetails.vue'
+import StoryCaption from '@/editor/StoryCaption.vue'
 import VersionsModal from '@/editor/VersionsModal.vue'
 import WhatIfBar from '@/editor/WhatIfBar.vue'
 import { useAi } from '@/stores/ai'
@@ -118,7 +118,7 @@ const conflict = computed(() => editor.saveState === 'conflict')
           <Canvas />
           <Inspector />
           <BulkCard v-if="editor.multi.length > 1" />
-          <SimDetails />
+          <StoryCaption />
           <WhatIfBar />
           <div v-if="conflict" class="conflict banner banner-err" role="alert">
             <b>{{ t('editor.conflict.title') }}</b>
