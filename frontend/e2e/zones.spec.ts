@@ -2,21 +2,11 @@ import { expect, type Page } from '@playwright/test'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from './fixtures'
-import { login, uniqueName } from './helpers'
+import { login, projectWith, uniqueName } from './helpers'
 import type { Architecture } from '../src/api/types'
 
 /** A recorded run of the chat: "make it fault tolerant within one data center" (tests/fixtures/ai-one-dc-*.json). */
 const recorded = (name: string) => JSON.parse(readFileSync(join(process.cwd(), 'tests', 'fixtures', name), 'utf8')) as { previous: Architecture; next: Architecture }
-
-async function projectWith(page: Page, name: string, arch: Architecture): Promise<string> {
-  const created = await page.request.post('/api/projects', { data: { name } })
-  expect(created.ok()).toBe(true)
-  const id = (await created.json()).id as string
-  const cur = await (await page.request.get(`/api/projects/${id}`)).json()
-  const put = await page.request.put(`/api/projects/${id}/draft`, { data: { architecture: arch, expectedRev: cur.rev } })
-  expect(put.ok(), await put.text()).toBe(true)
-  return id
-}
 
 /** Is the card drawn inside the zone it belongs to (the centre of the card decides, like when it is dropped)? */
 async function cardInZone(page: Page, nodeId: string, zoneId: string): Promise<boolean> {

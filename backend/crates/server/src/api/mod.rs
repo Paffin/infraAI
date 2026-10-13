@@ -93,6 +93,7 @@ pub async fn router(state: AppState) -> Router {
         .route("/proposals/{id}/apply", post(ai::apply_proposal))
         .route("/proposals/{id}/reject", post(ai::reject_proposal))
         .route("/evaluate", post(engine_api::evaluate))
+        .route("/recommendations", post(engine_api::recommendations))
         .route("/diff", post(engine_api::diff_architectures))
         .route("/simulate", post(engine_api::simulate_scenario))
         .route("/ops/apply", post(engine_api::apply))

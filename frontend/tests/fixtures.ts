@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import type { Architecture, Catalog, Report, VersionSet } from '../src/api/types'
+import type { Architecture, Catalog, RecommendPlan, Report, VersionSet } from '../src/api/types'
 import { indexCatalog } from '../src/lib/catalog'
 
 /**
@@ -8,6 +8,11 @@ import { indexCatalog } from '../src/lib/catalog'
  * (see tests/fixtures/README.md). The suites run on what the backend actually returns, not on hand-written look-alikes.
  */
 export function fixture(name: string): { architecture: Architecture; report: Report } {
+  return JSON.parse(readFileSync(join(process.cwd(), 'tests', 'fixtures', `${name}.json`), 'utf8'))
+}
+
+/** Real output of `engine::recommend` ("what to improve first"): `{ architecture, plan }` recorded with `deploy/record-fixture.sh` and `FIXTURE_PLAN=1`. */
+export function planFixture(name: string): { architecture: Architecture; plan: RecommendPlan } {
   return JSON.parse(readFileSync(join(process.cwd(), 'tests', 'fixtures', `${name}.json`), 'utf8'))
 }
 

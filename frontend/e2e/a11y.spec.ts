@@ -2,7 +2,8 @@ import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { expect, type Page } from '@playwright/test'
 import { test } from './fixtures'
-import { createProject, login, uniqueName, openAnalysis } from './helpers'
+import { createProject, login, openAnalysis, projectWith, uniqueName } from './helpers'
+import type { Architecture } from '../src/api/types'
 
 /**
  * Accessibility, checked by axe-core on the screens people spend their time on: every field has a name, headings and
@@ -79,6 +80,16 @@ test.describe('accessibility (axe-core)', () => {
     await page.getByRole('button', { name: /Экспорт/ }).first().click()
     await expect(page.locator('.modal')).toBeVisible()
     await clean(page, 'export')
+  })
+
+  test('the checks with "what to improve first": the figures keep their contrast and every button says what it applies', async ({ page }) => {
+    await login(page)
+    // the design the plan was recorded for: two data centers whose GSLB and WAF run as a single instance
+    const { architecture } = JSON.parse(readFileSync('tests/fixtures/plan-spof.json', 'utf8')) as { architecture: Architecture }
+    const id = await projectWith(page, uniqueName('a11y-rec'), architecture)
+    await page.goto(`/p/${id}`)
+    await expect(page.getByTestId('recommendations').locator('[data-rec]').first()).toBeVisible({ timeout: 20_000 })
+    await clean(page, 'recommendations')
   })
 
   test('the admin panel', async ({ page }) => {

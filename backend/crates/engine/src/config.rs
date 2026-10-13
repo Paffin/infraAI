@@ -588,6 +588,25 @@ impl Default for ReliabilitySettings {
     }
 }
 
+/// "What to improve first": the engine's fixes tried one by one and ranked by the effect they measurably have (`docs/RECOMMENDATIONS.md`).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct RecommendSettings {
+    pub enabled: bool,
+    /// How many fixes are tried; each costs one more evaluation.
+    pub max_candidates: usize,
+    /// How many recommendations the editor lists before "show more".
+    pub show: usize,
+    /// Kinds of fixes that may be recommended (`add_member`, `set_replicas`, `add_backup`…); empty = all of them.
+    pub kinds: Vec<String>,
+}
+
+impl Default for RecommendSettings {
+    fn default() -> Self {
+        Self { enabled: true, max_candidates: 16, show: 4, kinds: vec![] }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase", default)]
 pub struct EngineSettings {
@@ -598,6 +617,7 @@ pub struct EngineSettings {
     pub authority: AuthoritySettings,
     pub lifecycle: LifecycleSettings,
     pub reliability: ReliabilitySettings,
+    pub recommendations: RecommendSettings,
     pub cost: CostSettings,
     pub export: ExportSettings,
 }

@@ -28,10 +28,15 @@ export function findingTitle(rule: Rule | undefined, f: Finding): string {
   return rule ? lt(rule.title) : f.ruleId
 }
 
+/** The words for a fix: the rule's own label for its kind, or the general one. `vars`: the finding's variables with the fix's. */
+export function fixKindLabel(rule: Rule | undefined, kind: string, vars: Record<string, unknown>): string {
+  const tpl = rule?.fixLabels?.[kind]
+  if (!tpl) return has('fix.' + kind) ? t('fix.' + kind) : kind
+  return ltf(tpl, vars)
+}
+
 export function fixLabel(rule: Rule | undefined, fix: Finding['fixes'][number], f: Finding): string {
-  const tpl = rule?.fixLabels?.[fix.kind]
-  if (!tpl) return has('fix.' + fix.kind) ? t('fix.' + fix.kind) : fix.kind
-  return ltf(tpl, { ...f.vars, ...fix.vars })
+  return fixKindLabel(rule, fix.kind, { ...f.vars, ...fix.vars })
 }
 
 export function statusLabel(s: Status): string {

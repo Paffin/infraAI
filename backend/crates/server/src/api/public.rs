@@ -69,6 +69,7 @@ pub async fn bootstrap(State(state): State<AppState>, user: AuthUser, headers: H
         "autosaveMs",
         "evaluateMs",
         "simulateMs",
+        "recommendMs",
         "historySteps",
         "saveRetryMs",
         "saveRetryMaxMs",
@@ -124,6 +125,7 @@ pub async fn bootstrap(State(state): State<AppState>, user: AuthUser, headers: H
             "toleranceLevels": cfg.engine.tolerance.levels,
             "maxSiteFailures": cfg.engine.scenarios.max_site_failures,
             "availability": {"enabled": cfg.engine.reliability.enabled, "presets": cfg.engine.reliability.presets, "warnPercent": cfg.engine.reliability.warn_percent, "daysPerYear": cfg.engine.reliability.days_per_year},
+            "recommendations": {"enabled": cfg.engine.recommendations.enabled, "show": cfg.engine.recommendations.show},
         },
     });
     // conditional GET: the catalog is large and rarely changes

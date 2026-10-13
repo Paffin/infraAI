@@ -193,6 +193,12 @@
    99.99
   ]
  },
+ "recommendations": {
+  "enabled": true,
+  "maxCandidates": 16,
+  "show": 4,
+  "kinds": []
+ },
  "cost": {
   "currency": "RUB",
   "symbol": "₽",

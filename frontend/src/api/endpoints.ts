@@ -2,7 +2,7 @@ import { http, qs } from './client'
 import type {
   AdminUser, AiJob, ArchDiff, Architecture, AuditEvent, Bootstrap, ChatMessage, ConfigError, ConfigExport, ConfigImportResult,
   ConfigItem, ConfigKindCounter, ExportFile, IacReport, LlmModel, LlmTestResult, LlmUsage, Op, ProjectDetail, ProjectListItem, Proposal,
-  PlacementOptions, PlacementPreview, PlacementRequest, PlacementVariant, Report, ReportSummary, Scenario, SettingDef, SimResult, SyncResult, SystemInfo, Template, User, VersionItem, VersionsPayload, VersionsStatus,
+  PlacementOptions, PlacementPreview, PlacementRequest, PlacementVariant, RecommendPlan, Report, ReportSummary, Scenario, SettingDef, SimResult, SyncResult, SystemInfo, Template, User, VersionItem, VersionsPayload, VersionsStatus,
 } from './types'
 
 export const auth = {
@@ -38,6 +38,7 @@ export const projects = {
 
 export const engine = {
   evaluate: (architecture: Architecture, projectId?: string, lang?: string, signal?: AbortSignal) => http.post<Report>('/evaluate', { architecture, projectId, lang }, signal),
+  recommendations: (architecture: Architecture, projectId?: string, lang?: string, signal?: AbortSignal) => http.post<RecommendPlan>('/recommendations', { architecture, projectId, lang }, signal),
   simulate: (architecture: Architecture, scenario: Scenario) => http.post<SimResult>('/simulate', { architecture, scenario }),
   apply: (architecture: Architecture, ops: Op[], opts: { preview?: boolean; projectId?: string; lang?: string } = {}) =>
     http.post<{ architecture: Architecture; cascadedEdges: string[]; renamed: Record<string, string>; diff?: ArchDiff; before?: ReportSummary; after?: ReportSummary; introduced?: string[]; resolved?: string[] }>('/ops/apply', { architecture, ops, ...opts }),

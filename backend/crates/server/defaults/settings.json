@@ -952,6 +952,22 @@
   "max": 5000
  },
  {
+  "key": "editor.recommendMs",
+  "group": "editor",
+  "type": "number",
+  "default": 700,
+  "label": {
+   "ru": "Рекомендации «что улучшить»: пауза после проверки, мс",
+   "en": "“What to improve” recommendations: pause after a check, ms"
+  },
+  "help": {
+   "ru": "Каждая рекомендация — это исправление, применённое к копии схемы и проверенное заново; расчёт ждёт, пока схема перестанет меняться.",
+   "en": "Each recommendation is a fix applied to a copy of the design and checked again; the calculation waits until the design stops changing."
+  },
+  "min": 100,
+  "max": 10000
+ },
+ {
   "key": "editor.historySteps",
   "group": "editor",
   "type": "number",

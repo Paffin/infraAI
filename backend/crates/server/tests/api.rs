@@ -235,6 +235,45 @@ async fn project_list_carries_a_thumbnail_of_the_diagram() {
 }
 
 #[tokio::test]
+async fn recommendations_try_the_fixes_and_say_what_each_one_measurably_does() {
+    let app = TestApp::new().await;
+    let c = app.login_admin().await;
+    let pid = app.first_project(&c).await;
+    let (_, p) = app.get(&c, &format!("/api/projects/{pid}")).await;
+    // the demo's open findings: a queue replicated asynchronously has a fix, a cache without a replica has none
+    let (s, plan) = app.post(&c, "/api/recommendations", json!({"architecture": p["architecture"], "projectId": pid, "lang": "en"})).await;
+    assert_eq!(s, StatusCode::OK, "{plan}");
+    let items = plan["items"].as_array().unwrap();
+    assert!(!items.is_empty(), "{plan}");
+    for r in items {
+        let e = &r["effect"];
+        assert!(e["score"]["after"].as_f64().unwrap() >= e["score"]["before"].as_f64().unwrap() || e["critical"]["after"].as_u64() < e["critical"]["before"].as_u64(), "{r}");
+        assert!(r["ops"].as_array().map(|o| !o.is_empty()).unwrap_or(false));
+        assert!(r["vars"].is_object() && r["findingId"].is_string() && r["ruleId"].is_string());
+    }
+    assert!(plan["manual"].as_array().unwrap().iter().any(|id| id.as_str().unwrap().starts_with("HA-CACHE-01")), "{plan}");
+
+    // applying a recommendation does what it said: the score the effect names is the score the evaluation gives
+    let first = &items[0];
+    let (s, applied) = app.post(&c, "/api/ops/apply", json!({"architecture": p["architecture"], "ops": first["ops"]})).await;
+    assert_eq!(s, StatusCode::OK, "{applied}");
+    let (_, rep) = app.post(&c, "/api/evaluate", json!({"architecture": applied["architecture"], "projectId": pid})).await;
+    assert_eq!(rep["score"]["value"], first["effect"]["score"]["after"]);
+
+    // a risk the project accepted is not recommended away
+    let fp = first["findingId"].as_str().unwrap();
+    let (s, v) = app.post(&c, &format!("/api/projects/{pid}/waivers"), json!({"fingerprint": fp, "reason": "accepted on purpose, see the design review"})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    let (_, plan2) = app.post(&c, "/api/recommendations", json!({"architecture": p["architecture"], "projectId": pid})).await;
+    assert!(plan2["items"].as_array().unwrap().iter().all(|r| r["findingId"] != fp), "{plan2}");
+
+    // an architecture the validator rejects is a client error, not a crash
+    let (s, _) = app.post(&c, "/api/recommendations", json!({"architecture": {"nodes": [{"id": "n", "kind": "nope", "name": "N"}]}})).await;
+    assert_eq!(s, StatusCode::BAD_REQUEST);
+    app.cleanup().await;
+}
+
+#[tokio::test]
 async fn waivers_require_a_real_finding_and_a_reason_and_affect_the_score() {
     let app = TestApp::new().await;
     let c = app.login_admin().await;

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { Check, ChevronDown, ChevronRight, CircleHelp, TriangleAlert, X } from 'lucide-vue-next'
 import type { Objective, Status } from '@/api/types'
 import { lt, t } from '@/i18n'
@@ -12,18 +12,24 @@ import { scenarioLabel } from '@/lib/sim'
 import { useAi } from '@/stores/ai'
 import { useApp } from '@/stores/app'
 import { useEditor } from '@/stores/editor'
+import { useRecommend } from '@/stores/recommend'
 import { useUi } from '@/stores/ui'
 import AnimatedNumber from '@/components/AnimatedNumber.vue'
 import { stagger } from '@/lib/motion'
 import { useMotion } from '@/stores/motion'
 import FindingCard from './FindingCard.vue'
 import ProposalCard from './ProposalCard.vue'
+import RecommendCard from './RecommendCard.vue'
 
 const app = useApp()
 const editor = useEditor()
 const ai = useAi()
 const ui = useUi()
 const motion = useMotion()
+const rec = useRecommend()
+
+// the plan of what to improve first is asked for while the checks are on the screen, and again whenever their report changes
+watch([() => editor.report, () => editor.preview], () => rec.ensure(), { immediate: true })
 
 /** Findings that appear together come one after another (and at once when nothing is animated). */
 function beforeEnter(el: Element) {
@@ -142,6 +148,7 @@ const markIcon = (s: Status) => (s === 'ok' ? Check : s === 'critical' ? X : s =
 
     <div class="list">
       <ProposalCard v-if="ai.proposal" class="proposal" />
+      <RecommendCard v-else-if="filter !== 'no_data'" />
       <TransitionGroup name="list" tag="div" class="fgroup" @before-enter="beforeEnter" @after-enter="afterEnter">
         <FindingCard v-for="(f, i) in open" :key="f.id" :finding="f" :data-i="i" />
       </TransitionGroup>

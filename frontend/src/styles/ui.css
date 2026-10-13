@@ -11,6 +11,8 @@
 .btn:disabled { opacity: .5; cursor: not-allowed; }
 .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
 .btn-primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
+.btn-tonal { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent); font-weight: 600; }
+.btn-tonal:hover:not(:disabled) { background: #dbe6ff; border-color: var(--accent); }
 .btn-danger { background: var(--crit); border-color: var(--crit); color: #fff; }
 .btn-danger:hover:not(:disabled) { background: #a51f26; border-color: #a51f26; }
 .btn-ghost { border-color: transparent; background: transparent; }

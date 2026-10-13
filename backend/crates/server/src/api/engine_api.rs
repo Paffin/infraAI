@@ -48,6 +48,27 @@ pub async fn evaluate(State(state): State<AppState>, _user: AuthUser, Json(b): J
     Ok(Json(serde_json::to_value(report)?))
 }
 
+/// What to improve first: the engine's fixes for the open findings, each tried on a copy and ranked by the effect measured
+/// (`docs/RECOMMENDATIONS.md`). Stateless like `evaluate`; the project's accepted risks are read for the waivers.
+pub async fn recommendations(State(state): State<AppState>, _user: AuthUser, Json(b): Json<EvaluateBody>) -> ApiResult<Json<Value>> {
+    let cfg = state.cfg().await?;
+    let arch = parse_valid_arch(&cfg, b.architecture)?;
+    let waivers = match b.project_id {
+        Some(id) => engine_waivers(&state, id).await?,
+        None => vec![],
+    };
+    let lang = lang_of(&cfg, b.lang.as_deref());
+    state.metrics.evaluations.with_label_values(&["recommend"]).inc();
+    let lim = limits(&cfg);
+    let plan = tokio::task::spawn_blocking(move || {
+        let ec = cfg.engine_config(&lang);
+        engine::recommend::recommend(&arch, &ec, &waivers, &lim)
+    })
+    .await
+    .map_err(ApiError::internal)?;
+    Ok(Json(serde_json::to_value(plan)?))
+}
+
 #[derive(Deserialize)]
 pub struct DiffBody {
     pub from: Value,

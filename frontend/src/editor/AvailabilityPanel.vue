@@ -191,7 +191,7 @@ h3 { margin: 18px 20px 8px; font-size: 13px; font-weight: 600; color: var(--text
 .hero.nodata { background: var(--nodata-bg); color: var(--text-2); }
 .big { display: flex; flex-direction: column; min-width: 0; }
 .big .num { font-size: 34px; line-height: 1.1; font-weight: 700; letter-spacing: -0.03em; }
-.big .cap { font-size: 12px; opacity: .85; }
+.big .cap { font-size: 12px; font-weight: 500; }
 .side { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; font-size: 12.5px; text-align: right; }
 .side .tgt { font-size: 13px; font-weight: 600; }
 .side .dt, .side .bd { color: var(--text-2); }

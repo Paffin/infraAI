@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # End-to-end smoke test of a running stack:  deploy/smoke.sh http://localhost:8080 admin@example.com 'password'
 # Signs in, loads the editor bootstrap, creates a project from a reference architecture, evaluates it,
-# simulates the loss of a site (with the steps of the recovery), reads the release tables and previews a placement. Exits non-zero on the first failed expectation.
+# asks what to improve first, simulates the loss of a site (with the steps of the recovery), reads the release tables and previews a placement. Exits non-zero on the first failed expectation.
 set -euo pipefail
 BASE=${1:-http://localhost:8080}
 EMAIL=${2:-admin@example.com}
@@ -46,6 +46,14 @@ python3 -c "import sys; sys.exit(0 if float('$SCORE') >= 80 else 1)" || fail "re
 AVAIL=$(echo "{\"architecture\":$ARCH}" | api -d @- "$BASE/api/evaluate" | json "'%.5f' % d['availability']['estimate']")
 echo "expected availability $AVAIL"
 python3 -c "import sys; sys.exit(0 if 0.99 < float('$AVAIL') < 1 else 1)" || fail "the availability estimate is $AVAIL"
+
+# what to improve first: with the entry point cut down to one instance the engine finds, tries and ranks the fix that closes it
+WEAK=$(echo "$ARCH" | python3 -c "import json,sys; a=json.load(sys.stdin); [n['props'].__setitem__('replicas', 1) for n in a['nodes'] if n['id'] == 'gslb']; print(json.dumps(a))")
+PLAN=$(echo "{\"architecture\":$WEAK}" | api -d @- "$BASE/api/recommendations")
+FIRST=$(echo "$PLAN" | json "d['items'][0]['id'] if d['items'] else ''")
+echo "first thing to improve: ${FIRST:-none}"
+[ -n "$FIRST" ] || fail "no recommendation for a design with a single-instance entry point"
+echo "$PLAN" | json "1 if all(i['effect']['critical']['after'] <= i['effect']['critical']['before'] for i in d['items']) else 0" | grep -q 1 || fail "a recommendation makes the design worse"
 
 ZONE=$(echo "$ARCH" | json "d['zones'][0]['id']")
 STATE=$(echo "{\"architecture\":$ARCH,\"scenario\":{\"type\":\"zone\",\"zoneId\":\"$ZONE\"}}" | api -d @- "$BASE/api/simulate" | json "d['state']")

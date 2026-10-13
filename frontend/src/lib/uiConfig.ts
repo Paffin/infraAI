@@ -9,6 +9,7 @@ export const FALLBACK_EDITOR_SETTINGS: EditorSettings = {
   autosaveMs: 900,
   evaluateMs: 350,
   simulateMs: 450,
+  recommendMs: 700,
   historySteps: 100,
   saveRetryMs: 3000,
   saveRetryMaxMs: 30000,

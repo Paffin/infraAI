@@ -1,4 +1,5 @@
 import { expect, type Page } from '@playwright/test'
+import type { Architecture } from '../src/api/types'
 
 export const email = process.env.E2E_EMAIL ?? 'admin@example.com'
 export const password = process.env.E2E_PASSWORD ?? ''
@@ -26,4 +27,15 @@ export const uniqueName = (prefix: string) => `${prefix}-${Date.now().toString(3
 export async function openAnalysis(page: Page, view: 'Ёмкость' | 'Доступность' | 'Стоимость') {
   await page.locator('.right .tab', { hasText: 'Анализ' }).click()
   await page.locator('.right .seg .segbtn', { hasText: view }).click()
+}
+
+/** A project whose working copy is `arch` (made through the API, so a test can start from any design); returns its id. */
+export async function projectWith(page: Page, name: string, arch: Architecture): Promise<string> {
+  const created = await page.request.post('/api/projects', { data: { name } })
+  expect(created.ok()).toBe(true)
+  const id = (await created.json()).id as string
+  const cur = await (await page.request.get(`/api/projects/${id}`)).json()
+  const put = await page.request.put(`/api/projects/${id}/draft`, { data: { architecture: arch, expectedRev: cur.rev } })
+  expect(put.ok(), await put.text()).toBe(true)
+  return id
 }

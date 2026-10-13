@@ -64,7 +64,7 @@ npm run typecheck && npm test && npm run build
   Свои тесты импортируют `test` из `./fixtures`, а не из `@playwright/test`.
 * **Тесты фронтенда тоже без заглушек.** Чистая логика (`lib/needs`, `lib/objectives`, `lib/capacity`, `lib/diagram`, раскладка) проверяется
   на **настоящем выводе движка**: `tests/fixtures/*.json` — это `{architecture, report}`, записанные примером движка
-  (`deploy/record-fixture.sh <шаблон | файл.json> <имя>`; `FIXTURE_TODAY=…` даёт движку дату для правил версий; фикстуры, зависящие от таблиц выпусков, перезаписывает `deploy/rerecord-fixtures.sh`;
+  (`deploy/record-fixture.sh <шаблон | файл.json> <имя>`; `FIXTURE_TODAY=…` даёт движку дату для правил версий; `FIXTURE_PLAN=1` записывает вместо отчёта план «что улучшить в первую очередь» — `{architecture, plan}`; фикстуры, зависящие от таблиц выпусков, перезаписывает `deploy/rerecord-fixtures.sh`;
   вердикты жизненного цикла для сверки порта на TypeScript с движком — `cargo run -p engine --example lifecycle`), и настоящий каталог из `backend/crates/engine/defaults`
   ([README фикстур](../frontend/tests/fixtures/README.md)). Изменился JSON-ответ движка — тест падает здесь, а не в браузере. Тест
   «каждая потребность (`needs`), которую выдаёт движок, ведёт на редактируемое свойство» ловит рассинхрон каталога и правил.

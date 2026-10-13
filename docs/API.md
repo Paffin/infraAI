@@ -47,7 +47,8 @@ answers `403 password_change_required`.
   today: "YYYY-MM-DD",         // the date (UTC) the lifecycle verdicts are given for
   engine: {currency, symbol, lifecycle: {warnDays, matureDays, preferLts, staleDays},
            minCapacityDuringFailure, headroomPercent, defaultFailureTolerance, toleranceLevels, maxSiteFailures,
-           availability: {enabled, presets, warnPercent, daysPerYear}} }
+           availability: {enabled, presets, warnPercent, daysPerYear},
+           recommendations: {enabled, show}} }
 ```
 
 `LText` values (names, texts) are a string or `{ru, en, …}`; resolve with a fallback to `en`, then `ru`.
@@ -96,6 +97,7 @@ around applied AI proposals).
 | Method | Path | Body → Response |
 |---|---|---|
 | POST | `/evaluate` | `{architecture, projectId?, lang?}` → `Report` (accepted risks of `projectId` are applied) |
+| POST | `/recommendations` | `{architecture, projectId?, lang?}` → `Plan`: что улучшить в первую очередь — исправления находок, каждое проверенное на копии схемы, с измеренным эффектом ([RECOMMENDATIONS.md](RECOMMENDATIONS.md)); при выключенной настройке пустой план |
 | POST | `/simulate` | `{architecture, scenario}` → `SimResult` |
 | POST | `/diff` | `{from, to, ui?}` → `ArchDiff` (design vs. an imported snapshot, any two architectures; canvas positions are ignored unless `ui: true`; nothing is stored) |
 | POST | `/ops/apply` | `{architecture, ops, preview?, projectId?, lang?}` → `{architecture, cascadedEdges, renamed}`; with `preview: true` also `{diff, before, after, introduced, resolved}` |

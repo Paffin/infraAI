@@ -14,6 +14,9 @@ shape fails here instead of in the browser.
 | `report-no-geo` | `two-dc-witness`, geo tolerance, `geo` removed from the zones | `no_data` findings that need a zone property |
 | `report-spof` | `two-dc-witness`, `gslb` and `waf` at one replica | single points of failure |
 
+`plan-spof` is different: `{ architecture, plan }`, where `plan` is the real output of `engine::recommend` ("what to improve first") for the architecture of `report-spof`
+(recorded with `FIXTURE_PLAN=1 deploy/record-fixture.sh <architecture.json> plan-spof`). The suites `recommend` (unit) and `recommendations` / `a11y` (browser) run on it.
+
 Re-record with `deploy/record-fixture.sh <template-id | architecture.json> <name>` (it runs
 `cargo run -p engine --example report -- … en --json` and wraps the output as `{architecture, report}`). Recording is only
 needed when the shape of the report changes; the inputs of the files above are the shipped templates with the changes

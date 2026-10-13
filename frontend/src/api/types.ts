@@ -356,6 +356,49 @@ export interface Availability {
   basis: AvailabilityBasis
 }
 
+/** A number before and after a change. */
+export interface Delta<T> { before: T; after: T }
+
+/** What a change does to the design: the numbers of the report before and after, measured by evaluating the result. */
+export interface Effect {
+  score: Delta<number>
+  critical: Delta<number>
+  risk: Delta<number>
+  /** Absent when the estimate does not exist on both sides. */
+  availability?: Delta<number>
+  downtimeSeconds?: Delta<number>
+  cost: Delta<number>
+  /** Open critical and risk findings (fingerprints) that are gone / came in. */
+  resolved: string[]
+  introduced: string[]
+}
+
+/** One change worth making: the engine's fix for a finding, and what it measurably does. */
+export interface Recommendation {
+  id: string
+  findingId: string
+  ruleId: string
+  status: Status
+  kind: string
+  /** Placeholders of the fix's label: the finding's variables with the fix's own. */
+  vars: Record<string, unknown>
+  ops: Op[]
+  effect: Effect
+}
+
+/** Several fixes applied one after another, each kept only when the result was better. */
+export interface RecommendBundle { ids: string[]; ops: Op[]; effect: Effect }
+
+/** "What to improve first" (`POST /recommendations`). */
+export interface RecommendPlan {
+  items: Recommendation[]
+  bundle: RecommendBundle | null
+  /** Open critical and risk findings that no fix of the engine closes: they are for a person. */
+  manual: string[]
+  considered: number
+  truncated: boolean
+}
+
 export interface Report {
   engineVersion: number
   issues: Issue[]
@@ -440,6 +483,7 @@ export interface EditorSettings {
   autosaveMs: number
   evaluateMs: number
   simulateMs: number
+  recommendMs: number
   historySteps: number
   saveRetryMs: number
   saveRetryMaxMs: number
@@ -471,7 +515,7 @@ export interface Bootstrap {
   limits: { maxNodes: number; maxEdges: number; maxZones: number; waiverMinReasonChars: number; waiverMaxDays: number }
   /** Today's date on the server (`YYYY-MM-DD`): support dates are judged against it. */
   today?: string
-  engine: { currency: string; symbol: string; minCapacityDuringFailure: number; headroomPercent: number; defaultFailureTolerance: string; toleranceLevels?: ToleranceLevel[]; maxSiteFailures?: number; lifecycle?: LifecycleSettings; availability?: { enabled: boolean; presets: number[]; warnPercent: number; daysPerYear: number } }
+  engine: { currency: string; symbol: string; minCapacityDuringFailure: number; headroomPercent: number; defaultFailureTolerance: string; toleranceLevels?: ToleranceLevel[]; maxSiteFailures?: number; lifecycle?: LifecycleSettings; availability?: { enabled: boolean; presets: number[]; warnPercent: number; daysPerYear: number }; recommendations?: { enabled: boolean; show: number } }
 }
 
 // ---------------------------------------------------------------------------- lifecycle

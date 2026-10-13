@@ -16,6 +16,7 @@ use engine::config::Waiver;
 use engine::evaluate::{evaluate, Report, Status};
 use engine::model::{validate, Architecture, IssueLevel, Requirements};
 use engine::ops::{apply_ops, diff, Op};
+use engine::recommend::improves;
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -266,11 +267,6 @@ fn pick_fixes(cfg: &Loaded, report: &Report, only: Option<&std::collections::Has
 
 fn criticals(r: &Report) -> usize {
     r.findings.iter().filter(|f| f.accepted.is_none() && f.status == Status::Critical).count()
-}
-
-/// Is `next` a better answer than `cur`: fewer critical findings, or as many and a higher score.
-fn improves(next: &Report, cur: &Report) -> bool {
-    criticals(next) < criticals(cur) || (criticals(next) == criticals(cur) && next.score.value > cur.score.value)
 }
 
 /// What the engine's mechanical fixes did to a design.

@@ -61,7 +61,7 @@ describe('translations', () => {
       'job.': ['preparing', 'calling_model', 'repairing', 'evaluating', 'refining', 'autofix', 'previewing'],
       'ai.error.': ['llm_not_configured', 'llm_disabled', 'llm_budget', 'llm_auth', 'llm_credits', 'llm_rate_limited', 'llm_http', 'llm_timeout', 'llm_empty', 'llm_truncated', 'invalid_output', 'interrupted', 'ai_rate_limited', 'job_running', 'prompt_too_long'],
       'event.': ['promoted', 'manual_failover', 'primary_lost', 'fenced', 'split_brain', 'quorum_lost', 'quorum_ok', 'no_candidate', 'no_failover', 'writes_blocked', 'async_fallback', 'restore_from_backup', 'data_lost', 'replicated_elsewhere', 'reroute', 'scale_out', 'capacity_overload', 'soft_dependency_lost'],
-      'fix.': ['add_backup', 'add_member', 'add_required', 'add_witness', 'group', 'make_sync', 'remove_edge', 'scale', 'set_dcs', 'set_prop', 'set_replicas', 'set_role'],
+      'fix.': ['set_version', 'add_backup', 'add_member', 'add_required', 'add_witness', 'group', 'make_sync', 'remove_edge', 'scale', 'set_dcs', 'set_prop', 'set_replicas', 'set_role'],
       'chat.proposal.': ['applied', 'rejected', 'stale'],
     }
     // families that come from data: the shortcut table and the palette sections
