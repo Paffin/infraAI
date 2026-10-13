@@ -457,11 +457,13 @@ pub struct LifecycleSettings {
     pub mature_days: i64,
     /// Recommend long-term-support lines first.
     pub prefer_lts: bool,
+    /// A release table older than this is reported: dates that may have moved since are no basis for a verdict.
+    pub stale_days: i64,
 }
 
 impl Default for LifecycleSettings {
     fn default() -> Self {
-        Self { warn_days: 180, mature_days: 90, prefer_lts: true }
+        Self { warn_days: 180, mature_days: 90, prefer_lts: true, stale_days: 120 }
     }
 }
 

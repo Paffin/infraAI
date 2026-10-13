@@ -91,9 +91,12 @@ async fn bootstrap_contains_catalog_rules_templates_and_etag() {
     let c = app.login_admin().await;
     let (s, v) = app.get(&c, "/api/bootstrap").await;
     assert_eq!(s, StatusCode::OK);
-    assert!(v["catalog"]["kinds"].as_array().unwrap().len() >= 20);
+    assert!(v["catalog"]["kinds"].as_array().unwrap().len() >= 100, "the library covers the common products");
+    assert!(v["catalog"]["categories"].as_array().unwrap().iter().all(|c| !c["functions"].as_array().unwrap().is_empty()), "every category declares its functions");
     assert!(v["rules"].as_array().unwrap().len() >= 50);
-    assert_eq!(v["templates"].as_array().unwrap().len(), 4);
+    assert_eq!(v["templates"].as_array().unwrap().len(), engine::defaults::templates().iter().filter(|t| t.enabled).count());
+    assert!(engine::lifecycle::parse_date(v["today"].as_str().unwrap()).is_some(), "the editor needs today's date for support dates");
+    assert_eq!(v["engine"]["lifecycle"]["matureDays"], 90);
     assert_eq!(v["ai"]["enabled"], false, "no key configured yet");
     // conditional GET
     let (_, h, _) = app.request(Method::GET, "/api/bootstrap", None, Some(c.clone()), &[]).await;
@@ -895,5 +898,124 @@ async fn how_long_a_replica_trusts_a_users_role_is_a_setting() {
     assert_eq!(s, StatusCode::OK, "{v}");
     let (s, _) = app.get(&editor, "/api/projects").await;
     assert_eq!(s, StatusCode::UNAUTHORIZED, "with `auth.userCacheSeconds` = 0 every request asks the database");
+    app.cleanup().await;
+}
+
+#[tokio::test]
+async fn release_tables_are_served_judged_edited_and_refreshed() {
+    let app = TestApp::new().await;
+    let c = app.login_admin().await;
+
+    // every signed-in user gets the tables, with names, and today's date; conditional GET works
+    let (s, v) = app.get(&c, "/api/versions").await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    let tables = v["tables"].as_array().unwrap();
+    assert!(tables.len() >= 100);
+    assert!(tables.iter().all(|t| t["name"].as_str().map(|n| !n.is_empty()).unwrap_or(false) && !t["cycles"].as_array().unwrap().is_empty()));
+    assert!(engine::lifecycle::parse_date(v["today"].as_str().unwrap()).is_some());
+    let (_, h, _) = app.request(Method::GET, "/api/versions", None, Some(c.clone()), &[]).await;
+    let etag = h.get("etag").unwrap().to_str().unwrap().to_string();
+    let (s, _, _) = app.request(Method::GET, "/api/versions", None, Some(c.clone()), &[("if-none-match", &etag)]).await;
+    assert_eq!(s, StatusCode::NOT_MODIFIED);
+
+    // a declared version is judged by the table and the server's clock
+    let eval = |version: &str| {
+        json!({"architecture": {
+            "requirements": {"rpsPeak": 100},
+            "zones": [{"id": "dc1", "name": "DC1", "type": "dc", "props": {"geo": "a"}}],
+            "nodes": [{"id": "n", "kind": "postgresql", "name": "PG", "zoneId": "dc1", "props": {"version": version}}],
+            "edges": []
+        }})
+    };
+    let status_of = |rep: &Value| rep["rules"].as_array().unwrap().iter().find(|r| r["ruleId"] == "VER-01").map(|r| r["status"].clone()).unwrap_or(Value::Null);
+    let (s, rep) = app.post(&c, "/api/evaluate", eval("12.19")).await;
+    assert_eq!(s, StatusCode::OK, "{rep}");
+    assert_eq!(status_of(&rep), "critical", "PostgreSQL 12 stopped getting fixes in November 2024");
+    let f = rep["findings"].as_array().unwrap().iter().find(|f| f["ruleId"] == "VER-01").unwrap();
+    assert_eq!((f["vars"]["product"].as_str(), f["vars"]["version"].as_str(), f["vars"]["variant"].as_str()), (Some("PostgreSQL"), Some("12.19"), Some("expired")), "{f}");
+    assert!(f["fixes"].as_array().unwrap().iter().any(|x| x["kind"] == "set_version"));
+
+    // a table is configuration: a malformed one is refused, a valid edit takes effect at once
+    let (_, list) = app.get(&c, "/api/admin/config/catalog.versions").await;
+    let mut pg = list["items"].as_array().unwrap().iter().find(|i| i["id"] == "postgresql").unwrap()["data"].clone();
+    let mut broken = pg.clone();
+    broken["cycles"][0]["eol"] = json!("2030-13-45");
+    let (s, v) = app.put(&c, "/api/admin/config/catalog.versions/postgresql", json!({"data": broken})).await;
+    assert_eq!(s, StatusCode::BAD_REQUEST, "{v}");
+    assert!(v["error"]["message"].as_str().unwrap().contains("is not a date"), "{v}");
+    let mut empty = pg.clone();
+    empty["cycles"] = json!([]);
+    let (s, _) = app.put(&c, "/api/admin/config/catalog.versions/postgresql", json!({"data": empty})).await;
+    assert_eq!(s, StatusCode::BAD_REQUEST, "an empty table says nothing");
+    for c12 in pg["cycles"].as_array_mut().unwrap().iter_mut().filter(|x| x["cycle"] == "12") {
+        c12["eol"] = json!("2999-01-01");
+    }
+    let (s, v) = app.put(&c, "/api/admin/config/catalog.versions/postgresql", json!({"data": pg})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    let (_, rep) = app.post(&c, "/api/evaluate", eval("12.19")).await;
+    assert_ne!(status_of(&rep), "critical", "an edited table is used immediately");
+
+    // refreshing: only addresses under the configured bases are fetched; a failed source leaves the table as it was
+    let mut custom = list["items"].as_array().unwrap().iter().find(|i| i["id"] == "kafka").unwrap()["data"].clone();
+    custom["id"] = json!("elsewhere");
+    custom["source"] = json!("http://127.0.0.1:9/api/kafka.json");
+    let (s, v) = app.post(&c, "/api/admin/config/catalog.versions", json!({"id": "elsewhere", "data": custom})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    let (s, v) = app.post(&c, "/api/admin/versions/sync", json!({"ids": ["elsewhere"]})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    assert_eq!(v["failed"], 1);
+    assert!(v["results"][0]["error"].as_str().unwrap().contains("allowed"), "{v}");
+    let (s, _) = app.put(&c, "/api/admin/settings", json!({"changes": {"versions.sourceBases": ["http://127.0.0.1:9/api/"]}})).await;
+    assert_eq!(s, StatusCode::OK);
+    let (_, v) = app.post(&c, "/api/admin/versions/sync", json!({"ids": ["elsewhere"]})).await;
+    assert_eq!(v["failed"], 1, "{v}");
+    assert!(!v["results"][0]["error"].as_str().unwrap().contains("allowed"), "now it is allowed, but nothing listens there: {v}");
+
+    // an answer of the real source (captured from endoflife.date) replaces the cycles and moves asOf to today
+    let rows: Value = serde_json::from_str(include_str!("fixtures/endoflife/postgresql.json")).unwrap();
+    let today = server::versions::today_utc();
+    let out = server::versions::apply_answer(&app.state, "postgresql", &rows, &today, 8.0).await;
+    assert!(out.ok, "{out:?}");
+    assert_eq!(out.as_of.as_deref(), Some(today.as_str()));
+    let (_, list) = app.get(&c, "/api/admin/config/catalog.versions").await;
+    let pg = list["items"].as_array().unwrap().iter().find(|i| i["id"] == "postgresql").unwrap()["data"].clone();
+    assert_eq!(pg["asOf"], today);
+    assert_eq!(pg["name"], "PostgreSQL", "name and source survive a refresh");
+    assert!(pg["cycles"].as_array().unwrap().iter().any(|x| x["cycle"] == "18"));
+    // a bad answer never empties a table
+    let out = server::versions::apply_answer(&app.state, "postgresql", &json!({"message": "Not found"}), &today, 8.0).await;
+    assert!(!out.ok);
+    let out = server::versions::apply_answer(&app.state, "no-such-table", &rows, &today, 8.0).await;
+    assert!(!out.ok);
+    let (_, rep) = app.post(&c, "/api/evaluate", eval("12.19")).await;
+    assert_eq!(status_of(&rep), "critical", "the refreshed table says 12 is over again");
+
+    // the admin sees how fresh the tables are; others cannot refresh
+    let (s, st) = app.get(&c, "/api/admin/versions/status").await;
+    assert_eq!(s, StatusCode::OK, "{st}");
+    assert!(st["tables"].as_i64().unwrap() >= 100);
+    assert_eq!(st["autoSyncDays"], 7.0);
+    let viewer = app.create_user(&c, "viewer@test.local", "viewer").await;
+    let (s, _) = app.post(&viewer, "/api/admin/versions/sync", json!({})).await;
+    assert_eq!(s, StatusCode::FORBIDDEN);
+    let (s, _) = app.get(&viewer, "/api/versions").await;
+    assert_eq!(s, StatusCode::OK, "the tables are for everybody who edits");
+    app.cleanup().await;
+}
+
+#[tokio::test]
+async fn a_refreshed_table_is_not_overwritten_by_an_older_shipped_one_at_start() {
+    let app = TestApp::new().await;
+    // pretend this installation refreshed PostgreSQL's table after the program was built
+    let today = server::versions::today_utc();
+    let future = "2099-01-01";
+    let mut data: Value = sqlx::query_scalar("select data from config_items where kind = 'catalog.versions' and id = 'postgresql'").fetch_one(&app.state.pool).await.unwrap();
+    data["asOf"] = json!(future);
+    data["cycles"][0]["latest"] = json!("18.99");
+    sqlx::query("update config_items set data = $1 where kind = 'catalog.versions' and id = 'postgresql'").bind(&data).execute(&app.state.pool).await.unwrap();
+    assert!(server::config_store::seed_defaults(&app.state.pool).await.is_ok());
+    let kept: Value = sqlx::query_scalar("select data from config_items where kind = 'catalog.versions' and id = 'postgresql'").fetch_one(&app.state.pool).await.unwrap();
+    assert_eq!(kept["asOf"], future, "{today}: a fresher table stays");
+    assert_eq!(kept["cycles"][0]["latest"], "18.99");
     app.cleanup().await;
 }

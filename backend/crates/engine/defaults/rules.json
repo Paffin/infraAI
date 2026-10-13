@@ -1876,6 +1876,10 @@
    "missing": {
     "ru": "«{node}»: версия {product} не указана — срок поддержки не проверить.",
     "en": "“{node}”: the {product} version is not set — its support dates cannot be checked."
+   },
+   "stale": {
+    "ru": "Таблица выпусков {product} от {asOf} устарела ({days} {days|plural:день,дня,дней}): сроки поддержки могли измениться. Обновите таблицы в админ-панели.",
+    "en": "The {product} release table of {asOf} is out of date ({days} {days|plural:day,days}): the support dates may have moved. Refresh the tables in the admin panel."
    }
   },
   "ok": {

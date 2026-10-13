@@ -18,3 +18,4 @@ pub mod metrics;
 pub mod settings;
 pub mod startup;
 pub mod state;
+pub mod versions;

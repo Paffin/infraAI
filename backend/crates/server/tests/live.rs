@@ -166,3 +166,28 @@ async fn live_generate_produces_a_valid_architecture_the_engine_has_checked() {
     assert!(nodes.iter().filter(|n| n["props"].as_object().map(|o| !o.is_empty()).unwrap_or(false)).count() * 2 >= nodes.len(), "most nodes carry properties");
     app.cleanup().await;
 }
+
+/// The release tables refreshed from the real endoflife.date (no key needed, only a network):
+/// `cargo test -p server --test live -- --ignored release_tables`
+#[tokio::test]
+#[ignore]
+async fn release_tables_refresh_from_the_real_source() {
+    let app = TestApp::new().await;
+    let c = app.login_admin().await;
+    let (s, v) = app.post(&c, "/api/admin/versions/sync", json!({"ids": ["postgresql", "kafka", "ubuntu"]})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    assert_eq!(v["failed"], 0, "{v}");
+    assert_eq!(v["ok"], 3);
+    let (_, list) = app.get(&c, "/api/admin/config/catalog.versions").await;
+    let pg = list["items"].as_array().unwrap().iter().find(|i| i["id"] == "postgresql").unwrap()["data"].clone();
+    assert_eq!(pg["asOf"], server::versions::today_utc());
+    assert!(pg["cycles"].as_array().unwrap().len() >= 5, "{pg}");
+    // the whole thing, as the periodic refresh does it
+    let (s, v) = app.post(&c, "/api/admin/versions/sync", json!({})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    assert!(v["ok"].as_i64().unwrap() >= 100, "{v}");
+    let (_, st) = app.get(&c, "/api/admin/versions/status").await;
+    assert_eq!(st["last"]["by"], "manual");
+    assert!(st["stale"].as_array().unwrap().is_empty(), "{st}");
+    app.cleanup().await;
+}

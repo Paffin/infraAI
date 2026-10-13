@@ -101,7 +101,8 @@
  "lifecycle": {
   "warnDays": 180,
   "matureDays": 90,
-  "preferLts": true
+  "preferLts": true,
+  "staleDays": 120
  },
  "cost": {
   "currency": "RUB",

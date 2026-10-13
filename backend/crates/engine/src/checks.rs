@@ -13,7 +13,7 @@ use crate::model::{as_bool, as_f64, as_string, unique_id, Edge, Node, Props, Pro
 use crate::ops::Op;
 use crate::sim::{RecoveryKind, Scenario, ServiceState};
 use serde_json::{json, Map, Value};
-use std::collections::{BTreeSet, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 
 pub struct Raw {
     pub key: String,
@@ -2014,9 +2014,17 @@ fn version_lifecycle(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
     let on_unknown = p_str(rule, "onUnknown").unwrap_or_else(|| "no_data".into());
     let mut out = vec![];
     let mut any = false;
+    // tables that judged a declared version and are too old to be trusted: one finding per table
+    let mut stale: BTreeMap<&str, (String, i64, Vec<String>)> = BTreeMap::new();
     for (ni, n) in ix.arch.nodes.iter().enumerate() {
         for r in version_refs(ctx, ni) {
             any = true;
+            if n.props.text(&r.prop).is_some() {
+                if let Some(age) = r.set.age_days(today).filter(|a| *a > lc.stale_days) {
+                    let e = stale.entry(r.set.id.as_str()).or_insert_with(|| (r.product.clone(), age, vec![]));
+                    e.2.push(n.id.clone());
+                }
+            }
             let key = format!("{}:{}", n.id, r.prop);
             let Some(version) = n.props.text(&r.prop) else {
                 if on_missing == "no_data" {
@@ -2051,6 +2059,14 @@ fn version_lifecycle(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
                 _ => {}
             }
         }
+    }
+    for (table, (product, age, nodes)) in stale {
+        let as_of = ctx.versions.get(table).map(|s| s.as_of.clone()).unwrap_or_default();
+        let mut raw = Raw::new(format!("stale:{table}"), Status::NoData).var("product", product).var("asOf", as_of).var("days", age).var("variant", "stale");
+        for id in nodes {
+            raw = raw.node(&id);
+        }
+        out.push(raw);
     }
     if any {
         CheckOut::found(out)

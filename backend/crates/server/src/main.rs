@@ -44,6 +44,7 @@ async fn main() -> anyhow::Result<()> {
     let state = startup::init_state(boot).await?;
     tokio::spawn(jobs::sweeper(state.clone()));
     tokio::spawn(jobs::retention(state.clone()));
+    tokio::spawn(server::versions::auto_sync(state.clone()));
 
     let app = api::router(state.clone()).await;
     let listener = tokio::net::TcpListener::bind(bind).await?;

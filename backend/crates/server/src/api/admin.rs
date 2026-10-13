@@ -340,6 +340,43 @@ pub async fn config_reset(
     Ok(Json(json!({"ok": true})))
 }
 
+// ------------------------------------------------------------------ release tables
+
+#[derive(Deserialize, Default)]
+pub struct SyncBody {
+    /// Tables to refresh (all with an allowed source when empty).
+    #[serde(default)]
+    pub ids: Vec<String>,
+}
+
+/// Fetch the release tables from their sources now.
+pub async fn versions_sync(State(state): State<AppState>, user: AuthUser, ConnectInfo(addr): ConnectInfo<SocketAddr>, headers: HeaderMap, body: Option<Json<SyncBody>>) -> ApiResult<Json<Value>> {
+    user.require_admin()?;
+    let ids = body.map(|b| b.0.ids).unwrap_or_default();
+    let out = crate::versions::sync_by(&state, &user, &ids, &ip(&state, &headers, addr)).await?;
+    Ok(Json(json!({"results": out, "ok": out.iter().filter(|o| o.ok).count(), "failed": out.iter().filter(|o| !o.ok).count()})))
+}
+
+/// How fresh the release tables are and how the last refresh went.
+pub async fn versions_status(State(state): State<AppState>, user: AuthUser) -> ApiResult<Json<Value>> {
+    user.require_admin()?;
+    let cfg = state.cfg().await?;
+    let today = crate::versions::today_utc();
+    let day = engine::lifecycle::parse_date(&today).unwrap_or(0);
+    let stale_days = cfg.engine.lifecycle.stale_days;
+    let ages: Vec<(String, Option<i64>)> = cfg.versions.iter().map(|v| (v.id.clone(), v.age_days(day))).collect();
+    Ok(Json(json!({
+        "today": today,
+        "tables": ages.len(),
+        "staleDays": stale_days,
+        "stale": ages.iter().filter(|(_, a)| a.map(|a| a > stale_days).unwrap_or(true)).map(|(id, _)| id.clone()).collect::<Vec<_>>(),
+        "oldestDays": ages.iter().filter_map(|(_, a)| *a).max(),
+        "autoSyncDays": cfg.settings.num("versions.autoSyncDays"),
+        "sourceBases": cfg.settings.list("versions.sourceBases"),
+        "last": crate::versions::last_sync(&state).await,
+    })))
+}
+
 /// Backup / migration between environments: everything an administrator changed.
 pub async fn config_export(State(state): State<AppState>, user: AuthUser) -> ApiResult<Json<Value>> {
     user.require_admin()?;

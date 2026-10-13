@@ -111,6 +111,61 @@ pub fn parse_date(s: &str) -> Option<i64> {
     Some(era * 146097 + doe - 719468)
 }
 
+/// `YYYY-MM-DD` of a day count since 1970-01-01 (the inverse of [`parse_date`]).
+pub fn format_date(days: i64) -> String {
+    // civil_from_days (Howard Hinnant)
+    let z = days + 719468;
+    let era = if z >= 0 { z } else { z - 146096 } / 146097;
+    let doe = z - era * 146097;
+    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+    let y = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    format!("{:04}-{:02}-{:02}", if m <= 2 { y + 1 } else { y }, m, d)
+}
+
+/// What endoflife.date reports for an end date: a date, a flag, or nothing.
+fn date_or_flag(v: Option<&serde_json::Value>) -> Option<DateOrFlag> {
+    match v? {
+        serde_json::Value::Bool(b) => Some(DateOrFlag::Flag(*b)),
+        serde_json::Value::String(s) if s.len() >= 10 && parse_date(s).is_some() => Some(DateOrFlag::Date(s[..10].to_string())),
+        _ => None,
+    }
+}
+
+/// The release lines of a product from the answer of the endoflife.date API (`/api/<product>.json`): the ones that are
+/// still maintained or ended less than `max_age_years` ago, newest first. Anything that is not a list of objects with
+/// a `cycle` yields nothing – the caller keeps the old table instead of emptying it.
+pub fn from_endoflife(rows: &serde_json::Value, today: i64, max_age_years: f64) -> Vec<Cycle> {
+    let Some(rows) = rows.as_array() else { return vec![] };
+    let cutoff = today - (365.25 * max_age_years) as i64;
+    let mut out: Vec<Cycle> = vec![];
+    for r in rows {
+        let Some(cycle) = r.get("cycle").and_then(|c| c.as_str().map(str::to_string).or_else(|| c.as_f64().map(|n| n.to_string()))).map(|c| c.trim().to_string()).filter(|c| !c.is_empty()) else {
+            continue;
+        };
+        let eol = date_or_flag(r.get("eol"));
+        let release = r.get("releaseDate").and_then(|v| v.as_str()).filter(|d| d.len() >= 10 && parse_date(d).is_some()).map(|d| d[..10].to_string());
+        let over = eol.as_ref().and_then(|e| e.reached(today)).unwrap_or(false);
+        if over && release.as_deref().and_then(parse_date).map(|d| d < cutoff).unwrap_or(false) {
+            continue;
+        }
+        out.push(Cycle {
+            cycle,
+            release_date: release,
+            support: date_or_flag(r.get("support")),
+            eol,
+            latest: r.get("latest").and_then(|v| v.as_str()).filter(|v| !v.is_empty()).map(str::to_string),
+            latest_release_date: r.get("latestReleaseDate").and_then(|v| v.as_str()).filter(|d| d.len() >= 10 && parse_date(d).is_some()).map(|d| d[..10].to_string()),
+            lts: r.get("lts").map(|v| !matches!(v, serde_json::Value::Bool(false) | serde_json::Value::Null)).unwrap_or(false),
+        });
+    }
+    out.sort_by(|a, b| b.release_date.cmp(&a.release_date).then(b.cycle.cmp(&a.cycle)));
+    out
+}
+
 impl VersionSet {
     /// The release line a version string belongs to: the longest cycle that is a prefix of it on dot boundaries
     /// (`16.3` → `16`, `1.31.2` → `1.31`, `8.0.36` → `8.0`, `v1.31` → `1.31`).
@@ -136,6 +191,11 @@ impl VersionSet {
         };
         let days = c.eol.as_ref().and_then(|e| e.date()).and_then(parse_date).map(|d| d - today);
         Some(Lifecycle { cycle: c.cycle.clone(), phase, eol: c.eol.as_ref().and_then(|e| e.date()).map(String::from), days_to_eol: days, latest: c.latest.clone(), lts: c.lts })
+    }
+
+    /// How many days old the table is at `today` (`None` when it does not say when it was taken).
+    pub fn age_days(&self, today: i64) -> Option<i64> {
+        parse_date(&self.as_of).map(|d| today - d)
     }
 
     /// The release line to move to: the newest one that still gets security fixes and has been out for `mature_days`
@@ -213,6 +273,47 @@ mod tests {
         assert_eq!(phase("99"), Phase::Supported);
         assert_eq!(phase("x"), Phase::Unknown);
         assert!(set.lifecycle("7", today).is_none());
+    }
+
+    #[test]
+    fn dates_roundtrip_through_the_day_count() {
+        for d in ["1970-01-01", "1999-12-31", "2000-02-29", "2024-03-01", "2026-10-13", "2100-03-01"] {
+            assert_eq!(format_date(parse_date(d).unwrap()), d);
+        }
+        assert_eq!(format_date(-1), "1969-12-31");
+    }
+
+    #[test]
+    fn the_endoflife_answer_becomes_cycles_newest_first() {
+        let today = parse_date("2026-10-13").unwrap();
+        let rows = serde_json::json!([
+            {"cycle": "12", "releaseDate": "2018-10-18", "eol": "2024-11-14", "latest": "12.22", "lts": false},
+            {"cycle": "16", "releaseDate": "2023-09-14", "support": "2026-11-12", "eol": "2028-11-09", "latest": "16.11", "latestReleaseDate": "2026-08-13"},
+            {"cycle": "18", "releaseDate": "2025-09-25", "support": false, "eol": false, "lts": "Yes"},
+            {"cycle": "9.6", "releaseDate": "2016-09-29", "eol": true},
+            {"cycle": 17.0, "releaseDate": "2024-09-26", "eol": "2029-11-08"},
+            {"releaseDate": "2020-01-01"},
+            "garbage"
+        ]);
+        let c = from_endoflife(&rows, today, 8.0);
+        let ids: Vec<&str> = c.iter().map(|c| c.cycle.as_str()).collect();
+        // 9.6 ended long ago and came out before the eight-year window: dropped; 12 ended in 2024: kept
+        assert_eq!(ids, ["18", "17", "16", "12"], "{ids:?}");
+        assert_eq!(c[0].eol, Some(DateOrFlag::Flag(false)));
+        assert_eq!(c[0].support, Some(DateOrFlag::Flag(false)));
+        assert!(c[0].lts, "any truthy `lts` marks a long-term-support line");
+        assert_eq!(c[2].support, Some(DateOrFlag::Date("2026-11-12".into())));
+        assert_eq!(c[2].latest_release_date.as_deref(), Some("2026-08-13"));
+        assert!(from_endoflife(&serde_json::json!({"error": "not found"}), today, 8.0).is_empty());
+        // a tighter window drops the old line
+        assert!(!from_endoflife(&rows, today, 1.0).iter().any(|c| c.cycle == "12"));
+    }
+
+    #[test]
+    fn the_age_of_a_table_is_measured_in_days() {
+        let set = VersionSet { id: "x".into(), as_of: "2026-10-01".into(), ..Default::default() };
+        assert_eq!(set.age_days(parse_date("2026-10-13").unwrap()), Some(12));
+        assert_eq!(VersionSet::default().age_days(0), None);
     }
 
     #[test]

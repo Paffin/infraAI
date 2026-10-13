@@ -6,6 +6,7 @@ use crate::crypto::{sha256_hex, Keys};
 use crate::settings::Settings;
 use engine::catalog::{Catalog, Category, EdgeTypeDef, KindDef, PropDef, ZoneTypeDef};
 use engine::config::{EngineConfig, EngineSettings, IacTemplate, Rule, Template};
+use engine::lifecycle::VersionSet;
 use engine::placement::{Pattern, PlacementConfig, PlacementSettings, Stack};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -20,6 +21,7 @@ pub const K_EDGE: &str = "catalog.edge_type";
 pub const K_ZONE: &str = "catalog.zone_type";
 pub const K_CATEGORY: &str = "catalog.category";
 pub const K_COMMON: &str = "catalog.common_props";
+pub const K_VERSIONS: &str = "catalog.versions";
 pub const K_RULE: &str = "rule";
 pub const K_TEMPLATE: &str = "template";
 pub const K_PROMPT: &str = "prompt";
@@ -29,7 +31,7 @@ pub const K_PLACEMENT_PATTERN: &str = "placement.pattern";
 pub const K_PLACEMENT_STACK: &str = "placement.stack";
 pub const K_PLACEMENT_SETTINGS: &str = "placement.settings";
 
-pub const ALL_KINDS: &[&str] = &[K_KIND, K_EDGE, K_ZONE, K_CATEGORY, K_COMMON, K_RULE, K_TEMPLATE, K_PROMPT, K_ENGINE, K_IAC, K_PLACEMENT_PATTERN, K_PLACEMENT_STACK, K_PLACEMENT_SETTINGS];
+pub const ALL_KINDS: &[&str] = &[K_KIND, K_EDGE, K_ZONE, K_CATEGORY, K_COMMON, K_VERSIONS, K_RULE, K_TEMPLATE, K_PROMPT, K_ENGINE, K_IAC, K_PLACEMENT_PATTERN, K_PLACEMENT_STACK, K_PLACEMENT_SETTINGS];
 
 pub const PROMPTS_JSON: &str = include_str!("../defaults/prompts.json");
 
@@ -69,6 +71,8 @@ pub fn default_items() -> Vec<DefaultItem> {
     push_list(&mut out, K_EDGE, cat.get("edgeTypes"));
     push_list(&mut out, K_KIND, cat.get("kinds"));
     out.push(DefaultItem { kind: K_COMMON, id: "common".into(), data: cat.get("commonProps").cloned().unwrap_or(json!([])), sort: 0 });
+    let versions: Value = serde_json::from_str(engine::defaults::VERSIONS_JSON).expect("versions.json");
+    push_list(&mut out, K_VERSIONS, Some(&versions));
     let rules: Value = serde_json::from_str(engine::defaults::RULES_JSON).expect("rules.json");
     push_list(&mut out, K_RULE, Some(&rules));
     for (i, (id, raw)) in engine::defaults::TEMPLATES_JSON.iter().enumerate() {
@@ -85,6 +89,11 @@ pub fn default_items() -> Vec<DefaultItem> {
     push_list(&mut out, K_PROMPT, Some(&prompts));
     out.push(DefaultItem { kind: K_ENGINE, id: "engine".into(), data: serde_json::from_str(engine::defaults::ENGINE_JSON).expect("engine.json"), sort: 0 });
     out
+}
+
+/// `asOf` of a release table (empty when it does not say).
+fn as_of(table: &Value) -> String {
+    table.get("asOf").and_then(|v| v.as_str()).unwrap_or("").to_string()
 }
 
 fn hash_of(v: &Value) -> String {
@@ -111,8 +120,12 @@ pub async fn seed_defaults(pool: &PgPool) -> Result<bool, sqlx::Error> {
                     .await?;
                 changed = true;
             }
-            Some((_, modified, old_hash)) => {
+            Some((stored, modified, old_hash)) => {
                 if old_hash.as_deref() == Some(h.as_str()) {
+                    continue;
+                }
+                // a release table refreshed from its source is fresher than the one that ships with the program
+                if it.kind == K_VERSIONS && as_of(&stored) >= as_of(&it.data) {
                     continue;
                 }
                 if !modified {
@@ -157,6 +170,7 @@ pub struct Loaded {
     pub templates: Vec<Template>,
     pub iac: Vec<IacTemplate>,
     pub placement: PlacementConfig,
+    pub versions: Vec<VersionSet>,
     pub prompts: HashMap<String, PromptDef>,
     /// Items that failed to parse (kind, id, error) – surfaced in the admin panel.
     pub errors: Vec<(String, String, String)>,
@@ -199,6 +213,7 @@ impl Loaded {
         let mut templates = vec![];
         let mut iac = vec![];
         let mut placement = PlacementConfig::default();
+        let mut versions = vec![];
         let mut prompts = HashMap::new();
         let mut engine_settings = EngineSettings::default();
         for (kind, id, data) in rows {
@@ -222,6 +237,10 @@ impl Loaded {
                 },
                 K_COMMON => match serde_json::from_value::<Vec<PropDef>>(data) {
                     Ok(v) => catalog.common_props = v,
+                    Err(e) => fail(e.to_string()),
+                },
+                K_VERSIONS => match serde_json::from_value::<VersionSet>(data) {
+                    Ok(v) => versions.push(v),
                     Err(e) => fail(e.to_string()),
                 },
                 K_RULE => match serde_json::from_value::<Rule>(data) {
@@ -271,11 +290,20 @@ impl Loaded {
         let engine_cfgs = langs
             .into_iter()
             .map(|l| {
-                let c = EngineConfig { catalog: catalog.clone(), rules: rules.clone(), settings: engine_settings.clone(), iac: iac.clone(), placement: placement.clone(), lang: l.clone() };
+                let c = EngineConfig {
+                    catalog: catalog.clone(),
+                    rules: rules.clone(),
+                    settings: engine_settings.clone(),
+                    iac: iac.clone(),
+                    placement: placement.clone(),
+                    versions: versions.clone(),
+                    today: crate::versions::today_utc,
+                    lang: l.clone(),
+                };
                 (l, Arc::new(c))
             })
             .collect();
-        Loaded { rev, settings, catalog, rules, engine: engine_settings, templates, iac, placement, prompts, errors, engine_cfgs }
+        Loaded { rev, settings, catalog, rules, engine: engine_settings, templates, iac, placement, versions, prompts, errors, engine_cfgs }
     }
 }
 
@@ -292,6 +320,7 @@ pub fn validate_item(kind: &str, id: &str, data: &Value) -> Result<(), String> {
         K_EDGE => serde_json::from_value::<EdgeTypeDef>(data.clone()).map(|_| ()),
         K_KIND => serde_json::from_value::<KindDef>(data.clone()).map(|_| ()),
         K_COMMON => serde_json::from_value::<Vec<PropDef>>(data.clone()).map(|_| ()),
+        K_VERSIONS => return validate_versions(data),
         K_RULE => serde_json::from_value::<Rule>(data.clone()).map(|_| ()),
         K_TEMPLATE => serde_json::from_value::<Template>(data.clone()).map(|_| ()),
         K_PROMPT => serde_json::from_value::<PromptDef>(data.clone()).map(|_| ()),
@@ -311,6 +340,30 @@ pub fn validate_item(kind: &str, id: &str, data: &Value) -> Result<(), String> {
         _ => return Err(format!("unknown config kind '{kind}'")),
     };
     r.map_err(|e| e.to_string())
+}
+
+/// A release table must be readable by the engine and make sense: dates parse, lines are unique, newest-first order is not
+/// required (the engine sorts), an empty table says nothing and is refused.
+fn validate_versions(data: &Value) -> Result<(), String> {
+    let set: VersionSet = serde_json::from_value(data.clone()).map_err(|e| e.to_string())?;
+    if set.cycles.is_empty() {
+        return Err("a release table needs at least one release line".into());
+    }
+    if !set.as_of.is_empty() && engine::lifecycle::parse_date(&set.as_of).is_none() {
+        return Err(format!("asOf '{}' is not a date (YYYY-MM-DD)", set.as_of));
+    }
+    let mut seen = std::collections::HashSet::new();
+    for c in &set.cycles {
+        if c.cycle.trim().is_empty() || !seen.insert(c.cycle.as_str()) {
+            return Err(format!("release line '{}' is empty or repeated", c.cycle));
+        }
+        for d in [c.release_date.as_deref(), c.latest_release_date.as_deref(), c.support.as_ref().and_then(|x| x.date()), c.eol.as_ref().and_then(|x| x.date())].into_iter().flatten() {
+            if engine::lifecycle::parse_date(d).is_none() {
+                return Err(format!("release line '{}': '{d}' is not a date (YYYY-MM-DD)", c.cycle));
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Per-instance cache with revision-based refresh.

@@ -2,7 +2,7 @@
 //! Prompts themselves are configuration (admin-editable); this module only fills them in.
 
 use crate::config_store::Loaded;
-use engine::catalog::{Catalog, PropType};
+use engine::catalog::{Catalog, PropDef, PropType};
 use engine::evaluate::{render_message, Report, Status};
 use engine::model::Architecture;
 use serde_json::{json, Value};
@@ -27,38 +27,72 @@ pub fn language_name(code: &str) -> &'static str {
     }
 }
 
+/// The catalog for the model, compact: the properties every kind has once, then per kind only what is its own (sizing
+/// defaults, properties, roles, variants). A hundred products in the old per-kind form were 80 kB of prompt.
 pub fn catalog_digest(cat: &Catalog, lang: &str) -> String {
+    let skip = |k: &str| matches!(k, "notes" | "storageClass");
+    let prop = |p: &PropDef| {
+        let mut o = json!({"key": p.key, "type": match p.prop_type { PropType::Number => "number", PropType::String => "string", PropType::Boolean => "boolean", PropType::Enum => "enum", PropType::UnitRef => "unit_ref" }});
+        if !p.options.is_empty() {
+            o["options"] = json!(p.options.iter().map(|x| x.value.clone()).collect::<Vec<_>>());
+        }
+        if let Some(d) = &p.default {
+            o["default"] = d.clone();
+        }
+        if !p.variants.is_empty() {
+            o["variants"] = json!(p.variants);
+        }
+        o
+    };
+    let common: Vec<Value> = cat.common_props.iter().filter(|p| !skip(&p.key)).map(prop).collect();
+    let common_keys: Vec<&str> = cat.common_props.iter().map(|p| p.key.as_str()).collect();
     let kinds: Vec<Value> = cat
         .kinds
         .iter()
         .filter(|k| !k.hidden)
         .map(|k| {
-            let props: Vec<Value> = cat
-                .common_props
-                .iter()
-                .chain(k.props.iter())
-                .filter(|p| p.key != "notes" && p.key != "storageClass")
-                .map(|p| {
-                    let mut o = json!({"key": p.key, "type": match p.prop_type { PropType::Number => "number", PropType::String => "string", PropType::Boolean => "boolean", PropType::Enum => "enum", PropType::UnitRef => "unit_ref" }});
-                    if !p.options.is_empty() {
-                        o["options"] = json!(p.options.iter().map(|x| x.value.clone()).collect::<Vec<_>>());
-                    }
-                    if let Some(d) = &p.default {
-                        o["default"] = d.clone();
-                    }
-                    if p.prop_type == PropType::UnitRef {
-                        o["refersTo"] = json!("the `group` id of another cluster in the architecture (for example the consensus cluster used for leader election)");
-                    }
-                    o
-                })
-                .collect();
-            json!({
-                "id": k.id, "name": k.name.get(lang), "category": k.category, "behavior": k.behavior,
-                "traits": k.traits, "roles": k.roles.iter().map(|r| r.id.clone()).collect::<Vec<_>>(), "props": props,
-            })
+            // a kind's own defaults for the properties everybody has (3 instances, 8 vCPU…)
+            let sizing: serde_json::Map<String, Value> =
+                k.props.iter().filter(|p| common_keys.contains(&p.key.as_str()) && p.default.is_some()).map(|p| (p.key.clone(), p.default.clone().unwrap_or(Value::Null))).collect();
+            let own: Vec<Value> = k.props.iter().filter(|p| !skip(&p.key) && !common_keys.contains(&p.key.as_str())).map(prop).collect();
+            let mut o = json!({"id": k.id, "name": k.name.get(lang), "behavior": k.behavior, "traits": k.traits.join(",")});
+            if let Some(f) = &k.function {
+                o["function"] = json!(f);
+            }
+            if !k.roles.is_empty() {
+                o["roles"] = json!(k.roles.iter().map(|r| r.id.clone()).collect::<Vec<_>>());
+            }
+            if !sizing.is_empty() {
+                o["sizing"] = Value::Object(sizing);
+            }
+            if !own.is_empty() {
+                o["props"] = json!(own);
+            }
+            if !k.variants.is_empty() {
+                // "id: Name [default] [traits it adds]": a line per way to deploy the product
+                o["variants"] = json!(k
+                    .variants
+                    .iter()
+                    .map(|v| {
+                        let mut line = format!("{}: {}", v.id, v.name.get(lang));
+                        if v.default {
+                            line.push_str(" [default]");
+                        }
+                        if let Some(b) = v.behavior {
+                            line.push_str(&format!(" [behavior {}]", serde_json::to_value(b).ok().and_then(|x| x.as_str().map(String::from)).unwrap_or_default()));
+                        }
+                        if !v.add_traits.is_empty() {
+                            line.push_str(&format!(" [+{}]", v.add_traits.join(",+")));
+                        }
+                        line
+                    })
+                    .collect::<Vec<_>>());
+            }
+            o
         })
         .collect();
-    serde_json::to_string(&kinds).unwrap_or_default()
+    let note = "Every kind has the commonProps; `sizing` is the kind's own default for some of them. A unit_ref property holds the `group` id of another cluster in the architecture (for example the consensus cluster used for leader election). `function` groups interchangeable products; `variants` are ways to deploy one (set props.variant).";
+    serde_json::to_string(&json!({"note": note, "commonProps": common, "kinds": kinds})).unwrap_or_default()
 }
 
 pub fn edge_types_digest(cat: &Catalog) -> String {
@@ -322,5 +356,27 @@ mod tests {
             }
             assert!(ops_enum.contains(&back["op"].as_str().unwrap()), "op {} missing in the enum", back["op"]);
         }
+    }
+}
+
+#[cfg(test)]
+mod catalog_digest_tests {
+    use super::*;
+
+    #[test]
+    fn the_digest_of_the_whole_catalog_stays_a_prompt_and_names_products_and_variants() {
+        let cat = engine::defaults::catalog();
+        let d = catalog_digest(&cat, "en");
+        assert!(d.len() < 45_000, "the catalog digest is {} bytes: it is sent with every AI request", d.len());
+        let v: Value = serde_json::from_str(&d).unwrap();
+        let kinds = v["kinds"].as_array().unwrap();
+        assert_eq!(kinds.len(), cat.kinds.iter().filter(|k| !k.hidden).count());
+        let pg = kinds.iter().find(|k| k["id"] == "postgresql").unwrap();
+        assert_eq!(pg["function"], "rdbms");
+        assert!(pg["variants"].as_array().unwrap().iter().any(|x| x.as_str().map(|s| s.starts_with("rds: ") && s.contains("[+managed]")).unwrap_or(false)), "{:?}", pg["variants"]);
+        assert!(v["commonProps"].as_array().unwrap().iter().any(|p| p["key"] == "replicas"));
+        // sizing defaults of a kind are kept, the common properties are not repeated per kind
+        assert!(pg["sizing"]["vcpu"].is_number());
+        assert!(pg.get("props").and_then(|p| p.as_array()).map(|p| !p.iter().any(|x| x["key"] == "vcpu")).unwrap_or(true));
     }
 }

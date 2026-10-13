@@ -107,8 +107,10 @@ pub async fn bootstrap(State(state): State<AppState>, user: AuthUser, headers: H
         },
         "editor": editor,
         "limits": {"maxNodes": cfg.settings.num("limits.maxNodes"), "maxEdges": cfg.settings.num("limits.maxEdges"), "maxZones": cfg.settings.num("limits.maxZones"), "waiverMinReasonChars": cfg.settings.num("limits.waiverMinReasonChars"), "waiverMaxDays": cfg.settings.num("limits.waiverMaxDays")},
+        "today": crate::versions::today_utc(),
         "engine": {
             "currency": cfg.engine.cost.currency, "symbol": cfg.engine.cost.symbol,
+            "lifecycle": cfg.engine.lifecycle,
             "minCapacityDuringFailure": a.min_capacity_during_failure, "headroomPercent": a.headroom_percent,
             "defaultFailureTolerance": a.default_failure_tolerance,
             "toleranceLevels": cfg.engine.tolerance.levels,
@@ -116,6 +118,24 @@ pub async fn bootstrap(State(state): State<AppState>, user: AuthUser, headers: H
         },
     });
     // conditional GET: the catalog is large and rarely changes
+    let bytes = serde_json::to_vec(&body)?;
+    let etag = format!("\"{}\"", &crate::crypto::sha256_hex(&bytes)[..24]);
+    if headers.get(header::IF_NONE_MATCH).and_then(|v| v.to_str().ok()) == Some(etag.as_str()) {
+        return Ok(Response::builder().status(StatusCode::NOT_MODIFIED).header(header::ETAG, etag).body(Body::empty()).unwrap());
+    }
+    Response::builder()
+        .header(header::CONTENT_TYPE, "application/json")
+        .header(header::ETAG, etag)
+        .header(header::CACHE_CONTROL, "private, no-cache")
+        .body(Body::from(bytes))
+        .map_err(ApiError::internal)
+}
+
+/// The release tables (lifecycle of every product the catalog knows) with today's date: the editor shows support dates and
+/// recommended lines from them. Conditional GET: the tables change when someone refreshes them.
+pub async fn versions(State(state): State<AppState>, _user: AuthUser, headers: HeaderMap) -> ApiResult<Response> {
+    let cfg = state.cfg().await?;
+    let body = json!({"today": crate::versions::today_utc(), "tables": cfg.versions});
     let bytes = serde_json::to_vec(&body)?;
     let etag = format!("\"{}\"", &crate::crypto::sha256_hex(&bytes)[..24]);
     if headers.get(header::IF_NONE_MATCH).and_then(|v| v.to_str().ok()) == Some(etag.as_str()) {

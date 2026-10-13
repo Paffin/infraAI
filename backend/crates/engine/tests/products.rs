@@ -15,6 +15,10 @@ fn october_2026() -> String {
     "2026-10-13".into()
 }
 
+fn june_2027() -> String {
+    "2027-06-01".into()
+}
+
 fn cfg() -> EngineConfig {
     EngineConfig { today: october_2026, ..defaults::engine_config("ru") }
 }
@@ -260,4 +264,16 @@ fn recommended_lines_are_maintained_and_not_brand_new() {
         let l = set.lifecycle(&rec.cycle, today).unwrap();
         assert_ne!(l.phase, Phase::Eol, "{}: the recommended line {} is already over", set.id, rec.cycle);
     }
+}
+
+#[test]
+fn a_release_table_that_is_too_old_is_reported_instead_of_trusted() {
+    // the shipped tables are from October 2026: eight months later their dates are no basis for a verdict
+    let c = EngineConfig { today: june_2027, ..defaults::engine_config("ru") };
+    let rep = evaluate(&single_node("postgresql", json!({"version": "17.2"})), &c, &[]);
+    assert_eq!(status(&rep, "VER-01"), Status::NoData);
+    let text = message(&c, &rep, "VER-01");
+    assert!(text.contains("PostgreSQL") && text.contains("устарела"), "{text}");
+    // a node that declares no version has nothing to doubt
+    assert_eq!(status(&evaluate(&single_node("postgresql", json!({})), &c, &[]), "VER-01"), Status::Ok);
 }

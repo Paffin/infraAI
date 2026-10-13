@@ -1108,5 +1108,89 @@
    "ru": "Метрики Prometheus (/metrics)",
    "en": "Prometheus metrics (/metrics)"
   }
+ },
+ {
+  "key": "versions.autoSyncDays",
+  "group": "lifecycle",
+  "type": "number",
+  "default": 7,
+  "label": {
+   "ru": "Обновлять таблицы версий каждые, дней",
+   "en": "Refresh the version tables every, days"
+  },
+  "help": {
+   "ru": "0 — не обновлять автоматически. Данные берутся с endoflife.date; при сбое остаются прежние.",
+   "en": "0 — never refresh automatically. The data comes from endoflife.date; on a failure the old data stays."
+  },
+  "min": 0,
+  "max": 365
+ },
+ {
+  "key": "versions.autoSyncCheckMinutes",
+  "group": "lifecycle",
+  "type": "number",
+  "default": 60,
+  "label": {
+   "ru": "Как часто проверять, пора ли обновлять, мин",
+   "en": "How often to check whether a refresh is due, minutes"
+  },
+  "min": 1,
+  "max": 1440
+ },
+ {
+  "key": "versions.sourceBases",
+  "group": "lifecycle",
+  "type": "string_list",
+  "default": [
+   "https://endoflife.date/api/"
+  ],
+  "label": {
+   "ru": "Разрешённые источники таблиц версий",
+   "en": "Allowed sources of version tables"
+  },
+  "help": {
+   "ru": "Сервер обращается только по адресам под этими префиксами (схема, хост и порт совпадают). Для закрытой сети укажите внутреннее зеркало.",
+   "en": "The server fetches only addresses under these prefixes (scheme, host and port must match). In a closed network name an internal mirror."
+  }
+ },
+ {
+  "key": "versions.syncTimeoutSeconds",
+  "group": "lifecycle",
+  "type": "number",
+  "default": 20,
+  "label": {
+   "ru": "Ожидание ответа источника, с",
+   "en": "Source response timeout, seconds"
+  },
+  "min": 1,
+  "max": 300
+ },
+ {
+  "key": "versions.syncParallel",
+  "group": "lifecycle",
+  "type": "number",
+  "default": 6,
+  "label": {
+   "ru": "Запросов к источнику одновременно",
+   "en": "Simultaneous requests to the source"
+  },
+  "min": 1,
+  "max": 32
+ },
+ {
+  "key": "versions.maxAgeYears",
+  "group": "lifecycle",
+  "type": "number",
+  "default": 8,
+  "label": {
+   "ru": "Хранить линии, завершившиеся не более, лет назад",
+   "en": "Keep lines that ended no more than, years ago"
+  },
+  "help": {
+   "ru": "Более старые завершённые линии выпуска при обновлении отбрасываются.",
+   "en": "Older finished release lines are dropped on refresh."
+  },
+  "min": 1,
+  "max": 30
  }
 ]
