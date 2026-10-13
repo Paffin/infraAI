@@ -2,6 +2,8 @@
 //!   cargo run -p engine --example report -- two-dc-witness
 //!   cargo run -p engine --example report -- demo
 //!   cargo run -p engine --example report -- path/to/architecture.json [lang]
+//!   cargo run -p engine --example report -- three-az-region en --json     (the whole report as JSON – how the
+//!                                                                        frontend test fixtures are recorded)
 
 use engine::config::EngineConfig;
 use engine::defaults;
@@ -9,7 +11,8 @@ use engine::evaluate::{evaluate, render_message, Status};
 use engine::model::Architecture;
 
 fn main() {
-    let args: Vec<String> = std::env::args().collect();
+    let json = std::env::args().any(|a| a == "--json");
+    let args: Vec<String> = std::env::args().filter(|a| a != "--json").collect();
     let what = args.get(1).cloned().unwrap_or_else(|| "two-dc-witness".into());
     let lang = args.get(2).cloned().unwrap_or_else(|| "ru".into());
     let arch: Architecture = if what == "demo" {
@@ -21,6 +24,10 @@ fn main() {
     };
     let cfg = EngineConfig { catalog: defaults::catalog(), rules: defaults::rules(), settings: defaults::engine_settings(), iac: defaults::iac_templates(), lang: lang.clone() };
     let rep = evaluate(&arch, &cfg, &[]);
+    if json {
+        println!("{}", serde_json::to_string_pretty(&rep).expect("serialize the report"));
+        return;
+    }
     println!(
         "score {} (coverage {:.0}%)  critical {}  risk {}  no_data {}  ok {}  n/a {}  cost {} {}",
         rep.score.value,

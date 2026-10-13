@@ -41,6 +41,18 @@ pub struct Subjects {
     pub zones: Vec<String>,
 }
 
+/// A value the user can supply to turn a `no_data` finding into a verified one: the UI offers to open the
+/// exact field. `target` is `requirements`, `node`, `edge` or `zone`; `prop` is the property key (for
+/// requirements: the field name, e.g. `rtoSeconds`).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct Need {
+    pub target: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    pub prop: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Fix {
@@ -74,6 +86,9 @@ pub struct Finding {
     /// Placeholder values for the rule's `message` template.
     pub vars: Map<String, Value>,
     pub fixes: Vec<Fix>,
+    /// What to fill in to verify a `no_data` finding.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub needs: Vec<Need>,
     /// Scenario that demonstrates the finding (the UI can replay it on the canvas).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scenario: Option<Scenario>,
@@ -163,10 +178,46 @@ pub struct Report {
     pub objectives: Vec<Objective>,
     pub scenarios: Vec<ScenarioSummary>,
     pub baseline_loads: Vec<UnitLoad>,
+    /// Per-service capacity plan (empty without a declared peak load).
+    pub capacity: Vec<CapacityRow>,
     pub score: Score,
     pub cost: CostReport,
     /// Units with their display names (group key → name) for the UI.
     pub units: BTreeMap<String, String>,
+}
+
+/// Capacity plan of one logical service: what it carries, what it can carry, what the failure scenarios
+/// leave of it and how many instances the configured headroom needs. Load scales linearly with the peak
+/// RPS, so the UI can answer "what if the load grows" without another evaluation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CapacityRow {
+    pub unit: String,
+    pub name: String,
+    pub kind: String,
+    pub nodes: Vec<String>,
+    /// Instances that serve load (arbiters excluded).
+    pub instances: u32,
+    pub per_replica_rps: Option<f64>,
+    /// Load the unit carries at the declared peak.
+    pub load_rps: f64,
+    /// What the unit can carry now; `None` = no capacity model (set vCPU or RPS per instance).
+    pub capacity_rps: Option<f64>,
+    /// Capacity needed to keep the configured headroom at peak plus growth.
+    pub target_rps: f64,
+    pub instances_needed: Option<u32>,
+    /// The failure scenario that leaves the unit the least capacity relative to its load.
+    pub worst: Option<CapacityWorst>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CapacityWorst {
+    pub scenario: Scenario,
+    pub failed: Vec<String>,
+    /// Load the unit has to carry in that scenario.
+    pub load_rps: f64,
+    pub capacity_rps: f64,
 }
 
 /// Evaluation context shared by all checks (memoises simulations).
@@ -228,6 +279,7 @@ pub fn evaluate(arch: &Architecture, cfg: &EngineConfig, waivers: &[Waiver]) -> 
                 subjects: raw.subjects,
                 vars: raw.vars,
                 fixes: raw.fixes,
+                needs: raw.needs,
                 scenario: raw.scenario,
                 accepted,
             });
@@ -256,8 +308,64 @@ pub fn evaluate(arch: &Architecture, cfg: &EngineConfig, waivers: &[Waiver]) -> 
     let objectives = objectives(&ctx, &findings);
     let units = ctx.ix.units.iter().map(|u| (u.key.clone(), u.name.clone())).collect();
     let cost = cost::estimate(&ctx.ix);
+    let capacity = capacity_rows(&ctx);
 
-    Report { engine_version: ENGINE_VERSION, issues, counts, rules, findings, objectives, scenarios, baseline_loads: baseline.unit_loads.clone(), score, cost, units }
+    Report { engine_version: ENGINE_VERSION, issues, counts, rules, findings, objectives, scenarios, baseline_loads: baseline.unit_loads.clone(), capacity, score, cost, units }
+}
+
+fn capacity_rows(ctx: &Ctx<'_>) -> Vec<CapacityRow> {
+    let ix = &ctx.ix;
+    let baseline = ctx.sim(&Scenario::None);
+    if baseline.unit_loads.is_empty() {
+        return vec![];
+    }
+    let req = &ix.arch.requirements;
+    let growth = req.growth_percent.unwrap_or(0.0) / 100.0;
+    let headroom = ctx.cfg.settings.assumptions.headroom_percent / 100.0;
+    let scenarios: Vec<_> = standard_scenarios(ix).into_iter().filter(|sc| !matches!(sc, Scenario::Instance { .. } | Scenario::Node { .. } | Scenario::None)).collect();
+    let results: Vec<_> = scenarios.iter().map(|sc| ctx.sim(sc)).collect();
+    let mut rows = vec![];
+    for l in &baseline.unit_loads {
+        let Some(&u) = ix.unit_ix.get(&l.unit) else { continue };
+        let unit = &ix.units[u];
+        let serving: Vec<usize> = unit.members.iter().copied().filter(|&m| !ix.is_witness(m)).collect();
+        let instances: u32 = serving.iter().map(|&m| ix.replicas(m)).sum();
+        let per = serving.iter().find_map(|&m| ix.per_replica_rps(m));
+        let avg = match l.capacity_rps {
+            Some(c) if instances > 0 => Some(c / instances as f64),
+            _ => per,
+        };
+        let target = l.load_rps * (1.0 + growth) / (1.0 - headroom).max(0.05);
+        let needed = avg.filter(|a| *a > 0.0).map(|a| (target / a).ceil().max(1.0) as u32);
+        let mut worst: Option<(f64, CapacityWorst)> = None;
+        if l.capacity_rps.is_some() {
+            for (sc, r) in scenarios.iter().zip(&results) {
+                if r.state == ServiceState::Down {
+                    continue;
+                }
+                let Some(ul) = r.unit_loads.iter().find(|x| x.unit == l.unit) else { continue };
+                let Some(cap) = ul.capacity_rps else { continue };
+                let ratio = if ul.load_rps > 0.0 { cap / ul.load_rps } else { f64::MAX };
+                if worst.as_ref().map(|(w, _)| ratio < *w).unwrap_or(true) {
+                    worst = Some((ratio, CapacityWorst { scenario: sc.clone(), failed: r.failed.clone(), load_rps: ul.load_rps, capacity_rps: cap }));
+                }
+            }
+        }
+        rows.push(CapacityRow {
+            unit: unit.key.clone(),
+            name: unit.name.clone(),
+            kind: unit.kind.clone(),
+            nodes: unit.members.iter().map(|&m| ix.arch.nodes[m].id.clone()).collect(),
+            instances,
+            per_replica_rps: avg,
+            load_rps: l.load_rps,
+            capacity_rps: l.capacity_rps,
+            target_rps: target,
+            instances_needed: needed,
+            worst: worst.map(|(_, w)| w),
+        });
+    }
+    rows
 }
 
 fn compute_score(cfg: &EngineConfig, rules: &[RuleResult]) -> Score {

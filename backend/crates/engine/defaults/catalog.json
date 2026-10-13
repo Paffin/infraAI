@@ -146,6 +146,18 @@
    },
    "props": [
     {
+     "key": "geo",
+     "type": "string",
+     "label": {
+      "ru": "Гео-домен (регион)",
+      "en": "Geo domain (region)"
+     },
+     "help": {
+      "ru": "Зоны доступности одного региона делят домен катастрофы: укажите одно значение у всех или вложите их в зону «Регион».",
+      "en": "Availability zones of one region share a disaster domain: give them the same value or nest them in a Region zone."
+     }
+    },
+    {
      "key": "costModel",
      "type": "string",
      "label": {

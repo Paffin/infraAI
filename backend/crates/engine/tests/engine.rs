@@ -446,3 +446,77 @@ fn data_lost_for_good_breaks_the_rpo_objective_and_a_backup_removes_the_loss() {
     assert!(!findings_of(&after, "DR-RPO-01").iter().any(|f| f.id.ends_with(":lost")));
     assert!(after.counts.critical <= before.counts.critical, "critical {} -> {}", before.counts.critical, after.counts.critical);
 }
+
+// ------------------------------------------------------------------ actionable no_data and capacity plan
+
+#[test]
+fn no_data_findings_say_what_to_fill_in() {
+    let c = cfg();
+    let mut a = template("two-dc-witness");
+    a.requirements.rto_seconds = None;
+    a.requirements.rpo_seconds = None;
+    a.requirements.rps_peak = None;
+    a.requirements.budget_monthly = None;
+    let rep = evaluate(&a, &c, &[]);
+    let wants = |prop: &str| rep.findings.iter().any(|f| f.status == Status::NoData && f.needs.iter().any(|n| n.target == "requirements" && n.id.is_none() && n.prop == prop));
+    for prop in ["rtoSeconds", "rpoSeconds", "rpsPeak", "budgetMonthly"] {
+        assert!(wants(prop), "no finding asks for {prop}");
+    }
+    for f in rep.findings.iter().filter(|f| f.id.ends_with(":req")) {
+        assert!(!f.needs.is_empty(), "{} is a missing requirement but names no field", f.id);
+    }
+
+    // a disaster domain tolerated but no geo label on the sites → the zone to label
+    let mut a = template("two-dc-witness");
+    a.requirements.failure_tolerance = Some("geo".into());
+    for z in a.zones.iter_mut() {
+        z.props.remove("geo");
+    }
+    let rep = evaluate(&a, &c, &[]);
+    let zones: Vec<_> =
+        rep.findings.iter().filter(|f| f.status == Status::NoData).flat_map(|f| f.needs.iter()).filter(|n| n.target == "zone" && n.prop == "geo").map(|n| n.id.clone().unwrap()).collect();
+    assert!(zones.contains(&"dc1".to_string()) && zones.contains(&"dc2".to_string()), "{zones:?}");
+
+    // a component without a capacity model → the instances to describe
+    let mut a = template("two-dc-witness");
+    a.nodes.iter_mut().find(|n| n.id == "app-dc1").unwrap().props.insert("rpsPerReplica".into(), serde_json::Value::Null);
+    let rep = evaluate(&a, &c, &[]);
+    assert!(rep.findings.iter().all(|f| f.status != Status::NoData || !f.needs.iter().any(|n| n.target == "requirements" && n.prop == "rpsPeak")), "the peak is declared in this template");
+
+    // fully described architectures ask for nothing
+    let ok = evaluate(&template("two-dc-witness"), &c, &[]);
+    assert!(ok.findings.iter().filter(|f| f.status != Status::NoData).all(|f| f.needs.is_empty()), "only no_data findings carry needs");
+}
+
+#[test]
+fn capacity_plan_shows_load_headroom_and_the_worst_failure_of_every_service() {
+    let c = cfg();
+    let a = template("two-dc-witness");
+    let rep = evaluate(&a, &c, &[]);
+    assert!(!rep.capacity.is_empty());
+    let app = rep.capacity.iter().find(|r| r.unit == "app").expect("the application tier is loaded");
+    assert!(app.load_rps > 0.0 && app.capacity_rps.unwrap() > app.load_rps, "{app:?}");
+    assert_eq!(app.instances, 64, "32 + 32 pods");
+    assert!(app.instances_needed.unwrap() >= 1 && app.target_rps > app.load_rps, "headroom is added on top of the load");
+    let w = app.worst.as_ref().expect("a site loss leaves less capacity");
+    assert!(matches!(w.scenario, Scenario::Zone { .. }), "{:?}", w.scenario);
+    assert!(w.capacity_rps < app.capacity_rps.unwrap(), "losing a site removes capacity: {} vs {}", w.capacity_rps, app.capacity_rps.unwrap());
+    assert!(!w.failed.is_empty());
+
+    // no peak load → no plan, never an invented one
+    let mut b = a.clone();
+    b.requirements.rps_peak = None;
+    assert!(evaluate(&b, &c, &[]).capacity.is_empty());
+
+    // growth raises the target, not the load: +100 % doubles the capacity to plan for
+    let at = |growth: f64| {
+        let mut g = a.clone();
+        g.requirements.growth_percent = Some(growth);
+        let r = evaluate(&g, &c, &[]);
+        r.capacity.iter().find(|r| r.unit == "app").unwrap().clone()
+    };
+    let (flat, doubled) = (at(0.0), at(100.0));
+    assert!((flat.load_rps - doubled.load_rps).abs() < 1e-6);
+    assert!((doubled.target_rps / flat.target_rps - 2.0).abs() < 1e-9, "{} vs {}", doubled.target_rps, flat.target_rps);
+    assert!(doubled.instances_needed > flat.instances_needed);
+}

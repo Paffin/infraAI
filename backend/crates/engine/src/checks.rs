@@ -7,7 +7,7 @@
 use crate::catalog::{Behavior, Semantics, ZoneLevel};
 use crate::config::{CheckType, Rule, Severity};
 use crate::cost;
-use crate::evaluate::{Ctx, Fix, Status, Subjects};
+use crate::evaluate::{Ctx, Fix, Need, Status, Subjects};
 use crate::model::{as_bool, as_f64, as_string, unique_id, Edge, Node, Props};
 use crate::ops::Op;
 use crate::sim::{RecoveryKind, Scenario, ServiceState};
@@ -20,12 +20,21 @@ pub struct Raw {
     pub subjects: Subjects,
     pub vars: Map<String, Value>,
     pub fixes: Vec<Fix>,
+    pub needs: Vec<Need>,
     pub scenario: Option<Scenario>,
 }
 
 impl Raw {
     fn new(key: impl Into<String>, status: Status) -> Self {
-        Raw { key: key.into(), status, subjects: Subjects::default(), vars: Map::new(), fixes: vec![], scenario: None }
+        Raw { key: key.into(), status, subjects: Subjects::default(), vars: Map::new(), fixes: vec![], needs: vec![], scenario: None }
+    }
+    /// A value that would make this (no_data) finding verifiable.
+    fn need(mut self, target: &str, id: Option<&str>, prop: &str) -> Self {
+        let n = Need { target: target.to_string(), id: id.map(String::from), prop: prop.to_string() };
+        if !self.needs.contains(&n) {
+            self.needs.push(n);
+        }
+        self
     }
     fn var(mut self, k: &str, v: impl Into<Value>) -> Self {
         self.vars.insert(k.to_string(), v.into());
@@ -496,7 +505,7 @@ fn rto(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
         return CheckOut::na();
     }
     let Some(req) = ctx.ix.arch.requirements.rto_seconds else {
-        return CheckOut::found(vec![Raw::new("req", Status::NoData).var("what", "rto")]);
+        return CheckOut::found(vec![Raw::new("req", Status::NoData).var("what", "rto").need("requirements", None, "rtoSeconds")]);
     };
     let mut out = vec![];
     for sc in scs {
@@ -534,7 +543,7 @@ fn rpo(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
         return CheckOut::na();
     }
     let Some(req) = ctx.ix.arch.requirements.rpo_seconds else {
-        return CheckOut::found(vec![Raw::new("req", Status::NoData).var("what", "rpo")]);
+        return CheckOut::found(vec![Raw::new("req", Status::NoData).var("what", "rpo").need("requirements", None, "rpoSeconds")]);
     };
     let excl = p_vec(rule, "excludeTraits");
     let mut out = vec![];
@@ -568,7 +577,7 @@ fn geo_survive(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
     // sites without a geo label make the whole analysis unverifiable
     let unlabeled: Vec<usize> = ix.sites().into_iter().filter(|&s| (0..ix.arch.nodes.len()).all(|ni| ix.site_of[ni] != Some(s) || ix.geo_of[ni].is_none())).collect();
     for s in &unlabeled {
-        out.push(Raw::new(format!("nogeo:{}", ix.arch.zones[*s].id), Status::NoData).var("zone", zone_name(ctx, *s)).zone(&ix.arch.zones[*s].id));
+        out.push(Raw::new(format!("nogeo:{}", ix.arch.zones[*s].id), Status::NoData).var("zone", zone_name(ctx, *s)).zone(&ix.arch.zones[*s].id).need("zone", Some(&ix.arch.zones[*s].id), "geo"));
     }
     let req = &ix.arch.requirements;
     for (geo, sc) in scs {
@@ -887,7 +896,7 @@ fn replication_policy(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
         return CheckOut::na();
     }
     let Some(req) = ix.arch.requirements.rpo_seconds else {
-        return CheckOut::found(vec![Raw::new("req", Status::NoData).var("what", "rpo")]);
+        return CheckOut::found(vec![Raw::new("req", Status::NoData).var("what", "rpo").need("requirements", None, "rpoSeconds")]);
     };
     let mut out = vec![];
     for ei in candidates {
@@ -925,7 +934,7 @@ fn replication_policy(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
             }
             out.push(r);
         } else if !declared {
-            let mut r = base;
+            let mut r = base.need("edge", Some(&e.id), "lagSeconds");
             r.status = Status::NoData;
             out.push(r);
         }
@@ -1036,7 +1045,17 @@ fn backup_offsite(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
             match (&ix.geo_of[*s], &ix.geo_of[*t]) {
                 (Some(g1), Some(g2)) if g1 == g2 => out.push(base(Status::Risk).var("geo", g1.clone())),
                 (Some(_), Some(_)) => {}
-                _ => out.push(base(Status::NoData)),
+                (g1, g2) => {
+                    let mut raw = base(Status::NoData);
+                    for (g, node) in [(g1, s), (g2, t)] {
+                        if g.is_none() {
+                            if let Some(z) = ix.arch.nodes[*node].zone_id.as_deref() {
+                                raw = raw.need("zone", Some(z), "geo");
+                            }
+                        }
+                    }
+                    out.push(raw);
+                }
             }
         }
     }
@@ -1161,6 +1180,9 @@ fn prop_check(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
                 let declared = ix.eff[ni].is_declared(&key);
                 let mk = |st: Status| Raw::new(format!("{}:{}", n.id, key), st).var("node", n.name.clone()).var("key", key.clone()).var("expected", expected.clone()).node(&n.id);
                 if let Some(mut raw) = judge(actual, declared, n.id.clone(), &mk) {
+                    if raw.status == Status::NoData {
+                        raw = raw.need("node", Some(&n.id), &key);
+                    }
                     // mechanical remedy when the expected literal is unambiguous
                     if raw.status != Status::NoData && matches!(op.as_str(), "eq" | "gte" | "lte") && !expected.is_null() {
                         raw.fixes.push(set_prop_fix(ctx, ni, &key, expected.clone(), "set_prop", json!({})));
@@ -1208,6 +1230,9 @@ fn prop_check(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
                         .node(&nid(ctx, t))
                 };
                 if let Some(mut raw) = judge(actual, declared, e.id.clone(), &mk) {
+                    if raw.status == Status::NoData {
+                        raw = raw.need("edge", Some(&e.id), &key);
+                    }
                     if raw.status != Status::NoData && matches!(op.as_str(), "eq" | "gte" | "lte") && !expected.is_null() {
                         let mut set = Map::new();
                         set.insert(format!("props.{}", key), expected.clone());
@@ -1233,7 +1258,10 @@ fn prop_check(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
                 matched += 1;
                 let actual = z.props.get(&key).cloned();
                 let mk = |st: Status| Raw::new(format!("{}:{}", z.id, key), st).var("zone", z.name.clone()).var("key", key.clone()).var("expected", expected.clone()).zone(&z.id);
-                if let Some(raw) = judge(actual, true, z.id.clone(), &mk) {
+                if let Some(mut raw) = judge(actual, true, z.id.clone(), &mk) {
+                    if raw.status == Status::NoData {
+                        raw = raw.need("zone", Some(&z.id), &key);
+                    }
                     out.push(raw);
                 }
             }
@@ -1254,7 +1282,7 @@ fn prop_check(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
 fn capacity(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
     let ix = &ctx.ix;
     let Some(rps) = ix.arch.requirements.rps_peak else {
-        return CheckOut::found(vec![Raw::new("req", Status::NoData).var("what", "rps")]);
+        return CheckOut::found(vec![Raw::new("req", Status::NoData).var("what", "rps").need("requirements", None, "rpsPeak")]);
     };
     let growth = ix.arch.requirements.growth_percent.unwrap_or(0.0) / 100.0;
     let headroom = ctx.cfg.settings.assumptions.headroom_percent / 100.0;
@@ -1282,7 +1310,11 @@ fn capacity(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
         match l.capacity_rps {
             None => {
                 if model_traits.iter().any(|t| unit.traits.contains(t)) {
-                    out.push(raw_base(Status::NoData).var("capacity", Value::Null));
+                    let mut raw = raw_base(Status::NoData).var("capacity", Value::Null);
+                    for &m in unit.members.iter().filter(|&&m| !ix.is_witness(m)).take(3) {
+                        raw = raw.need("node", Some(&ix.arch.nodes[m].id), "rpsPerReplica");
+                    }
+                    out.push(raw);
                 }
             }
             Some(cap) => {
@@ -1330,7 +1362,7 @@ fn capacity_under_failure(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
     }
     let ix = &ctx.ix;
     if ix.arch.requirements.rps_peak.is_none() {
-        return CheckOut::found(vec![Raw::new("req", Status::NoData).var("what", "rps")]);
+        return CheckOut::found(vec![Raw::new("req", Status::NoData).var("what", "rps").need("requirements", None, "rpsPeak")]);
     }
     let min = ctx.cfg.settings.assumptions.min_capacity_during_failure;
     let mut out = vec![];
@@ -1377,7 +1409,7 @@ fn capacity_under_failure(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
 
 fn cost_budget(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
     let Some(budget) = ctx.ix.arch.requirements.budget_monthly else {
-        return CheckOut::found(vec![Raw::new("req", Status::NoData).var("what", "budget")]);
+        return CheckOut::found(vec![Raw::new("req", Status::NoData).var("what", "budget").need("requirements", None, "budgetMonthly")]);
     };
     let c = cost::estimate(&ctx.ix);
     let warn = ctx.cfg.settings.cost.warn_percent / 100.0;
