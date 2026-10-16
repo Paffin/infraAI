@@ -116,7 +116,7 @@ watch(() => ui.tab, () => nextTick(place))
     </template>
     <nav v-else class="rail" :aria-label="t('right.title')">
       <button class="rbtn unfold" :title="t('right.unfold') + ' (])'" :aria-label="t('right.unfold')" data-testid="right-unfold" @click="ui.rightOpen = true"><PanelRightOpen :size="17" /></button>
-      <button v-for="x in tabs" :key="x" class="rbtn" :class="{ active: ui.tab === x }" :title="t('tab.' + x)" :aria-label="t('tab.' + x)" @click="openTab(x)">
+      <button v-for="x in tabs" :key="x" class="rbtn" :class="{ active: ui.tab === x }" :title="t('tab.' + x)" :aria-label="t('tab.' + x) + (badge(x) ? ': ' + badge(x)?.n : '')" @click="openTab(x)">
         <component :is="RAIL_ICONS[x]" :size="17" />
         <span v-if="badge(x)" class="badge" :class="badge(x)?.tone">{{ badge(x)?.n }}</span>
         <i v-if="x === 'sim'" class="rec" aria-hidden="true" />

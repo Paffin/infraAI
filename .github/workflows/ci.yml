@@ -30,7 +30,7 @@ jobs:
       run:
         working-directory: backend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
@@ -47,8 +47,8 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -61,7 +61,7 @@ jobs:
   docs:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: The default catalog is what its sources build (deploy/catalog)
         run: python3 deploy/catalog/build.py --check
       - name: The reference architectures written in code are what their sources build (deploy/templates)
@@ -74,7 +74,7 @@ jobs:
   manifests:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Validate Kubernetes manifests
         run: |
           docker run --rm -v "$PWD/deploy/k8s:/k8s:ro" registry.k8s.io/kustomize/kustomize:v5.4.3 build /k8s > /tmp/all.yaml
@@ -96,7 +96,7 @@ jobs:
       TEST_DATABASE_ADMIN_URL: postgres://postgres:postgres@localhost:5432/postgres
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
@@ -107,7 +107,7 @@ jobs:
   iac:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
@@ -131,11 +131,19 @@ jobs:
   image:
     runs-on: ubuntu-latest
     needs: [backend, frontend, docs, iac]
+    # compose refuses to read docker-compose.yml without these (it requires them), so every step that calls it needs them:
+    # the last one, `down`, used to run without and failed, and a failed image job meant that nothing was ever published
+    env:
+      APP_SECRET: ci-secret-ci-secret-ci-secret-ci-secret
+      POSTGRES_PASSWORD: ci-postgres
+      ADMIN_EMAIL: admin@ci.local
+      ADMIN_PASSWORD: ci admin password 123
+      APP_PORT: "8080"
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
       - name: Build the image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           load: true
@@ -143,12 +151,6 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
       - name: "Smoke test the stack (compose: app + postgres)"
-        env:
-          APP_SECRET: ci-secret-ci-secret-ci-secret-ci-secret
-          POSTGRES_PASSWORD: ci-postgres
-          ADMIN_EMAIL: admin@ci.local
-          ADMIN_PASSWORD: ci admin password 123
-          APP_PORT: "8080"
         run: |
           docker tag infra-architect:ci infra-architect:local
           docker compose up -d --no-build --wait --wait-timeout 120
@@ -161,7 +163,7 @@ jobs:
           done
           python3 -m pip install --quiet jsonschema
           python3 deploy/check-sarif.py /tmp/gate/*.sarif
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -170,8 +172,8 @@ jobs:
         working-directory: frontend
         env:
           E2E_BASE: http://localhost:8080
-          E2E_EMAIL: admin@ci.local
-          E2E_PASSWORD: ci admin password 123
+          E2E_EMAIL: ${{ env.ADMIN_EMAIL }}
+          E2E_PASSWORD: ${{ env.ADMIN_PASSWORD }}
         run: |
           npm ci
           npx playwright install --with-deps chromium
@@ -179,7 +181,9 @@ jobs:
       - name: Logs
         if: failure()
         run: docker compose logs --no-color
-      - run: docker compose down -v
+      - name: Take the stack down
+        if: always()
+        run: docker compose down -v
 
   publish:
     runs-on: ubuntu-latest
@@ -189,9 +193,9 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -203,7 +207,7 @@ jobs:
           tags: |
             type=raw,value=latest
             type=sha
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v7
         with:
           context: .
           push: true

@@ -20,10 +20,10 @@ serde_json.workspace = true
 thiserror.workspace = true
 anyhow = "1"
 axum = { version = "0.8", features = ["macros"] }
-axum-extra = { version = "0.10", features = ["cookie"] }
+axum-extra = { version = "0.12", features = ["cookie"] }
 tokio = { version = "1", features = ["full"] }
 tower = { version = "0.5", features = ["util"] }
-tower-http = { version = "0.6", features = ["fs", "trace", "compression-gzip", "set-header", "limit", "request-id"] }
+tower-http = { version = "0.7", features = ["fs", "trace", "compression-gzip", "set-header", "limit", "request-id"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "tls-rustls", "postgres", "uuid", "chrono", "json", "migrate", "macros"] }
@@ -31,15 +31,15 @@ uuid = { version = "1", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 argon2 = "0.5"
 rand = "0.8"
-hmac = "0.12"
-sha2 = "0.10"
+hmac = "0.13"
+sha2 = "0.11"
 base64 = "0.22"
 aes-gcm = "0.10"
-hkdf = "0.12"
+hkdf = "0.13"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls-native-roots", "json"] }
 futures = "0.3"
 prometheus = { version = "0.13", default-features = false }
-zip = { version = "2", default-features = false, features = ["deflate"] }
+zip = { version = "9", default-features = false, features = ["deflate"] }
 bytes = "1"
 subtle = "2"
 time = "0.3"

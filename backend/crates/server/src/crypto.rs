@@ -1,14 +1,14 @@
-#![allow(deprecated)] // aes-gcm/sha2 still use generic-array 0.14 helpers
+#![allow(deprecated)] // aes-gcm still uses the generic-array 0.14 helpers (`Nonce::from_slice`)
 //! Cryptographic helpers: key derivation, secret encryption at rest, signed session tokens,
 //! password hashing.
 
-use aes_gcm::aead::{Aead, KeyInit};
+use aes_gcm::aead::{Aead, KeyInit as _};
 use aes_gcm::{Aes256Gcm, Nonce};
 use argon2::password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString};
 use argon2::Argon2;
 use base64::Engine;
 use hkdf::Hkdf;
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit as _, Mac};
 use rand::RngCore;
 use sha2::Sha256;
 
@@ -55,7 +55,7 @@ impl Keys {
 
     /// `base64url(payload).base64url(hmac)`
     pub fn sign(&self, payload: &[u8]) -> String {
-        let mut mac = <HmacSha256 as Mac>::new_from_slice(&self.session).expect("hmac key");
+        let mut mac = HmacSha256::new_from_slice(&self.session).expect("hmac key");
         mac.update(payload);
         format!("{}.{}", B64.encode(payload), B64.encode(mac.finalize().into_bytes()))
     }
@@ -64,7 +64,7 @@ impl Keys {
         let (p, s) = token.split_once('.')?;
         let payload = B64.decode(p).ok()?;
         let sig = B64.decode(s).ok()?;
-        let mut mac = <HmacSha256 as Mac>::new_from_slice(&self.session).ok()?;
+        let mut mac = HmacSha256::new_from_slice(&self.session).ok()?;
         mac.update(&payload);
         mac.verify_slice(&sig).ok()?; // constant time
         Some(payload)
@@ -119,6 +119,42 @@ mod tests {
         assert_eq!(k.verify(&t).as_deref(), Some(&b"{\"u\":1}"[..]));
         let forged = format!("{}.{}", B64.encode(b"{\"u\":2}"), t.split_once('.').unwrap().1);
         assert!(k.verify(&forged).is_none());
+    }
+
+    // Known answers, computed outside this code (Python's hmac/hashlib for the keys, the signature and the digest, the `cryptography` package for AES-GCM).
+    // They are what keeps a dependency upgrade (the RustCrypto crates change generation together) from silently invalidating what is already stored:
+    // every session cookie that was issued and every secret that was encrypted with the keys derived from APP_SECRET.
+    const SECRET: &str = "0123456789abcdef0123456789abcdef";
+
+    fn hex(b: &[u8]) -> String {
+        b.iter().map(|x| format!("{x:02x}")).collect()
+    }
+
+    #[test]
+    fn keys_derive_to_the_known_values() {
+        let k = Keys::derive(SECRET);
+        assert_eq!(hex(&k.session), "4594c1950ccbe6c694d9bc0e22f91bd2fda7cb566ceb9bf2145fafaa3ca83f0b", "HKDF-SHA256, info \"session-signing\"");
+        assert_eq!(hex(&k.enc), "6e07f673c8075fd1efd8192637f74f578ec40d19603a090bab3a3356d434fedb", "HKDF-SHA256, info \"settings-encryption\"");
+    }
+
+    #[test]
+    fn a_session_token_issued_before_still_verifies_and_signing_is_unchanged() {
+        let k = Keys::derive(SECRET);
+        let issued = "eyJ1IjoxfQ.SyfAWSsqa4AtnH12H-1oHOAyszU-IhYGf3LJCEdJBB0";
+        assert_eq!(k.verify(issued).as_deref(), Some(&b"{\"u\":1}"[..]));
+        assert_eq!(k.sign(b"{\"u\":1}"), issued, "HMAC-SHA256 over the payload with the session key");
+    }
+
+    #[test]
+    fn a_secret_encrypted_before_still_decrypts() {
+        let k = Keys::derive(SECRET);
+        assert_eq!(k.decrypt("v1:AQIDBAUGBwgJCgsMkRZQKoDVQzbYy5xl17SHMJg0_3ZRf-HbwVtaPnKncw").as_deref(), Some("sk-or-v1-secret"), "AES-256-GCM, 12-byte nonce first");
+    }
+
+    #[test]
+    fn sha256_hex_is_the_standard_digest() {
+        assert_eq!(sha256_hex(b"abc"), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+        assert_eq!(sha256_hex(b""), "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
     }
 
     #[test]

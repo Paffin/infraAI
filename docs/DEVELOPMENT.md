@@ -8,7 +8,7 @@ make up              # приложение + БД: http://localhost:8080
 make iac-check       # IaC эталонных архитектур против схем Kubernetes/CRD, Helm и Terraform (см. IAC.md)
 ```
 
-Без Docker: Rust (stable), Node 22, PostgreSQL 14+.
+Без Docker: Rust 1.89+ (stable), Node 22, PostgreSQL 14+.
 
 ## Бэкенд
 
@@ -87,7 +87,7 @@ npm run typecheck && npm test && npm run build
 * Каталог по умолчанию (`catalog.json`, названия таблиц в `versions.json`, недостающие шаблоны IaC) собирается из исходников `deploy/catalog/` — `python3 deploy/catalog/build.py` (в CI — `--check`); пока пишете модуль продуктов, его проверяет `python3 deploy/catalog/lint.py <модуль>` (те же проверки без записи, [README каталога](../deploy/catalog/README.md)).
   Правите продукт — правьте исходник, не `catalog.json`: [README каталога](../deploy/catalog/README.md).
 * Лицензии: проект — Apache-2.0 (`LICENSE`, `NOTICE`); список всего, что входит в сборку и на каких условиях, — `THIRD_PARTY_LICENSES.md`, его пишет `python3 deploy/licenses.py` из `Cargo.lock`
-  и `package-lock.json`. В CI — `--check`: падает, если файл устарел или у зависимости лицензия вне списка принятых (`deploy/licenses.json`; копилефт туда не попадает). Добавили зависимость — перегенерируйте файл.
+  и `package-lock.json`. В CI — `--check`: падает, если файл устарел или у зависимости лицензия вне списка принятых (`deploy/licenses.json`; копилефт туда не попадает). Добавили или убрали зависимость, или у неё сменилась лицензия, — перегенерируйте файл; обновление версии его не меняет (в списке нет версий, они в lock-файлах; `--versions` печатает их).
 * Эталонные архитектуры собираются из `deploy/templates/` — `python3 deploy/templates/build.py` (в CI — `--check`); таблица в `docs/TEMPLATES.md` и цифры в `README.md` и `README.en.md` генерируются тем же `gen-docs.py`.
 * Логотип и баннеры (`docs/images/logo.svg`, `banner.svg`, `banner.ru.svg`) рисует `python3 deploy/brand/build.py` (нужны `pip install fonttools brotli` и шрифты интерфейса из `frontend/node_modules`): текст в них —
   контуры, потому что SVG в README не может загрузить шрифт. Скриншоты README и карточку для ссылок на репозиторий (`social.png`: её загружают вручную в Settings → Social preview) снимает `deploy/brand/shots.mjs` с запущенного стека, на котором есть демо-проект

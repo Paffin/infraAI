@@ -41,3 +41,22 @@ export async function projectWith(page: Page, name: string, arch: Architecture):
   expect(put.ok(), await put.text()).toBe(true)
   return id
 }
+
+/**
+ * Waits until nothing on the page is still moving: every CSS transition and animation that ends has ended (the ones that loop, a spinner or a
+ * pulsing dot, never will and are not waited for), for three frames in a row. A test that measures or judges what is on the screen (a bounding
+ * box to drag from, the contrast of a colour) must do it after this, or it judges a card halfway through its entrance.
+ */
+export async function settled(page: Page, timeoutMs = 5_000) {
+  await page.evaluate((limit) => new Promise<void>((resolve) => {
+    const deadline = performance.now() + limit
+    let quiet = 0
+    const tick = () => {
+      const moving = document.getAnimations().some((a) => a.effect?.getComputedTiming().iterations !== Infinity && a.playState !== 'finished')
+      quiet = moving ? 0 : quiet + 1
+      if (quiet >= 3 || performance.now() > deadline) resolve()
+      else requestAnimationFrame(tick)
+    }
+    tick()
+  }), timeoutMs)
+}

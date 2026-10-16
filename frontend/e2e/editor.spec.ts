@@ -1,6 +1,6 @@
 import { expect } from '@playwright/test'
 import { test } from './fixtures'
-import { createProject, login, uniqueName } from './helpers'
+import { createProject, login, settled, uniqueName } from './helpers'
 
 test.describe('editor', () => {
   test.beforeEach(async ({ page }) => {
@@ -31,6 +31,7 @@ test.describe('editor', () => {
       await page.locator('.library .kind', { hasText: kind }).first().click()
       await expect(page.locator('.arch-node')).toHaveCount(i + 1)
       if (!sideways[i]) continue
+      await settled(page) // the new card is still settling into its place: a drag that starts where it is not yet picks up nothing, and the next card lands on top of it
       const box = (await page.locator('.arch-node').last().boundingBox())!
       await page.mouse.move(box.x + 60, box.y + 30)
       await page.mouse.down()

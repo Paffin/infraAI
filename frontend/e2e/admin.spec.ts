@@ -23,15 +23,23 @@ test.describe('admin panel', () => {
     await page.goto('/admin/settings/general')
     const name = page.locator('[id="set-app.name"]')
     const original = await name.inputValue()
-    await name.fill('Infra Architect QA')
-    await page.locator('.savebar .btn-primary, .adm-main .btn-primary', { hasText: 'Сохранить' }).first().click()
-    await page.reload()
-    await expect(page.locator('.brand span').first()).toHaveText('Infra Architect QA')
-    await expect(page.locator('#setting-app\\.name')).toHaveClass(/modified|srow/)
-    // put it back
-    await page.goto('/admin/settings/general')
-    await page.locator('[id="set-app.name"]').fill(original)
-    await page.locator('.savebar .btn-primary, .adm-main .btn-primary', { hasText: 'Сохранить' }).first().click()
+    // a save is a request: the page is reloaded only once the server has answered it (a reload that races the answer shows the old name, and a test that
+    // throws before it puts the name back leaves "QA" in the brand of every test after it, whose header then has less room for the project name)
+    const save = async (value: string) => {
+      await page.goto('/admin/settings/general')
+      await page.locator('[id="set-app.name"]').fill(value)
+      const saved = page.waitForResponse((r) => r.request().method() === 'PUT' && r.url().endsWith('/api/admin/settings'))
+      await page.locator('.savebar .btn-primary, .adm-main .btn-primary', { hasText: 'Сохранить' }).first().click()
+      expect((await saved).ok()).toBe(true)
+    }
+    try {
+      await save('Infra Architect QA')
+      await page.reload()
+      await expect(page.locator('.brand span').first()).toHaveText('Infra Architect QA')
+      await expect(page.locator('#setting-app\\.name')).toHaveClass(/modified|srow/)
+    } finally {
+      await save(original) // put it back, whatever happened above
+    }
     await page.reload()
     await expect(page.locator('.brand span').first()).toHaveText(original)
   })

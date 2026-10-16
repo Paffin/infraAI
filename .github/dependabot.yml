@@ -1,5 +1,10 @@
-# Updates of the dependencies, once a week, patch and minor versions together. A change of Cargo.lock or package-lock.json
-# also needs `python3 deploy/licenses.py` (it rewrites THIRD_PARTY_LICENSES.md and refuses a license the project does not accept).
+# Updates of the dependencies, once a week.
+#
+# THIRD_PARTY_LICENSES.md lists what is shipped and under which license, without versions: a plain version bump leaves it as it is. When a pull request adds or
+# removes a component or changes a license, run `python3 deploy/licenses.py` (it rewrites the file and refuses a license the project does not accept).
+#
+# Packages that must move together are one group, whatever the size of the step: Dependabot would otherwise open one pull request per package and each of
+# them would fail to build alone (the RustCrypto crates share the `digest` trait generation; axum, axum-extra and tower-http share axum-core and tower).
 version: 2
 updates:
   - package-ecosystem: cargo
@@ -7,16 +12,35 @@ updates:
     schedule: { interval: weekly, day: tuesday }
     open-pull-requests-limit: 5
     groups:
-      rust-minor-and-patch: { update-types: [minor, patch] }
+      rustcrypto:
+        patterns: [hmac, hkdf, sha2, digest, crypto-common, aes-gcm, aes, aead, argon2, password-hash, subtle]
+      axum-stack:
+        patterns: [axum, axum-core, axum-extra, tower, tower-http, tower-layer, tower-service, hyper, hyper-util, http, http-body, http-body-util]
+      rust-minor-and-patch:
+        update-types: [minor, patch]
   - package-ecosystem: npm
     directory: /frontend
     schedule: { interval: weekly, day: tuesday }
     open-pull-requests-limit: 5
     groups:
-      web-minor-and-patch: { update-types: [minor, patch] }
+      # the test runner, the bundler and their plugins are versioned against each other
+      build-tooling:
+        patterns: [vite, vitest, "@vitejs/*", "@vue/test-utils", vue-tsc]
+      web-minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      # @types/node follows the Node.js the project runs on (22, in the Dockerfile and in CI): move the two together, on purpose
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+      # TypeScript 7 is the native compiler; vue-tsc and @vue/compiler-sfc still need the TypeScript 5/6 API (revisit when vue-tsc supports it)
+      - dependency-name: typescript
+        versions: [">=7.0.0"]
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly, day: tuesday }
+    groups:
+      actions:
+        patterns: ["*"]
   - package-ecosystem: docker
     directory: /
     schedule: { interval: weekly, day: tuesday }

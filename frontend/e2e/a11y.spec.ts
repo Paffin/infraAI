@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { expect, type Page } from '@playwright/test'
 import { test } from './fixtures'
-import { createProject, login, openAnalysis, projectWith, uniqueName } from './helpers'
+import { createProject, login, openAnalysis, projectWith, settled, uniqueName } from './helpers'
 import type { Architecture } from '../src/api/types'
 
 /**
@@ -22,6 +22,7 @@ const axe = readFileSync(createRequire(import.meta.url).resolve('axe-core/axe.mi
 interface Violation { id: string; impact: string | null; help: string; nodes: { target: string[]; failureSummary?: string }[] }
 
 async function violations(page: Page): Promise<string[]> {
+  await settled(page) // a colour that is halfway through a transition is judged at the colour it has at that moment
   await page.evaluate(axe)
   const found: Violation[] = await page.evaluate(async () => {
     // @ts-expect-error axe is injected above

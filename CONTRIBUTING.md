@@ -27,7 +27,7 @@ make lint            # rustfmt + clippy -D warnings
 make iac-check       # IaC эталонных архитектур против схем Kubernetes/CRD, Helm и Terraform
 ```
 
-Без Docker — Rust (stable), Node 22, PostgreSQL 14+: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) (запуск, тесты, браузерные проверки, «как добавить правило / компонент / настройку»).
+Без Docker — Rust 1.89+ (stable), Node 22, PostgreSQL 14+: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) (запуск, тесты, браузерные проверки, «как добавить правило / компонент / настройку»).
 
 ## Правила кодовой базы
 
@@ -52,8 +52,8 @@ cd frontend && npm run typecheck && npm test && npm run build      # брауз�
 python3 deploy/catalog/build.py --check && python3 deploy/gen-docs.py --check && python3 deploy/licenses.py --check
 ```
 
-* Изменили зависимости (`Cargo.lock`, `package-lock.json`) — выполните `python3 deploy/licenses.py`: он перепишет `THIRD_PARTY_LICENSES.md` и откажет в лицензии, которую проект не принимает
-  (`deploy/licenses.json`).
+* Добавили или убрали зависимость, или у неё сменилась лицензия — выполните `python3 deploy/licenses.py`: он перепишет `THIRD_PARTY_LICENSES.md` и откажет в лицензии, которую проект не принимает
+  (`deploy/licenses.json`). Обычное обновление версии список не меняет: в нём нет версий (они в `Cargo.lock` и `package-lock.json`; `python3 deploy/licenses.py --versions` их печатает).
 * Новая логика — с тестом на реальных данных; ошибка, которую вы исправили, — с тестом, который на ней падал.
 * Один pull request — одна мысль. В описании — зачем (какую проблему архитектора решает), а не только что.
 * Сообщения коммитов — по-английски или по-русски, в повелительном или описательном стиле, главное — ясно, *почему*.
@@ -68,7 +68,7 @@ python3 deploy/catalog/build.py --check && python3 deploy/gen-docs.py --check &&
 
 Infra Architect is open source under the [Apache License 2.0](LICENSE); contributions are accepted under the same terms (section 5), no separate agreement needed.
 
-* **Run:** `make up` (app + PostgreSQL on :8080), `make test`, `make lint`, `make iac-check`; without Docker you need Rust (stable), Node 22 and PostgreSQL 14+ — see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) (in Russian).
+* **Run:** `make up` (app + PostgreSQL on :8080), `make test`, `make lint`, `make iac-check`; without Docker you need Rust 1.89+ (stable), Node 22 and PostgreSQL 14+ — see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) (in Russian).
 * **House rules:** no hard-coded numbers or texts (timings, thresholds, rules, catalog, templates are data and settings); no mocks or stubs in tests (real PostgreSQL, real engine, recorded live responses); the Rust engine is deterministic and the LLM only proposes;
   the product catalog is built from `deploy/catalog/` sources (never edit `catalog.json` by hand, and only state what you are sure of about a product's failure behaviour); every visible text has `ru` and `en`; docs change in the same commit.
 * **Before a pull request:** `cargo fmt/clippy/test`, `npm run typecheck && npm test && npm run build`, `python3 deploy/catalog/build.py --check`, `python3 deploy/gen-docs.py --check`, `python3 deploy/licenses.py --check` (run it without `--check` after changing dependencies).

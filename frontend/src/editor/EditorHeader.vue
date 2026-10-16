@@ -73,7 +73,7 @@ async function leave() {
       <button :class="{ on: ui.aiMode === 'manual' }" @click="ui.aiMode = 'manual'">{{ t('editor.mode.manual') }}</button>
     </div>
     <span class="spacer" />
-    <button class="cmdk" data-tour="palette" :title="t('palette.open')" :aria-label="t('palette.open')" @click="ui.palette = true"><Search :size="14" /><span class="lbl">{{ t('palette.open') }}</span><kbd>{{ shortcutText('palette') }}</kbd></button>
+    <button class="cmdk" data-tour="palette" :title="t('palette.open')" :aria-label="`${t('palette.open')} ${shortcutText('palette')}`" @click="ui.palette = true"><Search :size="14" /><span class="lbl">{{ t('palette.open') }}</span> <kbd>{{ shortcutText('palette') }}</kbd></button>
     <button class="score" data-tour="score" :class="[tone, lowConfidence && 'weak']" :title="lowConfidence ? t('checks.confidence.hint') : t('editor.score.title')" @click="ui.modal = 'score'">
       {{ t('editor.score') }}<b><AnimatedNumber :value="score" /></b><span>/100</span><i v-if="lowConfidence" class="conf">{{ t('editor.score.confidence', { pct: confidence ?? 0 }) }}</i>
     </button>

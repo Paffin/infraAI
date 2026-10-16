@@ -9,7 +9,7 @@ license = "Apache-2.0"
 repository = "https://github.com/Paffin/infraAI"
 homepage = "https://github.com/Paffin/infraAI"
 authors = ["The Infra Architect Authors"]
-rust-version = "1.85"
+rust-version = "1.89"
 publish = false
 
 [workspace.dependencies]
