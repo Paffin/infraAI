@@ -20,7 +20,7 @@ serde_json.workspace = true
 thiserror.workspace = true
 anyhow = "1"
 axum = { version = "0.8", features = ["macros"] }
-axum-extra = { version = "0.10", features = ["cookie"] }
+axum-extra = { version = "0.12", features = ["cookie"] }
 tokio = { version = "1", features = ["full"] }
 tower = { version = "0.5", features = ["util"] }
 tower-http = { version = "0.6", features = ["fs", "trace", "compression-gzip", "set-header", "limit", "request-id"] }
