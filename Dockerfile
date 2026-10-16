@@ -37,12 +37,18 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
 
 # -------------------------------------------------------------------------------- runtime
 FROM ${REGISTRY}/debian:bookworm-slim AS runtime
+LABEL org.opencontainers.image.title="Infra Architect" \
+      org.opencontainers.image.description="A visual designer of infrastructure architecture: the AI proposes, a deterministic engine verifies" \
+      org.opencontainers.image.licenses="Apache-2.0" \
+      org.opencontainers.image.source="https://github.com/Paffin/infraAI"
 # CA roots for outbound TLS (OpenRouter); taken from the build image so that no package manager is needed here
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 RUN useradd --system --uid 10001 --no-create-home --shell /usr/sbin/nologin app
 WORKDIR /app
 COPY --from=build /out/infra-architect /app/infra-architect
 COPY --from=web /web/dist /app/web
+# the license, the notice and the licenses of what is inside travel with the image
+COPY LICENSE NOTICE THIRD_PARTY_LICENSES.md /licenses/
 ENV WEB_DIR=/app/web PORT=8080 APP_ENV=production
 USER 10001
 EXPOSE 8080

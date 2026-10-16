@@ -1,0 +1,1024 @@
+{
+ "id": "data-platform",
+ "name": {
+  "ru": "Платформа данных: Kafka, Flink, ClickHouse",
+  "en": "Data platform: Kafka, Flink, ClickHouse"
+ },
+ "description": {
+  "ru": "Приём событий через Kafka на трёх AZ, потоковая обработка Flink, аналитика в ClickHouse и озеро в объектном хранилище, пакетные задачи в Airflow, дашборды в Grafana и Superset.",
+  "en": "Event ingest through Kafka across three AZs, stream processing with Flink, analytics in ClickHouse and a lake in object storage, batch jobs in Airflow, dashboards in Grafana and Superset."
+ },
+ "badge": "Data",
+ "tags": [
+  "data",
+  "analytics",
+  "kafka",
+  "clickhouse",
+  "ha"
+ ],
+ "enabled": true,
+ "order": 15,
+ "architecture": {
+  "schemaVersion": 1,
+  "meta": {
+   "name": "Платформа данных: Kafka, Flink, ClickHouse",
+   "description": "События приходят через API приёма в Kafka (три AZ, репликация ×3). Flink обрабатывает поток и пишет в ClickHouse (реплики в трёх зонах, Keeper) и в озеро на объектном хранилище. Пакетные задачи ведёт Airflow, дашборды читают ClickHouse. Потеря зоны не останавливает приём и не теряет подтверждённые события; копии ClickHouse и озера лежат на отдельной площадке."
+  },
+  "requirements": {
+   "rpsPeak": 2000,
+   "growthPercent": 60,
+   "rtoSeconds": 900,
+   "rpoSeconds": 5,
+   "budgetMonthly": 5000000,
+   "failureTolerance": "site",
+   "availabilitySlo": 99.9
+  },
+  "zones": [
+   {
+    "id": "region",
+    "name": "Регион eu-1",
+    "type": "region",
+    "parentId": null,
+    "role": null,
+    "props": {}
+   },
+   {
+    "id": "az-a",
+    "name": "AZ A",
+    "type": "az",
+    "parentId": "region",
+    "role": null,
+    "props": {
+     "geo": "eu-1",
+     "costModel": "cloud"
+    }
+   },
+   {
+    "id": "az-b",
+    "name": "AZ B",
+    "type": "az",
+    "parentId": "region",
+    "role": null,
+    "props": {
+     "geo": "eu-1",
+     "costModel": "cloud"
+    }
+   },
+   {
+    "id": "az-c",
+    "name": "AZ C",
+    "type": "az",
+    "parentId": "region",
+    "role": null,
+    "props": {
+     "geo": "eu-1",
+     "costModel": "cloud"
+    }
+   },
+   {
+    "id": "site-backup",
+    "name": "Площадка копий",
+    "type": "cloud",
+    "parentId": null,
+    "role": null,
+    "props": {
+     "geo": "eu-2",
+     "costModel": "cloud"
+    }
+   }
+  ],
+  "nodes": [
+   {
+    "id": "users",
+    "kind": "users",
+    "name": "Источники событий (приложения, устройства)",
+    "zoneId": null,
+    "group": null,
+    "role": null,
+    "props": {
+     "rpsLabel": "2k пакетов/с (≈100k событий/с)"
+    }
+   },
+   {
+    "id": "waf",
+    "kind": "waf",
+    "name": "WAF",
+    "zoneId": null,
+    "group": "waf",
+    "role": null,
+    "props": {
+     "replicas": 3
+    }
+   },
+   {
+    "id": "lb-a",
+    "kind": "l7",
+    "name": "Ingress",
+    "zoneId": "az-a",
+    "group": "ingress",
+    "role": null,
+    "props": {
+     "variant": "ingress-k8s",
+     "replicas": 2
+    }
+   },
+   {
+    "id": "ingest-a",
+    "kind": "kubernetes",
+    "name": "Kubernetes · API приёма",
+    "zoneId": "az-a",
+    "group": "ingest",
+    "role": null,
+    "props": {
+     "replicas": 12,
+     "vcpu": 2,
+     "ramGb": 4,
+     "hpaMin": 8,
+     "hpaMax": 40,
+     "clusterName": "data"
+    }
+   },
+   {
+    "id": "kafka-a",
+    "kind": "kafka",
+    "name": "Kafka (KRaft)",
+    "zoneId": "az-a",
+    "group": "kafka",
+    "role": null,
+    "props": {
+     "variant": "kraft",
+     "replicas": 2,
+     "replicationFactor": 3,
+     "minInsync": 2,
+     "vcpu": 8,
+     "ramGb": 32,
+     "diskGb": 1000,
+     "storageClass": "nvme",
+     "encryptionAtRest": true
+    }
+   },
+   {
+    "id": "flink-a",
+    "kind": "flink",
+    "name": "Flink",
+    "zoneId": "az-a",
+    "group": "flink",
+    "role": null,
+    "props": {
+     "replicas": 4,
+     "vcpu": 8,
+     "ramGb": 32,
+     "diskGb": 200
+    }
+   },
+   {
+    "id": "ch-a",
+    "kind": "clickhouse",
+    "name": "ClickHouse + Keeper",
+    "zoneId": "az-a",
+    "group": "clickhouse",
+    "role": null,
+    "props": {
+     "variant": "replicated",
+     "replicas": 2,
+     "minInsync": 2,
+     "vcpu": 16,
+     "ramGb": 64,
+     "diskGb": 2000,
+     "storageClass": "nvme",
+     "encryptionAtRest": true
+    }
+   },
+   {
+    "id": "lake-a",
+    "kind": "object_storage",
+    "name": "Озеро данных (MinIO)",
+    "zoneId": "az-a",
+    "group": "lake",
+    "role": null,
+    "props": {
+     "variant": "minio",
+     "replicas": 3,
+     "vcpu": 4,
+     "ramGb": 16,
+     "diskGb": 8000,
+     "encryptionAtRest": true
+    }
+   },
+   {
+    "id": "mon-a",
+    "kind": "monitoring",
+    "name": "Мониторинг",
+    "zoneId": "az-a",
+    "group": "monitoring",
+    "role": null,
+    "props": {
+     "replicas": 2,
+     "vcpu": 2,
+     "ramGb": 8,
+     "diskGb": 200
+    }
+   },
+   {
+    "id": "lb-b",
+    "kind": "l7",
+    "name": "Ingress",
+    "zoneId": "az-b",
+    "group": "ingress",
+    "role": null,
+    "props": {
+     "variant": "ingress-k8s",
+     "replicas": 2
+    }
+   },
+   {
+    "id": "ingest-b",
+    "kind": "kubernetes",
+    "name": "Kubernetes · API приёма",
+    "zoneId": "az-b",
+    "group": "ingest",
+    "role": null,
+    "props": {
+     "replicas": 12,
+     "vcpu": 2,
+     "ramGb": 4,
+     "hpaMin": 8,
+     "hpaMax": 40,
+     "clusterName": "data"
+    }
+   },
+   {
+    "id": "kafka-b",
+    "kind": "kafka",
+    "name": "Kafka (KRaft)",
+    "zoneId": "az-b",
+    "group": "kafka",
+    "role": null,
+    "props": {
+     "variant": "kraft",
+     "replicas": 2,
+     "replicationFactor": 3,
+     "minInsync": 2,
+     "vcpu": 8,
+     "ramGb": 32,
+     "diskGb": 1000,
+     "storageClass": "nvme",
+     "encryptionAtRest": true
+    }
+   },
+   {
+    "id": "flink-b",
+    "kind": "flink",
+    "name": "Flink",
+    "zoneId": "az-b",
+    "group": "flink",
+    "role": null,
+    "props": {
+     "replicas": 4,
+     "vcpu": 8,
+     "ramGb": 32,
+     "diskGb": 200
+    }
+   },
+   {
+    "id": "ch-b",
+    "kind": "clickhouse",
+    "name": "ClickHouse + Keeper",
+    "zoneId": "az-b",
+    "group": "clickhouse",
+    "role": null,
+    "props": {
+     "variant": "replicated",
+     "replicas": 2,
+     "minInsync": 2,
+     "vcpu": 16,
+     "ramGb": 64,
+     "diskGb": 2000,
+     "storageClass": "nvme",
+     "encryptionAtRest": true
+    }
+   },
+   {
+    "id": "lake-b",
+    "kind": "object_storage",
+    "name": "Озеро данных (MinIO)",
+    "zoneId": "az-b",
+    "group": "lake",
+    "role": null,
+    "props": {
+     "variant": "minio",
+     "replicas": 3,
+     "vcpu": 4,
+     "ramGb": 16,
+     "diskGb": 8000,
+     "encryptionAtRest": true
+    }
+   },
+   {
+    "id": "mon-b",
+    "kind": "monitoring",
+    "name": "Мониторинг",
+    "zoneId": "az-b",
+    "group": "monitoring",
+    "role": null,
+    "props": {
+     "replicas": 2,
+     "vcpu": 2,
+     "ramGb": 8,
+     "diskGb": 200
+    }
+   },
+   {
+    "id": "lb-c",
+    "kind": "l7",
+    "name": "Ingress",
+    "zoneId": "az-c",
+    "group": "ingress",
+    "role": null,
+    "props": {
+     "variant": "ingress-k8s",
+     "replicas": 2
+    }
+   },
+   {
+    "id": "ingest-c",
+    "kind": "kubernetes",
+    "name": "Kubernetes · API приёма",
+    "zoneId": "az-c",
+    "group": "ingest",
+    "role": null,
+    "props": {
+     "replicas": 12,
+     "vcpu": 2,
+     "ramGb": 4,
+     "hpaMin": 8,
+     "hpaMax": 40,
+     "clusterName": "data"
+    }
+   },
+   {
+    "id": "kafka-c",
+    "kind": "kafka",
+    "name": "Kafka (KRaft)",
+    "zoneId": "az-c",
+    "group": "kafka",
+    "role": null,
+    "props": {
+     "variant": "kraft",
+     "replicas": 2,
+     "replicationFactor": 3,
+     "minInsync": 2,
+     "vcpu": 8,
+     "ramGb": 32,
+     "diskGb": 1000,
+     "storageClass": "nvme",
+     "encryptionAtRest": true
+    }
+   },
+   {
+    "id": "flink-c",
+    "kind": "flink",
+    "name": "Flink",
+    "zoneId": "az-c",
+    "group": "flink",
+    "role": null,
+    "props": {
+     "replicas": 4,
+     "vcpu": 8,
+     "ramGb": 32,
+     "diskGb": 200
+    }
+   },
+   {
+    "id": "ch-c",
+    "kind": "clickhouse",
+    "name": "ClickHouse + Keeper",
+    "zoneId": "az-c",
+    "group": "clickhouse",
+    "role": null,
+    "props": {
+     "variant": "replicated",
+     "replicas": 2,
+     "minInsync": 2,
+     "vcpu": 16,
+     "ramGb": 64,
+     "diskGb": 2000,
+     "storageClass": "nvme",
+     "encryptionAtRest": true
+    }
+   },
+   {
+    "id": "lake-c",
+    "kind": "object_storage",
+    "name": "Озеро данных (MinIO)",
+    "zoneId": "az-c",
+    "group": "lake",
+    "role": null,
+    "props": {
+     "variant": "minio",
+     "replicas": 3,
+     "vcpu": 4,
+     "ramGb": 16,
+     "diskGb": 8000,
+     "encryptionAtRest": true
+    }
+   },
+   {
+    "id": "mon-c",
+    "kind": "monitoring",
+    "name": "Мониторинг",
+    "zoneId": "az-c",
+    "group": "monitoring",
+    "role": null,
+    "props": {
+     "replicas": 2,
+     "vcpu": 2,
+     "ramGb": 8,
+     "diskGb": 200
+    }
+   },
+   {
+    "id": "airflow-a",
+    "kind": "airflow",
+    "name": "Airflow",
+    "zoneId": "az-a",
+    "group": "airflow",
+    "role": null,
+    "props": {
+     "replicas": 2,
+     "vcpu": 4,
+     "ramGb": 8
+    }
+   },
+   {
+    "id": "airflow-b",
+    "kind": "airflow",
+    "name": "Airflow",
+    "zoneId": "az-b",
+    "group": "airflow",
+    "role": null,
+    "props": {
+     "replicas": 2,
+     "vcpu": 4,
+     "ramGb": 8
+    }
+   },
+   {
+    "id": "bi-b",
+    "kind": "apache_superset",
+    "name": "Superset",
+    "zoneId": "az-b",
+    "group": "bi",
+    "role": null,
+    "props": {
+     "replicas": 2,
+     "vcpu": 2,
+     "ramGb": 4
+    }
+   },
+   {
+    "id": "bi-c",
+    "kind": "apache_superset",
+    "name": "Superset",
+    "zoneId": "az-c",
+    "group": "bi",
+    "role": null,
+    "props": {
+     "replicas": 2,
+     "vcpu": 2,
+     "ramGb": 4
+    }
+   },
+   {
+    "id": "grafana",
+    "kind": "grafana",
+    "name": "Grafana",
+    "zoneId": "az-c",
+    "group": "grafana",
+    "role": null,
+    "props": {
+     "replicas": 2,
+     "vcpu": 2,
+     "ramGb": 4
+    }
+   },
+   {
+    "id": "gitops",
+    "kind": "gitops",
+    "name": "GitOps · Argo CD",
+    "zoneId": "az-c",
+    "group": "gitops",
+    "role": null,
+    "props": {
+     "replicas": 2,
+     "vcpu": 2,
+     "ramGb": 4
+    }
+   },
+   {
+    "id": "vault-a",
+    "kind": "vault",
+    "name": "Vault",
+    "zoneId": "az-a",
+    "group": "vault",
+    "role": "primary",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 4,
+     "diskGb": 50
+    }
+   },
+   {
+    "id": "vault-b",
+    "kind": "vault",
+    "name": "Vault (standby)",
+    "zoneId": "az-b",
+    "group": "vault",
+    "role": "replica",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 4,
+     "diskGb": 50
+    }
+   },
+   {
+    "id": "backup",
+    "kind": "backup_storage",
+    "name": "Бэкапы (объектное хранилище, object lock)",
+    "zoneId": "site-backup",
+    "group": null,
+    "role": null,
+    "props": {
+     "immutable": true,
+     "retentionDays": 35,
+     "backupIntervalSeconds": 300,
+     "restoreSeconds": 14400,
+     "restoreTestedDays": 30,
+     "encryptionAtRest": true,
+     "diskGb": 40000
+    }
+   }
+  ],
+  "edges": [
+   {
+    "id": "e-users--waf",
+    "source": "users",
+    "target": "waf",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-waf--lb-a",
+    "source": "waf",
+    "target": "lb-a",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-lb-a--ingest-a",
+    "source": "lb-a",
+    "target": "ingest-a",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-ingest-a--kafka-a",
+    "source": "ingest-a",
+    "target": "kafka-a",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 1
+    }
+   },
+   {
+    "id": "e-kafka-a--flink-a",
+    "source": "kafka-a",
+    "target": "flink-a",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 1
+    }
+   },
+   {
+    "id": "e-flink-a--ch-a",
+    "source": "flink-a",
+    "target": "ch-a",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 0.2
+    }
+   },
+   {
+    "id": "e-flink-a--lake-a",
+    "source": "flink-a",
+    "target": "lake-a",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 0.1
+    }
+   },
+   {
+    "id": "e-mon-a--ingest-a",
+    "source": "mon-a",
+    "target": "ingest-a",
+    "type": "control",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-waf--lb-b",
+    "source": "waf",
+    "target": "lb-b",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-lb-b--ingest-b",
+    "source": "lb-b",
+    "target": "ingest-b",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-ingest-b--kafka-b",
+    "source": "ingest-b",
+    "target": "kafka-b",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 1
+    }
+   },
+   {
+    "id": "e-kafka-b--flink-b",
+    "source": "kafka-b",
+    "target": "flink-b",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 1
+    }
+   },
+   {
+    "id": "e-flink-b--ch-b",
+    "source": "flink-b",
+    "target": "ch-b",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 0.2
+    }
+   },
+   {
+    "id": "e-flink-b--lake-b",
+    "source": "flink-b",
+    "target": "lake-b",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 0.1
+    }
+   },
+   {
+    "id": "e-mon-b--ingest-b",
+    "source": "mon-b",
+    "target": "ingest-b",
+    "type": "control",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-waf--lb-c",
+    "source": "waf",
+    "target": "lb-c",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-lb-c--ingest-c",
+    "source": "lb-c",
+    "target": "ingest-c",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-ingest-c--kafka-c",
+    "source": "ingest-c",
+    "target": "kafka-c",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 1
+    }
+   },
+   {
+    "id": "e-kafka-c--flink-c",
+    "source": "kafka-c",
+    "target": "flink-c",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 1
+    }
+   },
+   {
+    "id": "e-flink-c--ch-c",
+    "source": "flink-c",
+    "target": "ch-c",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 0.2
+    }
+   },
+   {
+    "id": "e-flink-c--lake-c",
+    "source": "flink-c",
+    "target": "lake-c",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 0.1
+    }
+   },
+   {
+    "id": "e-mon-c--ingest-c",
+    "source": "mon-c",
+    "target": "ingest-c",
+    "type": "control",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-kafka-a--kafka-b",
+    "source": "kafka-a",
+    "target": "kafka-b",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 0.8,
+     "tls": true,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-kafka-a--kafka-c",
+    "source": "kafka-a",
+    "target": "kafka-c",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 0.8,
+     "tls": true,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-kafka-b--kafka-c",
+    "source": "kafka-b",
+    "target": "kafka-c",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 0.8,
+     "tls": true,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-ch-a--ch-b",
+    "source": "ch-a",
+    "target": "ch-b",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 0.8,
+     "tls": true,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-ch-a--ch-c",
+    "source": "ch-a",
+    "target": "ch-c",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 0.8,
+     "tls": true,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-ch-b--ch-c",
+    "source": "ch-b",
+    "target": "ch-c",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 0.8,
+     "tls": true,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-lake-a--lake-b",
+    "source": "lake-a",
+    "target": "lake-b",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 0.8,
+     "tls": true,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-lake-a--lake-c",
+    "source": "lake-a",
+    "target": "lake-c",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 0.8,
+     "tls": true,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-lake-b--lake-c",
+    "source": "lake-b",
+    "target": "lake-c",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 0.8,
+     "tls": true,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-airflow-a--ch-a",
+    "source": "airflow-a",
+    "target": "ch-a",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-airflow-b--ch-b",
+    "source": "airflow-b",
+    "target": "ch-b",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-bi-b--ch-b",
+    "source": "bi-b",
+    "target": "ch-b",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-bi-c--ch-c",
+    "source": "bi-c",
+    "target": "ch-c",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-grafana--ch-c",
+    "source": "grafana",
+    "target": "ch-c",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-gitops--ingest-a",
+    "source": "gitops",
+    "target": "ingest-a",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-gitops--ingest-b",
+    "source": "gitops",
+    "target": "ingest-b",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-gitops--ingest-c",
+    "source": "gitops",
+    "target": "ingest-c",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-vault-a--vault-b",
+    "source": "vault-a",
+    "target": "vault-b",
+    "type": "async",
+    "label": null,
+    "props": {
+     "lagSeconds": 1,
+     "latencyMs": 0.8,
+     "latencyMeasured": true,
+     "tls": true,
+     "paths": 3,
+     "bandwidthMbps": 25000
+    }
+   },
+   {
+    "id": "e-ch-b--backup",
+    "source": "ch-b",
+    "target": "backup",
+    "type": "backup",
+    "label": "снимки таблиц",
+    "props": {
+     "intervalSeconds": 3600,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-lake-c--backup",
+    "source": "lake-c",
+    "target": "backup",
+    "type": "backup",
+    "label": "копия озера",
+    "props": {
+     "intervalSeconds": 3600,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-vault-a--backup",
+    "source": "vault-a",
+    "target": "backup",
+    "type": "backup",
+    "label": null,
+    "props": {
+     "intervalSeconds": 3600,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-kafka-c--backup",
+    "source": "kafka-c",
+    "target": "backup",
+    "type": "backup",
+    "label": "Tiered storage / MirrorMaker",
+    "props": {
+     "intervalSeconds": 3600,
+     "tls": true
+    }
+   }
+  ]
+ }
+}

@@ -1947,8 +1947,9 @@ fn cache_resilience(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
 fn group_hygiene(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
     use std::collections::BTreeMap;
     let ix = &ctx.ix;
-    // nodes of the same stateless kind fed by the same sources but belonging to different units
-    let mut buckets: BTreeMap<(String, Vec<String>), Vec<usize>> = BTreeMap::new();
+    // nodes of the same stateless kind fed by the same sources and feeding the same targets, but belonging to different units: copies of one service that were not
+    // grouped. What feeds different targets is a different service (the catalog, the cart and the orders of a shop are three `kubernetes` nodes behind one gateway).
+    let mut buckets: BTreeMap<(String, Vec<String>, Vec<String>), Vec<usize>> = BTreeMap::new();
     for (ni, n) in ix.arch.nodes.iter().enumerate() {
         if ix.has_trait(ni, "entry") || ix.has_trait(ni, "stateful") || ix.units[ix.unit_of[ni]].behavior != Behavior::Stateless {
             continue;
@@ -1960,10 +1961,14 @@ fn group_hygiene(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
         }
         src.sort();
         src.dedup();
-        buckets.entry((n.kind.clone(), src)).or_default().push(ni);
+        let mut dst: Vec<String> =
+            ix.out_edges[ni].iter().filter(|&&ei| ix.sem(ei) == Some(Semantics::Dependency)).filter_map(|&ei| ix.edge_ends[ei].map(|(_, t)| ix.units[ix.unit_of[t]].key.clone())).collect();
+        dst.sort();
+        dst.dedup();
+        buckets.entry((n.kind.clone(), src, dst)).or_default().push(ni);
     }
     let mut out = vec![];
-    for ((_, _), nodes) in buckets {
+    for (_, nodes) in buckets {
         let units: BTreeSet<usize> = nodes.iter().map(|&n| ix.unit_of[n]).collect();
         if nodes.len() < 2 || units.len() < 2 {
             continue;

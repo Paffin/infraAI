@@ -1,0 +1,707 @@
+{
+ "id": "aws-three-az",
+ "name": {
+  "ru": "AWS: веб-сервис в трёх зонах",
+  "en": "AWS: a web service across three zones"
+ },
+ "description": {
+  "ru": "EKS, Aurora PostgreSQL и ElastiCache в трёх AZ региона, региональные CloudFront, WAF, ALB, S3, SQS и Secrets Manager, копии в другом регионе. Переживает потерю зоны без участия человека.",
+  "en": "EKS, Aurora PostgreSQL and ElastiCache in three AZs of a region, regional CloudFront, WAF, ALB, S3, SQS and Secrets Manager, copies in another region. Survives the loss of a zone with nobody touching it."
+ },
+ "badge": "AWS",
+ "tags": [
+  "cloud",
+  "aws",
+  "ha",
+  "kubernetes",
+  "managed"
+ ],
+ "enabled": true,
+ "order": 9,
+ "architecture": {
+  "schemaVersion": 1,
+  "meta": {
+   "name": "AWS: веб-сервис в трёх зонах доступности",
+   "description": "Управляемые сервисы AWS в одном регионе: приложение в EKS, Aurora PostgreSQL с репликами в трёх AZ, ElastiCache, региональные балансировщик, WAF, S3, SQS, Secrets Manager; копии — в AWS Backup другого региона. Цель по доступности — 99.7 %: ровно столько дают SLA управляемых сервисов, стоящих друг за другом."
+  },
+  "requirements": {
+   "rpsPeak": 4000,
+   "growthPercent": 40,
+   "rtoSeconds": 300,
+   "rpoSeconds": 0,
+   "budgetMonthly": 2200000,
+   "failureTolerance": "site",
+   "availabilitySlo": 99.7
+  },
+  "zones": [
+   {
+    "id": "region",
+    "name": "Регион AWS eu-central-1",
+    "type": "region",
+    "parentId": null,
+    "role": null,
+    "props": {}
+   },
+   {
+    "id": "az-a",
+    "name": "AZ A",
+    "type": "az",
+    "parentId": "region",
+    "role": null,
+    "props": {
+     "geo": "eu-central-1",
+     "costModel": "cloud"
+    }
+   },
+   {
+    "id": "az-b",
+    "name": "AZ B",
+    "type": "az",
+    "parentId": "region",
+    "role": null,
+    "props": {
+     "geo": "eu-central-1",
+     "costModel": "cloud"
+    }
+   },
+   {
+    "id": "az-c",
+    "name": "AZ C",
+    "type": "az",
+    "parentId": "region",
+    "role": null,
+    "props": {
+     "geo": "eu-central-1",
+     "costModel": "cloud"
+    }
+   },
+   {
+    "id": "region-dr",
+    "name": "Регион AWS eu-west-1 (копии)",
+    "type": "region",
+    "parentId": null,
+    "role": null,
+    "props": {}
+   },
+   {
+    "id": "dr-a",
+    "name": "Копии · AZ A",
+    "type": "az",
+    "parentId": "region-dr",
+    "role": null,
+    "props": {
+     "geo": "eu-west-1",
+     "costModel": "cloud"
+    }
+   }
+  ],
+  "nodes": [
+   {
+    "id": "users",
+    "kind": "users",
+    "name": "Пользователи",
+    "zoneId": null,
+    "group": null,
+    "role": null,
+    "props": {
+     "rpsLabel": "4k RPS пик"
+    }
+   },
+   {
+    "id": "dns",
+    "kind": "gslb",
+    "name": "Amazon Route 53",
+    "zoneId": null,
+    "group": "gslb",
+    "role": null,
+    "props": {
+     "vcpu": 1,
+     "ramGb": 2,
+     "variant": "route53",
+     "healthCheckSeconds": 10,
+     "failThreshold": 3,
+     "dnsTtlSeconds": 60
+    }
+   },
+   {
+    "id": "cdn",
+    "kind": "cdn",
+    "name": "Amazon CloudFront",
+    "zoneId": null,
+    "group": "cdn",
+    "role": null,
+    "props": {
+     "vcpu": 1,
+     "ramGb": 2,
+     "variant": "cloudfront"
+    }
+   },
+   {
+    "id": "waf",
+    "kind": "waf",
+    "name": "AWS WAF",
+    "zoneId": null,
+    "group": "waf",
+    "role": null,
+    "props": {
+     "vcpu": 1,
+     "ramGb": 2,
+     "variant": "cloud"
+    }
+   },
+   {
+    "id": "lb",
+    "kind": "l7",
+    "name": "Application Load Balancer",
+    "zoneId": null,
+    "group": "lb",
+    "role": null,
+    "props": {
+     "vcpu": 1,
+     "ramGb": 2,
+     "variant": "cloud-alb"
+    }
+   },
+   {
+    "id": "app-a",
+    "kind": "kubernetes",
+    "name": "EKS · приложение (A)",
+    "zoneId": "az-a",
+    "group": "app",
+    "role": null,
+    "props": {
+     "replicas": 18,
+     "vcpu": 1,
+     "ramGb": 2,
+     "hpaMin": 12,
+     "hpaMax": 48,
+     "clusterName": "main",
+     "variant": "eks"
+    }
+   },
+   {
+    "id": "app-b",
+    "kind": "kubernetes",
+    "name": "EKS · приложение (B)",
+    "zoneId": "az-b",
+    "group": "app",
+    "role": null,
+    "props": {
+     "replicas": 18,
+     "vcpu": 1,
+     "ramGb": 2,
+     "hpaMin": 12,
+     "hpaMax": 48,
+     "clusterName": "main",
+     "variant": "eks"
+    }
+   },
+   {
+    "id": "app-c",
+    "kind": "kubernetes",
+    "name": "EKS · приложение (C)",
+    "zoneId": "az-c",
+    "group": "app",
+    "role": null,
+    "props": {
+     "replicas": 18,
+     "vcpu": 1,
+     "ramGb": 2,
+     "hpaMin": 12,
+     "hpaMax": 48,
+     "clusterName": "main",
+     "variant": "eks"
+    }
+   },
+   {
+    "id": "db-a",
+    "kind": "postgresql",
+    "name": "Aurora PostgreSQL · primary",
+    "zoneId": "az-a",
+    "group": "db",
+    "role": "primary",
+    "props": {
+     "encryptionAtRest": true,
+     "version": "16",
+     "vcpu": 8,
+     "ramGb": 32,
+     "diskGb": 500,
+     "failover": "auto",
+     "failoverSeconds": 30,
+     "connectionPooler": true,
+     "variant": "aurora"
+    }
+   },
+   {
+    "id": "db-b",
+    "kind": "postgresql",
+    "name": "Aurora PostgreSQL · реплика (синхронная)",
+    "zoneId": "az-b",
+    "group": "db",
+    "role": "replica",
+    "props": {
+     "encryptionAtRest": true,
+     "version": "16",
+     "vcpu": 8,
+     "ramGb": 32,
+     "diskGb": 500,
+     "failover": "auto",
+     "failoverSeconds": 30,
+     "connectionPooler": true,
+     "variant": "aurora"
+    }
+   },
+   {
+    "id": "db-c",
+    "kind": "postgresql",
+    "name": "Aurora PostgreSQL · реплика",
+    "zoneId": "az-c",
+    "group": "db",
+    "role": "replica",
+    "props": {
+     "encryptionAtRest": true,
+     "version": "16",
+     "vcpu": 8,
+     "ramGb": 32,
+     "diskGb": 500,
+     "failover": "auto",
+     "failoverSeconds": 30,
+     "connectionPooler": true,
+     "variant": "aurora"
+    }
+   },
+   {
+    "id": "cache-a",
+    "kind": "redis",
+    "name": "ElastiCache · primary",
+    "zoneId": "az-a",
+    "group": "cache",
+    "role": "primary",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 16,
+     "variant": "elasticache"
+    }
+   },
+   {
+    "id": "cache-b",
+    "kind": "redis",
+    "name": "ElastiCache · реплика",
+    "zoneId": "az-b",
+    "group": "cache",
+    "role": "replica",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 16,
+     "variant": "elasticache"
+    }
+   },
+   {
+    "id": "queue",
+    "kind": "amazon_sqs",
+    "name": "Amazon SQS",
+    "zoneId": null,
+    "group": null,
+    "role": null,
+    "props": {
+     "encryptionAtRest": true,
+     "vcpu": 1,
+     "ramGb": 2
+    }
+   },
+   {
+    "id": "files",
+    "kind": "amazon_s3",
+    "name": "Amazon S3 · файлы",
+    "zoneId": null,
+    "group": null,
+    "role": null,
+    "props": {
+     "encryptionAtRest": true,
+     "vcpu": 2,
+     "ramGb": 4,
+     "diskGb": 4000
+    }
+   },
+   {
+    "id": "secrets",
+    "kind": "aws_secrets_manager",
+    "name": "AWS Secrets Manager",
+    "zoneId": null,
+    "group": null,
+    "role": null,
+    "props": {
+     "vcpu": 0.5,
+     "ramGb": 1
+    }
+   },
+   {
+    "id": "mon",
+    "kind": "monitoring",
+    "name": "Amazon CloudWatch",
+    "zoneId": null,
+    "group": "monitoring",
+    "role": null,
+    "props": {
+     "vcpu": 2,
+     "ramGb": 8,
+     "variant": "cloud"
+    }
+   },
+   {
+    "id": "gitops",
+    "kind": "gitops",
+    "name": "GitOps · Argo CD",
+    "zoneId": "az-c",
+    "group": "gitops",
+    "role": null,
+    "props": {
+     "replicas": 2
+    }
+   },
+   {
+    "id": "backup",
+    "kind": "aws_backup",
+    "name": "AWS Backup · хранилище копий в eu-west-1",
+    "zoneId": "dr-a",
+    "group": null,
+    "role": null,
+    "props": {
+     "immutable": true,
+     "retentionDays": 30,
+     "backupIntervalSeconds": 300,
+     "restoreSeconds": 1800,
+     "restoreTestedDays": 30,
+     "encryptionAtRest": true,
+     "diskGb": 10000,
+     "vcpu": 1,
+     "ramGb": 2
+    }
+   }
+  ],
+  "edges": [
+   {
+    "id": "e-users--dns",
+    "source": "users",
+    "target": "dns",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-dns--cdn",
+    "source": "dns",
+    "target": "cdn",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-cdn--waf",
+    "source": "cdn",
+    "target": "waf",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-waf--lb",
+    "source": "waf",
+    "target": "lb",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-lb--app-a",
+    "source": "lb",
+    "target": "app-a",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-lb--app-b",
+    "source": "lb",
+    "target": "app-b",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-lb--app-c",
+    "source": "lb",
+    "target": "app-c",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-app-a--db-a",
+    "source": "app-a",
+    "target": "db-a",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "fanoutColdCache": 0.8,
+     "tls": true,
+     "fanout": 0.3
+    }
+   },
+   {
+    "id": "e-app-a--cache-a",
+    "source": "app-a",
+    "target": "cache-a",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 1
+    }
+   },
+   {
+    "id": "e-app-b--db-b",
+    "source": "app-b",
+    "target": "db-b",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "fanoutColdCache": 0.8,
+     "tls": true,
+     "fanout": 0.3
+    }
+   },
+   {
+    "id": "e-app-b--cache-b",
+    "source": "app-b",
+    "target": "cache-b",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 1
+    }
+   },
+   {
+    "id": "e-app-c--db-c",
+    "source": "app-c",
+    "target": "db-c",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "fanoutColdCache": 0.8,
+     "tls": true,
+     "fanout": 0.3
+    }
+   },
+   {
+    "id": "e-app-c--cache-b",
+    "source": "app-c",
+    "target": "cache-b",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 1
+    }
+   },
+   {
+    "id": "e-db-a--db-b",
+    "source": "db-a",
+    "target": "db-b",
+    "type": "sync",
+    "label": null,
+    "props": {
+     "latencyMs": 0.8,
+     "latencyMeasured": true,
+     "tls": true,
+     "bandwidthMbps": 25000,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-db-a--db-c",
+    "source": "db-a",
+    "target": "db-c",
+    "type": "async",
+    "label": null,
+    "props": {
+     "lagSeconds": 1,
+     "latencyMs": 0.8,
+     "latencyMeasured": true,
+     "tls": true,
+     "paths": 3,
+     "bandwidthMbps": 25000
+    }
+   },
+   {
+    "id": "e-cache-a--cache-b",
+    "source": "cache-a",
+    "target": "cache-b",
+    "type": "async",
+    "label": null,
+    "props": {
+     "lagSeconds": 1,
+     "latencyMs": 0.8,
+     "latencyMeasured": true,
+     "tls": true,
+     "paths": 3,
+     "bandwidthMbps": 25000
+    }
+   },
+   {
+    "id": "e-app-a--queue",
+    "source": "app-a",
+    "target": "queue",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 0.2
+    }
+   },
+   {
+    "id": "e-app-a--files",
+    "source": "app-a",
+    "target": "files",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 0.1
+    }
+   },
+   {
+    "id": "e-mon--app-a",
+    "source": "mon",
+    "target": "app-a",
+    "type": "control",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-app-b--queue",
+    "source": "app-b",
+    "target": "queue",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 0.2
+    }
+   },
+   {
+    "id": "e-app-b--files",
+    "source": "app-b",
+    "target": "files",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 0.1
+    }
+   },
+   {
+    "id": "e-mon--app-b",
+    "source": "mon",
+    "target": "app-b",
+    "type": "control",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-app-c--queue",
+    "source": "app-c",
+    "target": "queue",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 0.2
+    }
+   },
+   {
+    "id": "e-app-c--files",
+    "source": "app-c",
+    "target": "files",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 0.1
+    }
+   },
+   {
+    "id": "e-mon--app-c",
+    "source": "mon",
+    "target": "app-c",
+    "type": "control",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-gitops--app-a",
+    "source": "gitops",
+    "target": "app-a",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-gitops--app-b",
+    "source": "gitops",
+    "target": "app-b",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-gitops--app-c",
+    "source": "gitops",
+    "target": "app-c",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-db-b--backup",
+    "source": "db-b",
+    "target": "backup",
+    "type": "backup",
+    "label": "PITR + снимки",
+    "props": {
+     "intervalSeconds": 300,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-files--backup",
+    "source": "files",
+    "target": "backup",
+    "type": "backup",
+    "label": null,
+    "props": {
+     "intervalSeconds": 3600,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-secrets--backup",
+    "source": "secrets",
+    "target": "backup",
+    "type": "backup",
+    "label": "реплика в eu-west-1 + выгрузка",
+    "props": {
+     "intervalSeconds": 3600,
+     "tls": true
+    }
+   }
+  ]
+ }
+}

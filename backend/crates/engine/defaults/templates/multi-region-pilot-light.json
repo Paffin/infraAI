@@ -9,6 +9,12 @@
   "en": "Primary region plus a minimal DR footprint in another region with async replication that scales out on disaster."
  },
  "badge": "DR",
+ "tags": [
+  "dr",
+  "multi-region",
+  "cloud",
+  "pilot-light"
+ ],
  "enabled": true,
  "order": 3,
  "architecture": {

@@ -1,0 +1,28 @@
+{
+  "_": "The licenses this project accepts in what it ships (deploy/licenses.py checks every dependency against them). A dependency whose license expression cannot be satisfied by this list fails the check; add a license here only after reading it.",
+  "allowed": [
+    "0BSD",
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "BSL-1.0",
+    "BlueOak-1.0.0",
+    "CC0-1.0",
+    "CDLA-Permissive-2.0",
+    "ISC",
+    "MIT",
+    "MIT-0",
+    "MPL-2.0",
+    "OFL-1.1",
+    "Unicode-3.0",
+    "Unlicense",
+    "Zlib"
+  ],
+  "notes": {
+    "MPL-2.0": "file-level copyleft: fine for a dependency that is used as it is; changes to its own files would have to be published",
+    "OFL-1.1": "fonts (Inter, JetBrains Mono): the license text travels with the files in the built application",
+    "CDLA-Permissive-2.0": "data (root certificates)"
+  },
+  "workspace": ["engine", "server", "infra-architect-web"],
+  "cargoTarget": "x86_64-unknown-linux-gnu"
+}

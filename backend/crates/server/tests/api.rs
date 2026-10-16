@@ -98,6 +98,10 @@ async fn bootstrap_contains_catalog_rules_templates_and_etag() {
     assert!(engine::lifecycle::parse_date(v["today"].as_str().unwrap()).is_some(), "the editor needs today's date for support dates");
     assert_eq!(v["engine"]["lifecycle"]["matureDays"], 90);
     assert_eq!(v["ai"]["enabled"], false, "no key configured yet");
+    // the "About" window reads the license and the repository from the crate manifest, the same place `cargo` and the lock-file check read them from
+    assert_eq!(v["about"]["license"], "Apache-2.0");
+    assert!(v["about"]["repository"].as_str().unwrap().starts_with("https://"), "the source is a link");
+    assert_eq!(v["version"], env!("CARGO_PKG_VERSION"));
     // conditional GET
     let (_, h, _) = app.request(Method::GET, "/api/bootstrap", None, Some(c.clone()), &[]).await;
     let etag = h.get("etag").unwrap().to_str().unwrap().to_string();

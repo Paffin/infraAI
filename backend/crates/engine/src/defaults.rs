@@ -17,16 +17,7 @@ pub const DEMO_PROJECT_JSON: &str = include_str!("../defaults/demo_project.json"
 pub const PLACEMENT_JSON: &str = include_str!("../defaults/placement.json");
 pub const VERSIONS_JSON: &str = include_str!("../defaults/versions.json");
 
-pub const TEMPLATES_JSON: &[(&str, &str)] = &[
-    ("two-dc-witness", include_str!("../defaults/templates/two-dc-witness.json")),
-    ("three-az-region", include_str!("../defaults/templates/three-az-region.json")),
-    ("multi-region-pilot-light", include_str!("../defaults/templates/multi-region-pilot-light.json")),
-    ("event-driven-kafka", include_str!("../defaults/templates/event-driven-kafka.json")),
-    ("single-dc-racks", include_str!("../defaults/templates/single-dc-racks.json")),
-    ("three-sites-quorum", include_str!("../defaults/templates/three-sites-quorum.json")),
-    ("five-sites-two-failures", include_str!("../defaults/templates/five-sites-two-failures.json")),
-    ("ten-sites-regions", include_str!("../defaults/templates/ten-sites-regions.json")),
-];
+include!(concat!(env!("OUT_DIR"), "/templates.rs"));
 
 /// Infrastructure-as-code generators, one per catalog kind (see `iac`).
 pub const IAC_JSON: &[(&str, &str)] = &[

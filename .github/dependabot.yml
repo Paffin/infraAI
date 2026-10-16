@@ -1,0 +1,22 @@
+# Updates of the dependencies, once a week, patch and minor versions together. A change of Cargo.lock or package-lock.json
+# also needs `python3 deploy/licenses.py` (it rewrites THIRD_PARTY_LICENSES.md and refuses a license the project does not accept).
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directory: /backend
+    schedule: { interval: weekly, day: tuesday }
+    open-pull-requests-limit: 5
+    groups:
+      rust-minor-and-patch: { update-types: [minor, patch] }
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule: { interval: weekly, day: tuesday }
+    open-pull-requests-limit: 5
+    groups:
+      web-minor-and-patch: { update-types: [minor, patch] }
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly, day: tuesday }
+  - package-ecosystem: docker
+    directory: /
+    schedule: { interval: weekly, day: tuesday }

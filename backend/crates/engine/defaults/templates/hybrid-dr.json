@@ -1,0 +1,729 @@
+{
+ "id": "hybrid-dr",
+ "name": {
+  "ru": "Гибрид: свой ЦОД и резерв в облаке",
+  "en": "Hybrid: your own data center and a standby in the cloud"
+ },
+ "description": {
+  "ru": "Основной ЦОД и «пилотная лампа» в облаке: данные реплицируются постоянно, приложение в облаке растёт до полной мощности при потере ЦОД. Восстановление — часы, цена — доля второго ЦОД.",
+  "en": "A main data center and a pilot light in the cloud: the data is replicated all the time, the application there grows to full size when the data center is lost. Recovery takes hours, the price is a fraction of a second data center."
+ },
+ "badge": "DR",
+ "tags": [
+  "dr",
+  "hybrid",
+  "on-prem",
+  "cloud",
+  "pilot-light",
+  "cost"
+ ],
+ "enabled": true,
+ "order": 19,
+ "architecture": {
+  "schemaVersion": 1,
+  "meta": {
+   "name": "Гибрид: свой ЦОД и резерв в облаке",
+   "description": "Основной ЦОД держит всю нагрузку; облако — «пилотная лампа»: данные реплицируются в него постоянно (база асинхронно, объекты, секреты), приложение запущено в двух экземплярах и растёт до полного размера за минуты. База в облаке повышается вручную по решению дежурного, поэтому восстановление считается часами. Копии лежат в облаке в неизменяемом хранилище."
+  },
+  "requirements": {
+   "rpsPeak": 2500,
+   "growthPercent": 30,
+   "rtoSeconds": 14400,
+   "rpoSeconds": 60,
+   "budgetMonthly": 1800000,
+   "failureTolerance": "site",
+   "availabilitySlo": 99.9
+  },
+  "zones": [
+   {
+    "id": "dc",
+    "name": "Основной ЦОД",
+    "type": "dc",
+    "parentId": null,
+    "role": "active",
+    "props": {
+     "tier": "III",
+     "geo": "moscow",
+     "costModel": "onprem"
+    }
+   },
+   {
+    "id": "cloud",
+    "name": "Облако · резервная площадка",
+    "type": "cloud",
+    "parentId": null,
+    "role": "standby",
+    "props": {
+     "geo": "cloud-north",
+     "costModel": "cloud"
+    }
+   },
+   {
+    "id": "arbiter",
+    "name": "Облако · арбитр",
+    "type": "cloud",
+    "parentId": null,
+    "role": "witness",
+    "props": {
+     "geo": "cloud-south",
+     "costModel": "cloud"
+    }
+   }
+  ],
+  "nodes": [
+   {
+    "id": "users",
+    "kind": "users",
+    "name": "Пользователи",
+    "zoneId": null,
+    "group": null,
+    "role": null,
+    "props": {
+     "rpsLabel": "2.5k RPS пик"
+    }
+   },
+   {
+    "id": "gslb",
+    "kind": "gslb",
+    "name": "GSLB",
+    "zoneId": null,
+    "group": "gslb",
+    "role": null,
+    "props": {
+     "replicas": 3,
+     "healthCheckSeconds": 10,
+     "failThreshold": 3,
+     "dnsTtlSeconds": 60
+    }
+   },
+   {
+    "id": "waf",
+    "kind": "waf",
+    "name": "WAF",
+    "zoneId": null,
+    "group": "waf",
+    "role": null,
+    "props": {
+     "replicas": 3
+    }
+   },
+   {
+    "id": "lb-dc",
+    "kind": "l7",
+    "name": "Ingress",
+    "zoneId": "dc",
+    "group": "ingress",
+    "role": null,
+    "props": {
+     "replicas": 2
+    }
+   },
+   {
+    "id": "lb-cloud",
+    "kind": "l7",
+    "name": "Ingress (резерв)",
+    "zoneId": "cloud",
+    "group": "ingress",
+    "role": null,
+    "props": {
+     "replicas": 2
+    }
+   },
+   {
+    "id": "app-dc",
+    "kind": "kubernetes",
+    "name": "Kubernetes · приложение",
+    "zoneId": "dc",
+    "group": "app",
+    "role": null,
+    "props": {
+     "replicas": 40,
+     "vcpu": 1,
+     "ramGb": 2,
+     "hpaMin": 30,
+     "hpaMax": 80,
+     "clusterName": "main"
+    }
+   },
+   {
+    "id": "app-cloud",
+    "kind": "kubernetes",
+    "name": "Kubernetes · приложение (пилотная лампа)",
+    "zoneId": "cloud",
+    "group": "app",
+    "role": null,
+    "props": {
+     "replicas": 2,
+     "failoverReplicas": 60,
+     "scaleUpSeconds": 600,
+     "vcpu": 1,
+     "ramGb": 2,
+     "hpaMin": 2,
+     "hpaMax": 80,
+     "clusterName": "dr"
+    }
+   },
+   {
+    "id": "pg-1",
+    "kind": "postgresql",
+    "name": "PostgreSQL primary",
+    "zoneId": "dc",
+    "group": "pg",
+    "role": "primary",
+    "props": {
+     "encryptionAtRest": true,
+     "failover": "auto",
+     "failoverSeconds": 30,
+     "dcs": "etcd",
+     "version": "16",
+     "vcpu": 16,
+     "ramGb": 64,
+     "diskGb": 1000,
+     "connectionPooler": true
+    }
+   },
+   {
+    "id": "pg-2",
+    "kind": "postgresql",
+    "name": "PostgreSQL sync replica",
+    "zoneId": "dc",
+    "group": "pg",
+    "role": "replica",
+    "props": {
+     "encryptionAtRest": true,
+     "failover": "auto",
+     "failoverSeconds": 30,
+     "dcs": "etcd",
+     "version": "16",
+     "vcpu": 16,
+     "ramGb": 64,
+     "diskGb": 1000,
+     "connectionPooler": true
+    }
+   },
+   {
+    "id": "pg-dr",
+    "kind": "postgresql",
+    "name": "PostgreSQL replica в облаке (повышается вручную)",
+    "zoneId": "cloud",
+    "group": "pg",
+    "role": "replica",
+    "props": {
+     "encryptionAtRest": true,
+     "failover": "manual",
+     "dcs": "etcd",
+     "version": "16",
+     "vcpu": 16,
+     "ramGb": 64,
+     "diskGb": 1000,
+     "connectionPooler": true
+    }
+   },
+   {
+    "id": "etcd-1",
+    "kind": "etcd",
+    "name": "etcd",
+    "zoneId": "dc",
+    "group": "etcd",
+    "role": "voter",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 4,
+     "diskGb": 50
+    }
+   },
+   {
+    "id": "etcd-2",
+    "kind": "etcd",
+    "name": "etcd",
+    "zoneId": "cloud",
+    "group": "etcd",
+    "role": "voter",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 4,
+     "diskGb": 50
+    }
+   },
+   {
+    "id": "etcd-w",
+    "kind": "etcd",
+    "name": "etcd (арбитр)",
+    "zoneId": "arbiter",
+    "group": "etcd",
+    "role": "witness",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 4,
+     "diskGb": 50
+    }
+   },
+   {
+    "id": "redis-1",
+    "kind": "redis",
+    "name": "Redis (master)",
+    "zoneId": "dc",
+    "group": "redis",
+    "role": "primary",
+    "props": {
+     "mode": "sentinel",
+     "vcpu": 4,
+     "ramGb": 32
+    }
+   },
+   {
+    "id": "redis-2",
+    "kind": "redis",
+    "name": "Redis (реплика)",
+    "zoneId": "dc",
+    "group": "redis",
+    "role": "replica",
+    "props": {
+     "mode": "sentinel",
+     "vcpu": 4,
+     "ramGb": 32
+    }
+   },
+   {
+    "id": "redis-3",
+    "kind": "redis",
+    "name": "Redis (в облаке)",
+    "zoneId": "cloud",
+    "group": "redis",
+    "role": "replica",
+    "props": {
+     "mode": "sentinel",
+     "vcpu": 2,
+     "ramGb": 16
+    }
+   },
+   {
+    "id": "files-dc",
+    "kind": "object_storage",
+    "name": "Файлы (MinIO)",
+    "zoneId": "dc",
+    "group": "files",
+    "role": null,
+    "props": {
+     "variant": "minio",
+     "replicas": 4,
+     "vcpu": 4,
+     "ramGb": 16,
+     "diskGb": 12000,
+     "encryptionAtRest": true
+    }
+   },
+   {
+    "id": "files-cloud",
+    "kind": "object_storage",
+    "name": "Файлы (облачное S3)",
+    "zoneId": "cloud",
+    "group": "files-dr",
+    "role": null,
+    "props": {
+     "variant": "cloud",
+     "replicas": 3,
+     "diskGb": 12000,
+     "encryptionAtRest": true,
+     "vcpu": 2,
+     "ramGb": 4
+    }
+   },
+   {
+    "id": "vault-1",
+    "kind": "vault",
+    "name": "Vault",
+    "zoneId": "dc",
+    "group": "vault",
+    "role": "primary",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 4,
+     "diskGb": 50
+    }
+   },
+   {
+    "id": "vault-2",
+    "kind": "vault",
+    "name": "Vault (DR)",
+    "zoneId": "cloud",
+    "group": "vault",
+    "role": "replica",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 4,
+     "diskGb": 50
+    }
+   },
+   {
+    "id": "mon-dc",
+    "kind": "monitoring",
+    "name": "Мониторинг",
+    "zoneId": "dc",
+    "group": "monitoring",
+    "role": null,
+    "props": {
+     "replicas": 2,
+     "vcpu": 2,
+     "ramGb": 8,
+     "diskGb": 200
+    }
+   },
+   {
+    "id": "mon-cloud",
+    "kind": "monitoring",
+    "name": "Мониторинг (резерв)",
+    "zoneId": "cloud",
+    "group": "monitoring",
+    "role": null,
+    "props": {
+     "replicas": 1,
+     "vcpu": 2,
+     "ramGb": 8,
+     "diskGb": 100
+    }
+   },
+   {
+    "id": "gitops",
+    "kind": "gitops",
+    "name": "GitOps · Argo CD",
+    "zoneId": "cloud",
+    "group": "gitops",
+    "role": null,
+    "props": {
+     "replicas": 2,
+     "vcpu": 2,
+     "ramGb": 4
+    }
+   },
+   {
+    "id": "backup",
+    "kind": "backup_storage",
+    "name": "Бэкапы в облаке (object lock)",
+    "zoneId": "cloud",
+    "group": null,
+    "role": null,
+    "props": {
+     "immutable": true,
+     "retentionDays": 35,
+     "backupIntervalSeconds": 300,
+     "restoreSeconds": 10800,
+     "restoreTestedDays": 30,
+     "encryptionAtRest": true,
+     "diskGb": 20000
+    }
+   }
+  ],
+  "edges": [
+   {
+    "id": "e-users--gslb",
+    "source": "users",
+    "target": "gslb",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-gslb--waf",
+    "source": "gslb",
+    "target": "waf",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-waf--lb-dc",
+    "source": "waf",
+    "target": "lb-dc",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-waf--lb-cloud",
+    "source": "waf",
+    "target": "lb-cloud",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-lb-dc--app-dc",
+    "source": "lb-dc",
+    "target": "app-dc",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-lb-cloud--app-cloud",
+    "source": "lb-cloud",
+    "target": "app-cloud",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-etcd-1--etcd-2",
+    "source": "etcd-1",
+    "target": "etcd-2",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 14,
+     "tls": true,
+     "paths": 2
+    }
+   },
+   {
+    "id": "e-etcd-1--etcd-w",
+    "source": "etcd-1",
+    "target": "etcd-w",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 14,
+     "tls": true,
+     "paths": 2
+    }
+   },
+   {
+    "id": "e-etcd-2--etcd-w",
+    "source": "etcd-2",
+    "target": "etcd-w",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 14,
+     "tls": true,
+     "paths": 2
+    }
+   },
+   {
+    "id": "e-app-dc--pg-1",
+    "source": "app-dc",
+    "target": "pg-1",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "fanoutColdCache": 0.8,
+     "tls": true,
+     "fanout": 0.3
+    }
+   },
+   {
+    "id": "e-app-cloud--pg-dr",
+    "source": "app-cloud",
+    "target": "pg-dr",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "fanoutColdCache": 0.8,
+     "tls": true,
+     "fanout": 0.3
+    }
+   },
+   {
+    "id": "e-app-dc--redis-1",
+    "source": "app-dc",
+    "target": "redis-1",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "fanout": 1
+    }
+   },
+   {
+    "id": "e-app-cloud--redis-3",
+    "source": "app-cloud",
+    "target": "redis-3",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 1
+    }
+   },
+   {
+    "id": "e-pg-1--pg-2",
+    "source": "pg-1",
+    "target": "pg-2",
+    "type": "sync",
+    "label": null,
+    "props": {
+     "latencyMs": 0.8,
+     "latencyMeasured": true,
+     "tls": true,
+     "bandwidthMbps": 25000,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-pg-1--pg-dr",
+    "source": "pg-1",
+    "target": "pg-dr",
+    "type": "async",
+    "label": "в облако · async",
+    "props": {
+     "lagSeconds": 5,
+     "latencyMs": 14,
+     "latencyMeasured": true,
+     "tls": true,
+     "paths": 2,
+     "bandwidthMbps": 2000
+    }
+   },
+   {
+    "id": "e-redis-1--redis-2",
+    "source": "redis-1",
+    "target": "redis-2",
+    "type": "async",
+    "label": null,
+    "props": {
+     "lagSeconds": 1,
+     "latencyMs": 0.8,
+     "latencyMeasured": true,
+     "tls": true,
+     "paths": 3,
+     "bandwidthMbps": 25000
+    }
+   },
+   {
+    "id": "e-redis-1--redis-3",
+    "source": "redis-1",
+    "target": "redis-3",
+    "type": "async",
+    "label": null,
+    "props": {
+     "lagSeconds": 2,
+     "latencyMs": 14,
+     "latencyMeasured": true,
+     "tls": true,
+     "paths": 2,
+     "bandwidthMbps": 2000
+    }
+   },
+   {
+    "id": "e-app-dc--files-dc",
+    "source": "app-dc",
+    "target": "files-dc",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 0.1
+    }
+   },
+   {
+    "id": "e-app-cloud--files-cloud",
+    "source": "app-cloud",
+    "target": "files-cloud",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 0.1
+    }
+   },
+   {
+    "id": "e-files-dc--files-cloud",
+    "source": "files-dc",
+    "target": "files-cloud",
+    "type": "async",
+    "label": "репликация объектов",
+    "props": {
+     "lagSeconds": 30,
+     "latencyMs": 14,
+     "latencyMeasured": true,
+     "tls": true,
+     "paths": 2,
+     "bandwidthMbps": 2000
+    }
+   },
+   {
+    "id": "e-vault-1--vault-2",
+    "source": "vault-1",
+    "target": "vault-2",
+    "type": "async",
+    "label": "DR replication",
+    "props": {
+     "lagSeconds": 5,
+     "latencyMs": 14,
+     "latencyMeasured": true,
+     "tls": true,
+     "paths": 2,
+     "bandwidthMbps": 1000
+    }
+   },
+   {
+    "id": "e-mon-dc--app-dc",
+    "source": "mon-dc",
+    "target": "app-dc",
+    "type": "control",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-mon-cloud--app-cloud",
+    "source": "mon-cloud",
+    "target": "app-cloud",
+    "type": "control",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-gitops--app-dc",
+    "source": "gitops",
+    "target": "app-dc",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-gitops--app-cloud",
+    "source": "gitops",
+    "target": "app-cloud",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-pg-2--backup",
+    "source": "pg-2",
+    "target": "backup",
+    "type": "backup",
+    "label": "WAL + full",
+    "props": {
+     "intervalSeconds": 300,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-files-dc--backup",
+    "source": "files-dc",
+    "target": "backup",
+    "type": "backup",
+    "label": null,
+    "props": {
+     "intervalSeconds": 3600,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-vault-1--backup",
+    "source": "vault-1",
+    "target": "backup",
+    "type": "backup",
+    "label": null,
+    "props": {
+     "intervalSeconds": 3600,
+     "tls": true
+    }
+   }
+  ]
+ }
+}

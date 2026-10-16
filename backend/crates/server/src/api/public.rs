@@ -69,7 +69,7 @@ pub async fn bootstrap(State(state): State<AppState>, user: AuthUser, headers: H
         .templates
         .iter()
         .filter(|t| t.enabled)
-        .map(|t| json!({"id": t.id, "name": t.name, "description": t.description, "badge": t.badge, "order": t.order, "nodeCount": t.architecture.nodes.len(), "requirements": t.architecture.requirements}))
+        .map(|t| json!({"id": t.id, "name": t.name, "description": t.description, "badge": t.badge, "tags": t.tags, "order": t.order, "nodeCount": t.architecture.nodes.len(), "requirements": t.architecture.requirements}))
         .collect();
     let a = &cfg.engine.assumptions;
     // timings and thresholds of the web UI: the `editor.*` settings, by their short names
@@ -103,6 +103,7 @@ pub async fn bootstrap(State(state): State<AppState>, user: AuthUser, headers: H
         "impactShown",
         "pickerShown",
         "librarySearchShown",
+        "galleryTagsShown",
         "adminListShown",
     ]
     .iter()
@@ -113,6 +114,8 @@ pub async fn bootstrap(State(state): State<AppState>, user: AuthUser, headers: H
         "rev": cfg.rev,
         "version": env!("CARGO_PKG_VERSION"),
         "engineVersion": engine::evaluate::ENGINE_VERSION,
+        // what the "About" window says: the license and where the source is (from the crate manifest, one place for them)
+        "about": {"license": env!("CARGO_PKG_LICENSE"), "repository": env!("CARGO_PKG_REPOSITORY"), "homepage": env!("CARGO_PKG_HOMEPAGE")},
         "app": {
             "name": cfg.settings.str("app.name"),
             "defaultLanguage": cfg.settings.str("app.defaultLanguage"),

@@ -3,6 +3,11 @@ name = "engine"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "The deterministic engine of Infra Architect: architecture model, product catalog, rules, failure simulator, capacity, availability and cost, IaC export"
 
 [dependencies]
 serde.workspace = true

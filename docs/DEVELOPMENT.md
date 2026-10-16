@@ -86,6 +86,12 @@ npm run typecheck && npm test && npm run build
 * Таблицы правил, настроек, каталога продуктов и таблиц выпусков генерируются: `python3 deploy/gen-docs.py` (в CI — `--check`).
 * Каталог по умолчанию (`catalog.json`, названия таблиц в `versions.json`, недостающие шаблоны IaC) собирается из исходников `deploy/catalog/` — `python3 deploy/catalog/build.py` (в CI — `--check`); пока пишете модуль продуктов, его проверяет `python3 deploy/catalog/lint.py <модуль>` (те же проверки без записи, [README каталога](../deploy/catalog/README.md)).
   Правите продукт — правьте исходник, не `catalog.json`: [README каталога](../deploy/catalog/README.md).
+* Лицензии: проект — Apache-2.0 (`LICENSE`, `NOTICE`); список всего, что входит в сборку и на каких условиях, — `THIRD_PARTY_LICENSES.md`, его пишет `python3 deploy/licenses.py` из `Cargo.lock`
+  и `package-lock.json`. В CI — `--check`: падает, если файл устарел или у зависимости лицензия вне списка принятых (`deploy/licenses.json`; копилефт туда не попадает). Добавили зависимость — перегенерируйте файл.
+* Эталонные архитектуры собираются из `deploy/templates/` — `python3 deploy/templates/build.py` (в CI — `--check`); таблица в `docs/TEMPLATES.md` и цифры в `README.md` и `README.en.md` генерируются тем же `gen-docs.py`.
+* Логотип и баннеры (`docs/images/logo.svg`, `banner.svg`, `banner.ru.svg`) рисует `python3 deploy/brand/build.py` (нужны `pip install fonttools brotli` и шрифты интерфейса из `frontend/node_modules`): текст в них —
+  контуры, потому что SVG в README не может загрузить шрифт. Скриншоты README и карточку для ссылок на репозиторий (`social.png`: её загружают вручную в Settings → Social preview) снимает `deploy/brand/shots.mjs` с запущенного стека, на котором есть демо-проект
+  `shop-prod` и включён ИИ (`cd frontend && E2E_EMAIL=… E2E_PASSWORD=… node ../deploy/brand/shots.mjs [имя …]`; кадр `ai` — настоящий ответ модели, поэтому снимается только по имени).
 * Меняете API — правьте `docs/API.md` в том же коммите; меняете поведение симулятора/правил — `SIMULATION.md` / `RULES.md`.
 * Новое архитектурное решение — короткий ADR в `docs/adr`.
 
@@ -109,8 +115,9 @@ npm run typecheck && npm test && npm run build
 `params`, `severity`, тексты на каждом языке и `fixLabels`. Для нового *типа* проверки: вариант в `CheckType`, реализация в `checks.rs`,
 тест на эталонной архитектуре в `crates/engine/tests/engine.rs`.
 
-**Эталонную архитектуру** — `defaults/templates/*.json` или админ-панель; шаблон не должен нарушать собственные правила — это проверяет тест
-`all_reference_templates_have_no_critical_findings`.
+**Эталонную архитектуру** — файл `backend/crates/engine/defaults/templates/<id>.json` (в сборку он попадает сам, перечислять его нигде не нужно) или админ-панель; бо́льшая часть поставляемых пишется кодом в
+`deploy/templates/` и собирается `python3 deploy/templates/build.py` ([TEMPLATES.md](TEMPLATES.md)). Шаблон не должен нарушать собственные правила и обещать больше, чем держит, — это проверяют тесты, `infra-architect check`
+и `make iac-check`; у шаблона должны быть теги, значок, порядок, название и описание на двух языках (галерея в «Новом проекте» ищет по ним).
 
 **Настройку** — запись в `crates/server/defaults/settings.json` (ключ, группа, тип, значение по умолчанию, подписи); чтение —
 `cfg.settings.str|num|boolean|list(...)`. Форма в админ-панели и таблица в документации появятся сами.

@@ -1,0 +1,1496 @@
+{
+ "id": "microservices-shop",
+ "name": {
+  "ru": "Микросервисы: интернет-магазин на Kubernetes",
+  "en": "Microservices: an online shop on Kubernetes"
+ },
+ "description": {
+  "ru": "API-шлюз, каталог с OpenSearch, корзина на Redis, заказы на PostgreSQL и RabbitMQ, service mesh и наблюдаемость на трёх AZ. Каждый сервис переживает потерю зоны.",
+  "en": "An API gateway, a catalog on OpenSearch, a cart on Redis, orders on PostgreSQL and RabbitMQ, a service mesh and observability across three AZs. Every service survives the loss of a zone."
+ },
+ "badge": "Shop",
+ "tags": [
+  "microservices",
+  "kubernetes",
+  "ecommerce",
+  "mesh",
+  "ha"
+ ],
+ "enabled": true,
+ "order": 18,
+ "architecture": {
+  "schemaVersion": 1,
+  "meta": {
+   "name": "Микросервисы: интернет-магазин на Kubernetes",
+   "description": "Запрос проходит CDN, WAF, Ingress и API-шлюз Kong и расходится по сервисам: каталог (OpenSearch и кэш), корзина (Redis) и заказы (PostgreSQL и RabbitMQ). Service mesh шифрует трафик между сервисами, мониторинг стоит в каждой зоне, изменения идут через Argo CD. Хранилища с кворумом и репликами есть в каждой из трёх зон."
+  },
+  "requirements": {
+   "rpsPeak": 4000,
+   "growthPercent": 50,
+   "rtoSeconds": 300,
+   "rpoSeconds": 0,
+   "budgetMonthly": 3400000,
+   "failureTolerance": "site",
+   "availabilitySlo": 99.9
+  },
+  "zones": [
+   {
+    "id": "region",
+    "name": "Регион eu-1",
+    "type": "region",
+    "parentId": null,
+    "role": null,
+    "props": {}
+   },
+   {
+    "id": "az-a",
+    "name": "AZ A",
+    "type": "az",
+    "parentId": "region",
+    "role": null,
+    "props": {
+     "geo": "eu-1",
+     "costModel": "cloud"
+    }
+   },
+   {
+    "id": "az-b",
+    "name": "AZ B",
+    "type": "az",
+    "parentId": "region",
+    "role": null,
+    "props": {
+     "geo": "eu-1",
+     "costModel": "cloud"
+    }
+   },
+   {
+    "id": "az-c",
+    "name": "AZ C",
+    "type": "az",
+    "parentId": "region",
+    "role": null,
+    "props": {
+     "geo": "eu-1",
+     "costModel": "cloud"
+    }
+   },
+   {
+    "id": "site-backup",
+    "name": "Площадка копий",
+    "type": "cloud",
+    "parentId": null,
+    "role": null,
+    "props": {
+     "geo": "eu-2",
+     "costModel": "cloud"
+    }
+   }
+  ],
+  "nodes": [
+   {
+    "id": "users",
+    "kind": "users",
+    "name": "Покупатели",
+    "zoneId": null,
+    "group": null,
+    "role": null,
+    "props": {
+     "rpsLabel": "4k RPS пик"
+    }
+   },
+   {
+    "id": "cdn",
+    "kind": "cdn",
+    "name": "CDN",
+    "zoneId": null,
+    "group": "cdn",
+    "role": null,
+    "props": {}
+   },
+   {
+    "id": "waf",
+    "kind": "waf",
+    "name": "WAF",
+    "zoneId": null,
+    "group": "waf",
+    "role": null,
+    "props": {
+     "replicas": 3
+    }
+   },
+   {
+    "id": "lb-a",
+    "kind": "l7",
+    "name": "Ingress",
+    "zoneId": "az-a",
+    "group": "ingress",
+    "role": null,
+    "props": {
+     "variant": "ingress-k8s",
+     "replicas": 2
+    }
+   },
+   {
+    "id": "gw-a",
+    "kind": "kong",
+    "name": "API-шлюз (Kong)",
+    "zoneId": "az-a",
+    "group": "gateway",
+    "role": null,
+    "props": {
+     "variant": "dbless",
+     "replicas": 3
+    }
+   },
+   {
+    "id": "mesh-a",
+    "kind": "service_mesh",
+    "name": "Service mesh (Istio)",
+    "zoneId": "az-a",
+    "group": "mesh",
+    "role": null,
+    "props": {
+     "variant": "istio",
+     "replicas": 2
+    }
+   },
+   {
+    "id": "mon-a",
+    "kind": "monitoring",
+    "name": "Мониторинг",
+    "zoneId": "az-a",
+    "group": "monitoring",
+    "role": null,
+    "props": {
+     "replicas": 2,
+     "vcpu": 2,
+     "ramGb": 8,
+     "diskGb": 200
+    }
+   },
+   {
+    "id": "catalog-a",
+    "kind": "kubernetes",
+    "name": "Сервис «каталог»",
+    "zoneId": "az-a",
+    "group": "catalog",
+    "role": null,
+    "props": {
+     "replicas": 14,
+     "vcpu": 1,
+     "ramGb": 2,
+     "hpaMin": 12,
+     "hpaMax": 56,
+     "clusterName": "shop"
+    }
+   },
+   {
+    "id": "cart-a",
+    "kind": "kubernetes",
+    "name": "Сервис «корзина»",
+    "zoneId": "az-a",
+    "group": "cart",
+    "role": null,
+    "props": {
+     "replicas": 6,
+     "vcpu": 1,
+     "ramGb": 2,
+     "hpaMin": 4,
+     "hpaMax": 24,
+     "clusterName": "shop"
+    }
+   },
+   {
+    "id": "orders-a",
+    "kind": "kubernetes",
+    "name": "Сервис «заказы»",
+    "zoneId": "az-a",
+    "group": "orders",
+    "role": null,
+    "props": {
+     "replicas": 6,
+     "vcpu": 1,
+     "ramGb": 2,
+     "hpaMin": 4,
+     "hpaMax": 24,
+     "clusterName": "shop"
+    }
+   },
+   {
+    "id": "search-a",
+    "kind": "opensearch",
+    "name": "OpenSearch",
+    "zoneId": "az-a",
+    "group": "search",
+    "role": null,
+    "props": {
+     "variant": "dedicated",
+     "replicas": 3,
+     "minInsync": 2,
+     "vcpu": 4,
+     "ramGb": 16,
+     "diskGb": 500,
+     "encryptionAtRest": true
+    }
+   },
+   {
+    "id": "rabbit-a",
+    "kind": "rabbitmq",
+    "name": "RabbitMQ",
+    "zoneId": "az-a",
+    "group": "rabbit",
+    "role": null,
+    "props": {
+     "variant": "quorum-queues",
+     "replicas": 1,
+     "replicationFactor": 3,
+     "vcpu": 4,
+     "ramGb": 8,
+     "diskGb": 100,
+     "encryptionAtRest": true
+    }
+   },
+   {
+    "id": "lb-b",
+    "kind": "l7",
+    "name": "Ingress",
+    "zoneId": "az-b",
+    "group": "ingress",
+    "role": null,
+    "props": {
+     "variant": "ingress-k8s",
+     "replicas": 2
+    }
+   },
+   {
+    "id": "gw-b",
+    "kind": "kong",
+    "name": "API-шлюз (Kong)",
+    "zoneId": "az-b",
+    "group": "gateway",
+    "role": null,
+    "props": {
+     "variant": "dbless",
+     "replicas": 3
+    }
+   },
+   {
+    "id": "mesh-b",
+    "kind": "service_mesh",
+    "name": "Service mesh (Istio)",
+    "zoneId": "az-b",
+    "group": "mesh",
+    "role": null,
+    "props": {
+     "variant": "istio",
+     "replicas": 2
+    }
+   },
+   {
+    "id": "mon-b",
+    "kind": "monitoring",
+    "name": "Мониторинг",
+    "zoneId": "az-b",
+    "group": "monitoring",
+    "role": null,
+    "props": {
+     "replicas": 2,
+     "vcpu": 2,
+     "ramGb": 8,
+     "diskGb": 200
+    }
+   },
+   {
+    "id": "catalog-b",
+    "kind": "kubernetes",
+    "name": "Сервис «каталог»",
+    "zoneId": "az-b",
+    "group": "catalog",
+    "role": null,
+    "props": {
+     "replicas": 14,
+     "vcpu": 1,
+     "ramGb": 2,
+     "hpaMin": 12,
+     "hpaMax": 56,
+     "clusterName": "shop"
+    }
+   },
+   {
+    "id": "cart-b",
+    "kind": "kubernetes",
+    "name": "Сервис «корзина»",
+    "zoneId": "az-b",
+    "group": "cart",
+    "role": null,
+    "props": {
+     "replicas": 6,
+     "vcpu": 1,
+     "ramGb": 2,
+     "hpaMin": 4,
+     "hpaMax": 24,
+     "clusterName": "shop"
+    }
+   },
+   {
+    "id": "orders-b",
+    "kind": "kubernetes",
+    "name": "Сервис «заказы»",
+    "zoneId": "az-b",
+    "group": "orders",
+    "role": null,
+    "props": {
+     "replicas": 6,
+     "vcpu": 1,
+     "ramGb": 2,
+     "hpaMin": 4,
+     "hpaMax": 24,
+     "clusterName": "shop"
+    }
+   },
+   {
+    "id": "search-b",
+    "kind": "opensearch",
+    "name": "OpenSearch",
+    "zoneId": "az-b",
+    "group": "search",
+    "role": null,
+    "props": {
+     "variant": "dedicated",
+     "replicas": 3,
+     "minInsync": 2,
+     "vcpu": 4,
+     "ramGb": 16,
+     "diskGb": 500,
+     "encryptionAtRest": true
+    }
+   },
+   {
+    "id": "rabbit-b",
+    "kind": "rabbitmq",
+    "name": "RabbitMQ",
+    "zoneId": "az-b",
+    "group": "rabbit",
+    "role": null,
+    "props": {
+     "variant": "quorum-queues",
+     "replicas": 1,
+     "replicationFactor": 3,
+     "vcpu": 4,
+     "ramGb": 8,
+     "diskGb": 100,
+     "encryptionAtRest": true
+    }
+   },
+   {
+    "id": "lb-c",
+    "kind": "l7",
+    "name": "Ingress",
+    "zoneId": "az-c",
+    "group": "ingress",
+    "role": null,
+    "props": {
+     "variant": "ingress-k8s",
+     "replicas": 2
+    }
+   },
+   {
+    "id": "gw-c",
+    "kind": "kong",
+    "name": "API-шлюз (Kong)",
+    "zoneId": "az-c",
+    "group": "gateway",
+    "role": null,
+    "props": {
+     "variant": "dbless",
+     "replicas": 3
+    }
+   },
+   {
+    "id": "mesh-c",
+    "kind": "service_mesh",
+    "name": "Service mesh (Istio)",
+    "zoneId": "az-c",
+    "group": "mesh",
+    "role": null,
+    "props": {
+     "variant": "istio",
+     "replicas": 2
+    }
+   },
+   {
+    "id": "mon-c",
+    "kind": "monitoring",
+    "name": "Мониторинг",
+    "zoneId": "az-c",
+    "group": "monitoring",
+    "role": null,
+    "props": {
+     "replicas": 2,
+     "vcpu": 2,
+     "ramGb": 8,
+     "diskGb": 200
+    }
+   },
+   {
+    "id": "catalog-c",
+    "kind": "kubernetes",
+    "name": "Сервис «каталог»",
+    "zoneId": "az-c",
+    "group": "catalog",
+    "role": null,
+    "props": {
+     "replicas": 14,
+     "vcpu": 1,
+     "ramGb": 2,
+     "hpaMin": 12,
+     "hpaMax": 56,
+     "clusterName": "shop"
+    }
+   },
+   {
+    "id": "cart-c",
+    "kind": "kubernetes",
+    "name": "Сервис «корзина»",
+    "zoneId": "az-c",
+    "group": "cart",
+    "role": null,
+    "props": {
+     "replicas": 6,
+     "vcpu": 1,
+     "ramGb": 2,
+     "hpaMin": 4,
+     "hpaMax": 24,
+     "clusterName": "shop"
+    }
+   },
+   {
+    "id": "orders-c",
+    "kind": "kubernetes",
+    "name": "Сервис «заказы»",
+    "zoneId": "az-c",
+    "group": "orders",
+    "role": null,
+    "props": {
+     "replicas": 6,
+     "vcpu": 1,
+     "ramGb": 2,
+     "hpaMin": 4,
+     "hpaMax": 24,
+     "clusterName": "shop"
+    }
+   },
+   {
+    "id": "search-c",
+    "kind": "opensearch",
+    "name": "OpenSearch",
+    "zoneId": "az-c",
+    "group": "search",
+    "role": null,
+    "props": {
+     "variant": "dedicated",
+     "replicas": 3,
+     "minInsync": 2,
+     "vcpu": 4,
+     "ramGb": 16,
+     "diskGb": 500,
+     "encryptionAtRest": true
+    }
+   },
+   {
+    "id": "rabbit-c",
+    "kind": "rabbitmq",
+    "name": "RabbitMQ",
+    "zoneId": "az-c",
+    "group": "rabbit",
+    "role": null,
+    "props": {
+     "variant": "quorum-queues",
+     "replicas": 1,
+     "replicationFactor": 3,
+     "vcpu": 4,
+     "ramGb": 8,
+     "diskGb": 100,
+     "encryptionAtRest": true
+    }
+   },
+   {
+    "id": "cache-a",
+    "kind": "redis",
+    "name": "Redis (кэш и корзины)",
+    "zoneId": "az-a",
+    "group": "cache",
+    "role": "primary",
+    "props": {
+     "mode": "sentinel",
+     "vcpu": 4,
+     "ramGb": 32
+    }
+   },
+   {
+    "id": "cache-b",
+    "kind": "redis",
+    "name": "Redis (реплика)",
+    "zoneId": "az-b",
+    "group": "cache",
+    "role": "replica",
+    "props": {
+     "mode": "sentinel",
+     "vcpu": 4,
+     "ramGb": 32
+    }
+   },
+   {
+    "id": "cache-c",
+    "kind": "redis",
+    "name": "Redis Sentinel",
+    "zoneId": "az-c",
+    "group": "cache",
+    "role": "witness",
+    "props": {
+     "mode": "sentinel",
+     "vcpu": 1,
+     "ramGb": 1
+    }
+   },
+   {
+    "id": "pg-a",
+    "kind": "postgresql",
+    "name": "PostgreSQL primary (заказы)",
+    "zoneId": "az-a",
+    "group": "pg",
+    "role": "primary",
+    "props": {
+     "encryptionAtRest": true,
+     "version": "16",
+     "vcpu": 8,
+     "ramGb": 32,
+     "diskGb": 500,
+     "failover": "auto",
+     "failoverSeconds": 30,
+     "dcs": "etcd",
+     "connectionPooler": true
+    }
+   },
+   {
+    "id": "pg-b",
+    "kind": "postgresql",
+    "name": "PostgreSQL sync replica",
+    "zoneId": "az-b",
+    "group": "pg",
+    "role": "replica",
+    "props": {
+     "encryptionAtRest": true,
+     "version": "16",
+     "vcpu": 8,
+     "ramGb": 32,
+     "diskGb": 500,
+     "failover": "auto",
+     "failoverSeconds": 30,
+     "dcs": "etcd",
+     "connectionPooler": true
+    }
+   },
+   {
+    "id": "pg-c",
+    "kind": "postgresql",
+    "name": "PostgreSQL async replica",
+    "zoneId": "az-c",
+    "group": "pg",
+    "role": "replica",
+    "props": {
+     "encryptionAtRest": true,
+     "version": "16",
+     "vcpu": 8,
+     "ramGb": 32,
+     "diskGb": 500,
+     "failover": "auto",
+     "failoverSeconds": 30,
+     "dcs": "etcd",
+     "connectionPooler": true
+    }
+   },
+   {
+    "id": "etcd-a",
+    "kind": "etcd",
+    "name": "etcd",
+    "zoneId": "az-a",
+    "group": "etcd",
+    "role": "voter",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 4,
+     "diskGb": 50
+    }
+   },
+   {
+    "id": "etcd-b",
+    "kind": "etcd",
+    "name": "etcd",
+    "zoneId": "az-b",
+    "group": "etcd",
+    "role": "voter",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 4,
+     "diskGb": 50
+    }
+   },
+   {
+    "id": "etcd-c",
+    "kind": "etcd",
+    "name": "etcd",
+    "zoneId": "az-c",
+    "group": "etcd",
+    "role": "voter",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 4,
+     "diskGb": 50
+    }
+   },
+   {
+    "id": "gitops",
+    "kind": "gitops",
+    "name": "GitOps · Argo CD",
+    "zoneId": "az-c",
+    "group": "gitops",
+    "role": null,
+    "props": {
+     "replicas": 2,
+     "vcpu": 2,
+     "ramGb": 4
+    }
+   },
+   {
+    "id": "vault-a",
+    "kind": "vault",
+    "name": "Vault",
+    "zoneId": "az-a",
+    "group": "vault",
+    "role": "primary",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 4,
+     "diskGb": 50
+    }
+   },
+   {
+    "id": "vault-b",
+    "kind": "vault",
+    "name": "Vault (standby)",
+    "zoneId": "az-b",
+    "group": "vault",
+    "role": "replica",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 4,
+     "diskGb": 50
+    }
+   },
+   {
+    "id": "backup",
+    "kind": "backup_storage",
+    "name": "Бэкапы (объектное хранилище, object lock)",
+    "zoneId": "site-backup",
+    "group": null,
+    "role": null,
+    "props": {
+     "immutable": true,
+     "retentionDays": 35,
+     "backupIntervalSeconds": 300,
+     "restoreSeconds": 7200,
+     "restoreTestedDays": 30,
+     "encryptionAtRest": true,
+     "diskGb": 10000
+    }
+   }
+  ],
+  "edges": [
+   {
+    "id": "e-users--cdn",
+    "source": "users",
+    "target": "cdn",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-cdn--waf",
+    "source": "cdn",
+    "target": "waf",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-gw-a--catalog-a",
+    "source": "gw-a",
+    "target": "catalog-a",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 0.6
+    }
+   },
+   {
+    "id": "e-mesh-a--catalog-a",
+    "source": "mesh-a",
+    "target": "catalog-a",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-mon-a--catalog-a",
+    "source": "mon-a",
+    "target": "catalog-a",
+    "type": "control",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-gw-a--cart-a",
+    "source": "gw-a",
+    "target": "cart-a",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 0.25
+    }
+   },
+   {
+    "id": "e-mesh-a--cart-a",
+    "source": "mesh-a",
+    "target": "cart-a",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-mon-a--cart-a",
+    "source": "mon-a",
+    "target": "cart-a",
+    "type": "control",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-gw-a--orders-a",
+    "source": "gw-a",
+    "target": "orders-a",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 0.15
+    }
+   },
+   {
+    "id": "e-mesh-a--orders-a",
+    "source": "mesh-a",
+    "target": "orders-a",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-mon-a--orders-a",
+    "source": "mon-a",
+    "target": "orders-a",
+    "type": "control",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-waf--lb-a",
+    "source": "waf",
+    "target": "lb-a",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-lb-a--gw-a",
+    "source": "lb-a",
+    "target": "gw-a",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-catalog-a--search-a",
+    "source": "catalog-a",
+    "target": "search-a",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 1
+    }
+   },
+   {
+    "id": "e-orders-a--rabbit-a",
+    "source": "orders-a",
+    "target": "rabbit-a",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 1
+    }
+   },
+   {
+    "id": "e-gw-b--catalog-b",
+    "source": "gw-b",
+    "target": "catalog-b",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 0.6
+    }
+   },
+   {
+    "id": "e-mesh-b--catalog-b",
+    "source": "mesh-b",
+    "target": "catalog-b",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-mon-b--catalog-b",
+    "source": "mon-b",
+    "target": "catalog-b",
+    "type": "control",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-gw-b--cart-b",
+    "source": "gw-b",
+    "target": "cart-b",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 0.25
+    }
+   },
+   {
+    "id": "e-mesh-b--cart-b",
+    "source": "mesh-b",
+    "target": "cart-b",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-mon-b--cart-b",
+    "source": "mon-b",
+    "target": "cart-b",
+    "type": "control",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-gw-b--orders-b",
+    "source": "gw-b",
+    "target": "orders-b",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 0.15
+    }
+   },
+   {
+    "id": "e-mesh-b--orders-b",
+    "source": "mesh-b",
+    "target": "orders-b",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-mon-b--orders-b",
+    "source": "mon-b",
+    "target": "orders-b",
+    "type": "control",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-waf--lb-b",
+    "source": "waf",
+    "target": "lb-b",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-lb-b--gw-b",
+    "source": "lb-b",
+    "target": "gw-b",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-catalog-b--search-b",
+    "source": "catalog-b",
+    "target": "search-b",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 1
+    }
+   },
+   {
+    "id": "e-orders-b--rabbit-b",
+    "source": "orders-b",
+    "target": "rabbit-b",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 1
+    }
+   },
+   {
+    "id": "e-gw-c--catalog-c",
+    "source": "gw-c",
+    "target": "catalog-c",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 0.6
+    }
+   },
+   {
+    "id": "e-mesh-c--catalog-c",
+    "source": "mesh-c",
+    "target": "catalog-c",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-mon-c--catalog-c",
+    "source": "mon-c",
+    "target": "catalog-c",
+    "type": "control",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-gw-c--cart-c",
+    "source": "gw-c",
+    "target": "cart-c",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 0.25
+    }
+   },
+   {
+    "id": "e-mesh-c--cart-c",
+    "source": "mesh-c",
+    "target": "cart-c",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-mon-c--cart-c",
+    "source": "mon-c",
+    "target": "cart-c",
+    "type": "control",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-gw-c--orders-c",
+    "source": "gw-c",
+    "target": "orders-c",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 0.15
+    }
+   },
+   {
+    "id": "e-mesh-c--orders-c",
+    "source": "mesh-c",
+    "target": "orders-c",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-mon-c--orders-c",
+    "source": "mon-c",
+    "target": "orders-c",
+    "type": "control",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-waf--lb-c",
+    "source": "waf",
+    "target": "lb-c",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-lb-c--gw-c",
+    "source": "lb-c",
+    "target": "gw-c",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-catalog-c--search-c",
+    "source": "catalog-c",
+    "target": "search-c",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 1
+    }
+   },
+   {
+    "id": "e-orders-c--rabbit-c",
+    "source": "orders-c",
+    "target": "rabbit-c",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 1
+    }
+   },
+   {
+    "id": "e-search-a--search-b",
+    "source": "search-a",
+    "target": "search-b",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 0.8,
+     "tls": true,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-search-a--search-c",
+    "source": "search-a",
+    "target": "search-c",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 0.8,
+     "tls": true,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-search-b--search-c",
+    "source": "search-b",
+    "target": "search-c",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 0.8,
+     "tls": true,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-rabbit-a--rabbit-b",
+    "source": "rabbit-a",
+    "target": "rabbit-b",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 0.8,
+     "tls": true,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-rabbit-a--rabbit-c",
+    "source": "rabbit-a",
+    "target": "rabbit-c",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 0.8,
+     "tls": true,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-rabbit-b--rabbit-c",
+    "source": "rabbit-b",
+    "target": "rabbit-c",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 0.8,
+     "tls": true,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-etcd-a--etcd-b",
+    "source": "etcd-a",
+    "target": "etcd-b",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 0.8,
+     "tls": true,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-etcd-a--etcd-c",
+    "source": "etcd-a",
+    "target": "etcd-c",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 0.8,
+     "tls": true,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-etcd-b--etcd-c",
+    "source": "etcd-b",
+    "target": "etcd-c",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 0.8,
+     "tls": true,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-catalog-a--cache-a",
+    "source": "catalog-a",
+    "target": "cache-a",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 1
+    }
+   },
+   {
+    "id": "e-cart-a--cache-a",
+    "source": "cart-a",
+    "target": "cache-a",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 1
+    }
+   },
+   {
+    "id": "e-orders-a--pg-a",
+    "source": "orders-a",
+    "target": "pg-a",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "fanoutColdCache": 1.2,
+     "tls": true,
+     "fanout": 1
+    }
+   },
+   {
+    "id": "e-catalog-b--cache-b",
+    "source": "catalog-b",
+    "target": "cache-b",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 1
+    }
+   },
+   {
+    "id": "e-cart-b--cache-b",
+    "source": "cart-b",
+    "target": "cache-b",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 1
+    }
+   },
+   {
+    "id": "e-orders-b--pg-b",
+    "source": "orders-b",
+    "target": "pg-b",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "fanoutColdCache": 1.2,
+     "tls": true,
+     "fanout": 1
+    }
+   },
+   {
+    "id": "e-catalog-c--cache-b",
+    "source": "catalog-c",
+    "target": "cache-b",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 1
+    }
+   },
+   {
+    "id": "e-cart-c--cache-b",
+    "source": "cart-c",
+    "target": "cache-b",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 1
+    }
+   },
+   {
+    "id": "e-orders-c--pg-c",
+    "source": "orders-c",
+    "target": "pg-c",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "fanoutColdCache": 1.2,
+     "tls": true,
+     "fanout": 1
+    }
+   },
+   {
+    "id": "e-pg-a--pg-b",
+    "source": "pg-a",
+    "target": "pg-b",
+    "type": "sync",
+    "label": null,
+    "props": {
+     "latencyMs": 0.8,
+     "latencyMeasured": true,
+     "tls": true,
+     "bandwidthMbps": 25000,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-pg-a--pg-c",
+    "source": "pg-a",
+    "target": "pg-c",
+    "type": "async",
+    "label": null,
+    "props": {
+     "lagSeconds": 1,
+     "latencyMs": 0.8,
+     "latencyMeasured": true,
+     "tls": true,
+     "paths": 3,
+     "bandwidthMbps": 25000
+    }
+   },
+   {
+    "id": "e-cache-a--cache-b",
+    "source": "cache-a",
+    "target": "cache-b",
+    "type": "async",
+    "label": null,
+    "props": {
+     "lagSeconds": 1,
+     "latencyMs": 0.8,
+     "latencyMeasured": true,
+     "tls": true,
+     "paths": 3,
+     "bandwidthMbps": 25000
+    }
+   },
+   {
+    "id": "e-gitops--catalog-a",
+    "source": "gitops",
+    "target": "catalog-a",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-gitops--cart-a",
+    "source": "gitops",
+    "target": "cart-a",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-gitops--orders-a",
+    "source": "gitops",
+    "target": "orders-a",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-gitops--catalog-b",
+    "source": "gitops",
+    "target": "catalog-b",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-gitops--cart-b",
+    "source": "gitops",
+    "target": "cart-b",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-gitops--orders-b",
+    "source": "gitops",
+    "target": "orders-b",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-gitops--catalog-c",
+    "source": "gitops",
+    "target": "catalog-c",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-gitops--cart-c",
+    "source": "gitops",
+    "target": "cart-c",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-gitops--orders-c",
+    "source": "gitops",
+    "target": "orders-c",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-vault-a--vault-b",
+    "source": "vault-a",
+    "target": "vault-b",
+    "type": "async",
+    "label": null,
+    "props": {
+     "lagSeconds": 1,
+     "latencyMs": 0.8,
+     "latencyMeasured": true,
+     "tls": true,
+     "paths": 3,
+     "bandwidthMbps": 25000
+    }
+   },
+   {
+    "id": "e-pg-b--backup",
+    "source": "pg-b",
+    "target": "backup",
+    "type": "backup",
+    "label": "WAL + full",
+    "props": {
+     "intervalSeconds": 300,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-search-c--backup",
+    "source": "search-c",
+    "target": "backup",
+    "type": "backup",
+    "label": "снимки индексов",
+    "props": {
+     "intervalSeconds": 3600,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-vault-a--backup",
+    "source": "vault-a",
+    "target": "backup",
+    "type": "backup",
+    "label": null,
+    "props": {
+     "intervalSeconds": 3600,
+     "tls": true
+    }
+   }
+  ]
+ }
+}

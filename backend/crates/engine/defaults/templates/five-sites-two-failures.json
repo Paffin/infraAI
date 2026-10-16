@@ -9,6 +9,12 @@
   "en": "Five sites, data synchronously on three: survives the simultaneous loss of any two sites without data loss. Spare capacity is cheaper than with two sites."
  },
  "badge": "5×",
+ "tags": [
+  "multi-site",
+  "quorum",
+  "dr",
+  "on-prem"
+ ],
  "enabled": true,
  "order": 6,
  "architecture": {
@@ -24,7 +30,8 @@
    "rpoSeconds": 0.0,
    "availabilitySlo": 99.95,
    "failureTolerance": "site",
-   "siteFailures": 2
+   "siteFailures": 2,
+   "budgetMonthly": 1000000
   },
   "zones": [
    {
@@ -34,7 +41,8 @@
     "parentId": null,
     "role": "active",
     "props": {
-     "geo": "geo-1"
+     "geo": "geo-1",
+     "tier": "III"
     }
    },
    {
@@ -44,7 +52,8 @@
     "parentId": null,
     "role": "active",
     "props": {
-     "geo": "geo-1"
+     "geo": "geo-1",
+     "tier": "III"
     }
    },
    {
@@ -54,7 +63,8 @@
     "parentId": null,
     "role": "active",
     "props": {
-     "geo": "geo-1"
+     "geo": "geo-1",
+     "tier": "III"
     }
    },
    {
@@ -64,7 +74,8 @@
     "parentId": null,
     "role": "active",
     "props": {
-     "geo": "geo-1"
+     "geo": "geo-1",
+     "tier": "III"
     }
    },
    {
@@ -74,7 +85,8 @@
     "parentId": null,
     "role": "active",
     "props": {
-     "geo": "geo-1"
+     "geo": "geo-1",
+     "tier": "III"
     }
    }
   ],
@@ -667,7 +679,8 @@
      "bandwidthMbps": 25000.0,
      "latencyMs": 1.2,
      "paths": 2,
-     "tls": true
+     "tls": true,
+     "latencyMeasured": true
     }
    },
    {
@@ -680,7 +693,8 @@
      "bandwidthMbps": 25000.0,
      "latencyMs": 1.2,
      "paths": 2,
-     "tls": true
+     "tls": true,
+     "latencyMeasured": true
     }
    },
    {
@@ -693,7 +707,8 @@
      "bandwidthMbps": 25000.0,
      "latencyMs": 1.2,
      "paths": 2,
-     "tls": true
+     "tls": true,
+     "latencyMeasured": true
     }
    },
    {
@@ -706,7 +721,8 @@
      "bandwidthMbps": 25000.0,
      "latencyMs": 1.2,
      "paths": 2,
-     "tls": true
+     "tls": true,
+     "latencyMeasured": true
     }
    },
    {
@@ -797,7 +813,8 @@
      "bandwidthMbps": 25000.0,
      "latencyMs": 1.2,
      "paths": 2,
-     "tls": true
+     "tls": true,
+     "latencyMeasured": true
     }
    },
    {
@@ -810,7 +827,8 @@
      "bandwidthMbps": 25000.0,
      "latencyMs": 1.2,
      "paths": 2,
-     "tls": true
+     "tls": true,
+     "latencyMeasured": true
     }
    },
    {

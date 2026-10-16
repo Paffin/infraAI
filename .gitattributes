@@ -1,0 +1,13 @@
+* text=auto eol=lf
+
+# What the build writes or the tests record is not what the repository is made of: GitHub leaves it out of the language statistics and folds it in diffs
+backend/crates/engine/defaults/catalog.json linguist-generated=true
+backend/crates/engine/defaults/versions.json linguist-generated=true
+backend/crates/engine/defaults/iac/*.json linguist-generated=true
+backend/Cargo.lock linguist-generated=true
+frontend/package-lock.json linguist-generated=true
+frontend/tests/fixtures/** linguist-generated=true
+backend/crates/server/tests/fixtures/** linguist-generated=true
+THIRD_PARTY_LICENSES.md linguist-generated=true
+docs/CATALOG.md linguist-generated=true
+docs/images/** linguist-documentation

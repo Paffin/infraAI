@@ -1,0 +1,374 @@
+{
+ "id": "serverless-aws",
+ "name": {
+  "ru": "Serverless на AWS: API, функции, DynamoDB",
+  "en": "Serverless on AWS: API, functions, DynamoDB"
+ },
+ "description": {
+  "ru": "CloudFront, WAF, API Gateway, Lambda, DynamoDB, S3, SQS и Cognito: ни серверов, ни кластеров. Копии данных — в хранилище AWS Backup другого региона.",
+  "en": "CloudFront, WAF, API Gateway, Lambda, DynamoDB, S3, SQS and Cognito: no servers, no clusters. The copies of the data go to the AWS Backup vault of another region."
+ },
+ "badge": "AWS",
+ "tags": [
+  "cloud",
+  "aws",
+  "serverless",
+  "managed",
+  "startup"
+ ],
+ "enabled": true,
+ "order": 17,
+ "architecture": {
+  "schemaVersion": 1,
+  "meta": {
+   "name": "Serverless на AWS: API, функции, DynamoDB",
+   "description": "Бессерверная архитектура: запрос проходит CloudFront, WAF и API Gateway, обрабатывается функциями Lambda, данные — в DynamoDB и S3, фоновые задачи — через SQS, пользователи — в Cognito. Каждый из сервисов региональный, поэтому потеря зоны не заметна; доступность сервиса — произведение SLA звеньев цепочки, а копии данных в другом регионе делает сама схема."
+  },
+  "requirements": {
+   "rpsPeak": 1500,
+   "growthPercent": 100,
+   "rtoSeconds": 900,
+   "rpoSeconds": 60,
+   "budgetMonthly": 600000,
+   "failureTolerance": "site",
+   "availabilitySlo": 99.5
+  },
+  "zones": [
+   {
+    "id": "region-dr",
+    "name": "Регион AWS eu-west-1 (копии)",
+    "type": "region",
+    "parentId": null,
+    "role": null,
+    "props": {}
+   },
+   {
+    "id": "dr-a",
+    "name": "Копии · AZ A",
+    "type": "az",
+    "parentId": "region-dr",
+    "role": null,
+    "props": {
+     "geo": "eu-west-1",
+     "costModel": "cloud"
+    }
+   }
+  ],
+  "nodes": [
+   {
+    "id": "users",
+    "kind": "users",
+    "name": "Пользователи",
+    "zoneId": null,
+    "group": null,
+    "role": null,
+    "props": {
+     "rpsLabel": "1.5k RPS пик"
+    }
+   },
+   {
+    "id": "cdn",
+    "kind": "cdn",
+    "name": "Amazon CloudFront",
+    "zoneId": null,
+    "group": "cdn",
+    "role": null,
+    "props": {
+     "variant": "cloudfront",
+     "vcpu": 1,
+     "ramGb": 2
+    }
+   },
+   {
+    "id": "waf",
+    "kind": "waf",
+    "name": "AWS WAF",
+    "zoneId": null,
+    "group": "waf",
+    "role": null,
+    "props": {
+     "variant": "cloud",
+     "vcpu": 1,
+     "ramGb": 2
+    }
+   },
+   {
+    "id": "api",
+    "kind": "aws_api_gateway",
+    "name": "Amazon API Gateway",
+    "zoneId": null,
+    "group": null,
+    "role": null,
+    "props": {
+     "vcpu": 1,
+     "ramGb": 2
+    }
+   },
+   {
+    "id": "auth",
+    "kind": "amazon_cognito",
+    "name": "Amazon Cognito",
+    "zoneId": null,
+    "group": null,
+    "role": null,
+    "props": {
+     "vcpu": 1,
+     "ramGb": 2
+    }
+   },
+   {
+    "id": "fn",
+    "kind": "aws_lambda",
+    "name": "AWS Lambda · обработчики",
+    "zoneId": null,
+    "group": null,
+    "role": null,
+    "props": {
+     "vcpu": 2,
+     "ramGb": 4
+    }
+   },
+   {
+    "id": "fn-worker",
+    "kind": "aws_lambda",
+    "name": "AWS Lambda · фоновые задачи",
+    "zoneId": null,
+    "group": null,
+    "role": null,
+    "props": {
+     "vcpu": 1,
+     "ramGb": 2
+    }
+   },
+   {
+    "id": "queue",
+    "kind": "amazon_sqs",
+    "name": "Amazon SQS",
+    "zoneId": null,
+    "group": null,
+    "role": null,
+    "props": {
+     "encryptionAtRest": true,
+     "vcpu": 1,
+     "ramGb": 2
+    }
+   },
+   {
+    "id": "db",
+    "kind": "amazon_dynamodb",
+    "name": "Amazon DynamoDB",
+    "zoneId": null,
+    "group": null,
+    "role": null,
+    "props": {
+     "encryptionAtRest": true,
+     "vcpu": 4,
+     "ramGb": 16,
+     "diskGb": 500
+    }
+   },
+   {
+    "id": "files",
+    "kind": "amazon_s3",
+    "name": "Amazon S3 · файлы",
+    "zoneId": null,
+    "group": null,
+    "role": null,
+    "props": {
+     "encryptionAtRest": true,
+     "vcpu": 2,
+     "ramGb": 4,
+     "diskGb": 2000
+    }
+   },
+   {
+    "id": "secrets",
+    "kind": "aws_secrets_manager",
+    "name": "AWS Secrets Manager",
+    "zoneId": null,
+    "group": null,
+    "role": null,
+    "props": {
+     "vcpu": 0.5,
+     "ramGb": 1
+    }
+   },
+   {
+    "id": "mon",
+    "kind": "monitoring",
+    "name": "Amazon CloudWatch",
+    "zoneId": null,
+    "group": "monitoring",
+    "role": null,
+    "props": {
+     "variant": "cloud",
+     "vcpu": 2,
+     "ramGb": 8
+    }
+   },
+   {
+    "id": "backup",
+    "kind": "aws_backup",
+    "name": "AWS Backup · хранилище копий в eu-west-1",
+    "zoneId": "dr-a",
+    "group": null,
+    "role": null,
+    "props": {
+     "immutable": true,
+     "retentionDays": 30,
+     "backupIntervalSeconds": 300,
+     "restoreSeconds": 1800,
+     "restoreTestedDays": 30,
+     "encryptionAtRest": true,
+     "diskGb": 10000,
+     "vcpu": 1,
+     "ramGb": 2
+    }
+   }
+  ],
+  "edges": [
+   {
+    "id": "e-users--cdn",
+    "source": "users",
+    "target": "cdn",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-cdn--waf",
+    "source": "cdn",
+    "target": "waf",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-waf--api",
+    "source": "waf",
+    "target": "api",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-api--auth",
+    "source": "api",
+    "target": "auth",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 0.1
+    }
+   },
+   {
+    "id": "e-api--fn",
+    "source": "api",
+    "target": "fn",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 1
+    }
+   },
+   {
+    "id": "e-fn--db",
+    "source": "fn",
+    "target": "db",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 1
+    }
+   },
+   {
+    "id": "e-fn--files",
+    "source": "fn",
+    "target": "files",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 0.1
+    }
+   },
+   {
+    "id": "e-fn--queue",
+    "source": "fn",
+    "target": "queue",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 0.2
+    }
+   },
+   {
+    "id": "e-queue--fn-worker",
+    "source": "queue",
+    "target": "fn-worker",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 1
+    }
+   },
+   {
+    "id": "e-fn-worker--db",
+    "source": "fn-worker",
+    "target": "db",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 0.2
+    }
+   },
+   {
+    "id": "e-mon--fn",
+    "source": "mon",
+    "target": "fn",
+    "type": "control",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-db--backup",
+    "source": "db",
+    "target": "backup",
+    "type": "backup",
+    "label": "PITR + снимки",
+    "props": {
+     "intervalSeconds": 3600,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-files--backup",
+    "source": "files",
+    "target": "backup",
+    "type": "backup",
+    "label": null,
+    "props": {
+     "intervalSeconds": 3600,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-secrets--backup",
+    "source": "secrets",
+    "target": "backup",
+    "type": "backup",
+    "label": "реплика в eu-west-1 + выгрузка",
+    "props": {
+     "intervalSeconds": 3600,
+     "tls": true
+    }
+   }
+  ]
+ }
+}

@@ -7,7 +7,8 @@ rm -rf "$OUT"/*
 cd /src
 cargo build -q -p engine --example export
 BIN=${CARGO_TARGET_DIR:-target}/debug/examples/export
-for tpl in demo two-dc-witness three-az-region multi-region-pilot-light event-driven-kafka single-dc-racks three-sites-quorum five-sites-two-failures ten-sites-regions; do
+# every reference architecture there is (a file in defaults/templates is one), and the demo project
+for tpl in demo $(cd crates/engine/defaults/templates && ls *.json | sed 's/\.json$//'); do
   for fmt in kubernetes helm terraform; do
     "$BIN" "$tpl" "$fmt" "$OUT/$tpl/$fmt" en >/dev/null 2>"$OUT/$tpl-$fmt.report.json"
   done

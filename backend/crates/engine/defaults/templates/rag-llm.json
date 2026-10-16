@@ -1,0 +1,1185 @@
+{
+ "id": "rag-llm",
+ "name": {
+  "ru": "RAG-ассистент: LLM на GPU и векторная БД",
+  "en": "RAG assistant: LLM on GPUs and a vector database"
+ },
+ "description": {
+  "ru": "Сервис оркестрации, Qdrant на трёх AZ, vLLM на пулах GPU в каждой зоне, семантический кэш, история диалогов в PostgreSQL, документы в объектном хранилище, SSO через Keycloak.",
+  "en": "An orchestration service, Qdrant across three AZs, vLLM on GPU pools in every zone, a semantic cache, dialogue history in PostgreSQL, documents in object storage, SSO through Keycloak."
+ },
+ "badge": "AI",
+ "tags": [
+  "ai",
+  "llm",
+  "rag",
+  "vector-db",
+  "gpu",
+  "ha"
+ ],
+ "enabled": true,
+ "order": 16,
+ "architecture": {
+  "schemaVersion": 1,
+  "meta": {
+   "name": "RAG-ассистент: LLM на GPU и векторная БД",
+   "description": "Запрос проходит WAF, шлюз и сервис оркестрации; тот находит фрагменты документов в Qdrant (кластер на трёх зонах) и просит vLLM ответить с их учётом. Пулы GPU с vLLM стоят в каждой зоне и рассчитаны на потерю одной: две оставшиеся тянут пик. Диалоги — в PostgreSQL, документы — в объектном хранилище, повторяющиеся запросы закрывает семантический кэш."
+  },
+  "requirements": {
+   "rpsPeak": 80,
+   "growthPercent": 50,
+   "rtoSeconds": 600,
+   "rpoSeconds": 60,
+   "budgetMonthly": 6500000,
+   "failureTolerance": "site",
+   "availabilitySlo": 99.9
+  },
+  "zones": [
+   {
+    "id": "region",
+    "name": "Регион eu-1",
+    "type": "region",
+    "parentId": null,
+    "role": null,
+    "props": {}
+   },
+   {
+    "id": "az-a",
+    "name": "AZ A",
+    "type": "az",
+    "parentId": "region",
+    "role": null,
+    "props": {
+     "geo": "eu-1",
+     "costModel": "cloud"
+    }
+   },
+   {
+    "id": "az-b",
+    "name": "AZ B",
+    "type": "az",
+    "parentId": "region",
+    "role": null,
+    "props": {
+     "geo": "eu-1",
+     "costModel": "cloud"
+    }
+   },
+   {
+    "id": "az-c",
+    "name": "AZ C",
+    "type": "az",
+    "parentId": "region",
+    "role": null,
+    "props": {
+     "geo": "eu-1",
+     "costModel": "cloud"
+    }
+   },
+   {
+    "id": "site-backup",
+    "name": "Площадка копий",
+    "type": "cloud",
+    "parentId": null,
+    "role": null,
+    "props": {
+     "geo": "eu-2",
+     "costModel": "cloud"
+    }
+   }
+  ],
+  "nodes": [
+   {
+    "id": "users",
+    "kind": "users",
+    "name": "Пользователи ассистента",
+    "zoneId": null,
+    "group": null,
+    "role": null,
+    "props": {
+     "rpsLabel": "80 запросов/с пик"
+    }
+   },
+   {
+    "id": "waf",
+    "kind": "waf",
+    "name": "WAF",
+    "zoneId": null,
+    "group": "waf",
+    "role": null,
+    "props": {
+     "replicas": 3
+    }
+   },
+   {
+    "id": "idp-a",
+    "kind": "keycloak",
+    "name": "Keycloak (SSO)",
+    "zoneId": "az-a",
+    "group": "idp",
+    "role": null,
+    "props": {
+     "replicas": 3,
+     "variant": "multi-site"
+    }
+   },
+   {
+    "id": "idp-b",
+    "kind": "keycloak",
+    "name": "Keycloak (SSO)",
+    "zoneId": "az-b",
+    "group": "idp",
+    "role": null,
+    "props": {
+     "replicas": 3,
+     "variant": "multi-site"
+    }
+   },
+   {
+    "id": "lb-a",
+    "kind": "l7",
+    "name": "Ingress",
+    "zoneId": "az-a",
+    "group": "ingress",
+    "role": null,
+    "props": {
+     "variant": "ingress-k8s",
+     "replicas": 2
+    }
+   },
+   {
+    "id": "gw-a",
+    "kind": "kong",
+    "name": "API-шлюз (Kong)",
+    "zoneId": "az-a",
+    "group": "gateway",
+    "role": null,
+    "props": {
+     "variant": "dbless",
+     "replicas": 3
+    }
+   },
+   {
+    "id": "rag-a",
+    "kind": "kubernetes",
+    "name": "Kubernetes · RAG-сервис",
+    "zoneId": "az-a",
+    "group": "rag",
+    "role": null,
+    "props": {
+     "replicas": 10,
+     "vcpu": 2,
+     "ramGb": 4,
+     "hpaMin": 6,
+     "hpaMax": 30,
+     "clusterName": "ai"
+    }
+   },
+   {
+    "id": "llm-a",
+    "kind": "vllm",
+    "name": "vLLM · пул GPU",
+    "zoneId": "az-a",
+    "group": "llm",
+    "role": null,
+    "props": {
+     "replicas": 8,
+     "gpus": 1,
+     "vcpu": 8,
+     "ramGb": 64,
+     "diskGb": 500
+    }
+   },
+   {
+    "id": "vec-a",
+    "kind": "qdrant",
+    "name": "Qdrant",
+    "zoneId": "az-a",
+    "group": "vector",
+    "role": null,
+    "props": {
+     "replicas": 1,
+     "replicationFactor": 3,
+     "minInsync": 2,
+     "vcpu": 8,
+     "ramGb": 32,
+     "diskGb": 500,
+     "encryptionAtRest": true
+    }
+   },
+   {
+    "id": "mon-a",
+    "kind": "monitoring",
+    "name": "Мониторинг",
+    "zoneId": "az-a",
+    "group": "monitoring",
+    "role": null,
+    "props": {
+     "replicas": 2,
+     "vcpu": 2,
+     "ramGb": 8,
+     "diskGb": 200
+    }
+   },
+   {
+    "id": "lb-b",
+    "kind": "l7",
+    "name": "Ingress",
+    "zoneId": "az-b",
+    "group": "ingress",
+    "role": null,
+    "props": {
+     "variant": "ingress-k8s",
+     "replicas": 2
+    }
+   },
+   {
+    "id": "gw-b",
+    "kind": "kong",
+    "name": "API-шлюз (Kong)",
+    "zoneId": "az-b",
+    "group": "gateway",
+    "role": null,
+    "props": {
+     "variant": "dbless",
+     "replicas": 3
+    }
+   },
+   {
+    "id": "rag-b",
+    "kind": "kubernetes",
+    "name": "Kubernetes · RAG-сервис",
+    "zoneId": "az-b",
+    "group": "rag",
+    "role": null,
+    "props": {
+     "replicas": 10,
+     "vcpu": 2,
+     "ramGb": 4,
+     "hpaMin": 6,
+     "hpaMax": 30,
+     "clusterName": "ai"
+    }
+   },
+   {
+    "id": "llm-b",
+    "kind": "vllm",
+    "name": "vLLM · пул GPU",
+    "zoneId": "az-b",
+    "group": "llm",
+    "role": null,
+    "props": {
+     "replicas": 8,
+     "gpus": 1,
+     "vcpu": 8,
+     "ramGb": 64,
+     "diskGb": 500
+    }
+   },
+   {
+    "id": "vec-b",
+    "kind": "qdrant",
+    "name": "Qdrant",
+    "zoneId": "az-b",
+    "group": "vector",
+    "role": null,
+    "props": {
+     "replicas": 1,
+     "replicationFactor": 3,
+     "minInsync": 2,
+     "vcpu": 8,
+     "ramGb": 32,
+     "diskGb": 500,
+     "encryptionAtRest": true
+    }
+   },
+   {
+    "id": "mon-b",
+    "kind": "monitoring",
+    "name": "Мониторинг",
+    "zoneId": "az-b",
+    "group": "monitoring",
+    "role": null,
+    "props": {
+     "replicas": 2,
+     "vcpu": 2,
+     "ramGb": 8,
+     "diskGb": 200
+    }
+   },
+   {
+    "id": "lb-c",
+    "kind": "l7",
+    "name": "Ingress",
+    "zoneId": "az-c",
+    "group": "ingress",
+    "role": null,
+    "props": {
+     "variant": "ingress-k8s",
+     "replicas": 2
+    }
+   },
+   {
+    "id": "gw-c",
+    "kind": "kong",
+    "name": "API-шлюз (Kong)",
+    "zoneId": "az-c",
+    "group": "gateway",
+    "role": null,
+    "props": {
+     "variant": "dbless",
+     "replicas": 3
+    }
+   },
+   {
+    "id": "rag-c",
+    "kind": "kubernetes",
+    "name": "Kubernetes · RAG-сервис",
+    "zoneId": "az-c",
+    "group": "rag",
+    "role": null,
+    "props": {
+     "replicas": 10,
+     "vcpu": 2,
+     "ramGb": 4,
+     "hpaMin": 6,
+     "hpaMax": 30,
+     "clusterName": "ai"
+    }
+   },
+   {
+    "id": "llm-c",
+    "kind": "vllm",
+    "name": "vLLM · пул GPU",
+    "zoneId": "az-c",
+    "group": "llm",
+    "role": null,
+    "props": {
+     "replicas": 8,
+     "gpus": 1,
+     "vcpu": 8,
+     "ramGb": 64,
+     "diskGb": 500
+    }
+   },
+   {
+    "id": "vec-c",
+    "kind": "qdrant",
+    "name": "Qdrant",
+    "zoneId": "az-c",
+    "group": "vector",
+    "role": null,
+    "props": {
+     "replicas": 1,
+     "replicationFactor": 3,
+     "minInsync": 2,
+     "vcpu": 8,
+     "ramGb": 32,
+     "diskGb": 500,
+     "encryptionAtRest": true
+    }
+   },
+   {
+    "id": "mon-c",
+    "kind": "monitoring",
+    "name": "Мониторинг",
+    "zoneId": "az-c",
+    "group": "monitoring",
+    "role": null,
+    "props": {
+     "replicas": 2,
+     "vcpu": 2,
+     "ramGb": 8,
+     "diskGb": 200
+    }
+   },
+   {
+    "id": "cache-a",
+    "kind": "redis",
+    "name": "Redis (семантический кэш)",
+    "zoneId": "az-a",
+    "group": "cache",
+    "role": "primary",
+    "props": {
+     "mode": "sentinel",
+     "vcpu": 4,
+     "ramGb": 32
+    }
+   },
+   {
+    "id": "cache-b",
+    "kind": "redis",
+    "name": "Redis (реплика)",
+    "zoneId": "az-b",
+    "group": "cache",
+    "role": "replica",
+    "props": {
+     "mode": "sentinel",
+     "vcpu": 4,
+     "ramGb": 32
+    }
+   },
+   {
+    "id": "cache-c",
+    "kind": "redis",
+    "name": "Redis Sentinel",
+    "zoneId": "az-c",
+    "group": "cache",
+    "role": "witness",
+    "props": {
+     "mode": "sentinel",
+     "vcpu": 1,
+     "ramGb": 1
+    }
+   },
+   {
+    "id": "pg-a",
+    "kind": "postgresql",
+    "name": "PostgreSQL primary (диалоги)",
+    "zoneId": "az-a",
+    "group": "pg",
+    "role": "primary",
+    "props": {
+     "encryptionAtRest": true,
+     "version": "16",
+     "vcpu": 8,
+     "ramGb": 32,
+     "diskGb": 500,
+     "failover": "auto",
+     "failoverSeconds": 30,
+     "dcs": "etcd",
+     "connectionPooler": true
+    }
+   },
+   {
+    "id": "pg-b",
+    "kind": "postgresql",
+    "name": "PostgreSQL sync replica",
+    "zoneId": "az-b",
+    "group": "pg",
+    "role": "replica",
+    "props": {
+     "encryptionAtRest": true,
+     "version": "16",
+     "vcpu": 8,
+     "ramGb": 32,
+     "diskGb": 500,
+     "failover": "auto",
+     "failoverSeconds": 30,
+     "dcs": "etcd",
+     "connectionPooler": true
+    }
+   },
+   {
+    "id": "pg-c",
+    "kind": "postgresql",
+    "name": "PostgreSQL async replica",
+    "zoneId": "az-c",
+    "group": "pg",
+    "role": "replica",
+    "props": {
+     "encryptionAtRest": true,
+     "version": "16",
+     "vcpu": 8,
+     "ramGb": 32,
+     "diskGb": 500,
+     "failover": "auto",
+     "failoverSeconds": 30,
+     "dcs": "etcd",
+     "connectionPooler": true
+    }
+   },
+   {
+    "id": "etcd-a",
+    "kind": "etcd",
+    "name": "etcd",
+    "zoneId": "az-a",
+    "group": "etcd",
+    "role": "voter",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 4,
+     "diskGb": 50
+    }
+   },
+   {
+    "id": "docs-a",
+    "kind": "object_storage",
+    "name": "Документы (MinIO)",
+    "zoneId": "az-a",
+    "group": "docs",
+    "role": null,
+    "props": {
+     "variant": "minio",
+     "replicas": 3,
+     "vcpu": 4,
+     "ramGb": 16,
+     "diskGb": 4000,
+     "encryptionAtRest": true
+    }
+   },
+   {
+    "id": "etcd-b",
+    "kind": "etcd",
+    "name": "etcd",
+    "zoneId": "az-b",
+    "group": "etcd",
+    "role": "voter",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 4,
+     "diskGb": 50
+    }
+   },
+   {
+    "id": "docs-b",
+    "kind": "object_storage",
+    "name": "Документы (MinIO)",
+    "zoneId": "az-b",
+    "group": "docs",
+    "role": null,
+    "props": {
+     "variant": "minio",
+     "replicas": 3,
+     "vcpu": 4,
+     "ramGb": 16,
+     "diskGb": 4000,
+     "encryptionAtRest": true
+    }
+   },
+   {
+    "id": "etcd-c",
+    "kind": "etcd",
+    "name": "etcd",
+    "zoneId": "az-c",
+    "group": "etcd",
+    "role": "voter",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 4,
+     "diskGb": 50
+    }
+   },
+   {
+    "id": "docs-c",
+    "kind": "object_storage",
+    "name": "Документы (MinIO)",
+    "zoneId": "az-c",
+    "group": "docs",
+    "role": null,
+    "props": {
+     "variant": "minio",
+     "replicas": 3,
+     "vcpu": 4,
+     "ramGb": 16,
+     "diskGb": 4000,
+     "encryptionAtRest": true
+    }
+   },
+   {
+    "id": "gitops",
+    "kind": "gitops",
+    "name": "GitOps · Argo CD",
+    "zoneId": "az-c",
+    "group": "gitops",
+    "role": null,
+    "props": {
+     "replicas": 2,
+     "vcpu": 2,
+     "ramGb": 4
+    }
+   },
+   {
+    "id": "vault-a",
+    "kind": "vault",
+    "name": "Vault",
+    "zoneId": "az-a",
+    "group": "vault",
+    "role": "primary",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 4,
+     "diskGb": 50
+    }
+   },
+   {
+    "id": "vault-b",
+    "kind": "vault",
+    "name": "Vault (standby)",
+    "zoneId": "az-b",
+    "group": "vault",
+    "role": "replica",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 4,
+     "diskGb": 50
+    }
+   },
+   {
+    "id": "backup",
+    "kind": "backup_storage",
+    "name": "Бэкапы (объектное хранилище, object lock)",
+    "zoneId": "site-backup",
+    "group": null,
+    "role": null,
+    "props": {
+     "immutable": true,
+     "retentionDays": 35,
+     "backupIntervalSeconds": 300,
+     "restoreSeconds": 10800,
+     "restoreTestedDays": 30,
+     "encryptionAtRest": true,
+     "diskGb": 20000
+    }
+   }
+  ],
+  "edges": [
+   {
+    "id": "e-users--waf",
+    "source": "users",
+    "target": "waf",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-waf--lb-a",
+    "source": "waf",
+    "target": "lb-a",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-lb-a--gw-a",
+    "source": "lb-a",
+    "target": "gw-a",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-gw-a--rag-a",
+    "source": "gw-a",
+    "target": "rag-a",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-rag-a--vec-a",
+    "source": "rag-a",
+    "target": "vec-a",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 1
+    }
+   },
+   {
+    "id": "e-rag-a--llm-a",
+    "source": "rag-a",
+    "target": "llm-a",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 1
+    }
+   },
+   {
+    "id": "e-mon-a--rag-a",
+    "source": "mon-a",
+    "target": "rag-a",
+    "type": "control",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-waf--lb-b",
+    "source": "waf",
+    "target": "lb-b",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-lb-b--gw-b",
+    "source": "lb-b",
+    "target": "gw-b",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-gw-b--rag-b",
+    "source": "gw-b",
+    "target": "rag-b",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-rag-b--vec-b",
+    "source": "rag-b",
+    "target": "vec-b",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 1
+    }
+   },
+   {
+    "id": "e-rag-b--llm-b",
+    "source": "rag-b",
+    "target": "llm-b",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 1
+    }
+   },
+   {
+    "id": "e-mon-b--rag-b",
+    "source": "mon-b",
+    "target": "rag-b",
+    "type": "control",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-waf--lb-c",
+    "source": "waf",
+    "target": "lb-c",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-lb-c--gw-c",
+    "source": "lb-c",
+    "target": "gw-c",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-gw-c--rag-c",
+    "source": "gw-c",
+    "target": "rag-c",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-rag-c--vec-c",
+    "source": "rag-c",
+    "target": "vec-c",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 1
+    }
+   },
+   {
+    "id": "e-rag-c--llm-c",
+    "source": "rag-c",
+    "target": "llm-c",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 1
+    }
+   },
+   {
+    "id": "e-mon-c--rag-c",
+    "source": "mon-c",
+    "target": "rag-c",
+    "type": "control",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-vec-a--vec-b",
+    "source": "vec-a",
+    "target": "vec-b",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 0.8,
+     "tls": true,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-vec-a--vec-c",
+    "source": "vec-a",
+    "target": "vec-c",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 0.8,
+     "tls": true,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-vec-b--vec-c",
+    "source": "vec-b",
+    "target": "vec-c",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 0.8,
+     "tls": true,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-gw-a--idp-a",
+    "source": "gw-a",
+    "target": "idp-a",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 0.05
+    }
+   },
+   {
+    "id": "e-gw-b--idp-b",
+    "source": "gw-b",
+    "target": "idp-b",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 0.05
+    }
+   },
+   {
+    "id": "e-gw-c--idp-b",
+    "source": "gw-c",
+    "target": "idp-b",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 0.05
+    }
+   },
+   {
+    "id": "e-etcd-a--etcd-b",
+    "source": "etcd-a",
+    "target": "etcd-b",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 0.8,
+     "tls": true,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-etcd-a--etcd-c",
+    "source": "etcd-a",
+    "target": "etcd-c",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 0.8,
+     "tls": true,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-etcd-b--etcd-c",
+    "source": "etcd-b",
+    "target": "etcd-c",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 0.8,
+     "tls": true,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-docs-a--docs-b",
+    "source": "docs-a",
+    "target": "docs-b",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 0.8,
+     "tls": true,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-docs-a--docs-c",
+    "source": "docs-a",
+    "target": "docs-c",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 0.8,
+     "tls": true,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-docs-b--docs-c",
+    "source": "docs-b",
+    "target": "docs-c",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 0.8,
+     "tls": true,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-rag-a--cache-a",
+    "source": "rag-a",
+    "target": "cache-a",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 1
+    }
+   },
+   {
+    "id": "e-rag-a--pg-a",
+    "source": "rag-a",
+    "target": "pg-a",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "fanoutColdCache": 0.8,
+     "tls": true,
+     "fanout": 0.3
+    }
+   },
+   {
+    "id": "e-rag-a--docs-a",
+    "source": "rag-a",
+    "target": "docs-a",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 0.1
+    }
+   },
+   {
+    "id": "e-rag-b--cache-b",
+    "source": "rag-b",
+    "target": "cache-b",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 1
+    }
+   },
+   {
+    "id": "e-rag-b--pg-b",
+    "source": "rag-b",
+    "target": "pg-b",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "fanoutColdCache": 0.8,
+     "tls": true,
+     "fanout": 0.3
+    }
+   },
+   {
+    "id": "e-rag-b--docs-b",
+    "source": "rag-b",
+    "target": "docs-b",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 0.1
+    }
+   },
+   {
+    "id": "e-rag-c--cache-b",
+    "source": "rag-c",
+    "target": "cache-b",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 1
+    }
+   },
+   {
+    "id": "e-rag-c--pg-c",
+    "source": "rag-c",
+    "target": "pg-c",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "fanoutColdCache": 0.8,
+     "tls": true,
+     "fanout": 0.3
+    }
+   },
+   {
+    "id": "e-rag-c--docs-c",
+    "source": "rag-c",
+    "target": "docs-c",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true,
+     "fanout": 0.1
+    }
+   },
+   {
+    "id": "e-pg-a--pg-b",
+    "source": "pg-a",
+    "target": "pg-b",
+    "type": "sync",
+    "label": null,
+    "props": {
+     "latencyMs": 0.8,
+     "latencyMeasured": true,
+     "tls": true,
+     "bandwidthMbps": 25000,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-pg-a--pg-c",
+    "source": "pg-a",
+    "target": "pg-c",
+    "type": "async",
+    "label": null,
+    "props": {
+     "lagSeconds": 1,
+     "latencyMs": 0.8,
+     "latencyMeasured": true,
+     "tls": true,
+     "paths": 3,
+     "bandwidthMbps": 25000
+    }
+   },
+   {
+    "id": "e-cache-a--cache-b",
+    "source": "cache-a",
+    "target": "cache-b",
+    "type": "async",
+    "label": null,
+    "props": {
+     "lagSeconds": 1,
+     "latencyMs": 0.8,
+     "latencyMeasured": true,
+     "tls": true,
+     "paths": 3,
+     "bandwidthMbps": 25000
+    }
+   },
+   {
+    "id": "e-gitops--rag-a",
+    "source": "gitops",
+    "target": "rag-a",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-gitops--rag-b",
+    "source": "gitops",
+    "target": "rag-b",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-gitops--rag-c",
+    "source": "gitops",
+    "target": "rag-c",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-vault-a--vault-b",
+    "source": "vault-a",
+    "target": "vault-b",
+    "type": "async",
+    "label": null,
+    "props": {
+     "lagSeconds": 1,
+     "latencyMs": 0.8,
+     "latencyMeasured": true,
+     "tls": true,
+     "paths": 3,
+     "bandwidthMbps": 25000
+    }
+   },
+   {
+    "id": "e-pg-b--backup",
+    "source": "pg-b",
+    "target": "backup",
+    "type": "backup",
+    "label": "WAL + full",
+    "props": {
+     "intervalSeconds": 300,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-vec-c--backup",
+    "source": "vec-c",
+    "target": "backup",
+    "type": "backup",
+    "label": "снимки коллекций",
+    "props": {
+     "intervalSeconds": 3600,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-docs-c--backup",
+    "source": "docs-c",
+    "target": "backup",
+    "type": "backup",
+    "label": null,
+    "props": {
+     "intervalSeconds": 3600,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-vault-a--backup",
+    "source": "vault-a",
+    "target": "backup",
+    "type": "backup",
+    "label": null,
+    "props": {
+     "intervalSeconds": 3600,
+     "tls": true
+    }
+   }
+  ]
+ }
+}

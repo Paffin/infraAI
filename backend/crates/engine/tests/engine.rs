@@ -54,6 +54,47 @@ fn defaults_are_consistent() {
 }
 
 #[test]
+fn every_shipped_template_can_be_found_in_the_gallery() {
+    // the gallery lists, filters and orders by these fields: a template without them is a card nobody can find
+    let all = defaults::templates();
+    let mut orders: Vec<i32> = all.iter().map(|t| t.order).collect();
+    orders.sort();
+    orders.dedup();
+    assert_eq!(orders.len(), all.len(), "every template has an order of its own");
+    for t in &all {
+        assert!(!t.tags.is_empty(), "template {} has no tags", t.id);
+        assert!(t.badge.as_deref().is_some_and(|b| !b.is_empty()), "template {} has no badge", t.id);
+        assert!(t.description.is_some(), "template {} has no description", t.id);
+        for lang in ["ru", "en"] {
+            assert!(!t.name.get(lang).is_empty() && t.description.as_ref().is_some_and(|d| !d.get(lang).is_empty()), "template {} has no name or description in {lang}", t.id);
+        }
+        // a name that is the same in both languages would mean one of them was never written
+        assert_ne!(t.description.as_ref().map(|d| d.get("ru")), t.description.as_ref().map(|d| d.get("en")), "template {} has one description for both languages", t.id);
+        assert!(t.architecture.requirements.availability_slo.is_some(), "template {} carries no availability target", t.id);
+    }
+    // the gallery is a gallery: the ones written by hand and the ones written in code are all there
+    for id in ["two-dc-witness", "aws-three-az", "yandex-cloud-three-zones", "k8s-platform", "payments-two-dc", "data-platform", "rag-llm", "hybrid-dr"] {
+        assert!(all.iter().any(|t| t.id == id), "template {id} is shipped");
+    }
+}
+
+#[test]
+fn services_behind_one_gateway_are_not_mistaken_for_copies_of_one_service() {
+    // a shop on Kubernetes: the catalog, the cart and the orders are three `kubernetes` nodes in every zone behind the same gateway, and they feed different things (search, cache, database)
+    let c = cfg();
+    let a = template("microservices-shop");
+    let rep = evaluate(&a, &c, &[]);
+    assert_eq!(rule_status(&rep, "HA-GRP-01"), Status::Ok, "{:?}", findings_of(&rep, "HA-GRP-01"));
+    // while two copies of one service that were not grouped are still found (see group_hygiene_detects_ungrouped_parallel_nodes): here the cart is split into two units
+    let mut split = a.clone();
+    for n in split.nodes.iter_mut().filter(|n| n.id.starts_with("cart-")) {
+        n.group = Some(format!("cart-{}", n.id.trim_start_matches("cart-")));
+    }
+    let rep = evaluate(&split, &c, &[]);
+    assert_eq!(rule_status(&rep, "HA-GRP-01"), Status::Risk, "three cart nodes with the same neighbours are one service split in three");
+}
+
+#[test]
 fn two_dc_baseline_is_up_with_headroom() {
     let a = template("two-dc-witness");
     let r = sim(&a, Scenario::None);
@@ -180,6 +221,17 @@ fn all_reference_templates_have_no_critical_findings() {
         let rep = evaluate(&t.architecture, &cfg(), &[]);
         let crit: Vec<_> = rep.findings.iter().filter(|f| f.status == Status::Critical).map(|f| (f.rule_id.clone(), f.vars.clone())).collect();
         assert!(crit.is_empty(), "template {} has critical findings: {crit:#?}", t.id);
+    }
+}
+
+#[test]
+fn the_reference_architectures_are_clean_not_just_free_of_critical_findings() {
+    // a design that ships as an example of "right" has nothing left open: no risk, and nothing the engine could not check for want of a figure
+    for t in defaults::templates() {
+        let rep = evaluate(&t.architecture, &cfg(), &[]);
+        let open: Vec<_> = rep.findings.iter().map(|f| (f.rule_id.clone(), f.status)).collect();
+        assert!(open.is_empty(), "template {} has open findings: {open:?}", t.id);
+        assert!(rep.score.value >= 100.0, "template {} scores {}", t.id, rep.score.value);
     }
 }
 

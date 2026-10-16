@@ -9,6 +9,11 @@
   "en": "One data center, racks as failure domains: applications, the database (primary + 2 replicas), the etcd quorum and the cache are spread over racks; backups sit on an off-site location. Survives a rack failure; losing the data center is a restore from the copy."
  },
  "badge": "1 ЦОД",
+ "tags": [
+  "on-prem",
+  "racks",
+  "ha"
+ ],
  "enabled": true,
  "order": 0,
  "architecture": {
@@ -23,7 +28,8 @@
    "rtoSeconds": 14400.0,
    "rpoSeconds": 300.0,
    "availabilitySlo": 99.9,
-   "failureTolerance": "rack"
+   "failureTolerance": "rack",
+   "budgetMonthly": 700000
   },
   "zones": [
    {
@@ -33,7 +39,8 @@
     "parentId": null,
     "role": "active",
     "props": {
-     "geo": "geo-1"
+     "geo": "geo-1",
+     "tier": "III"
     }
    },
    {
@@ -462,7 +469,8 @@
      "bandwidthMbps": 25000.0,
      "latencyMs": 0.3,
      "paths": 2,
-     "tls": true
+     "tls": true,
+     "latencyMeasured": true
     }
    },
    {
@@ -475,7 +483,8 @@
      "bandwidthMbps": 25000.0,
      "latencyMs": 0.3,
      "paths": 2,
-     "tls": true
+     "tls": true,
+     "latencyMeasured": true
     }
    },
    {
@@ -514,7 +523,8 @@
      "bandwidthMbps": 25000.0,
      "latencyMs": 0.3,
      "paths": 2,
-     "tls": true
+     "tls": true,
+     "latencyMeasured": true
     }
    },
    {

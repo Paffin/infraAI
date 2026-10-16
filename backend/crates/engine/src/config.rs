@@ -660,6 +660,9 @@ pub struct Template {
     /// Short badge shown next to the name (`DR`, `HA`).
     #[serde(default)]
     pub badge: Option<String>,
+    /// What the gallery filters by (`ha`, `dr`, `kubernetes`, `aws`…): short ids, shown through the interface texts when they have one.
+    #[serde(default)]
+    pub tags: Vec<String>,
     #[serde(default = "yes")]
     pub enabled: bool,
     #[serde(default)]

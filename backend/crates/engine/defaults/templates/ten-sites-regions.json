@@ -9,6 +9,11 @@
   "en": "Ten sites in three regions: synchronous inside a region, asynchronous between regions; survives the loss of a whole region and of two sites at once."
  },
  "badge": "10×",
+ "tags": [
+  "multi-site",
+  "multi-region",
+  "quorum"
+ ],
  "enabled": true,
  "order": 7,
  "architecture": {
@@ -24,7 +29,8 @@
    "rpoSeconds": 300.0,
    "availabilitySlo": 99.95,
    "failureTolerance": "geo",
-   "siteFailures": 2
+   "siteFailures": 2,
+   "budgetMonthly": 1100000
   },
   "zones": [
    {
@@ -34,7 +40,8 @@
     "parentId": null,
     "role": "active",
     "props": {
-     "geo": "geo-1"
+     "geo": "geo-1",
+     "tier": "III"
     }
    },
    {
@@ -44,7 +51,8 @@
     "parentId": null,
     "role": "active",
     "props": {
-     "geo": "geo-1"
+     "geo": "geo-1",
+     "tier": "III"
     }
    },
    {
@@ -54,7 +62,8 @@
     "parentId": null,
     "role": "active",
     "props": {
-     "geo": "geo-1"
+     "geo": "geo-1",
+     "tier": "III"
     }
    },
    {
@@ -64,7 +73,8 @@
     "parentId": null,
     "role": "active",
     "props": {
-     "geo": "geo-1"
+     "geo": "geo-1",
+     "tier": "III"
     }
    },
    {
@@ -74,7 +84,8 @@
     "parentId": null,
     "role": "active",
     "props": {
-     "geo": "geo-2"
+     "geo": "geo-2",
+     "tier": "III"
     }
    },
    {
@@ -84,7 +95,8 @@
     "parentId": null,
     "role": "active",
     "props": {
-     "geo": "geo-2"
+     "geo": "geo-2",
+     "tier": "III"
     }
    },
    {
@@ -94,7 +106,8 @@
     "parentId": null,
     "role": "active",
     "props": {
-     "geo": "geo-2"
+     "geo": "geo-2",
+     "tier": "III"
     }
    },
    {
@@ -104,7 +117,8 @@
     "parentId": null,
     "role": "active",
     "props": {
-     "geo": "geo-3"
+     "geo": "geo-3",
+     "tier": "III"
     }
    },
    {
@@ -114,7 +128,8 @@
     "parentId": null,
     "role": "active",
     "props": {
-     "geo": "geo-3"
+     "geo": "geo-3",
+     "tier": "III"
     }
    },
    {
@@ -124,7 +139,8 @@
     "parentId": null,
     "role": "active",
     "props": {
-     "geo": "geo-3"
+     "geo": "geo-3",
+     "tier": "III"
     }
    },
    {

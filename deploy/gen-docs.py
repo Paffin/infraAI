@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Regenerates the tables of docs/RULES.md, docs/CONFIGURATION.md, docs/IAC.md and docs/CATALOG.md from the JSON registries (and the icon set of the UI).
+"""Regenerates the tables of docs/RULES.md, docs/CONFIGURATION.md, docs/IAC.md, docs/CATALOG.md, docs/TEMPLATES.md and docs/FEATURES.md, and the numbers of README.md and README.en.md,
+from the JSON registries (and the icon set of the UI, the tag names of the gallery, the tests in the repository).
 
     python3 deploy/gen-docs.py            # rewrite the generated blocks
     python3 deploy/gen-docs.py --check    # exit 1 if the docs are out of date (used in CI)
@@ -164,31 +165,140 @@ def iac_operators_block():
     return "\n".join(out)
 
 
-BLOCKS = {
-    "rules": ("docs/RULES.md", rules_block),
-    "settings": ("docs/CONFIGURATION.md", settings_block),
-    "iac-kinds": ("docs/IAC.md", iac_kinds_block),
-    "iac-operators": ("docs/IAC.md", iac_operators_block),
-    "catalog": ("docs/CATALOG.md", catalog_block),
-    "versions": ("docs/CATALOG.md", versions_block),
-    "icons": ("docs/CATALOG.md", icons_block),
-}
+UNITS = {"ru": (("дн", 86400), ("ч", 3600), ("мин", 60), "с"), "en": (("d", 86400), ("h", 3600), ("min", 60), "s")}
+
+
+def seconds_text(v, lang="ru"):
+    """0 → `0`; 35 → `35 с`; 300 → `5 мин`; 14400 → `4 ч` (in English: `35 s`, `5 min`, `4 h`)."""
+    if v is None:
+        return "—"
+    if v == 0:
+        return "0"
+    v = int(v) if float(v).is_integer() else v   # a template may carry 300.0 for 300
+    *units, second = UNITS[lang]
+    for unit, size in units:
+        if v >= size and v % size == 0:
+            return f"{v // size} {unit}"
+    return f"{v:g} {second}"
+
+
+def templates_block():
+    tolerance = {l["id"]: ru(l["name"]).split(" (")[0].lower() for l in json.loads((ENGINE / "engine.json").read_text())["tolerance"]["levels"]}
+    ts = sorted((json.loads(p.read_text()) for p in (ENGINE / "templates").glob("*.json")), key=lambda t: t.get("order", 0))
+    out = [f"Эталонных архитектур: **{len(ts)}**. Каждая проходит правила без критичных находок, держит заявленную доступность и собственный шлюз `infra-architect check` (проверяют тесты).", "",
+           "| Архитектура | Теги | Узлов | SLO | RPO | RTO | Переживает |", "|---|---|---|---|---|---|---|"]
+    for t in ts:
+        r = t["architecture"]["requirements"]
+        name = f"**{cell(ru(t['name']))}** `{t['badge']}`<br>{cell(ru(t['description']))}"
+        out.append(f"| {name} | {', '.join(f'`{x}`' for x in t.get('tags', []))} | {len(t['architecture']['nodes'])} | {r.get('availabilitySlo', '—')} % | {seconds_text(r.get('rpoSeconds'))} | {seconds_text(r.get('rtoSeconds'))} | {tolerance.get(r.get('failureTolerance'), r.get('failureTolerance', '—'))} |")
+    return "\n".join(out)
+
+
+def stats():
+    """The numbers the README is proud of, counted from what ships: nothing here is typed in."""
+    catalog = json.loads((ENGINE / "catalog.json").read_text())
+    rules = json.loads((ENGINE / "rules.json").read_text())
+    kinds = catalog["kinds"]
+    tests = (sum(len(re.findall(r"#\[(?:tokio::)?test", p.read_text())) for p in (ROOT / "backend/crates").rglob("*.rs"))
+             + sum(len(re.findall(r"^\s*(?:it|test)(?:\.each\([^)]*\))?\(", p.read_text(), re.M)) for p in (ROOT / "frontend/tests").glob("*.test.ts"))
+             + sum(len(re.findall(r"^\s*test\(", p.read_text(), re.M)) for p in (ROOT / "frontend/e2e").glob("*.spec.ts")))
+    return {"kinds": len(kinds), "variants": sum(len(k.get("variants", [])) for k in kinds), "functions": sum(len(c.get("functions", [])) for c in catalog["categories"]),
+            "rules": len(rules), "checks": len({r["check"] for r in rules}), "templates": len(list((ENGINE / "templates").glob("*.json"))),
+            "settings": len(json.loads((SERVER / "settings.json").read_text())), "versions": len(json.loads((ENGINE / "versions.json").read_text())),
+            "tests": tests // 50 * 50}  # rounded down: a count that changes with every test would make the README stale with every commit
+
+
+def plural(n, forms, lang):
+    """`forms` is (one, few, many) in Russian and (one, many) in English."""
+    if lang == "en":
+        return forms[0] if n == 1 else forms[-1]
+    n10, n100 = n % 10, n % 100
+    return forms[0] if n10 == 1 and n100 != 11 else forms[1] if 2 <= n10 <= 4 and not 12 <= n100 <= 14 else forms[2]
+
+
+def readme_numbers(lang):
+    s = stats()
+    cells = [
+        (str(s["kinds"]), {"ru": ("продукт в каталоге", "продукта в каталоге", "продуктов в каталоге"), "en": ("product in the catalog", "products in the catalog")}),
+        (str(s["variants"]), {"ru": ("вариант развёртывания", "варианта развёртывания", "вариантов развёртывания"), "en": ("deployment variant", "deployment variants")}),
+        (str(s["rules"]), {"ru": ("правило проверки", "правила проверки", "правил проверки"), "en": ("verification rule", "verification rules")}),
+        (str(s["templates"]), {"ru": ("эталонная архитектура", "эталонные архитектуры", "эталонных архитектур"), "en": ("reference architecture", "reference architectures")}),
+        (str(s["settings"]), {"ru": ("настройка без пересборки", "настройки без пересборки", "настроек без пересборки"), "en": ("setting, no rebuild", "settings, no rebuild")}),
+        (f"{s['tests']}+", {"ru": ("автотест без моков", "автотеста без моков", "автотестов без моков"), "en": ("test, no mocks", "tests, no mocks")}),
+    ]
+    out = ['<table align="center">', "<tr>"]
+    for number, forms in cells:
+        n = int(number.rstrip("+"))
+        out.append(f'<td align="center"><b>{number}</b><br><sub>{plural(n, forms[lang], lang)}</sub></td>')
+    out += ["</tr>", "</table>"]
+    return "\n".join(out)
+
+
+def tag_names(lang):
+    """How the gallery of the interface calls a tag of a reference architecture (frontend/src/i18n)."""
+    src = (ROOT / f"frontend/src/i18n/{lang}.ts").read_text()
+    return dict(re.findall(r"'tpl\.tag\.([a-z0-9-]+)':\s*'([^']*)'", src))
+
+
+def readme_templates(lang):
+    tolerance = {l["id"]: l["name"][lang].split(" (")[0].lower() for l in json.loads((ENGINE / "engine.json").read_text())["tolerance"]["levels"]}
+    names = tag_names(lang)
+    ts = sorted((json.loads(p.read_text()) for p in (ENGINE / "templates").glob("*.json")), key=lambda t: t.get("order", 0))
+    head = {"ru": ("Архитектура", "Теги", "SLO", "RPO", "RTO", "Переживает"), "en": ("Architecture", "Tags", "SLO", "RPO", "RTO", "Survives")}[lang]
+    title = {"ru": "Все эталонные архитектуры", "en": "All reference architectures"}[lang]
+    out = [f"<details>", f"<summary><b>{title}</b> · {len(ts)}</summary>", "", "| " + " | ".join(head) + " |", "|---|---|---|---|---|---|"]
+    for t in ts:
+        r = t["architecture"]["requirements"]
+        tags = " · ".join(names.get(x, x) for x in t.get("tags", []))
+        out.append(f"| **{cell(t['name'][lang])}** | {cell(tags)} | {r.get('availabilitySlo', '—')} % | {seconds_text(r.get('rpoSeconds'), lang)} | {seconds_text(r.get('rtoSeconds'), lang)} | "
+                   f"{tolerance.get(r.get('failureTolerance'), r.get('failureTolerance', '—'))} |")
+    out += ["", "</details>"]
+    return "\n".join(out)
+
+
+def features_facts():
+    s = stats()
+    return (f"Сейчас в поставке: **{s['kinds']}** продуктов в **{s['functions']}** функциях ({s['variants']} вариантов развёртывания, {s['versions']} таблиц версий), **{s['rules']}** правил "
+            f"({s['checks']} типов проверок), **{s['templates']}** эталонных архитектур, **{s['settings']}** настроек.")
+
+
+BLOCKS = [  # (marker name, file, generator)
+    ("templates", "docs/TEMPLATES.md", templates_block),
+    ("rules", "docs/RULES.md", rules_block),
+    ("settings", "docs/CONFIGURATION.md", settings_block),
+    ("iac-kinds", "docs/IAC.md", iac_kinds_block),
+    ("iac-operators", "docs/IAC.md", iac_operators_block),
+    ("catalog", "docs/CATALOG.md", catalog_block),
+    ("versions", "docs/CATALOG.md", versions_block),
+    ("icons", "docs/CATALOG.md", icons_block),
+    ("features-facts", "docs/FEATURES.md", features_facts),
+    ("readme-numbers", "README.md", lambda: readme_numbers("ru")),
+    ("readme-templates", "README.md", lambda: readme_templates("ru")),
+    ("readme-numbers", "README.en.md", lambda: readme_numbers("en")),
+    ("readme-templates", "README.en.md", lambda: readme_templates("en")),
+]
+
+
+def render_text(text, rel, name, body):
+    pattern = re.compile(rf"(<!-- BEGIN GENERATED: {name} -->)\n.*?(<!-- END GENERATED: {name} -->)", re.S)
+    if not pattern.search(text):
+        sys.exit(f"{rel}: markers for '{name}' not found")
+    return pattern.sub(lambda m: f"{m.group(1)}\n{body}\n{m.group(2)}", text)
 
 
 def render(path, name, body):
-    text = path.read_text()
-    pattern = re.compile(rf"(<!-- BEGIN GENERATED: {name} -->)\n.*?(<!-- END GENERATED: {name} -->)", re.S)
-    if not pattern.search(text):
-        sys.exit(f"{path}: markers for '{name}' not found")
-    return pattern.sub(lambda m: f"{m.group(1)}\n{body}\n{m.group(2)}", text)
+    return render_text(path.read_text(), path.relative_to(ROOT), name, body)
 
 
 def main():
     check = "--check" in sys.argv
-    stale = []
-    for name, (rel, fn) in BLOCKS.items():
+    texts = {}
+    for name, rel, fn in BLOCKS:
         path = ROOT / rel
-        new = render(path, name, fn())
+        texts[rel] = render(path, name, fn()) if rel not in texts else render_text(texts[rel], rel, name, fn())
+    stale = []
+    for rel, new in texts.items():
+        path = ROOT / rel
         if new != path.read_text():
             if check:
                 stale.append(rel)

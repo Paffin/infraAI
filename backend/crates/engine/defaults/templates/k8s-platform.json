@@ -1,0 +1,885 @@
+{
+ "id": "k8s-platform",
+ "name": {
+  "ru": "Kubernetes-платформа: GitOps и наблюдаемость",
+  "en": "Kubernetes platform: GitOps and observability"
+ },
+ "description": {
+  "ru": "Один кластер на трёх площадках города: etcd на трёх голосах, Argo CD, Vault, Prometheus, Loki, Grafana, Harbor, cert-manager и service mesh. Платформа переживает потерю площадки.",
+  "en": "One cluster over three sites of a city: etcd on three voters, Argo CD, Vault, Prometheus, Loki, Grafana, Harbor, cert-manager and a service mesh. The platform survives the loss of a site."
+ },
+ "badge": "K8s",
+ "tags": [
+  "kubernetes",
+  "platform",
+  "gitops",
+  "observability",
+  "on-prem",
+  "ha"
+ ],
+ "enabled": true,
+ "order": 13,
+ "architecture": {
+  "schemaVersion": 1,
+  "meta": {
+   "name": "Kubernetes-платформа: GitOps, секреты, наблюдаемость",
+   "description": "Растянутый кластер Kubernetes на трёх площадках одного города: изменения попадают в него только через Argo CD, секреты — в Vault, метрики, логи и дашборды — Prometheus, Loki и Grafana, образы — в Harbor, сертификаты выпускает cert-manager, трафик между сервисами шифрует service mesh. Данные платформы — PostgreSQL с репликами на всех площадках."
+  },
+  "requirements": {
+   "rpsPeak": 6000,
+   "growthPercent": 40,
+   "rtoSeconds": 600,
+   "rpoSeconds": 0,
+   "budgetMonthly": 3200000,
+   "failureTolerance": "site",
+   "availabilitySlo": 99.95
+  },
+  "zones": [
+   {
+    "id": "dc1",
+    "name": "ЦОД-1",
+    "type": "dc",
+    "parentId": null,
+    "role": "active",
+    "props": {
+     "tier": "III",
+     "geo": "moscow",
+     "costModel": "onprem"
+    }
+   },
+   {
+    "id": "dc2",
+    "name": "ЦОД-2",
+    "type": "dc",
+    "parentId": null,
+    "role": "active",
+    "props": {
+     "tier": "III",
+     "geo": "moscow",
+     "costModel": "onprem"
+    }
+   },
+   {
+    "id": "dc3",
+    "name": "ЦОД-3",
+    "type": "dc",
+    "parentId": null,
+    "role": "active",
+    "props": {
+     "tier": "III",
+     "geo": "moscow",
+     "costModel": "onprem"
+    }
+   }
+  ],
+  "nodes": [
+   {
+    "id": "users",
+    "kind": "users",
+    "name": "Разработчики и сервисы",
+    "zoneId": null,
+    "group": null,
+    "role": null,
+    "props": {
+     "rpsLabel": "6k RPS пик"
+    }
+   },
+   {
+    "id": "waf",
+    "kind": "waf",
+    "name": "WAF",
+    "zoneId": null,
+    "group": "waf",
+    "role": null,
+    "props": {
+     "replicas": 3
+    }
+   },
+   {
+    "id": "ingress-1",
+    "kind": "l7",
+    "name": "Ingress",
+    "zoneId": "dc1",
+    "group": "ingress",
+    "role": null,
+    "props": {
+     "variant": "ingress-k8s",
+     "replicas": 2,
+     "healthCheckSeconds": 3,
+     "failThreshold": 2
+    }
+   },
+   {
+    "id": "app-1",
+    "kind": "kubernetes",
+    "name": "Kubernetes · приложения",
+    "zoneId": "dc1",
+    "group": "app",
+    "role": null,
+    "props": {
+     "replicas": 28,
+     "vcpu": 1,
+     "ramGb": 2,
+     "hpaMin": 20,
+     "hpaMax": 70,
+     "clusterName": "platform"
+    }
+   },
+   {
+    "id": "etcd-1",
+    "kind": "etcd",
+    "name": "etcd кластера",
+    "zoneId": "dc1",
+    "group": "etcd",
+    "role": "voter",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 4,
+     "diskGb": 50
+    }
+   },
+   {
+    "id": "mon-1",
+    "kind": "monitoring",
+    "name": "Prometheus + Alertmanager",
+    "zoneId": "dc1",
+    "group": "monitoring",
+    "role": null,
+    "props": {
+     "replicas": 2,
+     "vcpu": 2,
+     "ramGb": 8,
+     "diskGb": 200
+    }
+   },
+   {
+    "id": "loki-1",
+    "kind": "loki",
+    "name": "Loki",
+    "zoneId": "dc1",
+    "group": "loki",
+    "role": null,
+    "props": {
+     "replicas": 3,
+     "vcpu": 4,
+     "ramGb": 8,
+     "diskGb": 500
+    }
+   },
+   {
+    "id": "mesh-1",
+    "kind": "service_mesh",
+    "name": "Service mesh (Istio)",
+    "zoneId": "dc1",
+    "group": "mesh",
+    "role": null,
+    "props": {
+     "variant": "istio",
+     "replicas": 2
+    }
+   },
+   {
+    "id": "ingress-2",
+    "kind": "l7",
+    "name": "Ingress",
+    "zoneId": "dc2",
+    "group": "ingress",
+    "role": null,
+    "props": {
+     "variant": "ingress-k8s",
+     "replicas": 2,
+     "healthCheckSeconds": 3,
+     "failThreshold": 2
+    }
+   },
+   {
+    "id": "app-2",
+    "kind": "kubernetes",
+    "name": "Kubernetes · приложения",
+    "zoneId": "dc2",
+    "group": "app",
+    "role": null,
+    "props": {
+     "replicas": 28,
+     "vcpu": 1,
+     "ramGb": 2,
+     "hpaMin": 20,
+     "hpaMax": 70,
+     "clusterName": "platform"
+    }
+   },
+   {
+    "id": "etcd-2",
+    "kind": "etcd",
+    "name": "etcd кластера",
+    "zoneId": "dc2",
+    "group": "etcd",
+    "role": "voter",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 4,
+     "diskGb": 50
+    }
+   },
+   {
+    "id": "mon-2",
+    "kind": "monitoring",
+    "name": "Prometheus + Alertmanager",
+    "zoneId": "dc2",
+    "group": "monitoring",
+    "role": null,
+    "props": {
+     "replicas": 2,
+     "vcpu": 2,
+     "ramGb": 8,
+     "diskGb": 200
+    }
+   },
+   {
+    "id": "loki-2",
+    "kind": "loki",
+    "name": "Loki",
+    "zoneId": "dc2",
+    "group": "loki",
+    "role": null,
+    "props": {
+     "replicas": 3,
+     "vcpu": 4,
+     "ramGb": 8,
+     "diskGb": 500
+    }
+   },
+   {
+    "id": "mesh-2",
+    "kind": "service_mesh",
+    "name": "Service mesh (Istio)",
+    "zoneId": "dc2",
+    "group": "mesh",
+    "role": null,
+    "props": {
+     "variant": "istio",
+     "replicas": 2
+    }
+   },
+   {
+    "id": "ingress-3",
+    "kind": "l7",
+    "name": "Ingress",
+    "zoneId": "dc3",
+    "group": "ingress",
+    "role": null,
+    "props": {
+     "variant": "ingress-k8s",
+     "replicas": 2,
+     "healthCheckSeconds": 3,
+     "failThreshold": 2
+    }
+   },
+   {
+    "id": "app-3",
+    "kind": "kubernetes",
+    "name": "Kubernetes · приложения",
+    "zoneId": "dc3",
+    "group": "app",
+    "role": null,
+    "props": {
+     "replicas": 28,
+     "vcpu": 1,
+     "ramGb": 2,
+     "hpaMin": 20,
+     "hpaMax": 70,
+     "clusterName": "platform"
+    }
+   },
+   {
+    "id": "etcd-3",
+    "kind": "etcd",
+    "name": "etcd кластера",
+    "zoneId": "dc3",
+    "group": "etcd",
+    "role": "voter",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 4,
+     "diskGb": 50
+    }
+   },
+   {
+    "id": "mon-3",
+    "kind": "monitoring",
+    "name": "Prometheus + Alertmanager",
+    "zoneId": "dc3",
+    "group": "monitoring",
+    "role": null,
+    "props": {
+     "replicas": 2,
+     "vcpu": 2,
+     "ramGb": 8,
+     "diskGb": 200
+    }
+   },
+   {
+    "id": "loki-3",
+    "kind": "loki",
+    "name": "Loki",
+    "zoneId": "dc3",
+    "group": "loki",
+    "role": null,
+    "props": {
+     "replicas": 3,
+     "vcpu": 4,
+     "ramGb": 8,
+     "diskGb": 500
+    }
+   },
+   {
+    "id": "mesh-3",
+    "kind": "service_mesh",
+    "name": "Service mesh (Istio)",
+    "zoneId": "dc3",
+    "group": "mesh",
+    "role": null,
+    "props": {
+     "variant": "istio",
+     "replicas": 2
+    }
+   },
+   {
+    "id": "gitops-1",
+    "kind": "gitops",
+    "name": "GitOps · Argo CD",
+    "zoneId": "dc1",
+    "group": "gitops",
+    "role": null,
+    "props": {
+     "replicas": 2,
+     "vcpu": 2,
+     "ramGb": 4
+    }
+   },
+   {
+    "id": "gitops-2",
+    "kind": "gitops",
+    "name": "GitOps · Argo CD",
+    "zoneId": "dc2",
+    "group": "gitops",
+    "role": null,
+    "props": {
+     "replicas": 2,
+     "vcpu": 2,
+     "ramGb": 4
+    }
+   },
+   {
+    "id": "registry-2",
+    "kind": "harbor",
+    "name": "Harbor (образы)",
+    "zoneId": "dc2",
+    "group": "registry",
+    "role": null,
+    "props": {
+     "replicas": 2,
+     "vcpu": 4,
+     "ramGb": 8,
+     "diskGb": 2000
+    }
+   },
+   {
+    "id": "registry-3",
+    "kind": "harbor",
+    "name": "Harbor (образы)",
+    "zoneId": "dc3",
+    "group": "registry",
+    "role": null,
+    "props": {
+     "replicas": 2,
+     "vcpu": 4,
+     "ramGb": 8,
+     "diskGb": 2000
+    }
+   },
+   {
+    "id": "certs-1",
+    "kind": "cert_manager",
+    "name": "cert-manager",
+    "zoneId": "dc1",
+    "group": "certs",
+    "role": null,
+    "props": {
+     "replicas": 2
+    }
+   },
+   {
+    "id": "certs-3",
+    "kind": "cert_manager",
+    "name": "cert-manager",
+    "zoneId": "dc3",
+    "group": "certs",
+    "role": null,
+    "props": {
+     "replicas": 2
+    }
+   },
+   {
+    "id": "grafana",
+    "kind": "grafana",
+    "name": "Grafana",
+    "zoneId": "dc3",
+    "group": "grafana",
+    "role": null,
+    "props": {
+     "replicas": 2,
+     "vcpu": 2,
+     "ramGb": 4
+    }
+   },
+   {
+    "id": "vault-1",
+    "kind": "vault",
+    "name": "Vault (Raft)",
+    "zoneId": "dc1",
+    "group": "vault",
+    "role": "voter",
+    "props": {
+     "variant": "raft",
+     "vcpu": 2,
+     "ramGb": 4,
+     "diskGb": 50
+    }
+   },
+   {
+    "id": "vault-2",
+    "kind": "vault",
+    "name": "Vault (Raft)",
+    "zoneId": "dc2",
+    "group": "vault",
+    "role": "voter",
+    "props": {
+     "variant": "raft",
+     "vcpu": 2,
+     "ramGb": 4,
+     "diskGb": 50
+    }
+   },
+   {
+    "id": "vault-3",
+    "kind": "vault",
+    "name": "Vault (Raft)",
+    "zoneId": "dc3",
+    "group": "vault",
+    "role": "voter",
+    "props": {
+     "variant": "raft",
+     "vcpu": 2,
+     "ramGb": 4,
+     "diskGb": 50
+    }
+   },
+   {
+    "id": "pg-1",
+    "kind": "postgresql",
+    "name": "PostgreSQL primary",
+    "zoneId": "dc1",
+    "group": "pg",
+    "role": "primary",
+    "props": {
+     "encryptionAtRest": true,
+     "version": "16",
+     "vcpu": 8,
+     "ramGb": 32,
+     "diskGb": 500,
+     "failover": "auto",
+     "failoverSeconds": 30,
+     "dcs": "etcd",
+     "connectionPooler": true
+    }
+   },
+   {
+    "id": "pg-2",
+    "kind": "postgresql",
+    "name": "PostgreSQL sync replica",
+    "zoneId": "dc2",
+    "group": "pg",
+    "role": "replica",
+    "props": {
+     "encryptionAtRest": true,
+     "version": "16",
+     "vcpu": 8,
+     "ramGb": 32,
+     "diskGb": 500,
+     "failover": "auto",
+     "failoverSeconds": 30,
+     "dcs": "etcd",
+     "connectionPooler": true
+    }
+   },
+   {
+    "id": "pg-3",
+    "kind": "postgresql",
+    "name": "PostgreSQL async replica",
+    "zoneId": "dc3",
+    "group": "pg",
+    "role": "replica",
+    "props": {
+     "encryptionAtRest": true,
+     "version": "16",
+     "vcpu": 8,
+     "ramGb": 32,
+     "diskGb": 500,
+     "failover": "auto",
+     "failoverSeconds": 30,
+     "dcs": "etcd",
+     "connectionPooler": true
+    }
+   },
+   {
+    "id": "backup",
+    "kind": "backup_storage",
+    "name": "Бэкапы (объектное хранилище)",
+    "zoneId": "dc3",
+    "group": null,
+    "role": null,
+    "props": {
+     "immutable": true,
+     "retentionDays": 30,
+     "backupIntervalSeconds": 300,
+     "restoreSeconds": 3600,
+     "restoreTestedDays": 30,
+     "encryptionAtRest": true,
+     "diskGb": 20000
+    }
+   }
+  ],
+  "edges": [
+   {
+    "id": "e-users--waf",
+    "source": "users",
+    "target": "waf",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-waf--ingress-1",
+    "source": "waf",
+    "target": "ingress-1",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-ingress-1--app-1",
+    "source": "ingress-1",
+    "target": "app-1",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-mon-1--app-1",
+    "source": "mon-1",
+    "target": "app-1",
+    "type": "control",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-mesh-1--app-1",
+    "source": "mesh-1",
+    "target": "app-1",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-waf--ingress-2",
+    "source": "waf",
+    "target": "ingress-2",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-ingress-2--app-2",
+    "source": "ingress-2",
+    "target": "app-2",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-mon-2--app-2",
+    "source": "mon-2",
+    "target": "app-2",
+    "type": "control",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-mesh-2--app-2",
+    "source": "mesh-2",
+    "target": "app-2",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-waf--ingress-3",
+    "source": "waf",
+    "target": "ingress-3",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-ingress-3--app-3",
+    "source": "ingress-3",
+    "target": "app-3",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-mon-3--app-3",
+    "source": "mon-3",
+    "target": "app-3",
+    "type": "control",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-mesh-3--app-3",
+    "source": "mesh-3",
+    "target": "app-3",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-etcd-1--etcd-2",
+    "source": "etcd-1",
+    "target": "etcd-2",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 0.8,
+     "tls": true,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-etcd-1--etcd-3",
+    "source": "etcd-1",
+    "target": "etcd-3",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 0.8,
+     "tls": true,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-etcd-2--etcd-3",
+    "source": "etcd-2",
+    "target": "etcd-3",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 0.8,
+     "tls": true,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-gitops-1--app-1",
+    "source": "gitops-1",
+    "target": "app-1",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-gitops-2--app-1",
+    "source": "gitops-2",
+    "target": "app-1",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-gitops-1--app-2",
+    "source": "gitops-1",
+    "target": "app-2",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-gitops-2--app-2",
+    "source": "gitops-2",
+    "target": "app-2",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-gitops-1--app-3",
+    "source": "gitops-1",
+    "target": "app-3",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-gitops-2--app-3",
+    "source": "gitops-2",
+    "target": "app-3",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-vault-1--vault-2",
+    "source": "vault-1",
+    "target": "vault-2",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 1.2,
+     "tls": true,
+     "paths": 2
+    }
+   },
+   {
+    "id": "e-vault-1--vault-3",
+    "source": "vault-1",
+    "target": "vault-3",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 1.2,
+     "tls": true,
+     "paths": 2
+    }
+   },
+   {
+    "id": "e-vault-2--vault-3",
+    "source": "vault-2",
+    "target": "vault-3",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 1.2,
+     "tls": true,
+     "paths": 2
+    }
+   },
+   {
+    "id": "e-app-1--pg-1",
+    "source": "app-1",
+    "target": "pg-1",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "fanoutColdCache": 0.8,
+     "tls": true,
+     "fanout": 0.3
+    }
+   },
+   {
+    "id": "e-app-2--pg-2",
+    "source": "app-2",
+    "target": "pg-2",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "fanoutColdCache": 0.8,
+     "tls": true,
+     "fanout": 0.3
+    }
+   },
+   {
+    "id": "e-app-3--pg-3",
+    "source": "app-3",
+    "target": "pg-3",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "fanoutColdCache": 0.8,
+     "tls": true,
+     "fanout": 0.3
+    }
+   },
+   {
+    "id": "e-pg-1--pg-2",
+    "source": "pg-1",
+    "target": "pg-2",
+    "type": "sync",
+    "label": null,
+    "props": {
+     "latencyMs": 1.2,
+     "latencyMeasured": true,
+     "tls": true,
+     "bandwidthMbps": 10000,
+     "paths": 2
+    }
+   },
+   {
+    "id": "e-pg-1--pg-3",
+    "source": "pg-1",
+    "target": "pg-3",
+    "type": "async",
+    "label": null,
+    "props": {
+     "lagSeconds": 1,
+     "latencyMs": 1.4,
+     "latencyMeasured": true,
+     "tls": true,
+     "paths": 2,
+     "bandwidthMbps": 10000
+    }
+   },
+   {
+    "id": "e-pg-2--backup",
+    "source": "pg-2",
+    "target": "backup",
+    "type": "backup",
+    "label": "WAL + full",
+    "props": {
+     "intervalSeconds": 300,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-vault-1--backup",
+    "source": "vault-1",
+    "target": "backup",
+    "type": "backup",
+    "label": null,
+    "props": {
+     "intervalSeconds": 3600,
+     "tls": true
+    }
+   }
+  ]
+ }
+}

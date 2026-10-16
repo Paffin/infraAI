@@ -1,0 +1,46 @@
+name: Исправление каталога / Catalog correction
+description: В каталоге неверно описан продукт, вариант, версия или функция
+labels: [catalog]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        В каталоге сотни продуктов, и каждый факт о том, **как продукт отказывает и что нужно для HA**, влияет на вердикты движка. Нашли неточность — это самое ценное, что можно прислать.
+        Можно сразу открыть pull request: продукты живут в `deploy/catalog/` ([как писать](https://github.com/Paffin/infraAI/blob/main/deploy/catalog/README.md)).
+  - type: input
+    id: product
+    attributes:
+      label: Продукт (и вариант)
+      description: Название или идентификатор вида из каталога
+      placeholder: Patroni (patroni_etcd)
+    validations:
+      required: true
+  - type: dropdown
+    id: what
+    attributes:
+      label: Что неверно
+      options:
+        - Поведение при отказе (HA, кворум, переключение)
+        - Описание
+        - Вариант развёртывания
+        - Таблица версий и сроки поддержки
+        - Функция или категория (куда продукт отнесён)
+        - Свойства и значения по умолчанию
+        - Продукта нет в каталоге
+    validations:
+      required: true
+  - type: textarea
+    id: fact
+    attributes:
+      label: Как на самом деле
+      description: Что верно и чем отличается от написанного
+    validations:
+      required: true
+  - type: input
+    id: source
+    attributes:
+      label: Источник
+      description: Ссылка на документацию производителя или публичное описание
+      placeholder: https://…
+    validations:
+      required: true

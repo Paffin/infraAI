@@ -3,6 +3,11 @@ name = "server"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Infra Architect server: HTTP API, admin panel backend, LLM pipeline and the infra-architect command line"
 
 [[bin]]
 name = "infra-architect"

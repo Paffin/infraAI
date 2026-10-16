@@ -9,6 +9,11 @@
   "en": "Three equal sites of one city: the load is split in three, data and quorum are on every site. Survives the loss of any site and the isolation of any of them."
  },
  "badge": "3×",
+ "tags": [
+  "on-prem",
+  "quorum",
+  "multi-site"
+ ],
  "enabled": true,
  "order": 5,
  "architecture": {
@@ -23,7 +28,8 @@
    "rtoSeconds": 300.0,
    "rpoSeconds": 0.0,
    "availabilitySlo": 99.95,
-   "failureTolerance": "site"
+   "failureTolerance": "site",
+   "budgetMonthly": 800000
   },
   "zones": [
    {
@@ -33,7 +39,8 @@
     "parentId": null,
     "role": "active",
     "props": {
-     "geo": "geo-1"
+     "geo": "geo-1",
+     "tier": "III"
     }
    },
    {
@@ -43,7 +50,8 @@
     "parentId": null,
     "role": "active",
     "props": {
-     "geo": "geo-1"
+     "geo": "geo-1",
+     "tier": "III"
     }
    },
    {
@@ -53,7 +61,8 @@
     "parentId": null,
     "role": "active",
     "props": {
-     "geo": "geo-1"
+     "geo": "geo-1",
+     "tier": "III"
     }
    }
   ],
@@ -448,7 +457,8 @@
      "bandwidthMbps": 25000.0,
      "latencyMs": 1.2,
      "paths": 2,
-     "tls": true
+     "tls": true,
+     "latencyMeasured": true
     }
    },
    {
@@ -461,7 +471,8 @@
      "bandwidthMbps": 25000.0,
      "latencyMs": 1.2,
      "paths": 2,
-     "tls": true
+     "tls": true,
+     "latencyMeasured": true
     }
    },
    {
@@ -500,7 +511,8 @@
      "bandwidthMbps": 25000.0,
      "latencyMs": 1.2,
      "paths": 2,
-     "tls": true
+     "tls": true,
+     "latencyMeasured": true
     }
    },
    {

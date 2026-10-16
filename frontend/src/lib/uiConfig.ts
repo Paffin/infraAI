@@ -35,6 +35,7 @@ export const FALLBACK_EDITOR_SETTINGS: EditorSettings = {
   impactShown: 6,
   pickerShown: 40,
   librarySearchShown: 150,
+  galleryTagsShown: 10,
   adminListShown: 100,
 }
 

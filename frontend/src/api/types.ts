@@ -501,6 +501,8 @@ export interface TemplateMeta {
   name: LText
   description?: LText | null
   badge?: string | null
+  /** what the gallery filters by (the server sends an empty list for a template that has none) */
+  tags?: string[]
   order: number
   nodeCount: number
   requirements: Requirements
@@ -539,6 +541,7 @@ export interface EditorSettings {
   impactShown: number
   pickerShown: number
   librarySearchShown: number
+  galleryTagsShown: number
   adminListShown: number
 }
 
@@ -547,6 +550,8 @@ export interface Bootstrap {
   rev: number
   version: string
   engineVersion: number
+  /** the license and where the source is, from the manifest of the server (absent on a backend that predates the "About" window) */
+  about?: { license: string; repository: string; homepage: string }
   app: { name: string; defaultLanguage: string; languages: string[]; theme: Record<string, string>; motion?: string; motionScale?: number; onboarding?: boolean; helpUrl?: string; quickPrompts: { label: LText; prompt: LText }[] }
   catalog: Catalog
   rules: Rule[]

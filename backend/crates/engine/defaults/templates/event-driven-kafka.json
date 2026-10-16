@@ -9,6 +9,12 @@
   "en": "Kafka event backbone across three AZs, producers/consumers, ClickHouse analytics."
  },
  "badge": "HA",
+ "tags": [
+  "kafka",
+  "kubernetes",
+  "cloud",
+  "ha"
+ ],
  "enabled": true,
  "order": 4,
  "architecture": {

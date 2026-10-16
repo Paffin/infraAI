@@ -1356,6 +1356,22 @@
   }
  },
  {
+  "key": "editor.galleryTagsShown",
+  "group": "editor",
+  "type": "number",
+  "default": 10,
+  "min": 3,
+  "max": 40,
+  "label": {
+   "ru": "Галерея эталонных архитектур: фильтров-тегов",
+   "en": "Reference architecture gallery: tag filters"
+  },
+  "help": {
+   "ru": "Сколько самых частых тегов галерея эталонных архитектур («Новый проект») показывает кнопками-фильтрами; остальное находится строкой поиска, которая ищет и по тегам.",
+   "en": "How many of the most frequent tags the gallery of reference architectures (\"New project\") shows as filter buttons; the rest is found with the search box, which looks at tags too."
+  }
+ },
+ {
   "key": "editor.adminListShown",
   "group": "editor",
   "type": "number",

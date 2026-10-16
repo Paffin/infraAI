@@ -36,6 +36,7 @@ answers `403 password_change_required`.
 
 ```
 { user, rev, version, engineVersion,
+  about: {license, repository, homepage},   // из манифеста сервера (Cargo.toml): окно «О программе» берёт лицензию и ссылки оттуда
   app: {name, defaultLanguage, languages, theme, quickPrompts},   // quickPrompts: [{label: LText, prompt: LText}] (setting ui.quickPrompts)
   catalog: Catalog,            // kinds (products; each with function, variants, versions), edgeTypes, zoneTypes, categories (with functions), commonProps
   rules: Rule[],               // texts for rendering findings

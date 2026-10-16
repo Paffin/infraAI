@@ -1,0 +1,25 @@
+name: Идея / Feature
+description: Предложить возможность или улучшение
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Какую задачу архитектора это решает
+      description: Что вы пытались сделать и что мешает. Задача важнее решения.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Как это могло бы работать
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Что делаете сейчас вместо этого
+  - type: dropdown
+    id: area
+    attributes:
+      label: Область
+      multiple: true
+      options: [Редактор и схема, Движок проверок, Симулятор отказов, Каталог продуктов, Эталонные архитектуры, ИИ-проектирование, Экспорт и IaC, CLI и CI, Админ-панель, Документация]

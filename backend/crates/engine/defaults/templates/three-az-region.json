@@ -9,6 +9,12 @@
   "en": "A cluster across three availability zones of one region: fast and cheap, but does not survive losing the whole region."
  },
  "badge": "HA",
+ "tags": [
+  "cloud",
+  "kubernetes",
+  "kafka",
+  "ha"
+ ],
  "enabled": true,
  "order": 2,
  "architecture": {

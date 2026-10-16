@@ -9,6 +9,13 @@
   "en": "Two active/active data centers with a quorum arbiter on a third site. Survives the loss of either DC and a link cut without split-brain."
  },
  "badge": "DR",
+ "tags": [
+  "dr",
+  "on-prem",
+  "kubernetes",
+  "kafka",
+  "ha"
+ ],
  "enabled": true,
  "order": 1,
  "architecture": {

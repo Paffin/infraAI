@@ -64,8 +64,12 @@ jobs:
       - uses: actions/checkout@v4
       - name: The default catalog is what its sources build (deploy/catalog)
         run: python3 deploy/catalog/build.py --check
+      - name: The reference architectures written in code are what their sources build (deploy/templates)
+        run: python3 deploy/templates/build.py --check
       - name: Generated documentation is up to date
         run: python3 deploy/gen-docs.py --check
+      - name: Everything shipped carries a license the project accepts, and the list of them is current
+        run: python3 deploy/licenses.py --check
 
   manifests:
     runs-on: ubuntu-latest
@@ -113,7 +117,7 @@ jobs:
         run: |
           mkdir -p /tmp/iac-out
           cargo build -q -p engine --example export
-          for tpl in demo two-dc-witness three-az-region multi-region-pilot-light event-driven-kafka single-dc-racks three-sites-quorum five-sites-two-failures ten-sites-regions; do
+          for tpl in demo $(cd crates/engine/defaults/templates && ls *.json | sed 's/\.json$//'); do
             for fmt in kubernetes helm terraform; do
               ./target/debug/examples/export "$tpl" "$fmt" "/tmp/iac-out/$tpl/$fmt" en > /dev/null 2> "/tmp/iac-out/$tpl-$fmt.report.json"
             done

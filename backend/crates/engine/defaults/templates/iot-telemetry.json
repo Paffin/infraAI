@@ -1,0 +1,741 @@
+{
+ "id": "iot-telemetry",
+ "name": {
+  "ru": "IoT-телеметрия: MQTT, EMQX и TimescaleDB",
+  "en": "IoT telemetry: MQTT, EMQX and TimescaleDB"
+ },
+ "description": {
+  "ru": "Устройства подключаются по MQTT через L4-балансировщик к кластеру EMQX на трёх AZ, ThingsBoard разбирает сообщения и пишет показания в TimescaleDB, Grafana их показывает. Потеря зоны — переподключение устройств, не потеря данных.",
+  "en": "Devices connect over MQTT through an L4 balancer to an EMQX cluster across three AZs, ThingsBoard parses the messages and writes the readings to TimescaleDB, Grafana shows them. A lost zone means devices reconnecting, not lost data."
+ },
+ "badge": "IoT",
+ "tags": [
+  "iot",
+  "mqtt",
+  "timeseries",
+  "ha"
+ ],
+ "enabled": true,
+ "order": 20,
+ "architecture": {
+  "schemaVersion": 1,
+  "meta": {
+   "name": "IoT-телеметрия: MQTT, EMQX и TimescaleDB",
+   "description": "Устройства держат MQTT-соединения с TLS на L4-балансировщике; кластер EMQX на трёх зонах принимает сообщения, ThingsBoard разбирает их и пишет в TimescaleDB (primary и две реплики), Grafana читает базу. Потеря зоны означает переподключение устройств к другим узлам; подтверждённые показания не теряются."
+  },
+  "requirements": {
+   "rpsPeak": 5000,
+   "growthPercent": 100,
+   "rtoSeconds": 300,
+   "rpoSeconds": 5,
+   "budgetMonthly": 2600000,
+   "failureTolerance": "site",
+   "availabilitySlo": 99.9
+  },
+  "zones": [
+   {
+    "id": "region",
+    "name": "Регион eu-1",
+    "type": "region",
+    "parentId": null,
+    "role": null,
+    "props": {}
+   },
+   {
+    "id": "az-a",
+    "name": "AZ A",
+    "type": "az",
+    "parentId": "region",
+    "role": null,
+    "props": {
+     "geo": "eu-1",
+     "costModel": "cloud"
+    }
+   },
+   {
+    "id": "az-b",
+    "name": "AZ B",
+    "type": "az",
+    "parentId": "region",
+    "role": null,
+    "props": {
+     "geo": "eu-1",
+     "costModel": "cloud"
+    }
+   },
+   {
+    "id": "az-c",
+    "name": "AZ C",
+    "type": "az",
+    "parentId": "region",
+    "role": null,
+    "props": {
+     "geo": "eu-1",
+     "costModel": "cloud"
+    }
+   },
+   {
+    "id": "site-backup",
+    "name": "Площадка копий",
+    "type": "cloud",
+    "parentId": null,
+    "role": null,
+    "props": {
+     "geo": "eu-2",
+     "costModel": "cloud"
+    }
+   }
+  ],
+  "nodes": [
+   {
+    "id": "users",
+    "kind": "users",
+    "name": "Устройства (MQTT поверх TLS)",
+    "zoneId": null,
+    "group": null,
+    "role": null,
+    "props": {
+     "rpsLabel": "5k сообщений/с пик"
+    }
+   },
+   {
+    "id": "lb-a",
+    "kind": "l4",
+    "name": "L4-балансировщик",
+    "zoneId": "az-a",
+    "group": "lb",
+    "role": null,
+    "props": {
+     "replicas": 2,
+     "healthCheckSeconds": 3,
+     "failThreshold": 2
+    }
+   },
+   {
+    "id": "mqtt-a",
+    "kind": "emqx",
+    "name": "EMQX",
+    "zoneId": "az-a",
+    "group": "mqtt",
+    "role": null,
+    "props": {
+     "variant": "cluster",
+     "replicas": 2,
+     "vcpu": 8,
+     "ramGb": 16,
+     "diskGb": 100,
+     "encryptionAtRest": true
+    }
+   },
+   {
+    "id": "tb-a",
+    "kind": "thingsboard",
+    "name": "ThingsBoard (транспорт и правила)",
+    "zoneId": "az-a",
+    "group": "tb",
+    "role": null,
+    "props": {
+     "replicas": 3,
+     "vcpu": 4,
+     "ramGb": 16
+    }
+   },
+   {
+    "id": "mon-a",
+    "kind": "monitoring",
+    "name": "Мониторинг",
+    "zoneId": "az-a",
+    "group": "monitoring",
+    "role": null,
+    "props": {
+     "replicas": 2,
+     "vcpu": 2,
+     "ramGb": 8,
+     "diskGb": 200
+    }
+   },
+   {
+    "id": "etcd-a",
+    "kind": "etcd",
+    "name": "etcd",
+    "zoneId": "az-a",
+    "group": "etcd",
+    "role": "voter",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 4,
+     "diskGb": 50
+    }
+   },
+   {
+    "id": "lb-b",
+    "kind": "l4",
+    "name": "L4-балансировщик",
+    "zoneId": "az-b",
+    "group": "lb",
+    "role": null,
+    "props": {
+     "replicas": 2,
+     "healthCheckSeconds": 3,
+     "failThreshold": 2
+    }
+   },
+   {
+    "id": "mqtt-b",
+    "kind": "emqx",
+    "name": "EMQX",
+    "zoneId": "az-b",
+    "group": "mqtt",
+    "role": null,
+    "props": {
+     "variant": "cluster",
+     "replicas": 2,
+     "vcpu": 8,
+     "ramGb": 16,
+     "diskGb": 100,
+     "encryptionAtRest": true
+    }
+   },
+   {
+    "id": "tb-b",
+    "kind": "thingsboard",
+    "name": "ThingsBoard (транспорт и правила)",
+    "zoneId": "az-b",
+    "group": "tb",
+    "role": null,
+    "props": {
+     "replicas": 3,
+     "vcpu": 4,
+     "ramGb": 16
+    }
+   },
+   {
+    "id": "mon-b",
+    "kind": "monitoring",
+    "name": "Мониторинг",
+    "zoneId": "az-b",
+    "group": "monitoring",
+    "role": null,
+    "props": {
+     "replicas": 2,
+     "vcpu": 2,
+     "ramGb": 8,
+     "diskGb": 200
+    }
+   },
+   {
+    "id": "etcd-b",
+    "kind": "etcd",
+    "name": "etcd",
+    "zoneId": "az-b",
+    "group": "etcd",
+    "role": "voter",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 4,
+     "diskGb": 50
+    }
+   },
+   {
+    "id": "lb-c",
+    "kind": "l4",
+    "name": "L4-балансировщик",
+    "zoneId": "az-c",
+    "group": "lb",
+    "role": null,
+    "props": {
+     "replicas": 2,
+     "healthCheckSeconds": 3,
+     "failThreshold": 2
+    }
+   },
+   {
+    "id": "mqtt-c",
+    "kind": "emqx",
+    "name": "EMQX",
+    "zoneId": "az-c",
+    "group": "mqtt",
+    "role": null,
+    "props": {
+     "variant": "cluster",
+     "replicas": 2,
+     "vcpu": 8,
+     "ramGb": 16,
+     "diskGb": 100,
+     "encryptionAtRest": true
+    }
+   },
+   {
+    "id": "tb-c",
+    "kind": "thingsboard",
+    "name": "ThingsBoard (транспорт и правила)",
+    "zoneId": "az-c",
+    "group": "tb",
+    "role": null,
+    "props": {
+     "replicas": 3,
+     "vcpu": 4,
+     "ramGb": 16
+    }
+   },
+   {
+    "id": "mon-c",
+    "kind": "monitoring",
+    "name": "Мониторинг",
+    "zoneId": "az-c",
+    "group": "monitoring",
+    "role": null,
+    "props": {
+     "replicas": 2,
+     "vcpu": 2,
+     "ramGb": 8,
+     "diskGb": 200
+    }
+   },
+   {
+    "id": "etcd-c",
+    "kind": "etcd",
+    "name": "etcd",
+    "zoneId": "az-c",
+    "group": "etcd",
+    "role": "voter",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 4,
+     "diskGb": 50
+    }
+   },
+   {
+    "id": "ts-a",
+    "kind": "timescaledb",
+    "name": "TimescaleDB primary",
+    "zoneId": "az-a",
+    "group": "ts",
+    "role": "primary",
+    "props": {
+     "encryptionAtRest": true,
+     "version": "17",
+     "vcpu": 16,
+     "ramGb": 64,
+     "diskGb": 4000,
+     "failover": "auto",
+     "failoverSeconds": 30,
+     "dcs": "etcd",
+     "connectionPooler": true
+    }
+   },
+   {
+    "id": "ts-b",
+    "kind": "timescaledb",
+    "name": "TimescaleDB sync replica",
+    "zoneId": "az-b",
+    "group": "ts",
+    "role": "replica",
+    "props": {
+     "encryptionAtRest": true,
+     "version": "17",
+     "vcpu": 16,
+     "ramGb": 64,
+     "diskGb": 4000,
+     "failover": "auto",
+     "failoverSeconds": 30,
+     "dcs": "etcd",
+     "connectionPooler": true
+    }
+   },
+   {
+    "id": "ts-c",
+    "kind": "timescaledb",
+    "name": "TimescaleDB async replica",
+    "zoneId": "az-c",
+    "group": "ts",
+    "role": "replica",
+    "props": {
+     "encryptionAtRest": true,
+     "version": "17",
+     "vcpu": 16,
+     "ramGb": 64,
+     "diskGb": 4000,
+     "failover": "auto",
+     "failoverSeconds": 30,
+     "dcs": "etcd",
+     "connectionPooler": true
+    }
+   },
+   {
+    "id": "grafana-a",
+    "kind": "grafana",
+    "name": "Grafana",
+    "zoneId": "az-a",
+    "group": "grafana",
+    "role": null,
+    "props": {
+     "replicas": 2,
+     "vcpu": 2,
+     "ramGb": 4
+    }
+   },
+   {
+    "id": "grafana-c",
+    "kind": "grafana",
+    "name": "Grafana",
+    "zoneId": "az-c",
+    "group": "grafana",
+    "role": null,
+    "props": {
+     "replicas": 2,
+     "vcpu": 2,
+     "ramGb": 4
+    }
+   },
+   {
+    "id": "gitops",
+    "kind": "gitops",
+    "name": "GitOps · Argo CD",
+    "zoneId": "az-c",
+    "group": "gitops",
+    "role": null,
+    "props": {
+     "replicas": 2,
+     "vcpu": 2,
+     "ramGb": 4
+    }
+   },
+   {
+    "id": "vault-a",
+    "kind": "vault",
+    "name": "Vault",
+    "zoneId": "az-a",
+    "group": "vault",
+    "role": "primary",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 4,
+     "diskGb": 50
+    }
+   },
+   {
+    "id": "vault-b",
+    "kind": "vault",
+    "name": "Vault (standby)",
+    "zoneId": "az-b",
+    "group": "vault",
+    "role": "replica",
+    "props": {
+     "vcpu": 2,
+     "ramGb": 4,
+     "diskGb": 50
+    }
+   },
+   {
+    "id": "backup",
+    "kind": "backup_storage",
+    "name": "Бэкапы (объектное хранилище, object lock)",
+    "zoneId": "site-backup",
+    "group": null,
+    "role": null,
+    "props": {
+     "immutable": true,
+     "retentionDays": 35,
+     "backupIntervalSeconds": 300,
+     "restoreSeconds": 10800,
+     "restoreTestedDays": 30,
+     "encryptionAtRest": true,
+     "diskGb": 30000
+    }
+   }
+  ],
+  "edges": [
+   {
+    "id": "e-users--lb-a",
+    "source": "users",
+    "target": "lb-a",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-lb-a--mqtt-a",
+    "source": "lb-a",
+    "target": "mqtt-a",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-mqtt-a--tb-a",
+    "source": "mqtt-a",
+    "target": "tb-a",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-mon-a--tb-a",
+    "source": "mon-a",
+    "target": "tb-a",
+    "type": "control",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-users--lb-b",
+    "source": "users",
+    "target": "lb-b",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-lb-b--mqtt-b",
+    "source": "lb-b",
+    "target": "mqtt-b",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-mqtt-b--tb-b",
+    "source": "mqtt-b",
+    "target": "tb-b",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-mon-b--tb-b",
+    "source": "mon-b",
+    "target": "tb-b",
+    "type": "control",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-users--lb-c",
+    "source": "users",
+    "target": "lb-c",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-lb-c--mqtt-c",
+    "source": "lb-c",
+    "target": "mqtt-c",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-mqtt-c--tb-c",
+    "source": "mqtt-c",
+    "target": "tb-c",
+    "type": "traffic",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-mon-c--tb-c",
+    "source": "mon-c",
+    "target": "tb-c",
+    "type": "control",
+    "label": null,
+    "props": {}
+   },
+   {
+    "id": "e-etcd-a--etcd-b",
+    "source": "etcd-a",
+    "target": "etcd-b",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 0.8,
+     "tls": true,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-etcd-a--etcd-c",
+    "source": "etcd-a",
+    "target": "etcd-c",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 0.8,
+     "tls": true,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-etcd-b--etcd-c",
+    "source": "etcd-b",
+    "target": "etcd-c",
+    "type": "quorum",
+    "label": null,
+    "props": {
+     "latencyMs": 0.8,
+     "tls": true,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-tb-a--ts-a",
+    "source": "tb-a",
+    "target": "ts-a",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "fanoutColdCache": 0.4,
+     "tls": true,
+     "fanout": 0.2
+    }
+   },
+   {
+    "id": "e-tb-b--ts-b",
+    "source": "tb-b",
+    "target": "ts-b",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "fanoutColdCache": 0.4,
+     "tls": true,
+     "fanout": 0.2
+    }
+   },
+   {
+    "id": "e-tb-c--ts-c",
+    "source": "tb-c",
+    "target": "ts-c",
+    "type": "traffic",
+    "label": null,
+    "props": {
+     "fanoutColdCache": 0.4,
+     "tls": true,
+     "fanout": 0.2
+    }
+   },
+   {
+    "id": "e-ts-a--ts-b",
+    "source": "ts-a",
+    "target": "ts-b",
+    "type": "sync",
+    "label": null,
+    "props": {
+     "latencyMs": 0.8,
+     "latencyMeasured": true,
+     "tls": true,
+     "bandwidthMbps": 25000,
+     "paths": 3
+    }
+   },
+   {
+    "id": "e-ts-a--ts-c",
+    "source": "ts-a",
+    "target": "ts-c",
+    "type": "async",
+    "label": null,
+    "props": {
+     "lagSeconds": 1,
+     "latencyMs": 0.8,
+     "latencyMeasured": true,
+     "tls": true,
+     "paths": 3,
+     "bandwidthMbps": 25000
+    }
+   },
+   {
+    "id": "e-grafana-a--ts-a",
+    "source": "grafana-a",
+    "target": "ts-a",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-grafana-c--ts-c",
+    "source": "grafana-c",
+    "target": "ts-c",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-gitops--tb-a",
+    "source": "gitops",
+    "target": "tb-a",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-gitops--tb-b",
+    "source": "gitops",
+    "target": "tb-b",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-gitops--tb-c",
+    "source": "gitops",
+    "target": "tb-c",
+    "type": "control",
+    "label": null,
+    "props": {
+     "tls": true
+    }
+   },
+   {
+    "id": "e-vault-a--vault-b",
+    "source": "vault-a",
+    "target": "vault-b",
+    "type": "async",
+    "label": null,
+    "props": {
+     "lagSeconds": 1,
+     "latencyMs": 0.8,
+     "latencyMeasured": true,
+     "tls": true,
+     "paths": 3,
+     "bandwidthMbps": 25000
+    }
+   },
+   {
+    "id": "e-ts-b--backup",
+    "source": "ts-b",
+    "target": "backup",
+    "type": "backup",
+    "label": "WAL + full",
+    "props": {
+     "intervalSeconds": 300,
+     "tls": true
+    }
+   },
+   {
+    "id": "e-vault-a--backup",
+    "source": "vault-a",
+    "target": "backup",
+    "type": "backup",
+    "label": null,
+    "props": {
+     "intervalSeconds": 3600,
+     "tls": true
+    }
+   }
+  ]
+ }
+}

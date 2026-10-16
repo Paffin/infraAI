@@ -5,10 +5,11 @@ import { Plus, Search, Pencil, Trash2, Boxes, Copy, Network } from 'lucide-vue-n
 import * as api from '@/api/endpoints'
 import type { ProjectListItem } from '@/api/types'
 import DiagramThumb from '@/components/DiagramThumb.vue'
+import TemplateGallery from '@/components/TemplateGallery.vue'
 import Modal from '@/components/Modal.vue'
 import PlacementWizard from '@/editor/PlacementWizard.vue'
 import TopBar from '@/components/TopBar.vue'
-import { lang, lt, t } from '@/i18n'
+import { lang, t } from '@/i18n'
 import { fmtRelative } from '@/lib/format'
 import { errorMessage } from '@/lib/format'
 import { scoreTone } from '@/lib/score'
@@ -201,7 +202,7 @@ onMounted(load)
     </main>
 
     <PlacementWizard v-if="wizard" mode="new" @close="wizard = false" />
-    <Modal v-if="creating" :title="t('projects.create.title')" @close="creating = false">
+    <Modal v-if="creating" :title="t('projects.create.title')" size="lg" @close="creating = false">
       <form class="col" style="gap: 16px" @submit.prevent="create">
         <div class="field">
           <label>{{ t('projects.create.name') }}</label>
@@ -213,19 +214,8 @@ onMounted(load)
           <span class="tag tag-accent tag-mono">1 · 2 · 3 · 5 · 10</span>
         </button>
         <div class="field">
-          <label>{{ t('projects.create.from') }}</label>
-          <div class="templates">
-            <label class="tpl" :class="{ on: !form.templateId }">
-              <input v-model="form.templateId" type="radio" value="" />
-              <b>{{ t('projects.create.blank') }}</b>
-              <span class="muted">{{ t('projects.create.blank.hint') }}</span>
-            </label>
-            <label v-for="tpl in templates" :key="tpl.id" class="tpl" :class="{ on: form.templateId === tpl.id }">
-              <input v-model="form.templateId" type="radio" :value="tpl.id" />
-              <span class="row"><b class="grow">{{ lt(tpl.name) }}</b><span v-if="tpl.badge" class="tag tag-accent tag-mono">{{ tpl.badge }}</span></span>
-              <span class="muted">{{ lt(tpl.description) }}</span>
-            </label>
-          </div>
+          <label id="tpl-from">{{ t('projects.create.from') }}</label>
+          <TemplateGallery v-model="form.templateId" :templates="templates" />
         </div>
         <button type="submit" class="sr-only" tabindex="-1">ok</button>
       </form>
@@ -268,14 +258,9 @@ onMounted(load)
 .sk-card { overflow: hidden; display: flex; flex-direction: column; }
 .sk-thumb { height: 128px; border-radius: 0; }
 .sk-body { padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 12px; }
-.templates { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.tpl { display: flex; flex-direction: column; gap: 4px; border: 1px solid var(--line-strong); border-radius: var(--radius); padding: 10px 12px; cursor: pointer; font-size: 13px; }
-.tpl:hover { border-color: #b8c2d4; }
-.tpl.on { border-color: var(--accent); background: var(--accent-soft); }
-.tpl input { position: absolute; opacity: 0; pointer-events: none; }
 .wizard-card { display: flex; align-items: center; gap: 12px; text-align: left; padding: 12px 14px; border: 1px solid var(--accent-line); border-radius: var(--radius); background: var(--accent-soft); transition: box-shadow var(--dur-fast), transform var(--dur-fast); }
 .wizard-card:hover { box-shadow: var(--shadow-2); transform: translateY(-1px); }
 .wizard-card .wi { width: 38px; height: 38px; border-radius: 10px; background: var(--accent); color: #fff; display: grid; place-items: center; flex: none; }
 .wizard-card .wt { display: flex; flex-direction: column; gap: 2px; flex: 1; font-size: 13px; }
-@media (max-width: 640px) { .templates { grid-template-columns: 1fr; } .content { padding: 18px 16px; } }
+@media (max-width: 640px) { .content { padding: 18px 16px; } }
 </style>
