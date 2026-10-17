@@ -2868,3 +2868,87 @@ async fn metrics_method_label_is_bounded() {
     assert_eq!(other, 2.0 * (1 + invented.len()) as f64, "every unusual request is counted once, as `other`");
     app.cleanup().await;
 }
+
+fn posture_ids(v: &Value) -> Vec<String> {
+    v["posture"].as_array().expect("posture is a list").iter().map(|c| c["id"].as_str().unwrap().to_string()).collect()
+}
+
+#[tokio::test]
+async fn admin_system_reports_posture() {
+    // a development server is meant to be open: the list is there and empty (the key is always present, so that an empty list means "nothing found")
+    let app = TestApp::new().await;
+    let admin = app.login_admin().await;
+    let (s, v) = app.get(&admin, "/api/admin/system").await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    assert_eq!(v["posture"], json!([]), "{v}");
+    assert!(v["env"]["METRICS_PORT"].is_null(), "no metrics port is null: {v}");
+    // only an administrator reads it
+    let editor = app.create_user(&admin, "editor@test.local", "editor").await;
+    let (s, _) = app.get(&editor, "/api/admin/system").await;
+    assert_eq!(s, StatusCode::FORBIDDEN);
+    app.cleanup().await;
+
+    // a production installation as the quick start leaves it: http cookies, /metrics on the application's port without a token, the published admin address
+    let app = TestApp::with_boot(|b| {
+        b.production = true;
+        b.cookie_secure = false;
+        b.admin_email = Some("admin@example.com".into());
+    })
+    .await;
+    let (_, admin, _) = app.login_as("admin@example.com", "correct horse battery staple").await;
+    let admin = admin.expect("session");
+    let (s, v) = app.get(&admin, "/api/admin/system").await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    assert_eq!(posture_ids(&v), ["cookie_insecure", "metrics_open", "default_admin_account", "public_url_empty"], "{v}");
+    for c in v["posture"].as_array().unwrap() {
+        assert!(["warn", "info"].contains(&c["level"].as_str().unwrap()), "{c}");
+        for part in ["message", "fix"] {
+            assert!(c[part]["ru"].as_str().unwrap().len() > 20 && c[part]["en"].as_str().unwrap().len() > 20, "{c}");
+        }
+    }
+    let default_admin = v["posture"].as_array().unwrap().iter().find(|c| c["id"] == "default_admin_account").unwrap();
+    assert!(default_admin["message"]["en"].as_str().unwrap().contains("admin@example.com") && default_admin["message"]["ru"].as_str().unwrap().contains("admin@example.com"));
+
+    // what the operator does about it takes the finding away: the setting that switches the metrics off, a public URL
+    set(&app, &admin, json!({"observability.metricsEnabled": false, "app.publicUrl": "https://architect.example.com"})).await;
+    let (_, v) = app.get(&admin, "/api/admin/system").await;
+    assert_eq!(posture_ids(&v), ["cookie_insecure", "default_admin_account"], "{v}");
+
+    // the settings the checks read: a key with AI on and no budget, an audit log that is kept too short (the threshold is a setting too)
+    set(&app, &admin, json!({"llm.enabled": true, "llm.apiKey": "sk-or-v1-posture-test-key", "llm.monthlyBudgetUsd": 0, "retention.auditDays": 30})).await;
+    let (_, v) = app.get(&admin, "/api/admin/system").await;
+    assert_eq!(posture_ids(&v), ["cookie_insecure", "default_admin_account", "llm_unbounded_spend", "audit_retention_short"], "{v}");
+    let short = v["posture"].as_array().unwrap().iter().find(|c| c["id"] == "audit_retention_short").unwrap();
+    assert!(short["message"]["en"].as_str().unwrap().contains("30 days") && short["message"]["en"].as_str().unwrap().contains("90"), "{short}");
+    set(&app, &admin, json!({"llm.monthlyBudgetUsd": 20, "retention.auditDaysWarnBelow": 7})).await;
+    let (_, v) = app.get(&admin, "/api/admin/system").await;
+    assert_eq!(posture_ids(&v), ["cookie_insecure", "default_admin_account"], "{v}");
+    // the key itself is never in the answer
+    assert!(!v.to_string().contains("sk-or-v1-posture-test-key"));
+
+    // the default administrator is disabled by another administrator: the finding goes (it is a fact about the accounts, read from the database)
+    let other = app.create_user(&admin, "second.admin@test.local", "admin").await;
+    let (_, users) = app.get(&other, "/api/admin/users").await;
+    let id = users["users"].as_array().unwrap().iter().find(|u| u["email"] == "admin@example.com").unwrap()["id"].as_str().unwrap().to_string();
+    let (s, v) = app.patch(&other, &format!("/api/admin/users/{id}"), json!({"disabled": true})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    let (_, v) = app.get(&other, "/api/admin/system").await;
+    assert_eq!(posture_ids(&v), ["cookie_insecure"], "{v}");
+    app.cleanup().await;
+
+    // behind a proxy that is trusted, and with the metrics on a port of their own
+    let app = TestApp::with_boot(|b| {
+        b.production = true;
+        b.cookie_secure = true;
+        b.trust_proxy = true;
+        b.trust_proxy_hops = 2;
+        b.metrics_port = Some(9090);
+    })
+    .await;
+    let admin = app.login_admin().await;
+    let (_, v) = app.get(&admin, "/api/admin/system").await;
+    assert_eq!(posture_ids(&v), ["trust_proxy", "public_url_empty"], "{v}");
+    assert!(v["posture"][0]["message"]["en"].as_str().unwrap().contains("2 entries"), "{v}");
+    assert_eq!(v["env"]["METRICS_PORT"], 9090);
+    app.cleanup().await;
+}

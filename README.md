@@ -41,8 +41,8 @@
 <td align="center"><b>578</b><br><sub>вариантов развёртывания</sub></td>
 <td align="center"><b>60</b><br><sub>правил проверки</sub></td>
 <td align="center"><b>20</b><br><sub>эталонных архитектур</sub></td>
-<td align="center"><b>115</b><br><sub>настроек без пересборки</sub></td>
-<td align="center"><b>900+</b><br><sub>автотестов без моков</sub></td>
+<td align="center"><b>116</b><br><sub>настроек без пересборки</sub></td>
+<td align="center"><b>1000+</b><br><sub>автотестов без моков</sub></td>
 </tr>
 </table>
 <!-- END GENERATED: readme-numbers -->

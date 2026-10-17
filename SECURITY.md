@@ -33,7 +33,8 @@ Argon2id для паролей (вход стоит одинаково и отв
 блокировка после серии неудачных входов отдельно для пары «аккаунт, адрес» и с потолком на аккаунт, лимит попыток по IP — оба счётчика в БД, общие для всех реплик, адрес за прокси считается справа (`TRUST_PROXY_HOPS`),
 сервер не стартует в production с заготовкой `APP_SECRET` из шаблона, подписанные HttpOnly-сессии, проверка `Origin` для изменяющих запросов, строгий CSP без inline-скриптов,
 роли `viewer < editor < admin`, секреты в базе шифруются AES-256-GCM и не возвращаются API и экспорту, поставляемые compose- и Kubernetes-конфигурации запускают контейнер без привилегий, с read-only корневой ФС,
-зависимости проверяются на допустимые лицензии (`deploy/licenses.py`). Подробности — [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) и [docs/PITFALLS.md](docs/PITFALLS.md).
+зависимости проверяются на допустимые лицензии (`deploy/licenses.py`) и на известные уязвимости (ниже), `/metrics` можно вынести на отдельный порт (`METRICS_PORT`: в манифестах Kubernetes он не публикуется ни Service, ни Ingress, а сетевая политика пускает на него только мониторинг), токен метрик сравнивается за постоянное время, а метки метрик не растут от того, что присылает клиент,
+а `GET /api/admin/system` отдаёт отчёт о безопасности установки (`posture`: что в конфигурации небезопасно по умолчанию, только в production). Подробности — [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) и [docs/PITFALLS.md](docs/PITFALLS.md).
 
 ## Зависимости: чем проверяются и что делать с находкой
 
@@ -74,7 +75,8 @@ and steps to reproduce. We aim to acknowledge a report within five working days 
 **Out of scope:** vulnerabilities of third-party packages that cannot be exploited through Infra Architect (report them upstream; tell us too and we will take the fix), deployment misconfiguration (a weak `APP_SECRET`, a public database) and brute-forcing past the configured login limits.
 
 **Already in place:** Argon2id passwords, lockout after repeated failures and a per-IP limit, signed HttpOnly sessions, `Origin` checks for state-changing requests, a strict CSP without inline scripts, roles `viewer < editor < admin`,
-AES-256-GCM encrypted secrets that are never returned by the API or the export, the shipped compose and Kubernetes configurations run the container unprivileged with a read-only root filesystem, and a license check of every dependency (`deploy/licenses.py`).
+AES-256-GCM encrypted secrets that are never returned by the API or the export, the shipped compose and Kubernetes configurations run the container unprivileged with a read-only root filesystem, and a license check of every dependency (`deploy/licenses.py`) and a check for known vulnerabilities (below). `/metrics` can be moved to a port of its own (`METRICS_PORT`; in the Kubernetes manifests neither the Service nor the Ingress publishes it, and the network policy admits only monitoring), its token is compared in constant time, its labels do not grow with what a client sends,
+and `GET /api/admin/system` returns a report on the security posture of the installation (`posture`: what in the configuration is unsafe by default, in production only).
 
 **Dependencies: what checks them, and what to do with a finding.** The locked Rust crates go through `cargo deny` (`backend/deny.toml`, `.github/workflows/security.yml`: RustSec advisories, yanked releases, no source but crates.io; duplicate versions are only reported),
 the npm packages the web application bundles through `npm audit --omit=dev --audit-level=high`, the operating-system packages of the image through Trivy (`image` job of `ci.yml`: a CRITICAL one that Debian has fixed blocks `main`, HIGH is only shown), licenses through `deploy/licenses.py --check`.

@@ -1,0 +1,72 @@
+{
+  "cookie_insecure": {
+    "message": {
+      "ru": "Cookie сессии отдаётся без флага Secure: сессия уходит по открытому http, где её может прочитать любой на пути.",
+      "en": "The session cookie is sent without the Secure flag: the session travels over plain http, where anybody on the path can read it."
+    },
+    "fix": {
+      "ru": "Поставьте перед приложением TLS и задайте COOKIE_SECURE=true (по умолчанию в production оно и так включено; сейчас его выключили).",
+      "en": "Put TLS in front of the application and set COOKIE_SECURE=true (it is on by default in production; somebody turned it off)."
+    }
+  },
+  "metrics_open": {
+    "message": {
+      "ru": "/metrics отдаётся на порту приложения и без токена: всё, что пропускает этот порт наружу (ingress, обратный прокси), публикует и метрики, в том числе расход на ИИ.",
+      "en": "/metrics is served on the application's port with no token: whatever lets that port out (an ingress, a reverse proxy) publishes the metrics too, the AI spend among them."
+    },
+    "fix": {
+      "ru": "Задайте METRICS_PORT (метрики уйдут на отдельный порт, который не публикуется) и/или METRICS_TOKEN; либо выключите настройку «Метрики Prometheus».",
+      "en": "Set METRICS_PORT (the metrics move to a port of their own that is not published) and/or METRICS_TOKEN, or switch off the setting “Prometheus metrics”."
+    }
+  },
+  "default_admin_account": {
+    "message": {
+      "ru": "Есть действующий администратор с адресом по умолчанию ({email}): это первый адрес, который попробует перебирать любой.",
+      "en": "There is an active administrator with the default address ({email}): the first one anybody tries when guessing passwords."
+    },
+    "fix": {
+      "ru": "Создайте администратора со своим адресом, войдите им и отключите этого (Администрирование → Пользователи).",
+      "en": "Create an administrator with your own address, sign in as that one and disable this one (Administration → Users)."
+    }
+  },
+  "trust_proxy": {
+    "message": {
+      "ru": "Адрес клиента берётся из X-Forwarded-For, {hops} записей справа (TRUST_PROXY_HOPS): от него зависят лимит входов и журнал аудита.",
+      "en": "The client's address is read from X-Forwarded-For, {hops} entries from the right (TRUST_PROXY_HOPS): the sign-in limit and the audit log depend on it."
+    },
+    "fix": {
+      "ru": "Число должно равняться числу обратных прокси перед приложением: меньше — все пользователи под одним адресом и одним лимитом, больше — адрес подделывается. Приложение должно быть доступно только через эти прокси.",
+      "en": "It must equal the number of reverse proxies in front of the application: fewer, and everybody shares one address and one limit; more, and the address can be forged. The application must be reachable only through those proxies."
+    }
+  },
+  "llm_unbounded_spend": {
+    "message": {
+      "ru": "Ключ OpenRouter задан, ИИ включён, а месячный бюджет — 0 (без ограничения): расход не остановится сам.",
+      "en": "An OpenRouter key is set, the AI is on, and the monthly budget is 0 (unlimited): the spend will not stop by itself."
+    },
+    "fix": {
+      "ru": "Задайте «Месячный бюджет ИИ, USD» (Администрирование → Настройки → ИИ) и следите за лимитом запросов в час на пользователя.",
+      "en": "Set “Monthly AI budget, USD” (Administration → Settings → AI) and keep an eye on the per-user hourly limit."
+    }
+  },
+  "audit_retention_short": {
+    "message": {
+      "ru": "Журнал аудита хранится {days} дн., меньше порога {min} дн.: расследование, начатое позже, останется без записей.",
+      "en": "The audit log is kept for {days} days, less than the threshold of {min}: an investigation that starts later will find no records."
+    },
+    "fix": {
+      "ru": "Увеличьте «Хранить журнал аудита, дней» или измените порог «Предупреждать, если журнал аудита хранится меньше, дней» (Администрирование → Настройки → Хранение данных).",
+      "en": "Raise “Keep audit log, days” or change the threshold “Warn if the audit log is kept for fewer days than” (Administration → Settings → Data retention)."
+    }
+  },
+  "public_url_empty": {
+    "message": {
+      "ru": "Публичный URL не задан: проверка Origin сравнивает его с заголовком Host запроса.",
+      "en": "The public URL is not set: the Origin check compares it with the request's Host header."
+    },
+    "fix": {
+      "ru": "Если прокси подменяет Host, задайте «Публичный URL» (Администрирование → Настройки → Общие); иначе можно оставить как есть.",
+      "en": "If a proxy rewrites Host, set “Public URL” (Administration → Settings → General); otherwise it can stay as it is."
+    }
+  }
+}

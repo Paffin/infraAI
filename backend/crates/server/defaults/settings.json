@@ -1490,6 +1490,22 @@
   "max": 36500
  },
  {
+  "key": "retention.auditDaysWarnBelow",
+  "group": "retention",
+  "type": "number",
+  "default": 90,
+  "label": {
+   "ru": "Предупреждать, если журнал аудита хранится меньше, дней",
+   "en": "Warn if the audit log is kept for fewer days than"
+  },
+  "help": {
+   "ru": "Порог проверки «Безопасность установки» на странице «Система» (и строки в журнале при запуске): если «Хранить журнал аудита, дней» меньше этого числа, там появляется предупреждение. 0 — не предупреждать. Сам по себе ничего не удаляет и не ограничивает.",
+   "en": "The threshold of the “Installation security” check on the System page (and of a line in the log at start): if “Keep audit log, days” is less than this, a warning appears there. 0 — never warn. It deletes and limits nothing by itself."
+  },
+  "min": 0,
+  "max": 36500
+ },
+ {
   "key": "retention.llmCallsDays",
   "group": "retention",
   "type": "number",

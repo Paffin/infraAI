@@ -61,7 +61,8 @@ Roles: `viewer` (read) < `editor` (write projects, use AI, accept risks) < `admi
 users, audit). `chat` AI requests are available to every role.
 
 Non-API endpoints: `GET /healthz` (liveness), `GET /readyz` (database + not draining),
-`GET /metrics` (Prometheus; optional `Authorization: Bearer $METRICS_TOKEN`).
+`GET /metrics` (Prometheus; `Authorization: Bearer $METRICS_TOKEN` when the token is set, compared in constant time; `401` without it, `404` when `observability.metricsEnabled` is off). With `METRICS_PORT` set the metrics are served only by a second listener on that port
+(nothing else is: any other path there is `404`), and this port answers `404` in the shape of the errors above ([DEPLOYMENT.md](DEPLOYMENT.md)). The `method` label of the request series is `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS` or `other`.
 
 ## Auth
 
@@ -356,7 +357,7 @@ version first.
 | GET | `/admin/versions/status` | `{today, tables, staleDays, stale:[id], oldestDays, autoSyncDays, sourceBases, last:{at, by: auto\|manual, ok, failed:[{id,error}]}\|null}` – how fresh the release tables are |
 | POST | `/admin/versions/sync` | `{ids?:[…]}` (all tables with an `http…` source when empty) → `{results:[{id,ok,cycles,asOf,error}], ok, failed}`. Fetches only addresses under `versions.sourceBases`; a bad answer never empties a table; audited as `versions.sync` |
 | GET | `/admin/audit?limit=&before=&action=&actor=` | `action` is a literal prefix (`config.` lists all configuration changes), `actor` a case-insensitive substring; `before` is the id cursor |
-| GET | `/admin/system` | version, db, migrations, config rev, jobs, env flags (never secrets) |
+| GET | `/admin/system` | version, db, migrations, config rev, jobs, env flags (never secrets), and `posture`: `[{id, level: "warn"\|"info", message: {ru, en}, fix: {ru, en}}]`, what the configuration says about the installation's security, judged only in production (cookie without `Secure`, `/metrics` on the application's port with no token, an active administrator with the default address, a trusted proxy and how many hops, AI on without a monthly budget, a short audit retention, no public URL). `[]` means that none of these was found, not that the installation is secure |
 
 Config `kind` values: `catalog.kind catalog.edge_type catalog.zone_type catalog.category catalog.common_props catalog.versions
 rule template iac prompt engine placement.pattern placement.stack placement.settings`. Prompt templates use `{{name}}` placeholders (double braces, exact spelling).

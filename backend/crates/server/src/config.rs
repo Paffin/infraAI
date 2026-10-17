@@ -48,6 +48,10 @@ fn env_num<T: std::str::FromStr>(get: Lookup, key: &str, default: T) -> T {
     env(get, key).and_then(|v| v.parse().ok()).unwrap_or(default)
 }
 
+/// The address of the first administrator when `ADMIN_EMAIL` is not set: published in `.env.example`, the compose file and the documentation, so it is
+/// the first one anybody tries (the posture report says when such an account is active).
+pub const DEFAULT_ADMIN_EMAIL: &str = "admin@example.com";
+
 /// A TCP port as an operator writes it: 1 to 65535. A value that does not parse is an error and not a default, because the settings it guards fail open:
 /// `METRICS_PORT=90a0` read as "unset" would leave `/metrics` on the public port with no word about it.
 pub fn parse_port(name: &str, value: &str) -> anyhow::Result<u16> {

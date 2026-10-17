@@ -47,6 +47,7 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!(version = env!("CARGO_PKG_VERSION"), instance = %boot.instance_id, production = boot.production, "starting");
 
     let state = startup::init_state(boot).await?;
+    server::posture::log(&state).await;
     tokio::spawn(jobs::sweeper(state.clone()));
     tokio::spawn(jobs::retention(state.clone()));
     tokio::spawn(server::versions::auto_sync(state.clone()));

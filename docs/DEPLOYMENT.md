@@ -32,6 +32,8 @@ docker compose -f docker-compose.yml -f docker-compose.ha.yml up -d --build   # 
 
 Две реплики приложения за nginx (`deploy/nginx/lb.conf`): `/readyz` каждой реплики проверяется Docker-ом, nginx повторяет запрос на
 другой реплике при ошибке. Остановка одной реплики незаметна пользователю: сессии подписаны общим `APP_SECRET`, а не живут в памяти.
+nginx пересылает `location /` на порт приложения, поэтому без `METRICS_PORT` он опубликовал бы и `/metrics` (см. «Метрики на своём порту» ниже): задайте `METRICS_PORT=9090` в `.env`
+и собирайте `app:9090` из контейнера в той же сети compose (имя `app` даёт адреса всех реплик); `docker-compose.metrics.yml` здесь не годится — две реплики не опубликуют один порт хоста.
 
 ## Kubernetes
 
@@ -47,8 +49,9 @@ kubectl apply -k deploy/k8s
 | Добровольные остановки | `PodDisruptionBudget` `minAvailable: 2` — дренаж узлов не выключит сервис |
 | Пробы | `startupProbe` и `livenessProbe` → `/healthz` (процесс жив; **не** смотрит в БД — недоступность БД не должна перезапускать здоровые поды); `readinessProbe` → `/readyz` (БД доступна, под не гасится) |
 | Остановка | `preStop: sleep 5`, затем SIGTERM: `/readyz` → 503, `DRAIN_SECONDS` на дренаж, задачи ИИ дорабатывают до `SHUTDOWN_GRACE_SECONDS`; `terminationGracePeriodSeconds: 45` |
-| Безопасность | restricted Pod Security, `runAsNonRoot`, `readOnlyRootFilesystem`, `drop: ALL`, `seccomp: RuntimeDefault`, без токена ServiceAccount, `NetworkPolicy` (вход — только ingress-контроллер и мониторинг; выход — DNS, PostgreSQL, HTTPS) |
-| Вход | `Ingress` (nginx, TLS), таймаут чтения 130 с под вызовы модели |
+| Безопасность | restricted Pod Security, `runAsNonRoot`, `readOnlyRootFilesystem`, `drop: ALL`, `seccomp: RuntimeDefault`, без токена ServiceAccount, `NetworkPolicy` (вход: на порт приложения 8080 — только ingress-контроллер, на порт метрик 9090 — только пространство `monitoring`; выход — DNS, PostgreSQL, HTTPS) |
+| Вход | `Ingress` (nginx, TLS), таймаут чтения 130 с под вызовы модели; путь `/` ведёт на порт приложения, метрик там нет |
+| Метрики | отдельный порт пода `metrics` (9090, `METRICS_PORT` в ConfigMap), который **не** публикует Service и не может указать Ingress; Prometheus ходит по адресам подов (аннотации `prometheus.io/*` или `PodMonitor`: `deploy/k8s/podmonitor.example.yaml`) |
 
 В `Deployment` образ — `ghcr.io/paffin/infra-architect:latest` (его публикует CI из ветки `main`); в своём overlay закрепите версию или digest.
 
@@ -91,13 +94,33 @@ kubectl apply -k deploy/k8s
 | Что | Где |
 |---|---|
 | Логи | JSON в stdout (`LOG_JSON`, `RUST_LOG`); у каждого запроса — реплика (`INSTANCE_ID`) |
-| Метрики | `/metrics` (Prometheus): `http_requests_total{method,route,status}`, `http_request_duration_seconds`, `engine_evaluations_total`, `ai_jobs_running`, `ai_jobs_finished_total{kind,status}`, `llm_calls_total{purpose,status}`, `llm_cost_usd_total`, `infra_auth_logins_total{outcome}` (`ok`, `failed`, `locked`, `throttled`: причина отказа в метку не попадает, она в журнале аудита) и `infra_auth_password_checks_total` (проверки пароля, Argon2); в выводе у всех имён префикс `infra_`; отключается настройкой `observability.metricsEnabled`, защищается `METRICS_TOKEN` |
+| Метрики | `/metrics` (Prometheus): `http_requests_total{method,route,status}`, `http_request_duration_seconds`, `engine_evaluations_total`, `ai_jobs_running`, `ai_jobs_finished_total{kind,status}`, `llm_calls_total{purpose,status}`, `llm_cost_usd_total`, `infra_auth_logins_total{outcome}` (`ok`, `failed`, `locked`, `throttled`: причина отказа в метку не попадает, она в журнале аудита) и `infra_auth_password_checks_total` (проверки пароля, Argon2); в выводе у всех имён префикс `infra_`; метка `method` — `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS` или `other` (HTTP принимает любое слово как метод, и каждое выдуманное породило бы пятнадцать рядов, которые не освобождаются); отключается настройкой `observability.metricsEnabled`, защищается `METRICS_TOKEN` (сравнивается за постоянное время) и отдельным портом `METRICS_PORT` (ниже) |
 | Здоровье | `/healthz`, `/readyz`; Администрирование → Система (версия, БД, миграции, ревизия конфигурации, счётчики задач) |
 | Аудит | Администрирование → Аудит: входы, изменения настроек и конфигурации (какие ключи), пользователи, применения ИИ |
 
 Полезные алерты: доля `5xx` > 1 % за 5 мин; `histogram_quantile(0.95, http_request_duration_seconds) > 2`; `ai_jobs_finished_total{status="failed"}`
 растёт; расход `llm_cost_usd_total` за сутки выше ожидаемого; `up == 0` менее чем у двух реплик; `rate(infra_auth_logins_total{outcome=~"locked|throttled"}[5m])` держится выше нуля — перебор паролей или неверный
 `TRUST_PROXY_HOPS` (все пользователи под одним адресом упираются в один лимит, см. [CONFIGURATION.md](CONFIGURATION.md)).
+
+### Метрики на своём порту
+
+`/metrics` не из тех путей, которые нужно показывать миру: в нём расход на ИИ, число и пути запросов, число входов. Ограничить его *путём* на порту приложения нельзя ни сетевой политикой (она различает порты, а не пути), ни Service: `Ingress` с путём `/` и nginx из `docker-compose.ha.yml`
+пересылают `/metrics` вместе с остальным. Поэтому у метрик свой порт:
+
+* `METRICS_PORT=9090` — сервер поднимает второй слушатель на `HOST` и этом порту; он отдаёт только `GET /metrics` (с теми же правилами: `observability.metricsEnabled`, `METRICS_TOKEN`), любой другой путь там — `404`. Порт приложения отвечает на `/metrics` `404` (JSON), а не страницей приложения.
+  Порт, который не разобрать, равный `PORT` или занятый, останавливает запуск. При остановке слушатель метрик закрывается после дренажа, вместе с основным.
+* **Kubernetes** (`deploy/k8s`): `METRICS_PORT: "9090"` в ConfigMap, порт пода `metrics`, `NetworkPolicy` пускает на 9090 только пространство `monitoring`, а на 8080 — только `ingress-nginx`; Service и Ingress про 9090 не знают, и CI это проверяет (`deploy/check-k8s-exposure.py`: Service, который
+  пересылает порт метрик, Ingress, который к нему ведёт, `hostPort` или политика, дающая порту метрик тех же, что порту приложения, провалят задание `manifests`). Prometheus Operator: `PodMonitor` (`deploy/k8s/podmonitor.example.yaml`), а не `ServiceMonitor`: Service порта метрик нет намеренно.
+  `NetworkPolicy` действует только в кластере, чей сетевой плагин её поддерживает; без него порт метрик доступен из всего кластера (но не из интернета) — тогда добавьте `METRICS_TOKEN`.
+* **Compose**: порт не публикуется, пока вы не попросите: `docker compose -f docker-compose.yml -f docker-compose.metrics.yml up -d` задаёт `METRICS_PORT=9090` и публикует его на `127.0.0.1:9090` (для Prometheus на том же хосте; другой порт хоста — `METRICS_HOST_PORT`). `deploy/smoke.sh` с `SMOKE_METRICS_URL=http://127.0.0.1:9090` проверяет оба
+  конца: `404` на порту приложения и ряды на порту метрик; CI гоняет его так на только что собранном образе.
+* Если `METRICS_PORT` не задан, всё как раньше: `/metrics` на порту приложения, открыт, пока не задан `METRICS_TOKEN`. Установка, где это так, увидит запись `metrics_open` в отчёте о безопасности (ниже).
+
+### Отчёт о безопасности установки
+
+`GET /api/admin/system` отдаёт `posture` — список находок о том, как настроен сервер, и то же сервер пишет в журнал при запуске (`posture`, уровни `warn` и `info`). Проверяется только в production: cookie без `Secure` (`COOKIE_SECURE=false`), `/metrics` на порту приложения без токена, действующий администратор с адресом по умолчанию (`admin@example.com`),
+доверенный прокси и сколько записей `X-Forwarded-For` считается справа, ИИ включён с ключом, но с бюджетом 0 (без ограничения), хранение аудита короче порога (`retention.auditDaysWarnBelow`, 90 дней; 0 — не проверять), пустой «Публичный URL». У каждой находки — текст и что делать, на русском и английском (`backend/crates/server/defaults/posture.json`).
+Это не оценка безопасности: пустой список значит лишь, что ничего из перечисленного не найдено. Слабый или шаблонный `APP_SECRET` сюда не попадает — сервер с ним не запускается.
 
 ## Исходящие соединения сервера
 
@@ -113,7 +136,8 @@ kubectl apply -k deploy/k8s
 ## Чек-лист безопасности
 
 * `APP_SECRET` — случайный, ≥ 32 символов, хранится в менеджере секретов, не заготовка из шаблона (сервер её не примет); `ADMIN_PASSWORD` сменён при первом входе.
-* TLS на входе, `COOKIE_SECURE=true`, `TRUST_PROXY=true` только за доверенным прокси и с верным `TRUST_PROXY_HOPS` (сколько прокси между клиентом и сервером: ingress — 1, облачный балансировщик перед ним — 2); `/metrics` закрыт (`METRICS_TOKEN` или сетевая политика).
+* TLS на входе, `COOKIE_SECURE=true`, `TRUST_PROXY=true` только за доверенным прокси и с верным `TRUST_PROXY_HOPS` (сколько прокси между клиентом и сервером: ingress — 1, облачный балансировщик перед ним — 2); `/metrics` не на публичном порту (`METRICS_PORT`; в манифестах Kubernetes уже так), `METRICS_TOKEN` — второй замок.
+* Зависимости проверяются на известные уязвимости до публикации образа (`cargo deny`, `npm audit`, Trivy: [SECURITY.md](../SECURITY.md)); образ закрепляйте версией или digest, а не `latest`.
 * `llm.provider.dataCollection = deny` (по умолчанию), при необходимости `zdr`; решите, отправлять ли заметки (`llm.sendNotes`).
 * Ограничьте `llm.monthlyBudgetUsd` и `llm.perUserPerHour`; следите за расходом на странице OpenRouter.
 * Роли: большинству — `editor`/`viewer`; `admin` — единицы. Блокировка после неудачных входов (отдельно для пары «аккаунт, адрес» и с потолком на аккаунт) и лимит по IP включены по умолчанию; их счётчики лежат в БД и общие для всех реплик.

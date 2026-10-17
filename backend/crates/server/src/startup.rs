@@ -21,7 +21,7 @@ async fn ensure_admin(pool: &PgPool, boot: &BootConfig) -> anyhow::Result<()> {
     if n > 0 {
         return Ok(());
     }
-    let email = boot.admin_email.clone().unwrap_or_else(|| "admin@example.com".to_string()).to_lowercase();
+    let email = boot.admin_email.clone().unwrap_or_else(|| crate::config::DEFAULT_ADMIN_EMAIL.to_string()).to_lowercase();
     let (password, generated) = match &boot.admin_password {
         Some(p) => (p.clone(), false),
         None => (random_password(), true),

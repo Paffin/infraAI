@@ -687,6 +687,7 @@ pub async fn system(State(state): State<AppState>, user: AuthUser) -> ApiResult<
     let migrations: i64 = sqlx::query_scalar("select count(*) from _sqlx_migrations where success").fetch_one(&state.pool).await.unwrap_or(0);
     let jobs = sqlx::query("select status, count(*) n from ai_jobs where created_at > now() - interval '1 day' group by status").fetch_all(&state.pool).await?;
     let counts = sqlx::query("select (select count(*) from projects where deleted_at is null) projects, (select count(*) from users) users").fetch_one(&state.pool).await?;
+    let posture: Vec<Value> = crate::posture::gather(&state).await?.iter().map(crate::posture::describe).collect();
     Ok(Json(json!({
         "version": env!("CARGO_PKG_VERSION"), "engineVersion": engine::evaluate::ENGINE_VERSION, "instance": state.boot.instance_id,
         "uptimeSeconds": state.started_at.elapsed().as_secs(), "production": state.boot.production,
@@ -696,9 +697,11 @@ pub async fn system(State(state): State<AppState>, user: AuthUser) -> ApiResult<
         "jobsLast24h": jobs.iter().map(|r| json!({"status": r.get::<String, _>("status"), "count": r.get::<i64, _>("n")})).collect::<Vec<_>>(),
         "counts": {"projects": counts.get::<i64, _>("projects"), "users": counts.get::<i64, _>("users")},
         "llm": {"enabled": cfg.settings.boolean("llm.enabled"), "keyConfigured": state.llm_key(&cfg).is_some(), "keySource": if cfg.settings.is_from_db("llm.apiKey") { "database" } else if state.boot.openrouter_api_key.is_some() { "environment" } else { "none" }},
+        // what the installation's configuration says about its security, judged in production only (posture.rs); an empty list is "nothing found", not "secure"
+        "posture": posture,
         "env": {
             "APP_ENV": if state.boot.production { "production" } else { "development" },
-            "COOKIE_SECURE": state.boot.cookie_secure, "TRUST_PROXY": state.boot.trust_proxy, "TRUST_PROXY_HOPS": state.boot.trust_proxy_hops, "METRICS_TOKEN": state.boot.metrics_token.is_some(),
+            "COOKIE_SECURE": state.boot.cookie_secure, "TRUST_PROXY": state.boot.trust_proxy, "TRUST_PROXY_HOPS": state.boot.trust_proxy_hops, "METRICS_TOKEN": state.boot.metrics_token.is_some(), "METRICS_PORT": state.boot.metrics_port,
             "OPENROUTER_API_KEY": state.boot.openrouter_api_key.is_some(), "DB_MAX_CONNECTIONS": state.boot.db_max_connections,
         },
     })))
