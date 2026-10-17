@@ -60,7 +60,7 @@ impl BootConfig {
         Ok(BootConfig {
             bind,
             database_url,
-            db_max_connections: env_num("DB_MAX_CONNECTIONS", 10),
+            db_max_connections: pool_size(env_num("DB_MAX_CONNECTIONS", 10)),
             db_connect_timeout_secs: env_num("DB_CONNECT_TIMEOUT_SECONDS", 120),
             production,
             app_secret,
@@ -79,7 +79,30 @@ impl BootConfig {
     }
 }
 
+/// The least the pool can be: start-up holds one connection for the cluster-wide lock (`db::with_startup_lock`) and seeds through another,
+/// so a pool of one never gets past the start.
+pub const MIN_DB_CONNECTIONS: u32 = 2;
+
+/// `DB_MAX_CONNECTIONS` as the pool uses it: never below [`MIN_DB_CONNECTIONS`].
+pub fn pool_size(requested: u32) -> u32 {
+    if requested < MIN_DB_CONNECTIONS {
+        tracing::warn!(requested, used = MIN_DB_CONNECTIONS, "DB_MAX_CONNECTIONS is too small for the start-up (it needs two connections): using the minimum");
+        return MIN_DB_CONNECTIONS;
+    }
+    requested
+}
+
 pub fn base64_url(b: &[u8]) -> String {
     use base64::Engine;
     base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(b)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_pool_is_never_smaller_than_the_start_up_needs() {
+        assert_eq!((pool_size(0), pool_size(1), pool_size(2), pool_size(10)), (2, 2, 2, 10));
+    }
 }

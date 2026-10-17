@@ -5,7 +5,7 @@
 use crate::crypto::Keys;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use sqlx::PgPool;
+use sqlx::{PgConnection, PgPool};
 use std::collections::HashMap;
 use std::sync::OnceLock;
 
@@ -203,40 +203,60 @@ fn same_value(a: &Value, b: &Value) -> bool {
     }
 }
 
-/// Persist changes. Secrets are encrypted; an empty secret removes the stored value.
-pub async fn save(pool: &PgPool, keys: &Keys, changes: &serde_json::Map<String, Value>, actor: &str) -> Result<Vec<String>, String> {
-    let mut tx = pool.begin().await.map_err(|e| e.to_string())?;
+/// Why a change to the settings was not stored.
+#[derive(Debug)]
+pub enum SaveError {
+    /// The registry refuses the value: unknown key, wrong type, out of range.
+    Invalid { key: String, reason: String },
+    /// PostgreSQL refused the value (a string with U+0000 cannot be kept in `jsonb`) or could not be reached.
+    Store { key: String, source: sqlx::Error },
+}
+
+fn store(key: &str) -> impl FnOnce(sqlx::Error) -> SaveError + '_ {
+    move |source| SaveError::Store { key: key.to_string(), source }
+}
+
+/// Persist changes in a transaction of their own. Secrets are encrypted; an empty secret removes the stored value.
+pub async fn save(pool: &PgPool, keys: &Keys, changes: &serde_json::Map<String, Value>, actor: &str) -> Result<Vec<String>, SaveError> {
+    let mut tx = pool.begin().await.map_err(store(""))?;
+    let changed = save_in(&mut tx, keys, changes, actor).await?;
+    tx.commit().await.map_err(store(""))?;
+    Ok(changed)
+}
+
+/// Persist changes on the caller's connection, so that they can be part of a larger transaction (a configuration import writes items,
+/// settings and the revision in one). All or nothing is the caller's: nothing is committed here, and after an error the transaction must be dropped.
+pub async fn save_in(conn: &mut PgConnection, keys: &Keys, changes: &serde_json::Map<String, Value>, actor: &str) -> Result<Vec<String>, SaveError> {
     let mut changed = vec![];
     for (k, v) in changes {
-        let d = def(k).ok_or_else(|| format!("unknown setting '{k}'"))?;
-        let norm = canonical(validate(d, v).map_err(|e| format!("{k}: {e}"))?);
+        let d = def(k).ok_or_else(|| SaveError::Invalid { key: k.clone(), reason: "unknown setting".into() })?;
+        let norm = canonical(validate(d, v).map_err(|reason| SaveError::Invalid { key: k.clone(), reason })?);
         if d.ty == "secret" {
             let s = norm.as_str().unwrap_or("");
             if s.is_empty() {
-                sqlx::query("delete from settings where key = $1").bind(k).execute(&mut *tx).await.map_err(|e| e.to_string())?;
+                sqlx::query("delete from settings where key = $1").bind(k).execute(&mut *conn).await.map_err(store(k))?;
             } else {
                 sqlx::query("insert into settings (key, value, encrypted, updated_by) values ($1, $2, true, $3) on conflict (key) do update set value = $2, encrypted = true, updated_by = $3, updated_at = now()")
                     .bind(k)
                     .bind(json!(keys.encrypt(s)))
                     .bind(actor)
-                    .execute(&mut *tx)
+                    .execute(&mut *conn)
                     .await
-                    .map_err(|e| e.to_string())?;
+                    .map_err(store(k))?;
             }
         } else if same_value(&norm, &d.default) {
-            sqlx::query("delete from settings where key = $1").bind(k).execute(&mut *tx).await.map_err(|e| e.to_string())?;
+            sqlx::query("delete from settings where key = $1").bind(k).execute(&mut *conn).await.map_err(store(k))?;
         } else {
             sqlx::query("insert into settings (key, value, encrypted, updated_by) values ($1, $2, false, $3) on conflict (key) do update set value = $2, encrypted = false, updated_by = $3, updated_at = now()")
                 .bind(k)
                 .bind(&norm)
                 .bind(actor)
-                .execute(&mut *tx)
+                .execute(&mut *conn)
                 .await
-                .map_err(|e| e.to_string())?;
+                .map_err(store(k))?;
         }
         changed.push(k.clone());
     }
-    tx.commit().await.map_err(|e| e.to_string())?;
     Ok(changed)
 }
 

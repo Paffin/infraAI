@@ -76,7 +76,7 @@ and a version with `props.variant` / `props.version`; an unknown variant is reje
 | GET | `/projects/{id}/versions` | `{versions:[{n,message,author,summary,createdAt}]}` |
 | POST | `/projects/{id}/versions` | `{message, lang?}` → `{n}` (snapshot of the draft + report summary) |
 | GET | `/projects/{id}/versions/{n}` | `{n,message,author,architecture,summary,createdAt}` |
-| POST | `/projects/{id}/versions/{n}/restore` | `{expectedRev}` → `{rev}` |
+| POST | `/projects/{id}/versions/{n}/restore` | `{expectedRev}` → `{rev, snapshot}`. The draft being replaced is saved first as the version «Before restore of vN» (`snapshot` = its number) unless it already is the newest version (`snapshot: null`): nothing that was not in a version is lost. `409 conflict` with `details.currentRev` when the revision is not `expectedRev`. Audited as `project.restore` |
 | GET | `/projects/{id}/diff?from=draft\|N&to=draft\|N&ui=0` | `ArchDiff` |
 | POST | `/projects/{id}/waivers` | `{fingerprint, reason, expiresInDays?, lang?}` → `{id}` (accept a risk) |
 | DELETE | `/projects/{id}/waivers/{wid}` | revoke |
@@ -91,7 +91,15 @@ through the API is laid out the first time somebody opens it); the web UI then l
 algorithm.
 
 Saving the draft is *not* a version. Versions are explicit snapshots (and are created automatically
-around applied AI proposals).
+around applied AI proposals and before a restore). The history keeps the newest `limits.maxVersionsPerProject`
+versions, whichever way they were made.
+
+**A deleted project is gone.** Once `DELETE /projects/{id}` has answered, every endpoint that names the project
+(`/projects/{id}/…`), its jobs (`/ai/jobs/{id}…`), its proposals (`/proposals/{id}…`) and its accepted risks answers
+`404 not_found` (`project not found`, `job not found`, `proposal not found`), and so do the engine calls that take
+its `projectId` (`/evaluate`, `/recommendations`, `/ops/apply` with `preview`): the project's accepted risks
+cannot be read, so nothing is evaluated with them. A project id that never existed answers the same, also for the lists
+(`/versions`, `/chat`) that used to answer `200` with nothing in them.
 
 ## Engine (stateless)
 
@@ -219,7 +227,7 @@ Requires an OpenRouter key (`llm.apiKey` or `OPENROUTER_API_KEY`) and `llm.enabl
 | GET | `/projects/{id}/chat?after=<messageId>` | `{messages:[{id,role,content,proposalId,proposalStatus,createdAt}], runningJobId}`; a `system` message is `"<errorCode>|<text>"` |
 | DELETE | `/projects/{id}/chat` | clear |
 | GET | `/proposals/{id}` | `{id,status,mode: ops\|replace, ops?, architecture?, rationale, preview:{diff,before,after,introduced,resolved}, baseRev}` |
-| POST | `/proposals/{id}/apply` | `{expectedRev?}` → `{rev, architecture, version}`; `409 proposal_stale/conflict/proposal_closed` |
+| POST | `/proposals/{id}/apply` | `{expectedRev?}` → `{rev, architecture, version}`; `409 proposal_stale/conflict/proposal_closed`. With `expectedRev` (the revision the user reviewed) a draft that moved before or while the apply ran is `409 conflict` with `details.currentRev`; without it the operations are applied to the draft that is there. The evaluation holds no transaction, so many applies at once never exhaust the connection pool |
 | POST | `/proposals/{id}/reject` | |
 
 Step codes: `preparing calling_model model_answer(debug) repairing evaluating refining autofix previewing`.
@@ -245,7 +253,7 @@ version first.
 | PUT | `/admin/config/{kind}/{id}` | `{data}` (validated against the engine types; `data.id == id`). The audit event lists the changed top-level keys |
 | DELETE | `/admin/config/{kind}/{id}` | custom items only: `404` for an unknown id, `409 not_deletable` for a built-in one |
 | POST | `/admin/config/{kind}/{id}/reset` | back to the built-in default (also dismisses `updateAvailable`) |
-| GET | `/admin/config-export` · POST `/admin/config-import` | `{settings, items, dryRun?}` backup/migration of everything changed; secrets are never exported |
+| GET | `/admin/config-export` · POST `/admin/config-import` | `{settings, items, dryRun?}` backup/migration of everything changed; secrets are never exported. An import is all or nothing: items, settings and the configuration revision are written in one transaction, so a value that is refused (`400 invalid_setting`, `details.key`) leaves the instance as it was. Every item is held to what creating it by hand would be: a well-formed id (`invalid_id` rules) and no second document in a single-document kind; a problem is reported as `ok: false` with `problems` and nothing is written. A new item goes after the existing ones of its kind |
 | GET/POST | `/admin/users` | create returns `temporaryPassword` if none was given (the user must change it on the first sign-in) |
 | PATCH | `/admin/users/{id}` | `{name?, role?, disabled?}`. The last active admin is protected (`409 last_admin`) and nobody can demote or disable their own account (`409 self_lockout`). `lockedUntil` is `null` once the lock expired |
 | POST | `/admin/users/{id}/reset-password` | `{password?}` (the user must change it again) |

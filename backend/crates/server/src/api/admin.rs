@@ -3,7 +3,7 @@
 
 use crate::audit;
 use crate::auth::{check_password_policy, client_ip, forget_user, AuthUser, Role};
-use crate::config_store::{self, bump_rev, default_items, validate_item, ALL_KINDS};
+use crate::config_store::{bump_rev, default_items, is_valid_item_id, single_document_id, validate_item, ALL_KINDS, MSG_INVALID_ITEM_ID, MSG_SINGLE_DOCUMENT};
 use crate::crypto::{hash_password, random_password};
 use crate::error::{ApiError, ApiResult};
 use crate::llm::openrouter::{call, fetch_models, CallCtx, LlmRequest, ModelRole, Msg};
@@ -29,6 +29,21 @@ async fn changed(state: &AppState) -> ApiResult<()> {
     Ok(())
 }
 
+/// A refused change of the settings as the API answers it. What PostgreSQL said stays in the log: it is about the database, not about the
+/// setting, and it names no key (the answer must).
+fn setting_error(e: settings::SaveError) -> ApiError {
+    use settings::SaveError;
+    let refused = |key: String, reason: String| ApiError::bad_request("invalid_setting", format!("{key}: {reason}")).with_details(json!({"key": key, "reason": reason}));
+    match e {
+        SaveError::Invalid { key, reason } => refused(key, reason),
+        SaveError::Store { key, source: sqlx::Error::Database(db) } => {
+            tracing::warn!(%key, error = %db, "the database refused a setting");
+            refused(key, "the value cannot be stored".into())
+        }
+        SaveError::Store { source, .. } => ApiError::internal(source),
+    }
+}
+
 // ------------------------------------------------------------------ settings
 
 pub async fn get_settings(State(state): State<AppState>, user: AuthUser) -> ApiResult<Json<Value>> {
@@ -45,10 +60,7 @@ pub struct SaveSettings {
 
 pub async fn put_settings(State(state): State<AppState>, user: AuthUser, ConnectInfo(addr): ConnectInfo<SocketAddr>, headers: HeaderMap, Json(b): Json<SaveSettings>) -> ApiResult<Json<Value>> {
     user.require_admin()?;
-    let keys = settings::save(&state.pool, &state.keys, &b.changes, &user.email).await.map_err(|e| {
-        let (key, reason) = e.split_once(": ").map(|(k, r)| (k.to_string(), r.to_string())).unwrap_or_default();
-        ApiError::bad_request("invalid_setting", e).with_details(json!({"key": key, "reason": reason}))
-    })?;
+    let keys = settings::save(&state.pool, &state.keys, &b.changes, &user.email).await.map_err(setting_error)?;
     changed(&state).await?;
     // log keys only; secret values never leave this function
     audit::log(&state.pool, Some(&user), "settings.update", "settings", "", json!({"keys": keys}), &ip(&state, &headers, addr)).await;
@@ -275,12 +287,11 @@ pub async fn config_create(
     Json(b): Json<CreateItem>,
 ) -> ApiResult<Json<Value>> {
     user.require_admin()?;
-    if !ALL_KINDS.contains(&kind.as_str()) || matches!(kind.as_str(), config_store::K_COMMON | config_store::K_ENGINE) {
-        return Err(ApiError::bad_request("invalid_kind", "this kind has a single document and cannot be extended"));
+    if !ALL_KINDS.contains(&kind.as_str()) || single_document_id(&kind).is_some() {
+        return Err(ApiError::bad_request("invalid_kind", MSG_SINGLE_DOCUMENT));
     }
-    let valid_id = !b.id.is_empty() && b.id.len() <= 80 && b.id.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | '.'));
-    if !valid_id {
-        return Err(ApiError::bad_request("invalid_id", "id must be 1–80 characters of letters, digits, '_', '-', '.'"));
+    if !is_valid_item_id(&b.id) {
+        return Err(ApiError::bad_request("invalid_id", MSG_INVALID_ITEM_ID));
     }
     validate_item(&kind, &b.id, &b.data).map_err(|e| ApiError::bad_request("invalid_config", e))?;
     let sort: i32 = sqlx::query_scalar("select coalesce(max(sort), 0) + 1 from config_items where kind = $1").bind(&kind).fetch_one(&state.pool).await?;
@@ -407,6 +418,18 @@ pub struct ImportBody {
     pub dry_run: bool,
 }
 
+/// An id in a message about an item: a 130-character id is quoted by its first characters, not whole.
+fn shown_id(id: &str) -> String {
+    if id.chars().count() > 48 {
+        format!("{}…", id.chars().take(47).collect::<String>())
+    } else {
+        id.to_string()
+    }
+}
+
+/// Import a configuration backup: items and settings, all or nothing. Every item is held to what creating one by hand would hold it to
+/// (a well-formed id, no second document in a kind that has one, a valid body); the writes - items, settings and the revision bump that
+/// tells the other replicas - are one transaction, so a value the database refuses leaves the instance as it was.
 pub async fn config_import(State(state): State<AppState>, user: AuthUser, ConnectInfo(addr): ConnectInfo<SocketAddr>, headers: HeaderMap, Json(b): Json<ImportBody>) -> ApiResult<Json<Value>> {
     user.require_admin()?;
     let mut problems = vec![];
@@ -428,12 +451,21 @@ pub async fn config_import(State(state): State<AppState>, user: AuthUser, Connec
             problems.push("item without kind/id/data".to_string());
             continue;
         };
+        let name = format!("{kind}:{}", shown_id(id));
         if !ALL_KINDS.contains(&kind) {
-            problems.push(format!("{kind}:{id}: unknown kind"));
+            problems.push(format!("{name}: unknown kind"));
+            continue;
+        }
+        if !is_valid_item_id(id) {
+            problems.push(format!("{name}: {MSG_INVALID_ITEM_ID}"));
+            continue;
+        }
+        if single_document_id(kind).is_some_and(|only| only != id) {
+            problems.push(format!("{name}: {MSG_SINGLE_DOCUMENT}"));
             continue;
         }
         if let Err(e) = validate_item(kind, id, data) {
-            problems.push(format!("{kind}:{id}: {e}"));
+            problems.push(format!("{name}: {e}"));
             continue;
         }
         items.push((kind.to_string(), id.to_string(), data.clone()));
@@ -443,8 +475,10 @@ pub async fn config_import(State(state): State<AppState>, user: AuthUser, Connec
     }
     let mut tx = state.pool.begin().await?;
     for (kind, id, data) in &items {
+        // a new item goes after the ones the kind already has, as when it is created by hand; an item that exists keeps its place
         sqlx::query(
-            "insert into config_items (kind, id, data, origin, modified, updated_by) values ($1, $2, $3, 'custom', true, $4)
+            "insert into config_items (kind, id, data, origin, modified, sort, updated_by)
+             values ($1, $2, $3, 'custom', true, (select coalesce(max(sort), 0) + 1 from config_items where kind = $1), $4)
              on conflict (kind, id) do update set data = $3, modified = (config_items.origin = 'default'), updated_at = now(), updated_by = $4",
         )
         .bind(kind)
@@ -454,11 +488,12 @@ pub async fn config_import(State(state): State<AppState>, user: AuthUser, Connec
         .execute(&mut *tx)
         .await?;
     }
-    tx.commit().await?;
     if !b.settings.is_empty() {
-        settings::save(&state.pool, &state.keys, &b.settings, &user.email).await.map_err(|e| ApiError::bad_request("invalid_setting", e))?;
+        settings::save_in(&mut tx, &state.keys, &b.settings, &user.email).await.map_err(setting_error)?;
     }
-    changed(&state).await?;
+    bump_rev(&mut *tx).await?;
+    tx.commit().await?;
+    state.config.invalidate().await;
     audit::log(&state.pool, Some(&user), "config.import", "config", "", json!({"items": items.len(), "settings": b.settings.len()}), &ip(&state, &headers, addr)).await;
     Ok(Json(json!({"ok": true, "problems": [], "items": items.len(), "settings": b.settings.len(), "applied": true})))
 }

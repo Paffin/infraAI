@@ -1,9 +1,10 @@
 //! AI endpoints: jobs, chat history and proposals (preview → explicit apply / reject).
 
-use crate::api::projects::engine_waivers;
-use crate::api_support::{lang_of, limits, parse_arch, run_evaluate, summarize};
+use crate::api::projects::{append_version, engine_waivers, load_draft, lock_project, VersionEntry, REREAD_ATTEMPTS};
+use crate::api_support::{evaluated_summary, lang_of, limits, parse_arch};
 use crate::audit;
 use crate::auth::{client_ip, AuthUser};
+use crate::config_store::Loaded;
 use crate::error::{ApiError, ApiResult};
 use crate::state::AppState;
 use axum::extract::{ConnectInfo, Path, Query, State};
@@ -16,6 +17,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use sqlx::Row;
 use std::net::SocketAddr;
+use std::sync::Arc;
 use uuid::Uuid;
 
 #[derive(Deserialize)]
@@ -113,18 +115,28 @@ fn job_json(r: &sqlx::postgres::PgRow) -> Value {
     })
 }
 
+/// The visible jobs: those of live projects (a job without a project stays visible). A deleted project takes its jobs, proposals and chat with it.
 pub async fn get_job(State(state): State<AppState>, _user: AuthUser, Path(id): Path<Uuid>) -> ApiResult<Json<Value>> {
-    let r = sqlx::query("select id, project_id, kind, status, steps, result, error, error_code, created_at, finished_at from ai_jobs where id = $1")
-        .bind(id)
-        .fetch_optional(&state.pool)
-        .await?
-        .ok_or_else(|| ApiError::not_found("job not found"))?;
+    let r = sqlx::query(
+        "select j.id, j.project_id, j.kind, j.status, j.steps, j.result, j.error, j.error_code, j.created_at, j.finished_at
+         from ai_jobs j left join projects p on p.id = j.project_id where j.id = $1 and (j.project_id is null or p.deleted_at is null)",
+    )
+    .bind(id)
+    .fetch_optional(&state.pool)
+    .await?
+    .ok_or_else(|| ApiError::not_found("job not found"))?;
     Ok(Json(job_json(&r)))
 }
 
 pub async fn cancel_job(State(state): State<AppState>, user: AuthUser, Path(id): Path<Uuid>) -> ApiResult<Json<Value>> {
     user.require_editor()?;
-    let r = sqlx::query("update ai_jobs set cancel_requested = true where id = $1 and status in ('queued','running')").bind(id).execute(&state.pool).await?;
+    let r = sqlx::query(
+        "update ai_jobs set cancel_requested = true where id = $1 and status in ('queued','running')
+         and (project_id is null or exists (select 1 from projects p where p.id = ai_jobs.project_id and p.deleted_at is null))",
+    )
+    .bind(id)
+    .execute(&state.pool)
+    .await?;
     if r.rows_affected() == 0 {
         return Err(ApiError::not_found("no running job with this id"));
     }
@@ -138,17 +150,22 @@ pub struct ChatQuery {
 }
 
 pub async fn chat_history(State(state): State<AppState>, _user: AuthUser, Path(project_id): Path<Uuid>, Query(q): Query<ChatQuery>) -> ApiResult<Json<Value>> {
+    // the project is part of the query: no row at all means it is gone (deleted, or never made); a live project without messages is one row with nulls
     let rows = sqlx::query(
-        "select m.id, m.role, m.content, m.proposal_id, m.created_at, p.status as proposal_status
-         from chat_messages m left join proposals p on p.id = m.proposal_id
-         where m.project_id = $1 and m.id > $2 order by m.id asc limit 200",
+        "select m.id, m.role, m.content, m.proposal_id, m.created_at, pr.status as proposal_status
+         from projects p left join chat_messages m on m.project_id = p.id and m.id > $2 left join proposals pr on pr.id = m.proposal_id
+         where p.id = $1 and p.deleted_at is null order by m.id asc limit 200",
     )
     .bind(project_id)
     .bind(q.after.unwrap_or(0))
     .fetch_all(&state.pool)
     .await?;
+    if rows.is_empty() {
+        return Err(ApiError::not_found("project not found"));
+    }
     let items: Vec<Value> = rows
         .into_iter()
+        .filter(|r| r.get::<Option<i64>, _>("id").is_some())
         .map(|r| json!({"id": r.get::<i64, _>("id"), "role": r.get::<String, _>("role"), "content": r.get::<String, _>("content"), "proposalId": r.get::<Option<Uuid>, _>("proposal_id"), "proposalStatus": r.get::<Option<String>, _>("proposal_status"), "createdAt": r.get::<DateTime<Utc>, _>("created_at")}))
         .collect();
     let running: Option<(Uuid,)> =
@@ -161,16 +178,31 @@ pub async fn chat_history(State(state): State<AppState>, _user: AuthUser, Path(p
 
 pub async fn clear_chat(State(state): State<AppState>, user: AuthUser, Path(project_id): Path<Uuid>) -> ApiResult<Json<Value>> {
     user.require_editor()?;
-    sqlx::query("delete from chat_messages where project_id = $1").bind(project_id).execute(&state.pool).await?;
+    // one statement: the delete runs whether or not the final select reads it (a data-modifying `with` always runs to completion), and the
+    // count says whether there was a live project to delete from
+    let alive: i64 = sqlx::query_scalar(
+        "with p as (select id from projects where id = $1 and deleted_at is null),
+              gone as (delete from chat_messages m using p where m.project_id = p.id)
+         select count(*) from p",
+    )
+    .bind(project_id)
+    .fetch_one(&state.pool)
+    .await?;
+    if alive == 0 {
+        return Err(ApiError::not_found("project not found"));
+    }
     Ok(Json(json!({"ok": true})))
 }
 
 pub async fn get_proposal(State(state): State<AppState>, _user: AuthUser, Path(id): Path<Uuid>) -> ApiResult<Json<Value>> {
-    let r = sqlx::query("select id, project_id, base_rev, change, rationale, preview, status, created_at from proposals where id = $1")
-        .bind(id)
-        .fetch_optional(&state.pool)
-        .await?
-        .ok_or_else(|| ApiError::not_found("proposal not found"))?;
+    let r = sqlx::query(
+        "select pr.id, pr.project_id, pr.base_rev, pr.change, pr.rationale, pr.preview, pr.status, pr.created_at
+         from proposals pr join projects p on p.id = pr.project_id and p.deleted_at is null where pr.id = $1",
+    )
+    .bind(id)
+    .fetch_optional(&state.pool)
+    .await?
+    .ok_or_else(|| ApiError::not_found("proposal not found"))?;
     let change: Value = r.get("change");
     // the full architecture of a "replace" proposal is large; the client gets it on demand
     Ok(Json(json!({
@@ -187,8 +219,33 @@ pub struct ApplyProposal {
     pub expected_rev: Option<i64>,
 }
 
+/// What one pass of an apply came to.
+enum Attempt {
+    Applied {
+        project_id: Uuid,
+        rev: i64,
+        architecture: Value,
+        version: i32,
+    },
+    /// The draft or its history moved while the pass was evaluating; nothing was written.
+    Moved(Uuid),
+}
+
+fn proposal_closed(status: &str) -> ApiError {
+    ApiError::conflict("proposal_closed", format!("the proposal is already {status}"))
+}
+
+fn draft_moved(rev: i64) -> ApiError {
+    ApiError::conflict("conflict", "the project was changed after the proposal was made; review it again").with_details(json!({"currentRev": rev}))
+}
+
 /// Apply a pending proposal to the project's working copy. A snapshot of the previous state is
 /// stored as a version first, so the change can always be rolled back.
+///
+/// The slow part (evaluating the old and the new architecture) holds neither a transaction nor a lock: a transaction waiting for CPU keeps a
+/// pooled connection for seconds, and a burst of applies then leaves the whole API without a database. Everything is read through the pool,
+/// evaluated, and only then a short transaction takes the locks and checks that nothing moved. If the draft did move: with `expectedRev` that
+/// is the conflict the client asked to be told about; without it the operations are rebased, i.e. the pass starts over on the draft that is there now.
 pub async fn apply_proposal(
     State(state): State<AppState>,
     user: AuthUser,
@@ -200,104 +257,121 @@ pub async fn apply_proposal(
     user.require_editor()?;
     let cfg = state.cfg().await?;
     let expected = body.and_then(|b| b.0.expected_rev);
-    let mut tx = state.pool.begin().await?;
-    let p = sqlx::query("select project_id, change, rationale, status from proposals where id = $1 for update")
+    let mut moved = None;
+    for _ in 0..REREAD_ATTEMPTS {
+        match apply_once(&state, &cfg, &user, id, expected).await? {
+            Attempt::Applied { project_id, rev, architecture, version } => {
+                audit::log(&state.pool, Some(&user), "ai.apply", "project", &project_id.to_string(), json!({"proposal": id}), &client_ip(&headers, Some(addr), state.boot.trust_proxy)).await;
+                return Ok(Json(json!({"rev": rev, "architecture": architecture, "version": version})));
+            }
+            Attempt::Moved(project_id) => moved = Some(project_id),
+        }
+    }
+    let rev: Option<i64> = match moved {
+        Some(p) => sqlx::query_scalar("select draft_rev from projects where id = $1").bind(p).fetch_optional(&state.pool).await?,
+        None => None,
+    };
+    Err(ApiError::conflict("conflict", "the project keeps changing; review the proposal again").with_details(json!({"currentRev": rev})))
+}
+
+async fn apply_once(state: &AppState, cfg: &Arc<Loaded>, user: &AuthUser, id: Uuid, expected: Option<i64>) -> ApiResult<Attempt> {
+    // 1. read, through the pool, with no transaction open
+    let p = sqlx::query("select project_id, change, rationale, status from proposals where id = $1")
         .bind(id)
-        .fetch_optional(&mut *tx)
+        .fetch_optional(&state.pool)
         .await?
         .ok_or_else(|| ApiError::not_found("proposal not found"))?;
     let project_id: Uuid = p.get("project_id");
     let status: String = p.get("status");
     if status != "pending" {
-        return Err(ApiError::conflict("proposal_closed", format!("the proposal is already {status}")));
+        return Err(proposal_closed(&status));
     }
     let change: Value = p.get("change");
     let rationale: String = p.get("rationale");
-    let pr = sqlx::query("select draft, draft_rev, head_version from projects where id = $1 and deleted_at is null for update")
-        .bind(project_id)
-        .fetch_optional(&mut *tx)
-        .await?
-        .ok_or_else(|| ApiError::not_found("project not found"))?;
-    let draft: Value = pr.get("draft");
-    let rev: i64 = pr.get("draft_rev");
-    let head: i32 = pr.get("head_version");
-    if let Some(e) = expected {
-        if e != rev {
-            return Err(ApiError::conflict("conflict", "the project was changed after the proposal was made; review it again").with_details(json!({"currentRev": rev})));
-        }
+    let st = load_draft(&state.pool, project_id).await?;
+    if expected.is_some_and(|e| e != st.rev) {
+        return Err(draft_moved(st.rev));
     }
-    let base: Architecture = parse_arch(draft.clone())?;
-    let new_arch: Architecture = match change["mode"].as_str() {
+    let waivers = engine_waivers(state, project_id).await?;
+    let lang = cfg.settings.str("app.defaultLanguage");
+
+    // 2. compute the new architecture and the summaries kept with the versions, still holding nothing
+    let base: Architecture = parse_arch(st.draft.clone())?;
+    let mut new_arch: Architecture = match change["mode"].as_str() {
         Some("replace") => parse_arch(change["architecture"].clone())?,
         Some("ops") => {
             let ops: Vec<Op> = serde_json::from_value(change["ops"].clone())?;
-            match apply_ops(&base, &ops, &cfg.catalog, &limits(&cfg)) {
+            match apply_ops(&base, &ops, &cfg.catalog, &limits(cfg)) {
                 Ok(o) => o.architecture,
                 Err(e) => {
-                    sqlx::query("update proposals set status = 'stale', decided_at = now() where id = $1").bind(id).execute(&mut *tx).await?;
-                    tx.commit().await?;
+                    // stale: but only on the evidence of the draft that was read; if it has moved since, that is not yet known
+                    let marked = sqlx::query(
+                        "update proposals set status = 'stale', decided_at = now() where id = $1 and status = 'pending'
+                         and exists (select 1 from projects where id = $2 and draft_rev = $3 and deleted_at is null)",
+                    )
+                    .bind(id)
+                    .bind(project_id)
+                    .bind(st.rev)
+                    .execute(&state.pool)
+                    .await?;
+                    if marked.rows_affected() == 0 {
+                        return Ok(Attempt::Moved(project_id));
+                    }
                     return Err(ApiError::conflict("proposal_stale", "the proposal no longer applies to the current architecture").with_details(json!({"issues": e.issues})));
                 }
             }
         }
         _ => return Err(ApiError::internal("proposal has an unknown mode")),
     };
-
-    let mut new_arch = new_arch;
     for n in new_arch.nodes.iter_mut() {
         n.proposed = false;
     }
+    let before_summary = if st.unsaved { Some(evaluated_summary(cfg, base, waivers.clone(), lang.clone()).await?) } else { None };
+    let after_summary = evaluated_summary(cfg, new_arch.clone(), waivers, lang).await?;
+    let new_json = serde_json::to_value(&new_arch)?;
+    let keep = cfg.settings.num("limits.maxVersionsPerProject") as i32;
 
-    // snapshot the state before the change (only if it differs from the latest version)
-    let last: Option<(Value,)> = sqlx::query_as("select architecture from versions where project_id = $1 and n = $2").bind(project_id).bind(head).fetch_optional(&mut *tx).await?;
-    let mut n = head;
-    let waivers = engine_waivers(&state, project_id).await?;
-    if last.map(|l| l.0 != draft).unwrap_or(true) {
-        n += 1;
-        let rep = run_evaluate(cfg.clone(), base.clone(), waivers.clone(), cfg.settings.str("app.defaultLanguage")).await?;
-        sqlx::query("insert into versions (project_id, n, message, author_id, author, architecture, summary, engine_version) values ($1, $2, $3, $4, $5, $6, $7, $8)")
-            .bind(project_id)
-            .bind(n)
-            .bind("Before AI change")
-            .bind(user.id)
-            .bind(&user.email)
-            .bind(&draft)
-            .bind(serde_json::to_value(summarize(&rep))?)
-            .bind(engine::evaluate::ENGINE_VERSION as i32)
-            .execute(&mut *tx)
-            .await?;
+    // 3. a short transaction that only writes. Lock order: the proposal, then the project (nobody takes them the other way round)
+    let mut tx = state.pool.begin().await?;
+    let status: String =
+        sqlx::query_scalar("select status from proposals where id = $1 for update").bind(id).fetch_optional(&mut *tx).await?.ok_or_else(|| ApiError::not_found("proposal not found"))?;
+    if status != "pending" {
+        return Err(proposal_closed(&status)); // somebody decided it while this pass was evaluating
     }
-    n += 1;
-    let rep = run_evaluate(cfg.clone(), new_arch.clone(), waivers, cfg.settings.str("app.defaultLanguage")).await?;
-    let msg = format!("AI: {}", rationale.chars().take(80).collect::<String>());
-    sqlx::query("insert into versions (project_id, n, message, author_id, author, architecture, summary, engine_version) values ($1, $2, $3, $4, $5, $6, $7, $8)")
-        .bind(project_id)
-        .bind(n)
-        .bind(msg)
-        .bind(user.id)
-        .bind(&user.email)
-        .bind(serde_json::to_value(&new_arch)?)
-        .bind(serde_json::to_value(summarize(&rep))?)
-        .bind(engine::evaluate::ENGINE_VERSION as i32)
-        .execute(&mut *tx)
-        .await?;
-    let (new_rev,): (i64,) = sqlx::query_as("update projects set draft = $2, draft_rev = draft_rev + 1, head_version = $3, updated_at = now() where id = $1 returning draft_rev")
-        .bind(project_id)
-        .bind(serde_json::to_value(&new_arch)?)
-        .bind(n)
-        .fetch_one(&mut *tx)
-        .await?;
+    let (rev, head) = lock_project(&mut tx, project_id).await?;
+    if rev != st.rev && expected.is_some() {
+        return Err(draft_moved(rev));
+    }
+    if rev != st.rev || head != st.head {
+        return Ok(Attempt::Moved(project_id));
+    }
+    let mut n = head;
+    if let Some(summary) = &before_summary {
+        n = append_version(&mut tx, project_id, n, keep, user, VersionEntry { message: "Before AI change", architecture: &st.draft, summary }).await?;
+    }
+    let message = format!("AI: {}", rationale.chars().take(80).collect::<String>());
+    n = append_version(&mut tx, project_id, n, keep, user, VersionEntry { message: &message, architecture: &new_json, summary: &after_summary }).await?;
+    let (new_rev,): (i64,) =
+        sqlx::query_as("update projects set draft = $2, draft_rev = draft_rev + 1, updated_at = now() where id = $1 returning draft_rev").bind(project_id).bind(&new_json).fetch_one(&mut *tx).await?;
     sqlx::query("update proposals set status = 'applied', decided_at = now() where id = $1").bind(id).execute(&mut *tx).await?;
     tx.commit().await?;
-    audit::log(&state.pool, Some(&user), "ai.apply", "project", &project_id.to_string(), json!({"proposal": id}), &client_ip(&headers, Some(addr), state.boot.trust_proxy)).await;
-    Ok(Json(json!({"rev": new_rev, "architecture": new_arch, "version": n})))
+    Ok(Attempt::Applied { project_id, rev: new_rev, architecture: new_json, version: n })
 }
 
 pub async fn reject_proposal(State(state): State<AppState>, user: AuthUser, Path(id): Path<Uuid>) -> ApiResult<Json<Value>> {
     user.require_editor()?;
-    let r = sqlx::query("update proposals set status = 'rejected', decided_at = now() where id = $1 and status = 'pending'").bind(id).execute(&state.pool).await?;
+    let r = sqlx::query(
+        "update proposals set status = 'rejected', decided_at = now() where id = $1 and status = 'pending'
+         and exists (select 1 from projects p where p.id = proposals.project_id and p.deleted_at is null)",
+    )
+    .bind(id)
+    .execute(&state.pool)
+    .await?;
     if r.rows_affected() == 0 {
-        return Err(ApiError::conflict("proposal_closed", "the proposal is not pending"));
+        // not found (or its project is gone), or already decided: two different answers
+        let known: Option<(i32,)> =
+            sqlx::query_as("select 1 from proposals pr join projects p on p.id = pr.project_id and p.deleted_at is null where pr.id = $1").bind(id).fetch_optional(&state.pool).await?;
+        return Err(if known.is_some() { ApiError::conflict("proposal_closed", "the proposal is not pending") } else { ApiError::not_found("proposal not found") });
     }
     Ok(Json(json!({"ok": true})))
 }

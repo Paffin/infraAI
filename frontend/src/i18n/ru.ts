@@ -448,7 +448,7 @@ export default {
   'versions.message': 'Комментарий к версии',
   'versions.draft': 'Текущая схема (черновик)',
   'versions.restore': 'Восстановить',
-  'versions.restore.confirm': 'Заменить текущую схему версией v{n}? Несохранённые правки будут потеряны.',
+  'versions.restore.confirm': 'Заменить текущую схему версией v{n}? Текущая схема сначала сохранится как версия, к ней можно вернуться.',
   'versions.compare': 'Сравнить',
   'versions.vsCurrent': 'Сравнить с текущей',
   'versions.vsPrevious': 'С предыдущей',

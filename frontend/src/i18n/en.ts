@@ -448,7 +448,7 @@ export default {
   'versions.message': 'Version comment',
   'versions.draft': 'Current diagram (draft)',
   'versions.restore': 'Restore',
-  'versions.restore.confirm': 'Replace the current diagram with version v{n}? Unsaved edits will be lost.',
+  'versions.restore.confirm': 'Replace the current diagram with version v{n}? The current diagram is saved as a version first, so you can come back to it.',
   'versions.compare': 'Compare',
   'versions.vsCurrent': 'Compare with current',
   'versions.vsPrevious': 'With previous',

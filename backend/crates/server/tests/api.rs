@@ -1105,3 +1105,649 @@ async fn a_refreshed_table_is_not_overwritten_by_an_older_shipped_one_at_start()
     assert_eq!(kept["cycles"][0]["latest"], "18.99");
     app.cleanup().await;
 }
+
+// ---------------------------------------------------------------------------------------------
+// Integrity of the data: a handler never needs two connections at once, applying and restoring never
+// lose a draft, a deleted project is gone for every endpoint, and a configuration import is all or nothing.
+// ---------------------------------------------------------------------------------------------
+
+/// The architecture of the demo project: a diagram with known nodes (`app-dc1` has `props.replicas`) that tests copy into as many projects as they need.
+async fn demo_architecture(app: &TestApp, c: &str) -> Value {
+    let pid = app.first_project(c).await;
+    let (_, p) = app.get(c, &format!("/api/projects/{pid}")).await;
+    p["architecture"].clone()
+}
+
+async fn new_project(app: &TestApp, c: &str, name: &str, arch: &Value) -> String {
+    let (s, v) = app.post(c, "/api/projects", json!({"name": name, "architecture": arch})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    v["id"].as_str().unwrap().to_string()
+}
+
+fn replicas_of(node: &str, n: i64) -> engine::ops::Op {
+    engine::ops::Op::UpdateNode { id: node.into(), set: [("props.replicas".to_string(), json!(n))].into_iter().collect() }
+}
+
+/// A pending proposal of `ops` for the project as it is now, stored exactly as the end of the patch pipeline stores it (`propose_ops`), without a model.
+async fn pending_proposal(app: &TestApp, pid: &str, ops: Vec<engine::ops::Op>) -> String {
+    use engine::model::Architecture;
+    use server::jobs::Job;
+    use server::llm::pipeline::propose_ops;
+    let pid_u = uuid::Uuid::parse_str(pid).unwrap();
+    let cfg = app.state.cfg().await.unwrap();
+    let (draft, rev): (Value, i64) = sqlx::query_as("select draft, draft_rev from projects where id = $1").bind(pid_u).fetch_one(&app.state.pool).await.unwrap();
+    let base: Architecture = serde_json::from_value(draft).unwrap();
+    let job_id: uuid::Uuid = sqlx::query_scalar("insert into ai_jobs (project_id, kind, status) values ($1, 'patch', 'succeeded') returning id").bind(pid_u).fetch_one(&app.state.pool).await.unwrap();
+    let job = Job { id: job_id, project_id: pid_u, user_id: None, kind: "patch".into(), input: json!({}) };
+    propose_ops(&app.state, &cfg, &job, base, rev, ops, "tune", "en").await.expect("proposal").to_string()
+}
+
+async fn project_rev(app: &TestApp, c: &str, pid: &str) -> (i64, Value) {
+    let (s, p) = app.get(c, &format!("/api/projects/{pid}")).await;
+    assert_eq!(s, StatusCode::OK, "{p}");
+    (p["rev"].as_i64().unwrap(), p["architecture"].clone())
+}
+
+fn node_field<'a>(arch: &'a Value, id: &str, field: &str) -> &'a Value {
+    &arch["nodes"].as_array().unwrap().iter().find(|n| n["id"] == id).unwrap_or_else(|| panic!("node {id}"))[field]
+}
+
+fn rename(arch: &mut Value, id: &str, name: &str) {
+    arch["nodes"].as_array_mut().unwrap().iter_mut().find(|n| n["id"] == id).unwrap()["name"] = json!(name);
+}
+
+async fn version_messages(app: &TestApp, c: &str, pid: &str) -> Vec<String> {
+    let (s, v) = app.get(c, &format!("/api/projects/{pid}/versions")).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    v["versions"].as_array().unwrap().iter().map(|v| v["message"].as_str().unwrap().to_string()).collect()
+}
+
+/// Twelve people press "apply" at once. Every apply used to hold a connection for its transaction and ask the pool for a second one
+/// (the accepted risks), so with the pool as small as the harness's five the applies waited for each other until the pool's ten-second
+/// timeout and answered 500 - and the whole API had no database meanwhile.
+#[tokio::test]
+async fn a_burst_of_applies_does_not_exhaust_the_pool() {
+    let app = TestApp::new().await;
+    let c = app.login_admin().await;
+    let arch = demo_architecture(&app, &c).await;
+    let mut jobs = vec![];
+    for i in 0..12 {
+        let pid = new_project(&app, &c, &format!("burst {i}"), &arch).await;
+        let proposal = pending_proposal(&app, &pid, vec![replicas_of("app-dc1", 40 + i)]).await;
+        jobs.push((pid, proposal));
+    }
+
+    let started = std::time::Instant::now();
+    let paths: Vec<String> = jobs.iter().map(|(_, p)| format!("/api/proposals/{p}/apply")).collect();
+    let answers = futures::future::join_all(paths.iter().map(|path| app.post(&c, path, json!({})))).await;
+    let took = started.elapsed();
+    let statuses: Vec<u16> = answers.iter().map(|(s, _)| s.as_u16()).collect();
+    assert_eq!(statuses, vec![200; 12], "different projects: every apply is legitimate; {answers:?}");
+    // the pool's own timeout is 10 s: that is what the old behaviour took
+    assert!(took < std::time::Duration::from_secs(9), "twelve applies took {took:?}");
+
+    for (i, (pid, _)) in jobs.iter().enumerate() {
+        let (_, now) = project_rev(&app, &c, pid).await;
+        assert_eq!(node_field(&now, "app-dc1", "props")["replicas"], json!(40 + i as i64), "project {i} was changed");
+        assert!(version_messages(&app, &c, pid).await.iter().any(|m| m.starts_with("AI:")), "project {i} has the version of the AI change");
+    }
+    let (s, _) = app.get(&c, "/api/projects").await;
+    assert_eq!(s, StatusCode::OK, "the API still has its database");
+    app.cleanup().await;
+}
+
+/// The structural guard against the whole class of bugs "a handler holds a connection and asks for another": with a pool of ONE
+/// connection every handler that writes must still work, which it can only do by never needing two at the same time.
+#[tokio::test]
+async fn mutating_handlers_never_need_two_connections() {
+    let app = TestApp::with_pool(1).await;
+    let c = app.login_admin().await;
+    let arch = demo_architecture(&app, &c).await;
+    let ok = |what: &str, s: StatusCode, v: &Value| assert_eq!(s, StatusCode::OK, "{what}: {v}");
+
+    let (s, v) = app.post(&c, "/api/projects", json!({"name": "one connection", "templateId": "two-dc-witness"})).await;
+    ok("create from a template", s, &v);
+    let pid = new_project(&app, &c, "one connection, copy", &arch).await;
+
+    // the draft is saved, a version is cut, and an AI change is applied and another rejected
+    let (rev, mut edited) = project_rev(&app, &c, &pid).await;
+    rename(&mut edited, "app-dc2", "App DC2 (edited)");
+    let (s, v) = app.put(&c, &format!("/api/projects/{pid}/draft"), json!({"architecture": edited, "expectedRev": rev})).await;
+    ok("save the draft", s, &v);
+    let (s, v) = app.post(&c, &format!("/api/projects/{pid}/versions"), json!({"message": "kept"})).await;
+    ok("create a version", s, &v);
+    let first = pending_proposal(&app, &pid, vec![replicas_of("app-dc1", 41)]).await;
+    let (s, v) = app.post(&c, &format!("/api/proposals/{first}/apply"), json!({})).await;
+    ok("apply", s, &v);
+    let second = pending_proposal(&app, &pid, vec![replicas_of("app-dc1", 42)]).await;
+    let (s, v) = app.post(&c, &format!("/api/proposals/{second}/reject"), json!({})).await;
+    ok("reject", s, &v);
+
+    // restore snapshots an unsaved draft first (the other path that used to be one query)
+    let (rev, mut again) = project_rev(&app, &c, &pid).await;
+    rename(&mut again, "app-dc2", "App DC2 (edited again)");
+    let (s, v) = app.put(&c, &format!("/api/projects/{pid}/draft"), json!({"architecture": again, "expectedRev": rev})).await;
+    ok("save the draft again", s, &v);
+    let (rev, _) = project_rev(&app, &c, &pid).await;
+    let (s, v) = app.post(&c, &format!("/api/projects/{pid}/versions/1/restore"), json!({"expectedRev": rev})).await;
+    ok("restore", s, &v);
+
+    // an accepted risk is made and revoked
+    let (_, rep) = app.post(&c, "/api/evaluate", json!({"architecture": arch, "projectId": pid})).await;
+    let fp = rep["findings"].as_array().unwrap().iter().find(|f| f["ruleId"] == "DR-KFK-01").unwrap()["id"].as_str().unwrap().to_string();
+    let (s, v) = app.post(&c, &format!("/api/projects/{pid}/waivers"), json!({"fingerprint": fp, "reason": "orders are protected by the outbox pattern"})).await;
+    ok("accept a risk", s, &v);
+    let (s, v) = app.delete(&c, &format!("/api/projects/{pid}/waivers/{}", v["id"].as_str().unwrap())).await;
+    ok("revoke a risk", s, &v);
+
+    // the administrator's side: settings, and an import of items together with settings
+    let (s, v) = app.put(&c, "/api/admin/settings", json!({"changes": {"app.name": "One connection"}})).await;
+    ok("save settings", s, &v);
+    let category = json!({"id": "zz-one-connection", "order": 99, "name": {"ru": "Проба", "en": "Probe"}});
+    let (s, v) = app.post(&c, "/api/admin/config-import", json!({"items": [{"kind": "catalog.category", "id": "zz-one-connection", "data": category}], "settings": {"app.name": "Imported"}})).await;
+    ok("import", s, &v);
+    assert_eq!(v["applied"], true, "{v}");
+    app.cleanup().await;
+}
+
+/// What somebody else does to the project while an apply is busy evaluating.
+enum Meanwhile<'a> {
+    /// A save of the working copy: `edit` changes the draft and the revision moves.
+    Save(&'a dyn Fn(&mut Value)),
+    /// A version cut of the working copy as it is (what `POST /versions` does): the history moves, the revision does not.
+    CutVersion,
+    /// The proposal is rejected by somebody else.
+    Reject(&'a str),
+}
+
+/// The apply evaluates holding no lock, so it must look at the project again when it finally takes the lock. To make that happen without
+/// timing, the test holds the project's row lock itself, waits until the apply is queued behind it (the database says when), does what
+/// `meanwhile` says in that window and lets go.
+async fn while_the_apply_waits(app: &TestApp, pid: &str, meanwhile: Meanwhile<'_>, apply: impl std::future::Future<Output = (StatusCode, Value)>) -> (StatusCode, Value) {
+    let pid_u = uuid::Uuid::parse_str(pid).unwrap();
+    let mut tx = app.state.pool.begin().await.unwrap();
+    // the apply takes the proposal's row first and the project's second: to stall it before it has taken anything, hold the one it will want first
+    // (holding the other one, and then touching the first, would be the deadlock the order exists to prevent)
+    let mut draft = match &meanwhile {
+        Meanwhile::Reject(proposal) => {
+            sqlx::query("select 1 from proposals where id = $1::uuid for update").bind(*proposal).fetch_one(&mut *tx).await.unwrap();
+            Value::Null
+        }
+        _ => sqlx::query_scalar("select draft from projects where id = $1 for update").bind(pid_u).fetch_one(&mut *tx).await.unwrap(),
+    };
+    let doing = async {
+        let mut waited = false;
+        for _ in 0..500 {
+            let n: i64 = sqlx::query_scalar("select count(*) from pg_stat_activity where datname = current_database() and wait_event_type = 'Lock'").fetch_one(&app.state.pool).await.unwrap();
+            if n > 0 {
+                waited = true;
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        }
+        assert!(waited, "the apply never queued for the project row");
+        match meanwhile {
+            Meanwhile::Save(edit) => {
+                edit(&mut draft);
+                sqlx::query("update projects set draft = $2, draft_rev = draft_rev + 1, updated_at = now() where id = $1").bind(pid_u).bind(&draft).execute(&mut *tx).await.unwrap();
+            }
+            Meanwhile::CutVersion => {
+                sqlx::query(
+                    "insert into versions (project_id, n, message, author, architecture, summary, engine_version)
+                     select id, head_version + 1, 'cut meanwhile', 'test', draft, '{}', 1 from projects where id = $1",
+                )
+                .bind(pid_u)
+                .execute(&mut *tx)
+                .await
+                .unwrap();
+                sqlx::query("update projects set head_version = head_version + 1 where id = $1").bind(pid_u).execute(&mut *tx).await.unwrap();
+            }
+            Meanwhile::Reject(proposal) => {
+                sqlx::query("update proposals set status = 'rejected', decided_at = now() where id = $1::uuid").bind(proposal).execute(&mut *tx).await.unwrap();
+            }
+        }
+        tx.commit().await.unwrap();
+    };
+    let (answer, ()) = tokio::join!(apply, doing);
+    answer
+}
+
+#[tokio::test]
+async fn apply_rechecks_the_revision_after_evaluating() {
+    let app = TestApp::new().await;
+    let c = app.login_admin().await;
+    let arch = demo_architecture(&app, &c).await;
+    let pid = new_project(&app, &c, "moved while evaluating", &arch).await;
+    let (rev, _) = project_rev(&app, &c, &pid).await;
+
+    // 1. the client said which revision it reviewed: a draft saved meanwhile is a conflict, never a silent overwrite
+    let proposal = pending_proposal(&app, &pid, vec![replicas_of("app-dc1", 41)]).await;
+    let (s, v) =
+        while_the_apply_waits(&app, &pid, Meanwhile::Save(&|d| rename(d, "app-dc2", "saved by somebody else")), app.post(&c, &format!("/api/proposals/{proposal}/apply"), json!({"expectedRev": rev})))
+            .await;
+    assert_eq!((s, v["error"]["code"].as_str()), (StatusCode::CONFLICT, Some("conflict")), "{v}");
+    assert_eq!(v["error"]["details"]["currentRev"], rev + 1, "{v}");
+    let (now_rev, now) = project_rev(&app, &c, &pid).await;
+    assert_eq!(now_rev, rev + 1);
+    assert_eq!(node_field(&now, "app-dc2", "name"), "saved by somebody else", "the other save survives");
+    assert_ne!(node_field(&now, "app-dc1", "props")["replicas"], json!(41), "the proposal was not applied");
+    let (_, pr) = app.get(&c, &format!("/api/proposals/{proposal}")).await;
+    assert_eq!(pr["status"], "pending", "it can still be reviewed again");
+    assert_eq!(version_messages(&app, &c, &pid).await.len(), 1, "no version was written");
+
+    // 2. operations without a reviewed revision are rebased: the apply starts over on the draft it finds, snapshots THAT draft and applies on top of it
+    let (s, v) = while_the_apply_waits(&app, &pid, Meanwhile::Save(&|d| rename(d, "app-dc2", "saved while evaluating")), app.post(&c, &format!("/api/proposals/{proposal}/apply"), json!({}))).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    let (_, now) = project_rev(&app, &c, &pid).await;
+    assert_eq!(node_field(&now, "app-dc1", "props")["replicas"], json!(41), "the change is there");
+    assert_eq!(node_field(&now, "app-dc2", "name"), "saved while evaluating", "and the save made meanwhile is not lost");
+    assert_eq!(version_messages(&app, &c, &pid).await, ["AI: tune", "Before AI change", "Created"]);
+    let snapshot = v["version"].as_i64().unwrap() - 1;
+    let (_, old) = app.get(&c, &format!("/api/projects/{pid}/versions/{snapshot}")).await;
+    assert_eq!(node_field(&old["architecture"], "app-dc2", "name"), "saved while evaluating", "the snapshot is of the draft that was replaced");
+
+    // 3. a version cut meanwhile (the revision stays, the history moves): the draft is saved by now, so there is nothing to snapshot - no duplicate is made
+    let (rev, mut unsaved) = project_rev(&app, &c, &pid).await;
+    rename(&mut unsaved, "app-dc2", "not in any version");
+    let (s, v) = app.put(&c, &format!("/api/projects/{pid}/draft"), json!({"architecture": unsaved, "expectedRev": rev})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    let second = pending_proposal(&app, &pid, vec![replicas_of("app-dc1", 42)]).await;
+    let (s, v) = while_the_apply_waits(&app, &pid, Meanwhile::CutVersion, app.post(&c, &format!("/api/proposals/{second}/apply"), json!({}))).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    assert_eq!(version_messages(&app, &c, &pid).await, ["AI: tune", "cut meanwhile", "AI: tune", "Before AI change", "Created"], "the version cut meanwhile is the snapshot");
+    let (_, now) = project_rev(&app, &c, &pid).await;
+    assert_eq!(node_field(&now, "app-dc1", "props")["replicas"], json!(42));
+
+    // 4. rejected by somebody else meanwhile (the revision does not move): the apply must not bring a rejected proposal back
+    let third = pending_proposal(&app, &pid, vec![replicas_of("app-dc1", 43)]).await;
+    let (s, v) = while_the_apply_waits(&app, &pid, Meanwhile::Reject(&third), app.post(&c, &format!("/api/proposals/{third}/apply"), json!({}))).await;
+    assert_eq!((s, v["error"]["code"].as_str()), (StatusCode::CONFLICT, Some("proposal_closed")), "{v}");
+    let (_, now) = project_rev(&app, &c, &pid).await;
+    assert_eq!(node_field(&now, "app-dc1", "props")["replicas"], json!(42), "the rejected change is not in the draft");
+    app.cleanup().await;
+}
+
+#[tokio::test]
+async fn apply_is_exactly_once_and_survives_concurrent_saves() {
+    let app = TestApp::new().await;
+    let c = app.login_admin().await;
+    let arch = demo_architecture(&app, &c).await;
+
+    // (a) the same proposal applied twice at once: one wins, the other is told it is closed, and there is one AI version
+    let pid = new_project(&app, &c, "twice", &arch).await;
+    let proposal = pending_proposal(&app, &pid, vec![replicas_of("app-dc1", 41)]).await;
+    let path = format!("/api/proposals/{proposal}/apply");
+    let (one, two) = tokio::join!(app.post(&c, &path, json!({})), app.post(&c, &path, json!({})));
+    let mut got = vec![(one.0.as_u16(), one.1["error"]["code"].as_str().map(String::from)), (two.0.as_u16(), two.1["error"]["code"].as_str().map(String::from))];
+    got.sort();
+    assert_eq!(got, vec![(200, None), (409, Some("proposal_closed".to_string()))], "{one:?} {two:?}");
+    assert_eq!(version_messages(&app, &c, &pid).await.iter().filter(|m| m.starts_with("AI:")).count(), 1);
+
+    // (b) operations applied while four people save: whatever the interleaving, nobody's save is lost, the history has no gaps,
+    //     and the change is in the draft exactly when the proposal says it was applied
+    let pid = new_project(&app, &c, "busy", &arch).await;
+    let proposal = pending_proposal(&app, &pid, vec![replicas_of("app-dc1", 44)]).await;
+    let others: Vec<String> = arch["nodes"].as_array().unwrap().iter().map(|n| n["id"].as_str().unwrap().to_string()).filter(|id| id != "app-dc1").take(4).collect();
+    let saver = |i: usize| {
+        let (app, c, pid, node) = (&app, c.clone(), pid.clone(), others[i].clone());
+        async move {
+            for _ in 0..50 {
+                let (rev, mut a) = project_rev(app, &c, &pid).await;
+                rename(&mut a, &node, &format!("saved by {i}"));
+                let (s, v) = app.put(&c, &format!("/api/projects/{pid}/draft"), json!({"architecture": a, "expectedRev": rev})).await;
+                if s == StatusCode::OK {
+                    return;
+                }
+                assert_eq!(s, StatusCode::CONFLICT, "{v}");
+            }
+            panic!("save {i} never got through");
+        }
+    };
+    let apply_path = format!("/api/proposals/{proposal}/apply");
+    let (applied, _) = tokio::join!(app.post(&c, &apply_path, json!({})), futures::future::join_all((0..4).map(saver)));
+    assert!(matches!(applied.0.as_u16(), 200 | 409), "{applied:?}");
+    let (_, now) = project_rev(&app, &c, &pid).await;
+    for (i, node) in others.iter().enumerate() {
+        assert_eq!(node_field(&now, node, "name"), &json!(format!("saved by {i}")), "save {i} was lost");
+    }
+    let (_, pr) = app.get(&c, &format!("/api/proposals/{proposal}")).await;
+    let in_draft = node_field(&now, "app-dc1", "props")["replicas"] == json!(44);
+    assert_eq!(pr["status"] == "applied", in_draft, "applied={} but the change is {}in the draft", pr["status"], if in_draft { "" } else { "not " });
+    assert_eq!(applied.0 == StatusCode::OK, in_draft, "{applied:?}");
+    let (head, newest, oldest, count): (i32, i32, i32, i64) =
+        sqlx::query_as("select p.head_version, max(v.n), min(v.n), count(*) from projects p join versions v on v.project_id = p.id where p.id = $1 group by p.head_version")
+            .bind(uuid::Uuid::parse_str(&pid).unwrap())
+            .fetch_one(&app.state.pool)
+            .await
+            .unwrap();
+    assert_eq!((head, oldest, count), (newest, 1, newest as i64), "the head is the newest version and the numbers have no gaps");
+
+    // (c) a replacement reviewed at an older revision is a conflict, with the revision to review again
+    let pid = new_project(&app, &c, "replace", &arch).await;
+    let (rev, base) = project_rev(&app, &c, &pid).await;
+    let mut replacement = base.clone();
+    rename(&mut replacement, "app-dc1", "replaced");
+    let replace: uuid::Uuid = sqlx::query_scalar("insert into proposals (project_id, base_rev, change, rationale) values ($1, $2, $3, 'replace') returning id")
+        .bind(uuid::Uuid::parse_str(&pid).unwrap())
+        .bind(rev)
+        .bind(json!({"mode": "replace", "architecture": replacement}))
+        .fetch_one(&app.state.pool)
+        .await
+        .unwrap();
+    let mut meanwhile = base.clone();
+    rename(&mut meanwhile, "app-dc2", "meanwhile");
+    let (s, v) = app.put(&c, &format!("/api/projects/{pid}/draft"), json!({"architecture": meanwhile, "expectedRev": rev})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    let (s, v) = app.post(&c, &format!("/api/proposals/{replace}/apply"), json!({"expectedRev": rev})).await;
+    assert_eq!((s, v["error"]["code"].as_str()), (StatusCode::CONFLICT, Some("conflict")), "{v}");
+    assert_eq!(v["error"]["details"]["currentRev"], rev + 1);
+    let (s, v) = app.post(&c, &format!("/api/proposals/{replace}/apply"), json!({"expectedRev": rev + 1})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    let (_, now) = project_rev(&app, &c, &pid).await;
+    assert_eq!(node_field(&now, "app-dc1", "name"), "replaced");
+    app.cleanup().await;
+}
+
+/// Projects that were deleted are gone: nothing about them is readable or changeable through any endpoint, whatever id it is reached by
+/// (the project, its job, its proposal, its accepted risk). The control run on a live twin proves each call is well formed and the route exists,
+/// so the router's own "no such endpoint" 404 cannot make a row pass.
+#[tokio::test]
+async fn soft_deleted_projects_are_gone_for_every_endpoint() {
+    let app = TestApp::new().await;
+    let c = app.login_admin().await;
+    let arch = demo_architecture(&app, &c).await;
+
+    struct Twin {
+        pid: String,
+        job: uuid::Uuid,
+        reject: String,
+        apply: String,
+        waiver: uuid::Uuid,
+    }
+    let mut twins = vec![];
+    for name in ["alive", "deleted"] {
+        let pid = new_project(&app, &c, name, &arch).await;
+        let pid_u = uuid::Uuid::parse_str(&pid).unwrap();
+        let job: uuid::Uuid =
+            sqlx::query_scalar("insert into ai_jobs (project_id, kind, status, instance) values ($1, 'chat', 'running', 'other') returning id").bind(pid_u).fetch_one(&app.state.pool).await.unwrap();
+        let waiver: uuid::Uuid =
+            sqlx::query_scalar("insert into waivers (project_id, fingerprint, rule_id, reason, created_by) values ($1, 'X-1:a', 'X-1', 'a sufficiently long justification', 'test') returning id")
+                .bind(pid_u)
+                .fetch_one(&app.state.pool)
+                .await
+                .unwrap();
+        sqlx::query("insert into chat_messages (project_id, role, content) values ($1, 'user', 'hello')").bind(pid_u).execute(&app.state.pool).await.unwrap();
+        let reject = pending_proposal(&app, &pid, vec![replicas_of("app-dc1", 41)]).await;
+        let apply = pending_proposal(&app, &pid, vec![replicas_of("app-dc1", 42)]).await;
+        twins.push(Twin { pid, job, reject, apply, waiver });
+    }
+    let [alive, gone] = <[Twin; 2]>::try_from(twins).ok().unwrap();
+
+    // (label, method, path, body, what the 404 must speak about)
+    let table = |t: &Twin| -> Vec<(&'static str, Method, String, Option<Value>, &'static str)> {
+        let (p, arch) = (&t.pid, &arch);
+        vec![
+            ("restore a version", Method::POST, format!("/api/projects/{p}/versions/1/restore"), Some(json!({"expectedRev": 1})), "project"),
+            ("list versions", Method::GET, format!("/api/projects/{p}/versions"), None, "project"),
+            ("read a version", Method::GET, format!("/api/projects/{p}/versions/1"), None, "project"),
+            ("diff", Method::GET, format!("/api/projects/{p}/diff?from=1&to=1"), None, "project"),
+            ("read the chat", Method::GET, format!("/api/projects/{p}/chat"), None, "project"),
+            ("clear the chat", Method::DELETE, format!("/api/projects/{p}/chat"), None, "project"),
+            ("read a job", Method::GET, format!("/api/ai/jobs/{}", t.job), None, "job"),
+            ("cancel a job", Method::POST, format!("/api/ai/jobs/{}/cancel", t.job), Some(json!({})), "job"),
+            ("read a proposal", Method::GET, format!("/api/proposals/{}", t.reject), None, "proposal"),
+            ("reject a proposal", Method::POST, format!("/api/proposals/{}/reject", t.reject), Some(json!({})), "proposal"),
+            ("apply a proposal", Method::POST, format!("/api/proposals/{}/apply", t.apply), Some(json!({})), "project"),
+            ("revoke an accepted risk", Method::DELETE, format!("/api/projects/{p}/waivers/{}", t.waiver), None, "project"),
+            ("evaluate with the project's accepted risks", Method::POST, "/api/evaluate".into(), Some(json!({"architecture": arch, "projectId": p})), "project"),
+            ("recommendations with the project's accepted risks", Method::POST, "/api/recommendations".into(), Some(json!({"architecture": arch, "projectId": p})), "project"),
+            ("preview operations with the project's accepted risks", Method::POST, "/api/ops/apply".into(), Some(json!({"architecture": arch, "ops": [], "preview": true, "projectId": p})), "project"),
+            ("export", Method::GET, format!("/api/projects/{p}/export/json"), None, "project"),
+        ]
+    };
+
+    for (label, method, path, body, _) in table(&alive) {
+        let (s, _, v) = app.request(method, &path, body, Some(c.clone()), &[]).await;
+        assert_eq!(s, StatusCode::OK, "control, {label} on the live project: {v}");
+    }
+
+    let (s, v) = app.delete(&c, &format!("/api/projects/{}", gone.pid)).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    for (label, method, path, body, noun) in table(&gone) {
+        let (s, _, v) = app.request(method, &path, body, Some(c.clone()), &[]).await;
+        assert_eq!(s, StatusCode::NOT_FOUND, "{label} on a deleted project: {v}");
+        assert_eq!(v["error"]["code"], "not_found", "{label}: {v}");
+        let message = v["error"]["message"].as_str().unwrap();
+        assert!(message.contains(noun) && message != "no such endpoint", "{label}: the answer speaks about the {noun}, not about the router: {message}");
+    }
+    // a project nobody ever made is as absent as a deleted one (the lists used to answer 200 with nothing in them)
+    let nobody = uuid::Uuid::new_v4();
+    for path in [format!("/api/projects/{nobody}/versions"), format!("/api/projects/{nobody}/chat")] {
+        let (s, v) = app.get(&c, &path).await;
+        assert_eq!((s, v["error"]["code"].as_str()), (StatusCode::NOT_FOUND, Some("not_found")), "{path}: {v}");
+    }
+
+    // and the refused calls changed nothing
+    let pool = &app.state.pool;
+    let (cancel,): (bool,) = sqlx::query_as("select cancel_requested from ai_jobs where id = $1").bind(gone.job).fetch_one(pool).await.unwrap();
+    assert!(!cancel, "the job of a deleted project was not cancelled");
+    for p in [&gone.reject, &gone.apply] {
+        let (st,): (String,) = sqlx::query_as("select status from proposals where id = $1::uuid").bind(p).fetch_one(pool).await.unwrap();
+        assert_eq!(st, "pending", "the proposal was not decided");
+    }
+    let (messages,): (i64,) = sqlx::query_as("select count(*) from chat_messages where project_id = $1::uuid").bind(&gone.pid).fetch_one(pool).await.unwrap();
+    assert_eq!(messages, 1, "the chat was not cleared");
+    let (revoked,): (bool,) = sqlx::query_as("select revoked_at is not null from waivers where id = $1").bind(gone.waiver).fetch_one(pool).await.unwrap();
+    assert!(!revoked, "the accepted risk was not revoked");
+    let (rev, versions): (i64, i64) =
+        sqlx::query_as("select p.draft_rev, (select count(*) from versions v where v.project_id = p.id) from projects p where p.id = $1::uuid").bind(&gone.pid).fetch_one(pool).await.unwrap();
+    assert_eq!((rev, versions), (1, 1), "the draft and the history are untouched");
+    app.cleanup().await;
+}
+
+/// Restore used to overwrite the draft with a version and keep no copy of it: every unsaved or unversioned edit was gone for good.
+#[tokio::test]
+async fn restore_snapshots_the_draft_first() {
+    let app = TestApp::new().await;
+    let c = app.login_admin().await;
+    let arch = demo_architecture(&app, &c).await;
+    let pid = new_project(&app, &c, "restore", &arch).await;
+
+    // a hand edit that is in no version
+    let (rev, mut edited) = project_rev(&app, &c, &pid).await;
+    rename(&mut edited, "app-dc2", "hand edit");
+    let (s, v) = app.put(&c, &format!("/api/projects/{pid}/draft"), json!({"architecture": edited, "expectedRev": rev})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+
+    // a restore against a revision that moved is refused and writes nothing
+    let (s, v) = app.post(&c, &format!("/api/projects/{pid}/versions/1/restore"), json!({"expectedRev": rev})).await;
+    assert_eq!((s, v["error"]["code"].as_str()), (StatusCode::CONFLICT, Some("conflict")), "{v}");
+    assert_eq!(v["error"]["details"]["currentRev"], rev + 1);
+    assert_eq!(version_messages(&app, &c, &pid).await.len(), 1);
+
+    let (s, v) = app.post(&c, &format!("/api/projects/{pid}/versions/1/restore"), json!({"expectedRev": rev + 1})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    assert_eq!((v["rev"].as_i64(), v["snapshot"].as_i64()), (Some(rev + 2), Some(2)), "{v}");
+    let versions = version_messages(&app, &c, &pid).await;
+    assert_eq!(versions, vec!["Before restore of v1".to_string(), "Created".to_string()], "one version more");
+    let (_, saved) = app.get(&c, &format!("/api/projects/{pid}/versions/2")).await;
+    assert_eq!(node_field(&saved["architecture"], "app-dc2", "name"), "hand edit", "the pre-restore draft can be restored again");
+    let (_, v1) = app.get(&c, &format!("/api/projects/{pid}/versions/1")).await;
+    let (_, now) = project_rev(&app, &c, &pid).await;
+    assert_eq!(now, v1["architecture"], "the draft is version 1");
+    let (_, p) = app.get(&c, &format!("/api/projects/{pid}")).await;
+    assert_eq!(p["project"]["headVersion"], 2);
+
+    // a draft that is already the newest version has nothing to save
+    let (_, v) = app.post(&c, &format!("/api/projects/{pid}/versions"), json!({"message": "kept"})).await;
+    assert_eq!(v["n"], 3);
+    let (rev, _) = project_rev(&app, &c, &pid).await;
+    let (s, v) = app.post(&c, &format!("/api/projects/{pid}/versions/1/restore"), json!({"expectedRev": rev})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    assert_eq!(v["snapshot"], Value::Null, "{v}");
+    assert_eq!(version_messages(&app, &c, &pid).await.len(), 3);
+
+    // the history stays within `limits.maxVersionsPerProject`, snapshots and AI changes included
+    set(&app, &c, json!({"limits.maxVersionsPerProject": 10})).await;
+    for i in 0..12 {
+        let (rev, mut a) = project_rev(&app, &c, &pid).await;
+        rename(&mut a, "app-dc2", &format!("edit {i}"));
+        let (s, v) = app.put(&c, &format!("/api/projects/{pid}/draft"), json!({"architecture": a, "expectedRev": rev})).await;
+        assert_eq!(s, StatusCode::OK, "{v}");
+        let (_, list) = app.get(&c, &format!("/api/projects/{pid}/versions")).await;
+        let newest = list["versions"][0]["n"].as_i64().unwrap();
+        let (s, v) = app.post(&c, &format!("/api/projects/{pid}/versions/{newest}/restore"), json!({"expectedRev": rev + 1})).await;
+        assert_eq!(s, StatusCode::OK, "restore {i}: {v}");
+    }
+    assert_eq!(version_messages(&app, &c, &pid).await.len(), 10, "twelve snapshots did not grow the history past the limit");
+    let (rev, mut a) = project_rev(&app, &c, &pid).await;
+    rename(&mut a, "app-dc2", "before an AI change");
+    let (s, _) = app.put(&c, &format!("/api/projects/{pid}/draft"), json!({"architecture": a, "expectedRev": rev})).await;
+    assert_eq!(s, StatusCode::OK);
+    let proposal = pending_proposal(&app, &pid, vec![replicas_of("app-dc1", 41)]).await;
+    let (s, v) = app.post(&c, &format!("/api/proposals/{proposal}/apply"), json!({})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    assert_eq!(version_messages(&app, &c, &pid).await.len(), 10, "an AI change adds two versions and the oldest two go");
+    app.cleanup().await;
+}
+
+/// An item that is valid, with a setting the validator accepts and PostgreSQL refuses (U+0000 cannot be stored in jsonb): the import used to
+/// commit the item, then fail on the setting, and answer with the database's own words.
+#[tokio::test]
+async fn config_import_is_atomic() {
+    let app = TestApp::new().await;
+    let c = app.login_admin().await;
+    let (_, before) = app.get(&c, "/api/admin/settings").await;
+    let name_before = before["settings"].as_array().unwrap().iter().find(|s| s["key"] == "app.name").unwrap()["value"].clone();
+    let category = json!({"id": "zz-import", "order": 99, "name": {"ru": "Проба", "en": "Probe"}});
+
+    let (s, v) = app.post(&c, "/api/admin/config-import", json!({"items": [{"kind": "catalog.category", "id": "zz-import", "data": category}], "settings": {"app.name": "x\u{0}y"}})).await;
+    assert_eq!((s, v["error"]["code"].as_str()), (StatusCode::BAD_REQUEST, Some("invalid_setting")), "{v}");
+    assert!(!v.to_string().contains("error returned from database"), "the database's words stay in the log: {v}");
+    assert_eq!(v["error"]["details"]["key"], "app.name", "{v}");
+
+    let (_, list) = app.get(&c, "/api/admin/config/catalog.category").await;
+    assert!(list["items"].as_array().unwrap().iter().all(|i| i["id"] != "zz-import"), "the item of a failed import is not there");
+    let (_, after) = app.get(&c, "/api/admin/settings").await;
+    assert_eq!(after["rev"], before["rev"], "the configuration revision did not move");
+    assert_eq!(after["settings"].as_array().unwrap().iter().find(|s| s["key"] == "app.name").unwrap()["value"], name_before);
+    let (n,): (i64,) = sqlx::query_as("select count(*) from audit_log where action = 'config.import'").fetch_one(&app.state.pool).await.unwrap();
+    assert_eq!(n, 0, "a refused import is not logged as done");
+
+    // the same import without the bad setting goes through, in one piece
+    let (s, v) = app.post(&c, "/api/admin/config-import", json!({"items": [{"kind": "catalog.category", "id": "zz-import", "data": category}], "settings": {"app.name": "Imported"}})).await;
+    assert_eq!((s, v["applied"].as_bool()), (StatusCode::OK, Some(true)), "{v}");
+    let (_, list) = app.get(&c, "/api/admin/config/catalog.category").await;
+    assert!(list["items"].as_array().unwrap().iter().any(|i| i["id"] == "zz-import"));
+    let (_, after) = app.get(&c, "/api/admin/settings").await;
+    assert_eq!(after["settings"].as_array().unwrap().iter().find(|s| s["key"] == "app.name").unwrap()["value"], "Imported");
+    assert!(after["rev"].as_i64() > before["rev"].as_i64());
+    app.cleanup().await;
+}
+
+/// Creating an item checks its id and refuses to add a second document to a kind that has one; an import is the same write by another door.
+#[tokio::test]
+async fn config_import_enforces_the_same_ids_as_create() {
+    let app = TestApp::new().await;
+    let c = app.login_admin().await;
+    let category = |id: &str| json!({"id": id, "order": 99, "name": {"ru": "Проба", "en": "Probe"}});
+    let import = |items: Value| {
+        let (app, c) = (&app, c.clone());
+        async move { app.post(&c, "/api/admin/config-import", json!({"items": items})).await }
+    };
+    let count = |kind: &str| {
+        let (app, c, kind) = (&app, c.clone(), kind.to_string());
+        async move { app.get(&c, &format!("/api/admin/config/{kind}")).await.1["items"].as_array().unwrap().len() }
+    };
+    let categories = count("catalog.category").await;
+    let (engines, all) = (count("engine").await, count("catalog.common_props").await);
+
+    let too_long = "x".repeat(81);
+    let bad = [
+        ("a space", json!([{"kind": "catalog.category", "id": "bad id", "data": category("bad id")}])),
+        ("a path", json!([{"kind": "catalog.category", "id": "a/../b", "data": category("a/../b")}])),
+        ("130 characters", json!([{"kind": "catalog.category", "id": "y".repeat(130), "data": category(&"y".repeat(130))}])),
+        ("81 characters", json!([{"kind": "catalog.category", "id": too_long, "data": category(&too_long)}])),
+        ("a second engine document", json!([{"kind": "engine", "id": "zzz", "data": {}}])),
+    ];
+    for (what, items) in bad {
+        let (s, v) = import(items).await;
+        assert_eq!((s, v["ok"].as_bool(), v["applied"].as_bool()), (StatusCode::OK, Some(false), Some(false)), "{what}: {v}");
+        assert!(v["problems"].as_array().unwrap().len() == 1 && v["problems"][0].as_str().unwrap().contains(':'), "{what}: the problem names the item: {v}");
+    }
+    assert_eq!((count("catalog.category").await, count("engine").await, count("catalog.common_props").await), (categories, engines, all), "nothing was written");
+
+    // the documents that exist can be imported over themselves
+    for (kind, id) in [("engine", "engine"), ("catalog.common_props", "common"), ("placement.settings", "placement")] {
+        let (_, list) = app.get(&c, &format!("/api/admin/config/{kind}")).await;
+        let data = list["items"][0]["data"].clone();
+        let (s, v) = import(json!([{"kind": kind, "id": id, "data": data}])).await;
+        assert_eq!((s, v["applied"].as_bool()), (StatusCode::OK, Some(true)), "{kind}: {v}");
+    }
+
+    // a new item goes after the built-in ones, as when it is created by hand, and the order survives a round trip
+    for id in ["zz_first", "aa_second"] {
+        let (s, v) = app.post(&c, "/api/admin/config/catalog.category", json!({"id": id, "data": category(id)})).await;
+        assert_eq!(s, StatusCode::OK, "{v}");
+    }
+    let order = |list: &Value| list["items"].as_array().unwrap().iter().map(|i| i["id"].as_str().unwrap().to_string()).collect::<Vec<_>>();
+    let (_, list) = app.get(&c, "/api/admin/config/catalog.category").await;
+    let by_hand = order(&list);
+    assert_eq!(&by_hand[by_hand.len() - 2..], ["zz_first", "aa_second"]);
+    let (_, export) = app.get(&c, "/api/admin/config-export").await;
+    for id in ["zz_first", "aa_second"] {
+        assert_eq!(app.delete(&c, &format!("/api/admin/config/catalog.category/{id}")).await.0, StatusCode::OK);
+    }
+    let (s, v) = app.post(&c, "/api/admin/config-import", json!({"items": export["items"], "settings": export["settings"]})).await;
+    assert_eq!((s, v["applied"].as_bool()), (StatusCode::OK, Some(true)), "{v}");
+    let (_, list) = app.get(&c, "/api/admin/config/catalog.category").await;
+    assert_eq!(order(&list), by_hand, "imported after the built-in items, in the order they were exported");
+    app.cleanup().await;
+}
+
+/// What the administrator exports restores an instance: a changed setting, a changed built-in rule and the custom items come back.
+#[tokio::test]
+async fn config_export_then_import_round_trips() {
+    let app = TestApp::new().await;
+    let c = app.login_admin().await;
+    set(&app, &c, json!({"limits.maxNodes": 777, "llm.apiKey": "sk-or-v1-never-in-an-export"})).await;
+    let (_, list) = app.get(&c, "/api/admin/config/rule").await;
+    let mut rule = list["items"].as_array().unwrap().iter().find(|i| i["id"] == "HA-CACHE-01").unwrap()["data"].clone();
+    rule["enabled"] = json!(false);
+    assert_eq!(app.put(&c, "/api/admin/config/rule/HA-CACHE-01", json!({"data": rule})).await.0, StatusCode::OK);
+    for id in ["zz_first", "aa_second"] {
+        let (s, v) = app.post(&c, "/api/admin/config/catalog.category", json!({"id": id, "data": {"id": id, "order": 99, "name": {"ru": "Проба", "en": "Probe"}}})).await;
+        assert_eq!(s, StatusCode::OK, "{v}");
+    }
+    let (s, first) = app.get(&c, "/api/admin/config-export").await;
+    assert_eq!(s, StatusCode::OK);
+    assert!(!first.to_string().contains("never-in-an-export"), "secrets are not exported");
+    assert_eq!(first["settings"]["limits.maxNodes"], 777);
+
+    // wreck the instance
+    for id in ["zz_first", "aa_second"] {
+        assert_eq!(app.delete(&c, &format!("/api/admin/config/catalog.category/{id}")).await.0, StatusCode::OK);
+    }
+    assert_eq!(app.post(&c, "/api/admin/config/rule/HA-CACHE-01/reset", json!({})).await.0, StatusCode::OK);
+    set(&app, &c, json!({"limits.maxNodes": 500})).await;
+    let (_, wrecked) = app.get(&c, "/api/admin/config-export").await;
+    assert_ne!(wrecked["items"], first["items"]);
+
+    // a dry run says what would happen and changes nothing
+    let body = json!({"items": first["items"], "settings": first["settings"]});
+    let (s, v) = app.post(&c, "/api/admin/config-import", json!({"items": first["items"], "settings": first["settings"], "dryRun": true})).await;
+    assert_eq!((s, v["ok"].as_bool(), v["applied"].as_bool()), (StatusCode::OK, Some(true), Some(false)), "{v}");
+    let (_, still) = app.get(&c, "/api/admin/config-export").await;
+    assert_eq!((&still["items"], &still["settings"]), (&wrecked["items"], &wrecked["settings"]));
+
+    let (s, v) = app.post(&c, "/api/admin/config-import", body).await;
+    assert_eq!((s, v["applied"].as_bool()), (StatusCode::OK, Some(true)), "{v}");
+    let (_, second) = app.get(&c, "/api/admin/config-export").await;
+    assert_eq!(second["items"], first["items"], "the items and their order come back");
+    assert_eq!(second["settings"], first["settings"]);
+    // the restored rule is in force
+    let arch = demo_architecture(&app, &c).await;
+    let (_, rep) = app.post(&c, "/api/evaluate", json!({"architecture": arch})).await;
+    assert!(rep["rules"].as_array().unwrap().iter().all(|r| r["ruleId"] != "HA-CACHE-01"), "the disabled rule stays disabled");
+    app.cleanup().await;
+}

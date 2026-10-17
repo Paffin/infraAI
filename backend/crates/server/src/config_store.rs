@@ -35,6 +35,24 @@ pub const ALL_KINDS: &[&str] = &[K_KIND, K_EDGE, K_ZONE, K_CATEGORY, K_COMMON, K
 
 pub const PROMPTS_JSON: &str = include_str!("../defaults/prompts.json");
 
+/// The id of the only document of a kind that has exactly one (`None` for every other kind): such a kind is edited, never extended.
+pub fn single_document_id(kind: &str) -> Option<&'static str> {
+    match kind {
+        K_COMMON => Some("common"),
+        K_ENGINE => Some("engine"),
+        K_PLACEMENT_SETTINGS => Some("placement"),
+        _ => None,
+    }
+}
+
+/// What an administrator may call an item they add: 1-80 characters of letters, digits, `_`, `-` and `.`. Creating and importing share this.
+pub fn is_valid_item_id(id: &str) -> bool {
+    !id.is_empty() && id.len() <= 80 && id.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | '.'))
+}
+
+pub const MSG_INVALID_ITEM_ID: &str = "id must be 1–80 characters of letters, digits, '_', '-', '.'";
+pub const MSG_SINGLE_DOCUMENT: &str = "this kind has a single document and cannot be extended";
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PromptDef {
     pub id: String,
@@ -150,8 +168,10 @@ pub async fn seed_defaults(pool: &PgPool) -> Result<bool, sqlx::Error> {
     Ok(changed)
 }
 
-pub async fn bump_rev(pool: &PgPool) -> Result<i64, sqlx::Error> {
-    let v: (String,) = sqlx::query_as("update meta set value = (value::bigint + 1)::text where key = 'config_rev' returning value").fetch_one(pool).await?;
+/// Move the configuration revision, which tells every replica to reload. Takes any executor so that a change made in a transaction
+/// moves the revision in the same transaction: the change and the signal that it happened are committed together or not at all.
+pub async fn bump_rev<'e>(db: impl sqlx::PgExecutor<'e>) -> Result<i64, sqlx::Error> {
+    let v: (String,) = sqlx::query_as("update meta set value = (value::bigint + 1)::text where key = 'config_rev' returning value").fetch_one(db).await?;
     Ok(v.0.parse().unwrap_or(0))
 }
 
@@ -473,5 +493,21 @@ mod tests {
         for it in &items {
             assert!(seen.insert((it.kind, it.id.clone())), "duplicate default {}:{}", it.kind, it.id);
         }
+    }
+
+    /// A backup of a changed built-in item must be importable: importing holds items to the id rule of creating them, and a kind with one document to its id.
+    #[test]
+    fn every_shipped_item_passes_the_rules_that_an_import_enforces() {
+        for it in default_items() {
+            assert!(is_valid_item_id(&it.id), "{}:{} would be refused by an import", it.kind, it.id);
+            if let Some(only) = single_document_id(it.kind) {
+                assert_eq!(it.id, only, "the single document of {}", it.kind);
+            }
+        }
+        for kind in [K_COMMON, K_ENGINE, K_PLACEMENT_SETTINGS] {
+            assert_eq!(default_items().iter().filter(|i| i.kind == kind).count(), 1, "{kind} has exactly one shipped document");
+            assert!(single_document_id(kind).is_some());
+        }
+        assert!(single_document_id(K_RULE).is_none() && !is_valid_item_id("") && !is_valid_item_id(&"x".repeat(81)) && !is_valid_item_id("a b") && is_valid_item_id("HA-SPOF-01"));
     }
 }

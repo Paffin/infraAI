@@ -60,6 +60,23 @@ impl TestApp {
         TestApp { router, state, db_name, cookie: Mutex::new(None) }
     }
 
+    /// The same application on a pool of `max` connections that gives up after two seconds instead of the production ten.
+    /// A handler that holds a connection (a transaction) and asks the pool for a second one waits for itself: with a pool of
+    /// one that shows at once as a 500 here, instead of as a hang under load.
+    pub async fn with_pool(max: u32) -> TestApp {
+        let mut app = TestApp::new().await;
+        let small = sqlx::postgres::PgPoolOptions::new()
+            .max_connections(max)
+            .acquire_timeout(std::time::Duration::from_secs(2))
+            .connect(&app.state.boot.database_url)
+            .await
+            .expect("a pool of the requested size");
+        app.state.pool.close().await;
+        app.state.pool = small;
+        app.router = server::api::router(app.state.clone()).await;
+        app
+    }
+
     pub async fn request(&self, method: Method, path: &str, body: Option<Value>, cookie: Option<String>, extra: &[(&str, &str)]) -> (StatusCode, axum::http::HeaderMap, Value) {
         let mut b = Request::builder().method(method).uri(path).header(header::HOST, "localhost");
         if let Some(c) = cookie {

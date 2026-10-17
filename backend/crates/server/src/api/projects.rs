@@ -1,7 +1,7 @@
 //! Projects: working copy (draft) with optimistic concurrency, immutable versions, diff,
 //! accepted risks (waivers).
 
-use crate::api_support::{lang_of, parse_valid_arch, run_evaluate, summarize};
+use crate::api_support::{evaluated_summary, lang_of, parse_arch, parse_valid_arch, run_evaluate, summarize};
 use crate::audit;
 use crate::auth::{client_ip, AuthUser, Role};
 use crate::error::{ApiError, ApiResult};
@@ -14,7 +14,7 @@ use engine::config::Waiver;
 use engine::model::Architecture;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use sqlx::Row;
+use sqlx::{PgConnection, PgPool, Row};
 use std::net::SocketAddr;
 use uuid::Uuid;
 
@@ -156,16 +156,23 @@ pub async fn create(State(state): State<AppState>, user: AuthUser, ConnectInfo(a
     Ok(Json(json!({"id": id})))
 }
 
+/// The project's accepted risks that are in force. A project that is gone (deleted, or never made) is `404`: whatever is asked about it
+/// - an evaluation with its waivers, an export - there is nothing to answer, and an empty list would pass for "no accepted risks".
 async fn active_waivers(state: &AppState, id: Uuid) -> ApiResult<Vec<Value>> {
     let rows = sqlx::query(
-        "select id, fingerprint, rule_id, reason, created_by, created_at, expires_at from waivers
-         where project_id = $1 and revoked_at is null and (expires_at is null or expires_at > now()) order by created_at desc",
+        "select w.id, w.fingerprint, w.rule_id, w.reason, w.created_by, w.created_at, w.expires_at
+         from projects p left join waivers w on w.project_id = p.id and w.revoked_at is null and (w.expires_at is null or w.expires_at > now())
+         where p.id = $1 and p.deleted_at is null order by w.created_at desc",
     )
     .bind(id)
     .fetch_all(&state.pool)
     .await?;
+    if rows.is_empty() {
+        return Err(ApiError::not_found("project not found"));
+    }
     Ok(rows
         .into_iter()
+        .filter(|r| r.get::<Option<Uuid>, _>("id").is_some())
         .map(|r| {
             json!({
                 "id": r.get::<Uuid, _>("id"),
@@ -192,6 +199,72 @@ pub async fn engine_waivers(state: &AppState, id: Uuid) -> ApiResult<Vec<Waiver>
             at: w["createdAt"].as_str().map(String::from),
         })
         .collect())
+}
+
+/// How many times a write that evaluated the draft (seconds of CPU, no lock held) starts over because the draft moved meanwhile before
+/// it gives up with `409`. A protocol bound, not a tunable: a draft that moves under three evaluations in a row is being edited by someone who should be asked.
+pub const REREAD_ATTEMPTS: usize = 3;
+
+/// Where a project's working copy and history stand, read without a lock.
+pub struct DraftState {
+    pub draft: Value,
+    pub rev: i64,
+    pub head: i32,
+    /// The working copy differs from the newest version (or there is none): overwriting it loses something unless it is saved first.
+    pub unsaved: bool,
+}
+
+/// Read the working copy of a live project through the pool. `404` when the project is deleted or never existed.
+pub async fn load_draft(pool: &PgPool, id: Uuid) -> ApiResult<DraftState> {
+    let r = sqlx::query(
+        "select p.draft, p.draft_rev, p.head_version, (v.architecture is distinct from p.draft) as unsaved
+         from projects p left join versions v on v.project_id = p.id and v.n = p.head_version
+         where p.id = $1 and p.deleted_at is null",
+    )
+    .bind(id)
+    .fetch_optional(pool)
+    .await?
+    .ok_or_else(|| ApiError::not_found("project not found"))?;
+    Ok(DraftState { draft: r.get("draft"), rev: r.get("draft_rev"), head: r.get("head_version"), unsaved: r.get("unsaved") })
+}
+
+/// Take the project's row lock for the rest of the transaction and read where it stands now: `(draft_rev, head_version)`.
+/// Whoever writes the draft or the history locks first, so that concurrent writers queue instead of numbering versions twice.
+/// `404` when the project is gone.
+pub async fn lock_project(tx: &mut PgConnection, id: Uuid) -> ApiResult<(i64, i32)> {
+    sqlx::query_as("select draft_rev, head_version from projects where id = $1 and deleted_at is null for update")
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| ApiError::not_found("project not found"))
+}
+
+/// A version to append to a project's history.
+pub struct VersionEntry<'a> {
+    pub message: &'a str,
+    pub architecture: &'a Value,
+    pub summary: &'a Value,
+}
+
+/// Append a version after `head` inside the caller's transaction (which holds the project's row lock, see [`lock_project`]): the next number,
+/// `head_version` moved to it and the history trimmed to the newest `keep` versions (`limits.maxVersionsPerProject`, at least 10, so the head
+/// is never trimmed). Every way of writing a version goes through here, so none of them can forget the retention. Returns the number.
+pub async fn append_version(tx: &mut PgConnection, project_id: Uuid, head: i32, keep: i32, author: &AuthUser, v: VersionEntry<'_>) -> Result<i32, sqlx::Error> {
+    let n = head + 1;
+    sqlx::query("insert into versions (project_id, n, message, author_id, author, architecture, summary, engine_version) values ($1, $2, $3, $4, $5, $6, $7, $8)")
+        .bind(project_id)
+        .bind(n)
+        .bind(v.message)
+        .bind(author.id)
+        .bind(&author.email)
+        .bind(v.architecture)
+        .bind(v.summary)
+        .bind(engine::evaluate::ENGINE_VERSION as i32)
+        .execute(&mut *tx)
+        .await?;
+    sqlx::query("update projects set head_version = $2 where id = $1").bind(project_id).bind(n).execute(&mut *tx).await?;
+    sqlx::query("delete from versions where project_id = $1 and n <= $2").bind(project_id).bind(n - keep).execute(&mut *tx).await?;
+    Ok(n)
 }
 
 pub async fn get(State(state): State<AppState>, _user: AuthUser, Path(id): Path<Uuid>) -> ApiResult<Json<Value>> {
@@ -286,9 +359,20 @@ pub async fn save_draft(State(state): State<AppState>, user: AuthUser, Path(id):
 }
 
 pub async fn list_versions(State(state): State<AppState>, _user: AuthUser, Path(id): Path<Uuid>) -> ApiResult<Json<Value>> {
-    let rows = sqlx::query("select n, message, author, summary, created_at from versions where project_id = $1 order by n desc").bind(id).fetch_all(&state.pool).await?;
+    // the project is part of the query: no row at all means it is gone, one row without a version would be a project without history
+    let rows = sqlx::query(
+        "select v.n, v.message, v.author, v.summary, v.created_at from projects p left join versions v on v.project_id = p.id
+         where p.id = $1 and p.deleted_at is null order by v.n desc",
+    )
+    .bind(id)
+    .fetch_all(&state.pool)
+    .await?;
+    if rows.is_empty() {
+        return Err(ApiError::not_found("project not found"));
+    }
     let items: Vec<Value> = rows
         .into_iter()
+        .filter(|r| r.get::<Option<i32>, _>("n").is_some())
         .map(|r| json!({"n": r.get::<i32, _>("n"), "message": r.get::<String, _>("message"), "author": r.get::<String, _>("author"), "summary": r.get::<Value, _>("summary"), "createdAt": r.get::<DateTime<Utc>, _>("created_at")}))
         .collect();
     Ok(Json(json!({"versions": items})))
@@ -305,42 +389,32 @@ pub struct NewVersion {
 pub async fn create_version(State(state): State<AppState>, user: AuthUser, Path(id): Path<Uuid>, Json(b): Json<NewVersion>) -> ApiResult<Json<Value>> {
     user.require_editor()?;
     let cfg = state.cfg().await?;
-    let row: Option<(Value, i32)> = sqlx::query_as("select draft, head_version from projects where id = $1 and deleted_at is null").bind(id).fetch_optional(&state.pool).await?;
-    let Some((draft, _)) = row else { return Err(ApiError::not_found("project not found")) };
-    let arch = crate::api_support::parse_arch(draft.clone())?;
+    // everything that takes a connection or CPU happens before the transaction: it only writes
+    let st = load_draft(&state.pool, id).await?;
     let waivers = engine_waivers(&state, id).await?;
-    let report = run_evaluate(cfg.clone(), arch, waivers, lang_of(&cfg, b.lang.as_deref())).await?;
-    let summary = serde_json::to_value(summarize(&report))?;
+    let summary = evaluated_summary(&cfg, parse_arch(st.draft.clone())?, waivers, lang_of(&cfg, b.lang.as_deref())).await?;
+    let keep = cfg.settings.num("limits.maxVersionsPerProject") as i32;
     let mut tx = state.pool.begin().await?;
     // lock the project row so concurrent snapshots get consecutive numbers
-    let (head,): (i32,) = sqlx::query_as("select head_version from projects where id = $1 for update").bind(id).fetch_one(&mut *tx).await?;
-    let n = head + 1;
-    sqlx::query("insert into versions (project_id, n, message, author_id, author, architecture, summary, engine_version) values ($1, $2, $3, $4, $5, $6, $7, $8)")
-        .bind(id)
-        .bind(n)
-        .bind(b.message.trim())
-        .bind(user.id)
-        .bind(&user.email)
-        .bind(&draft)
-        .bind(summary)
-        .bind(engine::evaluate::ENGINE_VERSION as i32)
-        .execute(&mut *tx)
-        .await?;
-    sqlx::query("update projects set head_version = $2 where id = $1").bind(id).bind(n).execute(&mut *tx).await?;
-    // retention: keep the newest `limits.maxVersionsPerProject`
-    let max = cfg.settings.num("limits.maxVersionsPerProject") as i32;
-    sqlx::query("delete from versions where project_id = $1 and n <= $2").bind(id).bind(n - max).execute(&mut *tx).await?;
+    let (_, head) = lock_project(&mut tx, id).await?;
+    let n = append_version(&mut tx, id, head, keep, &user, VersionEntry { message: b.message.trim(), architecture: &st.draft, summary: &summary }).await?;
     tx.commit().await?;
     Ok(Json(json!({"n": n})))
 }
 
 pub async fn get_version(State(state): State<AppState>, _user: AuthUser, Path((id, n)): Path<(Uuid, i32)>) -> ApiResult<Json<Value>> {
-    let r = sqlx::query("select n, message, author, architecture, summary, created_at from versions where project_id = $1 and n = $2")
-        .bind(id)
-        .bind(n)
-        .fetch_optional(&state.pool)
-        .await?
-        .ok_or_else(|| ApiError::not_found("version not found"))?;
+    let r = sqlx::query(
+        "select v.n, v.message, v.author, v.architecture, v.summary, v.created_at from projects p left join versions v on v.project_id = p.id and v.n = $2
+         where p.id = $1 and p.deleted_at is null",
+    )
+    .bind(id)
+    .bind(n)
+    .fetch_optional(&state.pool)
+    .await?
+    .ok_or_else(|| ApiError::not_found("project not found"))?;
+    if r.get::<Option<i32>, _>("n").is_none() {
+        return Err(ApiError::not_found("version not found"));
+    }
     Ok(Json(json!({
         "n": r.get::<i32, _>("n"), "message": r.get::<String, _>("message"), "author": r.get::<String, _>("author"),
         "architecture": r.get::<Value, _>("architecture"), "summary": r.get::<Value, _>("summary"), "createdAt": r.get::<DateTime<Utc>, _>("created_at"),
@@ -353,25 +427,64 @@ pub struct Restore {
     pub expected_rev: i64,
 }
 
-pub async fn restore_version(State(state): State<AppState>, user: AuthUser, Path((id, n)): Path<(Uuid, i32)>, Json(b): Json<Restore>) -> ApiResult<Json<Value>> {
+/// Replace the working copy with a version. What is being replaced is saved first, as a version of its own ("Before restore of vN"), unless
+/// it already is the newest one: restoring never destroys an edit that was not in a version. `{rev, snapshot}`: `snapshot` is that version's
+/// number, or `null` when there was nothing to save.
+pub async fn restore_version(
+    State(state): State<AppState>,
+    user: AuthUser,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+    Path((id, n)): Path<(Uuid, i32)>,
+    Json(b): Json<Restore>,
+) -> ApiResult<Json<Value>> {
     user.require_editor()?;
-    let (arch,): (Value,) = sqlx::query_as("select architecture from versions where project_id = $1 and n = $2")
-        .bind(id)
-        .bind(n)
-        .fetch_optional(&state.pool)
-        .await?
-        .ok_or_else(|| ApiError::not_found("version not found"))?;
-    let row: Option<(i64,)> =
-        sqlx::query_as("update projects set draft = $2, draft_rev = draft_rev + 1, updated_at = now() where id = $1 and draft_rev = $3 and deleted_at is null returning draft_rev")
+    let cfg = state.cfg().await?;
+    let keep = cfg.settings.num("limits.maxVersionsPerProject") as i32;
+    let conflict = |rev: i64| ApiError::conflict("conflict", "the project was changed by someone else").with_details(json!({"currentRev": rev}));
+    for _ in 0..REREAD_ATTEMPTS {
+        // read and evaluate with no transaction open (the evaluation is CPU, and the accepted risks come from the pool)
+        let st = load_draft(&state.pool, id).await?;
+        let (target,): (Value,) = sqlx::query_as("select architecture from versions where project_id = $1 and n = $2")
             .bind(id)
-            .bind(arch)
-            .bind(b.expected_rev)
+            .bind(n)
             .fetch_optional(&state.pool)
-            .await?;
-    match row {
-        Some((rev,)) => Ok(Json(json!({"rev": rev}))),
-        None => Err(ApiError::conflict("conflict", "the project was changed by someone else")),
+            .await?
+            .ok_or_else(|| ApiError::not_found("version not found"))?;
+        if st.rev != b.expected_rev {
+            return Err(conflict(st.rev));
+        }
+        let snapshot_summary = if st.unsaved {
+            let waivers = engine_waivers(&state, id).await?;
+            Some(evaluated_summary(&cfg, parse_arch(st.draft.clone())?, waivers, cfg.settings.str("app.defaultLanguage")).await?)
+        } else {
+            None
+        };
+
+        // then a short transaction that only writes: it takes the lock and checks that the draft is still the one that was read
+        let mut tx = state.pool.begin().await?;
+        let (rev, head) = lock_project(&mut tx, id).await?;
+        if rev != b.expected_rev {
+            return Err(conflict(rev));
+        }
+        if head != st.head {
+            continue; // a version was cut meanwhile: whether the draft is saved has to be looked at again
+        }
+        let snapshot = match &snapshot_summary {
+            Some(summary) => {
+                let message = format!("Before restore of v{n}");
+                Some(append_version(&mut tx, id, head, keep, &user, VersionEntry { message: &message, architecture: &st.draft, summary }).await?)
+            }
+            None => None,
+        };
+        let (new_rev,): (i64,) =
+            sqlx::query_as("update projects set draft = $2, draft_rev = draft_rev + 1, updated_at = now() where id = $1 returning draft_rev").bind(id).bind(&target).fetch_one(&mut *tx).await?;
+        tx.commit().await?;
+        audit::log(&state.pool, Some(&user), "project.restore", "project", &id.to_string(), json!({"version": n, "snapshot": snapshot}), &client_ip(&headers, Some(addr), state.boot.trust_proxy))
+            .await;
+        return Ok(Json(json!({"rev": new_rev, "snapshot": snapshot})));
     }
+    Err(ApiError::conflict("conflict", "the project keeps changing; try again"))
 }
 
 #[derive(Deserialize)]
@@ -392,13 +505,13 @@ async fn arch_of(state: &AppState, id: Uuid, which: &str) -> ApiResult<Architect
             .0
     } else {
         let n: i32 = which.parse().map_err(|_| ApiError::bad_request("invalid_ref", "use 'draft' or a version number"))?;
-        sqlx::query_as::<_, (Value,)>("select architecture from versions where project_id = $1 and n = $2")
+        let r = sqlx::query("select v.architecture from projects p left join versions v on v.project_id = p.id and v.n = $2 where p.id = $1 and p.deleted_at is null")
             .bind(id)
             .bind(n)
             .fetch_optional(&state.pool)
             .await?
-            .ok_or_else(|| ApiError::not_found("version not found"))?
-            .0
+            .ok_or_else(|| ApiError::not_found("project not found"))?;
+        r.get::<Option<Value>, _>("architecture").ok_or_else(|| ApiError::not_found("version not found"))?
     };
     crate::api_support::parse_arch(v)
 }
@@ -473,14 +586,19 @@ pub async fn create_waiver(
 
 pub async fn revoke_waiver(State(state): State<AppState>, user: AuthUser, Path((id, wid)): Path<(Uuid, Uuid)>) -> ApiResult<Json<Value>> {
     user.require_editor()?;
-    let r = sqlx::query("update waivers set revoked_at = now(), revoked_by = $3 where id = $2 and project_id = $1 and revoked_at is null")
-        .bind(id)
-        .bind(wid)
-        .bind(&user.email)
-        .execute(&state.pool)
-        .await?;
+    let r = sqlx::query(
+        "update waivers w set revoked_at = now(), revoked_by = $3 where w.id = $2 and w.project_id = $1 and w.revoked_at is null
+         and exists (select 1 from projects p where p.id = w.project_id and p.deleted_at is null)",
+    )
+    .bind(id)
+    .bind(wid)
+    .bind(&user.email)
+    .execute(&state.pool)
+    .await?;
     if r.rows_affected() == 0 {
-        return Err(ApiError::not_found("waiver not found"));
+        // say which of the two is missing; the project is the more useful answer when it is the one that is gone
+        let alive: Option<(i32,)> = sqlx::query_as("select 1 from projects where id = $1 and deleted_at is null").bind(id).fetch_optional(&state.pool).await?;
+        return Err(ApiError::not_found(if alive.is_some() { "waiver not found" } else { "project not found" }));
     }
     audit::log(&state.pool, Some(&user), "waiver.revoke", "project", &id.to_string(), json!({"waiver": wid}), "").await;
     Ok(Json(json!({"ok": true})))

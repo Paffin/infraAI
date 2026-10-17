@@ -8,7 +8,7 @@ export const KNOWN_ACTIONS = [
   'settings.update',
   'config.create', 'config.update', 'config.delete', 'config.reset', 'config.import',
   'user.create', 'user.update', 'user.reset_password',
-  'project.create', 'project.delete',
+  'project.create', 'project.delete', 'project.restore',
   'ai.job', 'ai.apply',
   'waiver.create', 'waiver.revoke',
 ]

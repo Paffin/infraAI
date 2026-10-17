@@ -65,6 +65,12 @@ pub fn summarize(r: &Report) -> ReportSummary {
     }
 }
 
+/// The summary kept with a version: the architecture evaluated with the project's accepted risks.
+pub async fn evaluated_summary(cfg: &Arc<Loaded>, arch: Architecture, waivers: Vec<Waiver>, lang: String) -> ApiResult<Value> {
+    let report = run_evaluate(cfg.clone(), arch, waivers, lang).await?;
+    Ok(serde_json::to_value(summarize(&report))?)
+}
+
 pub fn lang_of(cfg: &Loaded, requested: Option<&str>) -> String {
     let langs = cfg.settings.list("app.languages");
     match requested {
