@@ -67,9 +67,9 @@ test.describe('panels', () => {
     const edge = page.locator('[data-testid="right-edge"]')
     const usual = (await box(right)).width
 
-    const e = await box(edge)
+    const e = await settled(edge)
     await drag(page, { x: e.x + e.width / 2, y: e.y + 300 }, { dx: -160, dy: 0 })
-    const wider = (await box(right)).width
+    const wider = (await settled(right)).width
     expect(wider).toBeGreaterThan(usual + 100)
 
     await page.reload()
@@ -84,13 +84,14 @@ test.describe('panels', () => {
     await page.keyboard.press('ArrowRight')
     await expect.poll(async () => (await box(right)).width).toBeLessThan(wider)
 
-    // it is never narrower than the administrator allows (editor.rightPanelMinWidth), nor wider than the limit
-    const e2 = await box(edge)
+    // it is never narrower than the administrator allows (editor.rightPanelMinWidth), nor wider than the limit. The panel's width is animated:
+    // the edge is where it ends up, not where the last arrow key found it (a drag started on the old place misses the edge)
+    const e2 = await settled(edge)
     await drag(page, { x: e2.x + e2.width / 2, y: e2.y + 300 }, { dx: 900, dy: 0 })
-    expect(Math.round((await box(right)).width)).toBe(Number(await edge.getAttribute('aria-valuemin')))
-    const e3 = await box(edge)
+    expect(Math.round((await settled(right)).width)).toBe(Number(await edge.getAttribute('aria-valuemin')))
+    const e3 = await settled(edge)
     await drag(page, { x: e3.x + e3.width / 2, y: e3.y + 300 }, { dx: -1500, dy: 0 })
-    expect((await box(right)).width).toBeLessThanOrEqual(Number(await edge.getAttribute('aria-valuemax')))
+    expect((await settled(right)).width).toBeLessThanOrEqual(Number(await edge.getAttribute('aria-valuemax')))
 
     await edge.dblclick()
     await expect.poll(async () => Math.round((await box(right)).width)).toBe(Math.round(usual))
