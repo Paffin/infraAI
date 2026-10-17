@@ -878,6 +878,111 @@ mod tests {
         assert!(render(&repair.system, &v).contains("- op #0: unknown field"));
     }
 
+    /// A number outside its range is refused where a model's answer is written (ADR-0007): a new node's is dropped by `sanitize`, what an operation
+    /// would leave in a node that exists, or in the requirements, is an error that goes back to the model with the node, the property and the range.
+    #[test]
+    fn an_operation_that_would_leave_a_number_out_of_range_goes_back_to_the_model_saying_where_and_what_is_allowed() {
+        let cfg = Loaded::embedded_defaults();
+        let base = demo();
+        let patch = |op: Value| json!({"rationale": "r", "ops": [op]}).to_string();
+        let refused = |op: Value| match parse_patch(&cfg, &patch(op.clone()), &base) {
+            Err(errs) => errs,
+            Ok(c) => panic!("{op} was accepted as {} operation(s)", c.ops.len()),
+        };
+
+        for typed in [json!(1_000_000_000_000u64), json!("1000000000000"), json!(100_001), json!(0), json!(-3)] {
+            let errs = refused(json!({"op": "update_node", "id": "app-dc1", "set": {"props.replicas": typed}}));
+            assert_eq!(errs.len(), 1, "{typed}: {errs:?}");
+            for part in ["app-dc1", "replicas", "is out of range", "1 to 100000"] {
+                assert!(errs[0].contains(part), "{typed}: '{part}' is missing in: {}", errs[0]);
+            }
+        }
+        // a number that is not one is a type error with the same address
+        let errs = refused(json!({"op": "update_node", "id": "app-dc1", "set": {"props.vcpu": "lots"}}));
+        assert!(errs.len() == 1 && errs[0].contains("app-dc1") && errs[0].contains("vcpu") && errs[0].contains("is not a number"), "{errs:?}");
+        // the requirements: each field against its own domain
+        for (field, typed, say) in [
+            ("availabilitySlo", json!(150), "above 0 to 100"),
+            ("availabilitySlo", json!(0), "above 0 to 100"),
+            ("growthPercent", json!(-500), "above -100"),
+            ("rpsPeak", json!(-5), "0 to"),
+            ("rpsPeak", json!(1e308), "1e308 is out of range"),
+            ("budgetMonthly", json!(-1), "0 to"),
+        ] {
+            let errs = refused(json!({"op": "set_requirements", "set": {field: typed}}));
+            assert_eq!(errs.len(), 1, "{field} = {typed}: {errs:?}");
+            assert!(errs[0].contains(field) && errs[0].contains("is out of range") && errs[0].contains(say), "{field} = {typed}: {}", errs[0]);
+            assert!(errs[0].chars().count() < 160, "{}", errs[0]);
+        }
+        // the edge of the range and the control: an answer in range is accepted and applies
+        let ok = parse_patch(&cfg, &patch(json!({"op": "update_node", "id": "app-dc1", "set": {"props.replicas": 100_000}})), &base).expect("100000 is the most there is, and it is allowed");
+        assert_eq!(apply_ops(&base, &ok.ops, &cfg.catalog, &limits(&cfg)).unwrap().architecture.node("app-dc1").unwrap().props["replicas"], json!(100_000));
+        assert!(parse_patch(&cfg, &patch(json!({"op": "set_requirements", "set": {"availabilitySlo": 100}})), &base).is_ok());
+    }
+
+    /// The other half: a node the model adds carries its numbers through `sanitize`, which drops the one out of range (the property is then the
+    /// catalog's default), so the answer is valid and the figure the model did not write is not invented for it.
+    #[test]
+    fn a_new_node_with_a_number_out_of_range_arrives_without_that_number_not_with_a_clamped_one() {
+        let cfg = Loaded::embedded_defaults();
+        let base = demo();
+        let zone = base.node("app-dc1").unwrap().zone_id.clone();
+        let text = json!({"rationale": "r", "ops": [
+            {"op": "add_node", "node": {"id": "cache-extra", "kind": "redis", "name": "Extra", "zoneId": zone, "props": {"replicas": 1_000_000_000_000u64, "vcpu": 1e308, "ramGb": 8}}}
+        ]})
+        .to_string();
+        let c = parse_patch(&cfg, &text, &base).expect("a dropped number leaves a valid answer");
+        let Op::AddNode { node } = &c.ops[0] else { panic!("{:?}", c.ops) };
+        assert!(!node.props.contains_key("replicas") && !node.props.contains_key("vcpu"), "dropped, not clamped to a ceiling: {:?}", node.props);
+        assert_eq!(node.props["ramGb"], json!(8), "what is in range is kept");
+        let out = apply_ops(&base, &c.ops, &cfg.catalog, &limits(&cfg)).unwrap().architecture;
+        assert!(!out.node("cache-extra").unwrap().props.contains_key("replicas"));
+        assert!(validate(&out, &cfg.catalog, &limits(&cfg)).iter().all(|i| i.level != IssueLevel::Error));
+    }
+
+    #[test]
+    fn a_generated_architecture_with_a_target_outside_its_domain_goes_back_to_the_model() {
+        let cfg = Loaded::embedded_defaults();
+        let answer = extract_json(&answer(GENERATE_ANSWER)).expect("the recorded answer holds JSON");
+        let with = |at: &[&str], value: Value| {
+            let mut v = answer.clone();
+            // the answer says its requirements at the top level, which wins over the ones inside the architecture: the field is moved to the
+            // place that is tested
+            if let Some(top) = v["requirements"].as_object_mut() {
+                top.remove(*at.last().unwrap());
+            }
+            let mut cur = &mut v;
+            for key in at {
+                cur = &mut cur[*key];
+            }
+            *cur = value;
+            v.to_string()
+        };
+        // the control: the recorded answer, untouched, is accepted
+        assert!(parse_generate(&cfg, &answer.to_string(), &Architecture::default()).is_ok());
+        // the requirements of the answer, at the top level or inside the architecture, are held to their domains
+        for (field, typed, say) in
+            [("availabilitySlo", json!(150), "above 0 to 100"), ("growthPercent", json!(-500), "above -100"), ("rpsPeak", json!(1e308), "1e308 is out of range"), ("rtoSeconds", json!(-1), "0 to")]
+        {
+            for at in [vec!["requirements", field], vec!["architecture", "requirements", field]] {
+                let errs = match parse_generate(&cfg, &with(&at, typed.clone()), &Architecture::default()) {
+                    Err(errs) => errs,
+                    Ok(c) => panic!("{at:?} = {typed} was accepted (requirements: {:?})", c.arch.requirements),
+                };
+                assert!(errs.iter().any(|e| e.contains(field) && e.contains("is out of range") && e.contains(say)), "{at:?} = {typed}: {errs:?}");
+            }
+        }
+        // a node's number out of range is dropped by `sanitize`: the answer stays valid and the node has no such number
+        let at = answer["architecture"]["nodes"].as_array().unwrap().iter().position(|n| n["id"] == "app-1").expect("the recorded answer has the application");
+        let mut huge = answer.clone();
+        assert_eq!(huge["architecture"]["nodes"][at]["props"]["replicas"], json!(4));
+        huge["architecture"]["nodes"][at]["props"]["replicas"] = json!(1_000_000_000_000u64);
+        let (text, node) = (huge.to_string(), "app-1");
+        let c = parse_generate(&cfg, &text, &Architecture::default()).expect("a dropped number leaves a valid answer");
+        assert!(!c.arch.node(node).unwrap().props.contains_key("replicas"), "{node}: {:?}", c.arch.node(node).unwrap().props);
+        assert_eq!(c.arch.node(node).unwrap().props["hpaMax"], json!(8), "the rest of the node is the model's");
+    }
+
     #[test]
     fn model_output_is_sanitised_before_it_reaches_the_diagram() {
         let cfg = Loaded::embedded_defaults();

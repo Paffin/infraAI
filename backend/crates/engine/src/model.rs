@@ -274,10 +274,15 @@ impl ValidationLimits {
     }
 }
 
-/// A number the way a person reads it: `100000`, not `100000.0`, and not `1e12` for a million million.
+/// A number the way a person reads it: `100000`, not `100000.0`. One past what a person reads digit by digit (`1e308` is 309 digits in plain
+/// notation, and goes into a message, a note for the model and a 400 body) is written with an exponent.
 fn show_num(n: f64) -> String {
-    if n.fract() == 0.0 && n.abs() < 1e15 {
+    if !n.is_finite() {
+        format!("{n}")
+    } else if n.fract() == 0.0 && n.abs() < 1e15 {
         format!("{}", n as i64)
+    } else if n.abs() >= 1e15 || (n != 0.0 && n.abs() < 1e-6) {
+        format!("{n:e}")
     } else {
         format!("{n}")
     }

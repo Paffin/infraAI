@@ -544,6 +544,77 @@ mod sanitize_tests {
         assert!(notes.iter().any(|n| n.starts_with("ghost:") && n.contains("exadata")), "{notes:?}");
         assert!(!notes.iter().any(|n| n.contains("unknown prop 'variant'")), "{notes:?}");
     }
+
+    /// The write path of a model's answer is gated by dropping, never by clamping: a clamped number is a plausible figure the model did not write
+    /// (`replicas: 10^12` becoming 100000 instances), a dropped one falls back to the catalog's default, which is what "no value" means.
+    #[test]
+    fn a_number_out_of_range_in_a_models_answer_is_dropped_never_clamped_and_the_note_says_why() {
+        let cat = engine::defaults::catalog();
+        let limits = engine::config::LimitSettings::default();
+        let mut a = arch(json!([
+            {"id": "big", "kind": "kubernetes", "name": "K", "props": {"replicas": 1_000_000_000_000u64, "vcpu": 1e308, "rpsPerReplica": "-5", "ramGb": "16", "hpaMax": 12}},
+            {"id": "edge-of-range", "kind": "kubernetes", "name": "K", "props": {"replicas": 100_000, "port": 65535}},
+            {"id": "past-the-edge", "kind": "kubernetes", "name": "K", "props": {"replicas": 100_001, "port": 70_000, "hpaMin": 0}},
+            {"id": "text", "kind": "kubernetes", "name": "K", "props": {"replicas": "3", "vcpu": "2,5"}}
+        ]));
+        a.edges = serde_json::from_value(json!([
+            {"id": "e1", "source": "big", "target": "text", "type": "traffic", "props": {"fanout": 1e308, "latencyMs": 4, "paths": 99}}
+        ]))
+        .unwrap();
+        let notes = sanitize(&mut a, &cat, &limits);
+        let props = |id: &str| a.node(id).unwrap().props.clone();
+
+        // out of range: absent, not 100000 and not the ceiling
+        let big = props("big");
+        for key in ["replicas", "vcpu", "rpsPerReplica"] {
+            assert!(!big.contains_key(key), "'{key}' must be dropped, not clamped: {big:?}");
+        }
+        // in range: kept, integral numbers stay integral, text that is a number is a number
+        assert_eq!(big["ramGb"], json!(16));
+        assert_eq!(big["hpaMax"], json!(12));
+        assert_eq!(props("text")["replicas"], json!(3));
+        assert_eq!(props("text")["vcpu"], json!(2.5));
+        // the edges of the range belong to it, one past does not (the kind's own maximum counts too)
+        assert_eq!((props("edge-of-range")["replicas"].clone(), props("edge-of-range")["port"].clone()), (json!(100_000), json!(65535)));
+        let past = props("past-the-edge");
+        assert!(!past.contains_key("replicas") && !past.contains_key("port") && !past.contains_key("hpaMin"), "{past:?}");
+        // a link's numbers are held to their ranges as well
+        let e = &a.edges[0].props;
+        assert!(!e.contains_key("fanout") && !e.contains_key("paths"), "{e:?}");
+        assert_eq!(e["latencyMs"], json!(4));
+
+        // every dropped number has a note that names the node, the property, the value and the range, and that is short enough for a prompt
+        let note = |owner: &str, key: &str| {
+            notes.iter().find(|n| n.starts_with(&format!("{owner}: ")) && n.contains(&format!("prop '{key}' dropped"))).unwrap_or_else(|| panic!("no note for {owner}.{key}: {notes:?}"))
+        };
+        assert!(note("big", "replicas").contains("1000000000000 is out of range") && note("big", "replicas").contains("1 to 100000"), "{}", note("big", "replicas"));
+        assert!(note("big", "vcpu").contains("1e308 is out of range") && note("big", "vcpu").contains("0 to 1000000000000"), "{}", note("big", "vcpu"));
+        assert!(note("big", "rpsPerReplica").contains("-5 is out of range"), "{}", note("big", "rpsPerReplica"));
+        assert!(note("past-the-edge", "port").contains("1 to 65535"), "{}", note("past-the-edge", "port"));
+        assert!(note("e1", "fanout").contains("1e308 is out of range") && note("e1", "fanout").contains("0 to 100"), "{}", note("e1", "fanout"));
+        assert!(notes.iter().all(|n| n.chars().count() < 160), "a note carries the number, not 300 digits of it: {notes:?}");
+        // and nothing else was dropped: the in-range values have no note
+        assert_eq!(notes.len(), 8, "3 on big, 3 past the edge, 2 on the link: {notes:?}");
+    }
+
+    #[test]
+    fn the_ceiling_a_model_is_held_to_is_the_engines_setting_not_a_number_of_this_file() {
+        let cat = engine::defaults::catalog();
+        let strict = engine::config::LimitSettings { max_replicas: 50, ..Default::default() };
+        let mut a = arch(json!([
+            {"id": "n", "kind": "kubernetes", "name": "K", "props": {"replicas": 60, "failoverReplicas": 51, "vcpu": 5000}}
+        ]));
+        let notes = sanitize(&mut a, &cat, &strict);
+        let n = &a.node("n").unwrap().props;
+        assert!(!n.contains_key("replicas") && !n.contains_key("failoverReplicas"), "{n:?}");
+        assert_eq!(n["vcpu"], json!(5000));
+        assert!(notes.iter().any(|m| m.contains("prop 'replicas' dropped") && m.contains("1 to 50")), "{notes:?}");
+        // the same answer under the default ceiling keeps the counts
+        let mut b = arch(json!([{"id": "n", "kind": "kubernetes", "name": "K", "props": {"replicas": 60, "failoverReplicas": 51}}]));
+        let notes = sanitize(&mut b, &cat, &engine::config::LimitSettings::default());
+        assert_eq!(b.node("n").unwrap().props["replicas"], json!(60));
+        assert!(notes.is_empty(), "{notes:?}");
+    }
 }
 
 #[cfg(test)]
