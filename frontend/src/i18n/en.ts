@@ -1086,4 +1086,13 @@ export default {
   'skip.library': 'To the library',
   'right.tabs': 'Panel sections',
   'export.tabs': 'Export sections',
+  // ---- what a screen reader is told when the verdict of the engine changes after an edit
+  'announce.crit': '{n} new critical finding|{n} new critical findings',
+  'announce.risk': '{n} new risk|{n} new risks',
+  'announce.resolved': '{n} finding resolved|{n} findings resolved',
+  'announce.nodata.more': 'data is missing for {n} more check|data is missing for {n} more checks',
+  'announce.nodata.less': 'data is now enough for {n} check|data is now enough for {n} checks',
+  'announce.name': '"{name}"',
+  'announce.names': 'Which: {names}',
+  'announce.names.more': ' and {n} more',
 } as Record<string, string>

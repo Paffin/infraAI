@@ -579,3 +579,53 @@ test.describe('the library is one stop of the Tab key', () => {
     await expect(search).toBeFocused()
   })
 })
+
+test.describe('what an edit did to the verdict is said to a screen reader', () => {
+  const region = (page: Page) => page.locator('body > [role="status"][aria-live="polite"][data-keep-live]')
+
+  test('one polite region in the body: silent when a project opens or a card is moved, it speaks after an edit that changes the findings, in the language of the page, and a dialog does not shut it out', async ({ page }) => {
+    await createProject(page, uniqueName('kbd-say'), '2 ЦОД + witness')
+    await expect(page.locator('.arch-node').first()).toBeVisible()
+    await settled(page)
+    await expect(region(page)).toHaveCount(1)
+    // a project that is opened is not announced, however many findings it has
+    await expect(page.locator('.crumbs .meta')).toContainText('сохранено', { timeout: 10_000 })
+    await expect(region(page)).toHaveText('')
+
+    // a card is moved: the engine is asked again and has nothing new to say
+    const evaluated = page.waitForResponse((r) => r.request().method() === 'POST' && /\/evaluate$/.test(r.url()))
+    const box = (await card(page, 'Kafka').boundingBox())!
+    await page.mouse.move(box.x + 60, box.y + 30)
+    await page.mouse.down()
+    await page.mouse.move(box.x + 60 + 90, box.y + 30 + 40, { steps: 6 })
+    await page.mouse.up()
+    await evaluated
+    await expect(page.locator('.crumbs .meta')).toContainText('сохранено', { timeout: 10_000 })
+    await expect(region(page)).toHaveText('')
+
+    // an edit that makes findings: no replica of the database
+    await card(page, 'PostgreSQL replica').click()
+    await page.keyboard.press('Delete')
+    await expect.poll(() => region(page).innerText(), { timeout: 10_000 }).toMatch(/критич|риск/i)
+    // the words name what is new and what it is about
+    await expect.poll(() => region(page).innerText()).toMatch(/новы[ея]|новая/)
+    // the region is not inside what a dialog makes inert
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
+    await page.keyboard.press('e')
+    await expect(page.getByRole('dialog')).toBeVisible()
+    expect(await region(page).evaluate((e) => !!e.closest('[inert]'))).toBe(false)
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+
+    // the edit is undone: the findings are gone, and that is said too
+    await page.keyboard.press('Control+z')
+    await expect.poll(() => region(page).innerText(), { timeout: 10_000 }).toMatch(/устранен/)
+
+    // in English
+    await page.locator('.lang-switch button', { hasText: 'EN' }).click()
+    await card(page, 'PostgreSQL replica').click()
+    await page.keyboard.press('Delete')
+    await expect.poll(() => region(page).innerText(), { timeout: 10_000 }).toMatch(/new (critical|risk)/i)
+    await page.locator('.lang-switch button', { hasText: 'RU' }).click()
+  })
+})

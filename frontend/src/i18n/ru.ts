@@ -1086,4 +1086,13 @@ export default {
   'skip.library': 'К библиотеке',
   'right.tabs': 'Разделы панели',
   'export.tabs': 'Разделы экспорта',
+  // ---- what a screen reader is told when the verdict of the engine changes after an edit
+  'announce.crit': '{n} новая критичная находка|{n} новые критичные находки|{n} новых критичных находок',
+  'announce.risk': '{n} новый риск|{n} новых риска|{n} новых рисков',
+  'announce.resolved': '{n} находка устранена|{n} находки устранены|{n} находок устранено',
+  'announce.nodata.more': 'не хватает данных ещё для {n} проверки|не хватает данных ещё для {n} проверок|не хватает данных ещё для {n} проверок',
+  'announce.nodata.less': 'данных теперь хватает для {n} проверки|данных теперь хватает для {n} проверок|данных теперь хватает для {n} проверок',
+  'announce.name': '«{name}»',
+  'announce.names': 'Что именно: {names}',
+  'announce.names.more': ' и ещё {n}',
 } as Record<string, string>

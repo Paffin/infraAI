@@ -21,6 +21,8 @@ import SimWindow from '@/editor/SimWindow.vue'
 import StoryCaption from '@/editor/StoryCaption.vue'
 import VersionsModal from '@/editor/VersionsModal.vue'
 import WhatIfBar from '@/editor/WhatIfBar.vue'
+import LiveRegion from '@/components/LiveRegion.vue'
+import { announce, clearAnnouncement, describeChange } from '@/lib/announce'
 import { byUrgency } from '@/lib/findings'
 import { blocked, matchShortcut, repeats, type WindowShortcutId } from '@/lib/shortcuts'
 import { decodeScenario, scenarioFits, SIM_PARAM } from '@/lib/simLink'
@@ -68,7 +70,15 @@ onMounted(() => {
 })
 watch(() => props.id, (id) => void open(id))
 
+// What an edit did to the verdict is said to a screen reader (lib/announce.ts): the page shows it by colour and by numbers, which says nothing to somebody who does
+// not look. Only the edits of the user (the store sets `reportChange` for those and for nothing else), and only when something changed.
+watch(() => editor.reportChange, (c) => {
+  const text = c ? describeChange(c.prev, c.next, app.rules) : null
+  if (text) announce(text)
+})
+
 onBeforeUnmount(() => {
+  clearAnnouncement()
   window.removeEventListener('keydown', onKey)
   window.removeEventListener('beforeunload', onUnload)
   void editor.flushSave().finally(() => { editor.reset(); ai.reset() })
@@ -227,6 +237,7 @@ function skipTo(where: 'canvas' | 'checks' | 'library') {
     <ShortcutsModal v-if="ui.modal === 'shortcuts'" />
     <PlacementWizard v-if="ui.modal === 'placement'" mode="replace" @close="ui.modal = null" />
     <CommandPalette v-if="ui.palette" />
+    <LiveRegion />
   </div>
 </template>
 

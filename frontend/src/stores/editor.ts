@@ -54,6 +54,12 @@ export const useEditor = defineStore('editor', () => {
   const serverRev = ref<number | null>(null)
 
   const report = shallowRef<Report | null>(null)
+  /**
+   * The verdict an EDIT of the user changed: the report before and the report after it. Set only when an evaluation that covers an edit (a change, an undo, a redo,
+   * an applied fix) finishes and there was a report before; opening a project, reloading it or accepting a risk never set it. The announcer (`lib/announce.ts`)
+   * reads it: a screen reader is told what the edit did to the verdict, and is not told the whole report again when a project opens.
+   */
+  const reportChange = shallowRef<{ prev: Report; next: Report; token: number } | null>(null)
   const evaluating = ref(false)
   const evalError = ref('')
 
@@ -203,6 +209,9 @@ export const useEditor = defineStore('editor', () => {
     rev.value = 0
     waivers.value = []
     report.value = null
+    reportChange.value = null
+    editSeq = 0
+    coveredEdits = 0
     selection.value = null
     multi.value = []
     selectRequest.value = null
@@ -291,6 +300,10 @@ export const useEditor = defineStore('editor', () => {
   let evalTimer: ReturnType<typeof setTimeout> | undefined
   let evalAbort: AbortController | undefined
   let evalSeq = 0
+  /** How many edits have been made, and how many of them the report on screen already covers: an evaluation covers the edits made before it started. */
+  let editSeq = 0
+  let coveredEdits = 0
+  let changeSeq = 0
 
   function scheduleEvaluate() {
     clearTimeout(evalTimer)
@@ -303,12 +316,19 @@ export const useEditor = defineStore('editor', () => {
     const ctl = new AbortController()
     evalAbort = ctl
     const seq = ++evalSeq
+    const edits = editSeq
     evaluating.value = true
     try {
       const r = await api.engine.evaluate(arch.value, projectId.value, lang.value, ctl.signal)
       if (seq !== evalSeq) return
+      const prev = report.value
       report.value = r
       evalError.value = ''
+      // an evaluation that was cut short by a newer one does not use up the edits it was started for: the newer one covers them
+      if (edits > coveredEdits) {
+        coveredEdits = edits
+        if (prev) reportChange.value = { prev, next: r, token: ++changeSeq }
+      }
     } catch (e: any) {
       if (e?.name === 'AbortError' || seq !== evalSeq) return
       evalError.value = errorMessage(e)
@@ -367,6 +387,7 @@ export const useEditor = defineStore('editor', () => {
   }
 
   function afterChange() {
+    editSeq++
     touchSave()
     scheduleEvaluate()
     scheduleSim()
@@ -911,7 +932,7 @@ export const useEditor = defineStore('editor', () => {
   }
 
   return {
-    projectId, project, arch, rev, waivers, loading, loadError, saveState, saveError, serverRev, report, evaluating, evalError,
+    projectId, project, arch, rev, waivers, loading, loadError, saveState, saveError, serverRev, report, reportChange, evaluating, evalError,
     selection, multi, selectRequest, tool, layer, highlight, preview, viewCenter, fitToken, reveal, sim, pickingNode, connectFrom, focusOn, focus, setFocusOn,
     readonly, canUndo, canRedo, isEmpty, shown, previewSets, nodeById, edgeById, zoneById, openFindings, nodeStatus, edgeStatus, zoneStatus, findingsOf, groups, siteZones, rackZones,
     load, reset, flushSave, touchSave, reloadFromServer, evaluateNow, scheduleEvaluate,
