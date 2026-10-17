@@ -1,0 +1,277 @@
+{
+ "suites": [
+  {
+   "title": "a.spec.ts",
+   "file": "a.spec.ts",
+   "specs": [
+    {
+     "title": "one",
+     "ok": true,
+     "id": "4bb17c2992a2b9ccc470-f142a2bbb9e17a728717",
+     "file": "a.spec.ts",
+     "line": 2,
+     "column": 1,
+     "tests": [
+      {
+       "expectedStatus": "passed",
+       "projectName": "",
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 249,
+         "retry": 0
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "two",
+     "ok": true,
+     "id": "4bb17c2992a2b9ccc470-25583f184e5e8c60656e",
+     "file": "a.spec.ts",
+     "line": 3,
+     "column": 1,
+     "tests": [
+      {
+       "expectedStatus": "passed",
+       "projectName": "",
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 126,
+         "retry": 0
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "suites": []
+  },
+  {
+   "title": "b.spec.ts",
+   "file": "b.spec.ts",
+   "specs": [],
+   "suites": [
+    {
+     "title": "group",
+     "file": "b.spec.ts",
+     "specs": [
+      {
+       "title": "three",
+       "ok": true,
+       "id": "c828e4cb7db3be608cbc-30c499433631d21597cd",
+       "file": "b.spec.ts",
+       "line": 3,
+       "column": 3,
+       "tests": [
+        {
+         "expectedStatus": "passed",
+         "projectName": "",
+         "status": "expected",
+         "results": [
+          {
+           "status": "passed",
+           "duration": 133,
+           "retry": 0
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "title": "four",
+       "ok": true,
+       "id": "c828e4cb7db3be608cbc-8254dc1be58183d40f02",
+       "file": "b.spec.ts",
+       "line": 4,
+       "column": 3,
+       "tests": [
+        {
+         "expectedStatus": "passed",
+         "projectName": "",
+         "status": "expected",
+         "results": [
+          {
+           "status": "passed",
+           "duration": 152,
+           "retry": 0
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "suites": []
+    }
+   ]
+  },
+  {
+   "title": "c.spec.ts",
+   "file": "c.spec.ts",
+   "specs": [
+    {
+     "title": "five",
+     "ok": true,
+     "id": "e63ce3523f911786c7f2-fa9d2a663a96c6c6d342",
+     "file": "c.spec.ts",
+     "line": 2,
+     "column": 1,
+     "tests": [
+      {
+       "expectedStatus": "passed",
+       "projectName": "",
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 116,
+         "retry": 0
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "six",
+     "ok": true,
+     "id": "e63ce3523f911786c7f2-19fb4308d833ddaa2220",
+     "file": "c.spec.ts",
+     "line": 3,
+     "column": 1,
+     "tests": [
+      {
+       "expectedStatus": "passed",
+       "projectName": "",
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 118,
+         "retry": 0
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "seven",
+     "ok": true,
+     "id": "e63ce3523f911786c7f2-c428eb6b88b568f6f9ae",
+     "file": "c.spec.ts",
+     "line": 4,
+     "column": 1,
+     "tests": [
+      {
+       "expectedStatus": "passed",
+       "projectName": "",
+       "status": "expected",
+       "results": [
+        {
+         "status": "passed",
+         "duration": 149,
+         "retry": 0
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "suites": []
+  },
+  {
+   "title": "d.spec.ts",
+   "file": "d.spec.ts",
+   "specs": [
+    {
+     "title": "eight fails",
+     "ok": false,
+     "id": "13822375effbe328c96a-2d9258c38ef96390a41e",
+     "file": "d.spec.ts",
+     "line": 3,
+     "column": 1,
+     "tests": [
+      {
+       "expectedStatus": "passed",
+       "projectName": "",
+       "status": "unexpected",
+       "results": [
+        {
+         "status": "failed",
+         "duration": 183,
+         "retry": 0
+        },
+        {
+         "status": "failed",
+         "duration": 308,
+         "retry": 1
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "nine is skipped",
+     "ok": true,
+     "id": "13822375effbe328c96a-f98bccd1faad9872c6e8",
+     "file": "d.spec.ts",
+     "line": 4,
+     "column": 1,
+     "tests": [
+      {
+       "expectedStatus": "skipped",
+       "projectName": "",
+       "status": "skipped",
+       "results": [
+        {
+         "status": "skipped",
+         "duration": 197,
+         "retry": 0
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "title": "ten is flaky",
+     "ok": true,
+     "id": "13822375effbe328c96a-dbc299805c8658a579fc",
+     "file": "d.spec.ts",
+     "line": 5,
+     "column": 1,
+     "tests": [
+      {
+       "expectedStatus": "passed",
+       "projectName": "",
+       "status": "flaky",
+       "results": [
+        {
+         "status": "failed",
+         "duration": 247,
+         "retry": 0
+        },
+        {
+         "status": "passed",
+         "duration": 245,
+         "retry": 1
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "suites": []
+  }
+ ],
+ "errors": [],
+ "stats": {
+  "duration": 8081,
+  "expected": 7,
+  "skipped": 1,
+  "unexpected": 1,
+  "flaky": 1
+ }
+}

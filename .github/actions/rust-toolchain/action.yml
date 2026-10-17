@@ -1,0 +1,55 @@
+name: Rust toolchain
+description: >-
+  Installs the Rust compiler by name and makes it the default, so that every job compiles with the compiler it is meant to.
+  `dockerfile` (the default) is the version the image is built with (ARG RUST_VERSION in the Dockerfile): CI tests with the compiler that ships.
+  `msrv` is the oldest one the workspace promises to build with (rust-version in backend/Cargo.toml).
+
+# Why this and not dtolnay/rust-toolchain@stable, and not a rust-toolchain.toml:
+#  - `@stable` is whatever stable is today (1.99.x while the image is built with 1.97): a test that passes on a compiler that is not shipped proves little, and a new
+#    clippy lint turns a pull request red that did not touch the code;
+#  - a rust-toolchain.toml under backend/ would be honoured by every cargo that runs there, and rustup 1.28 REFUSES instead of installing what it names: the `docs` job
+#    (cargo metadata for the licences), the Docker build and docker-compose.test.yml would all fail wherever only `stable` is installed. deploy/check-workflows.py keeps
+#    the file out.
+# `rustup toolchain install 1.97` takes the latest 1.97.x. rustup is on the hosted runners; the minimal profile is rustc, cargo and the standard library.
+
+inputs:
+  version-from:
+    description: "`dockerfile` or `msrv`"
+    required: false
+    default: dockerfile
+  components:
+    description: Comma-separated rustup components, e.g. `rustfmt,clippy`
+    required: false
+    default: ""
+
+outputs:
+  version:
+    description: The version that was installed, as the Dockerfile or Cargo.toml writes it
+    value: ${{ steps.install.outputs.version }}
+
+runs:
+  using: composite
+  steps:
+    - id: install
+      shell: bash
+      env:
+        FROM: ${{ inputs.version-from }}
+        COMPONENTS: ${{ inputs.components }}
+      run: |
+        set -euo pipefail
+        # absolute paths: a job's `defaults.run.working-directory` (the backend job has one) is not what the steps of an action can rely on
+        case "$FROM" in
+          dockerfile) version=$(sed -n 's/^ARG RUST_VERSION=//p' "$GITHUB_WORKSPACE/Dockerfile" | head -n 1) ;;
+          msrv)       version=$(sed -n 's/^rust-version *= *"\(.*\)".*$/\1/p' "$GITHUB_WORKSPACE/backend/Cargo.toml" | head -n 1) ;;
+          *)          echo "::error::version-from is 'dockerfile' or 'msrv', not '$FROM'"; exit 1 ;;
+        esac
+        if [ -z "$version" ]; then
+          echo "::error::could not read the Rust version for '$FROM' (ARG RUST_VERSION= in the Dockerfile, rust-version = in backend/Cargo.toml)"
+          exit 1
+        fi
+        args=(--profile minimal --no-self-update)
+        if [ -n "$COMPONENTS" ]; then args+=(--component "$COMPONENTS"); fi
+        rustup toolchain install "$version" "${args[@]}"
+        rustup default "$version"
+        echo "version=$version" >> "$GITHUB_OUTPUT"
+        rustc --version --verbose

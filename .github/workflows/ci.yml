@@ -1,21 +1,55 @@
 name: CI
 
+# What runs, and why in this shape (docs/DEVELOPMENT.md, "CI"):
+#
+#   scope ──┬─ backend, msrv, frontend, iac, manifests, security      checks that need nothing from each other: all start at once
+#           └─ build ──┬─ image-checks   the image that was built, as a user starts it: smoke, the gate, the scan of its operating-system packages
+#                      └─ e2e (shards)   the browser tests, one stack per shard ── e2e-report (merged report; every listed test ran)
+#   docs                                 the cheap checks of everything that is generated and of these workflows; always runs
+#   ci-ok                                the one verdict: the check to REQUIRE in the repository settings (Settings, Branches, Branch protection)
+#   publish                              main only, after ci-ok: pushes the very image that was tested
+#
+# The image is built ONCE (`build`) and handed on as an artifact: the checks, every browser shard and `publish` use those layers. Nothing waits for `iac`, which takes
+# minutes and has nothing to do with the image. `scope` decides whether the heavy jobs run at all: a change that is documentation from end to end skips them
+# (deploy/ci-scope.py: what is documentation is a short list, the rest is code; a push to main always runs everything).
 on:
   push:
     branches: [main]
   pull_request:
   workflow_dispatch:
 
+# A pull request is superseded by its next push. A push to main is not: the run of the commit before it goes on (every commit of main is tested and may be
+# published), and the next one waits its turn, so that `publish` cannot put an older commit over a newer one. A manual run has a group of its own.
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.event_name == 'workflow_dispatch' && github.run_id || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
 
 jobs:
-  backend:
+  scope:
     runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      code: ${{ steps.scope.outputs.code }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # the base of the pull request must be there to diff against
+          persist-credentials: false
+      - name: Is it documentation from end to end? (everything else, and every push to main, runs all the jobs)
+        id: scope
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: python3 deploy/ci-scope.py --event "$EVENT" --base "$BASE"
+
+  backend:
+    needs: scope
+    if: needs.scope.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
     services:
       postgres:
         image: postgres:16-alpine
@@ -30,25 +64,52 @@ jobs:
       run:
         working-directory: backend
     steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@v2
+          persist-credentials: false
+      - uses: ./.github/actions/rust-toolchain
+        with:
+          components: rustfmt,clippy
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: backend
       - run: cargo fmt --all --check
       - run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - run: cargo test --workspace --locked
 
-  frontend:
+  # The workspace still builds with the oldest compiler it promises (rust-version in backend/Cargo.toml, the "Rust 1.89+" of CONTRIBUTING.md). `cargo update` or a
+  # new line of code that needs a newer one turns this red, and then either the code is changed or the promise is raised (in both places).
+  msrv:
+    needs: scope
+    if: needs.scope.outputs.code == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/rust-toolchain
+        with:
+          version-from: msrv
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: backend
+      - run: cargo check --workspace --all-targets --locked
+        working-directory: backend
+
+  frontend:
+    needs: scope
+    if: needs.scope.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
           cache: npm
@@ -58,10 +119,16 @@ jobs:
       - run: npm test
       - run: npm run build
 
+  # Always runs, also for a change of documentation alone: it is what checks the documentation (the tables, the numbers of the README), everything else that is
+  # generated, and these workflows.
   docs:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/python-tools
       - name: The default catalog is what its sources build (deploy/catalog)
         run: python3 deploy/catalog/build.py --check
       - name: The reference architectures written in code are what their sources build (deploy/templates)
@@ -72,37 +139,58 @@ jobs:
         run: python3 deploy/licenses.py --check
       - name: The quick start holds together (generated .env, the example is refused as it is, the published-image override keeps the hardening)
         run: sh deploy/check-env.sh
-      - name: The scripts under deploy/ that decide something are tested (they have a failing case of their own)
+      - name: The workflows keep their rules (pins, timeouts, least privilege, no wait for the IaC check, ci-ok waits for every job)
+        run: python3 deploy/check-workflows.py
+      - name: Every action is pinned by a commit, with its version in a comment
+        run: python3 deploy/pin-actions.py --check
+      - name: Dependabot looks at every directory that holds a lock file, a Dockerfile, a compose file, a requirements file or the workflows
+        run: python3 deploy/check-dependabot.py
+      # the release is checked against its published checksum, not against whatever the release page says today; the new version and its sum are taken together
+      - name: The workflows are valid (actionlint, with shellcheck on every run script)
+        env:
+          ACTIONLINT_VERSION: "1.7.12"
+          ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
         run: |
-          python3 -c 'import yaml' 2>/dev/null || python3 -m pip install --quiet pyyaml
-          python3 -m unittest discover -s deploy/tests -v
+          curl -fsSL -o "$RUNNER_TEMP/actionlint.tar.gz" "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          echo "${ACTIONLINT_SHA256}  $RUNNER_TEMP/actionlint.tar.gz" | sha256sum --check --strict
+          tar -xzf "$RUNNER_TEMP/actionlint.tar.gz" -C "$RUNNER_TEMP" actionlint
+          "$RUNNER_TEMP/actionlint" -color
+      - name: The scripts under deploy/ that decide something are tested (they have a failing case of their own)
+        run: python3 -m unittest discover -s deploy/tests -v
 
   # cargo-deny on the locked crates, npm audit on the web application's packages, and the proof that cargo-deny is awake (.github/workflows/security.yml, which
-  # also runs every day). It is a job here and not a workflow of its own because `publish` can only wait for a job of this file. The permission is the one
+  # also runs every day). It is a job here and not a workflow of its own because `ci-ok` can only wait for a job of this file. The permission is the one
   # job `report` of that file asks for (it opens an issue when the daily run is red and never runs from here); a called workflow may not hold more than its caller grants.
   security:
+    needs: scope
+    if: needs.scope.outputs.code == 'true'
     permissions:
       contents: read
       issues: write
     uses: ./.github/workflows/security.yml
 
   manifests:
+    needs: scope
+    if: needs.scope.outputs.code == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Validate Kubernetes manifests
         run: |
           docker run --rm -v "$PWD/deploy/k8s:/k8s:ro" registry.k8s.io/kustomize/kustomize:v5.4.3 build /k8s > /tmp/all.yaml
-          docker run --rm -v /tmp/all.yaml:/all.yaml:ro ghcr.io/yannh/kubeconform:latest -strict -summary -ignore-missing-schemas /all.yaml
+          docker run --rm -v /tmp/all.yaml:/all.yaml:ro ghcr.io/yannh/kubeconform:v0.7.0 -strict -summary -ignore-missing-schemas /all.yaml
+      - uses: ./.github/actions/python-tools
       - name: "The metrics port is on no Service and no Ingress path, and has a caller of its own in the NetworkPolicy (kubeconform checks the schema, not that)"
-        run: |
-          python3 -c 'import yaml' 2>/dev/null || python3 -m pip install --quiet pyyaml
-          python3 deploy/check-k8s-exposure.py /tmp/all.yaml
+        run: python3 deploy/check-k8s-exposure.py /tmp/all.yaml
 
   # Optional: the real OpenRouter. Runs on demand (Actions → CI → Run workflow) when the secret OPENROUTER_API_KEY is set.
   live-llm:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     services:
       postgres:
         image: postgres:16-alpine
@@ -115,20 +203,29 @@ jobs:
       TEST_DATABASE_ADMIN_URL: postgres://postgres:postgres@localhost:5432/postgres
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/rust-toolchain
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: backend
       - run: cargo test -p server --test live -- --ignored --nocapture
         working-directory: backend
 
+  # IaC of every reference architecture against the real Kubernetes/CRD schemas, Helm charts and Terraform providers (deploy/iac-check). Its slowest part, the
+  # download of charts, is done once per chart and kept between runs: the directory below is restored from the last run that changed none of what pins them.
   iac:
+    needs: scope
+    if: needs.scope.outputs.code == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/rust-toolchain
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: backend
       - name: Generate IaC for the reference architectures
@@ -136,22 +233,69 @@ jobs:
         run: |
           mkdir -p /tmp/iac-out
           cargo build -q -p engine --example export
-          for tpl in demo $(cd crates/engine/defaults/templates && ls *.json | sed 's/\.json$//'); do
+          # the demo project and every reference architecture there is (a file in defaults/templates is one)
+          templates=(demo)
+          for f in crates/engine/defaults/templates/*.json; do templates+=("$(basename "$f" .json)"); done
+          for tpl in "${templates[@]}"; do
             for fmt in kubernetes helm terraform; do
               ./target/debug/examples/export "$tpl" "$fmt" "/tmp/iac-out/$tpl/$fmt" en > /dev/null 2> "/tmp/iac-out/$tpl-$fmt.report.json"
             done
           done
+      # charts (engine.json pins the operators', the helmfiles of the exports pin the rest), Terraform providers, Kubernetes schemas. The key is what pins them; an older
+      # cache is restored when it changed and only what is new is downloaded (check.py also removes the charts that are no longer pinned).
+      - name: The downloads of the last run (charts, Terraform providers, schemas)
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/iac-cache
+          key: iac-${{ hashFiles('backend/crates/engine/defaults/engine.json', 'backend/crates/engine/defaults/iac/*.json', 'deploy/iac-check/**') }}
+          restore-keys: iac-
       - name: Validate against Kubernetes and CRD schemas, Helm charts and Terraform providers
         run: |
+          mkdir -p "$RUNNER_TEMP/iac-cache"
           docker build -t infra-architect-iac-check deploy/iac-check
-          docker volume create iac-cache
-          docker run --rm -v /tmp/iac-out:/out:ro -v "$PWD/backend/crates/engine/defaults:/defaults:ro" -v iac-cache:/cache infra-architect-iac-check
+          docker run --rm -v /tmp/iac-out:/out:ro -v "$PWD/backend/crates/engine/defaults:/defaults:ro" -v "$RUNNER_TEMP/iac-cache:/cache" infra-architect-iac-check
+          # the container is root: hand the cache back to the runner so that the step that saves it can read every file
+          sudo chown -R "$(id -u):$(id -g)" "$RUNNER_TEMP/iac-cache"
 
-  image:
+  # The image is built once. Everything that tests or ships an image uses these layers: the checks and the browser shards load the tar below, `publish` pushes it.
+  build:
+    needs: scope
+    if: needs.scope.outputs.code == 'true'
     runs-on: ubuntu-latest
-    needs: [backend, frontend, docs, iac]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      # the labels the published image carries (source, revision, created); the tags are chosen by `publish`
+      - uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
+        id: meta
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/infra-architect
+      - name: Build the image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          tags: infra-architect:ci
+          labels: ${{ steps.meta.outputs.labels }}
+          outputs: type=docker,dest=${{ runner.temp }}/image.tar
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: The image, for the jobs that test it and for `publish`
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: image
+          path: ${{ runner.temp }}/image.tar
+          retention-days: 1
+          if-no-files-found: error
+
+  image-checks:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     # compose refuses to read docker-compose.yml without these (it requires them), so every step that calls it needs them:
-    # the last one, `down`, used to run without and failed, and a failed image job meant that nothing was ever published
+    # the last one, `down`, used to run without and failed, and a failed job meant that nothing was ever published
     env:
       APP_SECRET: ci-secret-ci-secret-ci-secret-ci-secret
       POSTGRES_PASSWORD: ci-postgres
@@ -159,16 +303,15 @@ jobs:
       ADMIN_PASSWORD: ci admin password 123
       APP_PORT: "8080"
     steps:
-      - uses: actions/checkout@v7
-      - uses: docker/setup-buildx-action@v4
-      - name: Build the image
-        uses: docker/build-push-action@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          context: .
-          load: true
-          tags: infra-architect:ci
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: image
+          path: ${{ runner.temp }}
+      - name: Load the image that was built
+        run: docker load --input "$RUNNER_TEMP/image.tar"
       # Trivy sees the operating-system packages of the image (Debian bookworm-slim), nothing else: the binary is stripped and carries no list of its crates,
       # and the image has no lock file. The crates are cargo-deny's (security.yml). A fixable CRITICAL package blocks main and so the publishing; on a pull
       # request, and for HIGH everywhere, it is only shown, because a CVE that Debian fixed this morning is not the pull request's doing (docs/PITFALLS.md,
@@ -212,29 +355,14 @@ jobs:
           # the same stack with the override that sets METRICS_PORT and publishes it on the loopback; compose recreates the application container
           docker compose -f docker-compose.yml -f deploy/compose.try.yml -f docker-compose.metrics.yml up -d --pull never --wait --wait-timeout 180
           SMOKE_METRICS_URL=http://127.0.0.1:9090 ./deploy/smoke.sh http://localhost:8080 "$ADMIN_EMAIL" "$ADMIN_PASSWORD"
+      - uses: ./.github/actions/python-tools
       - name: "The gate in the image: every reference design passes, and the SARIF it writes is valid"
         run: |
           mkdir -p /tmp/gate
           for f in backend/crates/engine/defaults/templates/*.json; do
             docker run --rm -v "$PWD:/work:ro" -w /work infra-architect:ci check "$f" --lang en --format sarif > "/tmp/gate/$(basename "$f" .json).sarif"
           done
-          python3 -m pip install --quiet jsonschema
           python3 deploy/check-sarif.py /tmp/gate/*.sarif
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-      - name: Browser end-to-end tests against the running stack
-        working-directory: frontend
-        env:
-          E2E_BASE: http://localhost:8080
-          E2E_EMAIL: ${{ env.ADMIN_EMAIL }}
-          E2E_PASSWORD: ${{ env.ADMIN_PASSWORD }}
-        run: |
-          npm ci
-          npx playwright install --with-deps chromium
-          npx playwright test
       - name: Logs
         if: failure()
         run: docker compose logs --no-color
@@ -242,32 +370,172 @@ jobs:
         if: always()
         run: docker compose down -v
 
-  publish:
+  # The browser tests: Playwright cuts the suite into as many parts as the matrix has entries (`--shard=i/n`, n is the size of the matrix) and every part runs on a
+  # runner of its own with a stack of its own (the admin tests change the settings of the whole installation, so two parts must not share one). Add a number to `shard`
+  # when the slowest part is longer than the build (the time of each part is the time of its job); the report job fails when the parts do not add up to the whole suite.
+  e2e:
+    needs: build
     runs-on: ubuntu-latest
-    needs: [image, manifests, security]
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    env:
+      APP_SECRET: ci-secret-ci-secret-ci-secret-ci-secret
+      POSTGRES_PASSWORD: ci-postgres
+      ADMIN_EMAIL: admin@ci.local
+      ADMIN_PASSWORD: ci admin password 123
+      APP_PORT: "8080"
+      IA_IMAGE: infra-architect:ci
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: image
+          path: ${{ runner.temp }}
+      - name: Load the image that was built and start the stack on it
+        run: |
+          docker load --input "$RUNNER_TEMP/image.tar"
+          docker compose -f docker-compose.yml -f deploy/compose.try.yml up -d --wait --wait-timeout 180
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Browser end-to-end tests against the running stack (one part of the suite)
+        working-directory: frontend
+        env:
+          E2E_BASE: http://localhost:8080
+          E2E_EMAIL: ${{ env.ADMIN_EMAIL }}
+          E2E_PASSWORD: ${{ env.ADMIN_PASSWORD }}
+          SHARD: ${{ matrix.shard }}/${{ strategy.job-total }}
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          npx playwright test --shard="$SHARD" --reporter=list,blob
+      - name: What this part recorded (the report job merges the parts)
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: blob-report-${{ matrix.shard }}
+          path: frontend/blob-report
+          retention-days: 7
+          if-no-files-found: warn
+      - name: The log of the stack
+        if: failure()
+        run: docker compose logs --no-color > "$RUNNER_TEMP/stack.log" 2>&1
+      - name: Screenshots and the log of the stack of the part that failed
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-failure-${{ matrix.shard }}
+          path: |
+            frontend/test-results
+            ${{ runner.temp }}/stack.log
+          retention-days: 7
+          if-no-files-found: warn
+      - name: Take the stack down
+        if: always()
+        run: docker compose down -v
+
+  e2e-report:
+    needs: [scope, e2e]
+    # not when the shards never started (the build failed: its own red is the news)
+    if: ${{ !cancelled() && needs.scope.outputs.code == 'true' && needs.e2e.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: blob-report-*
+          path: ${{ runner.temp }}/blob-reports
+          merge-multiple: true
+      - name: Merge the parts into one report
+        working-directory: frontend
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: ${{ runner.temp }}/merged.json
+          PLAYWRIGHT_HTML_OPEN: never
+        run: npx playwright merge-reports --reporter=json,html "$RUNNER_TEMP/blob-reports"
+      - name: The report to open (what failed, with the screenshots)
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playwright-report
+          path: frontend/playwright-report
+          retention-days: 7
+          if-no-files-found: ignore
+      - name: Every test that exists ran once, none was skipped
+        if: needs.e2e.result == 'success'
+        working-directory: frontend
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: ${{ runner.temp }}/list.json
+        run: |
+          npx playwright test --list --reporter=json > /dev/null
+          python3 ../deploy/check-e2e-report.py "$RUNNER_TEMP/list.json" "$RUNNER_TEMP/merged.json"
+
+  # The one verdict. Require THIS check in the repository settings. It waits for every job above (deploy/check-workflows.py fails the `docs` job when a job is
+  # missing from the list), runs also when a job failed or was skipped, and judges the results (deploy/ci-ok.py): a skipped job is fine only for a change of documentation.
+  ci-ok:
+    if: ${{ always() }}
+    needs: [scope, docs, backend, msrv, frontend, security, manifests, live-llm, iac, build, image-checks, e2e, e2e-report]
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Every job that had to run passed
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: python3 deploy/ci-ok.py
+
+  # Main only, and only when everything is green: the image that was tested is the image that is published (no second build that could differ), with the tags
+  # `latest` and the commit. No checkout and no repository script: this job holds the permission to write packages.
+  publish:
+    needs: ci-ok
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v7
-      - uses: docker/setup-buildx-action@v4
-      - uses: docker/login-action@v4
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: image
+          path: ${{ runner.temp }}
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/metadata-action@v5
+      - uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
         id: meta
         with:
           images: ghcr.io/${{ github.repository_owner }}/infra-architect
           tags: |
             type=raw,value=latest
             type=sha
-      - uses: docker/build-push-action@v7
-        with:
-          context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
+      - name: Tag the tested image and push it
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          docker load --input "$RUNNER_TEMP/image.tar"
+          while IFS= read -r tag; do
+            [ -n "$tag" ] || continue
+            docker tag infra-architect:ci "$tag"
+            docker push "$tag"
+          done <<< "$TAGS"

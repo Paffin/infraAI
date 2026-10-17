@@ -1,0 +1,11 @@
+name: Tool
+description: A composite action with a step of its own
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: python3 -m pip install --require-hashes -r "$GITHUB_WORKSPACE/deploy/requirements-ci.txt"
+    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: x
+        key: y

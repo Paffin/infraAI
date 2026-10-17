@@ -25,9 +25,11 @@ on:
   schedule:
     - cron: "37 4 * * *"
 
+# a pull request is superseded by its next push; a run on main is not (called from ci.yml, it is part of the run of that commit, and a newer push must not turn
+# the older commit's `ci-ok` red by cancelling its security job)
 concurrency:
   group: security-${{ github.ref }}-${{ github.event_name }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -35,8 +37,11 @@ permissions:
 jobs:
   deny:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
         with:
           tool: cargo-deny@0.20.2
@@ -66,8 +71,11 @@ jobs:
 
   npm-audit:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
@@ -92,8 +100,11 @@ jobs:
 
   selftest:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
         with:
           tool: cargo-deny@0.20.2
@@ -124,6 +135,7 @@ jobs:
     needs: [deny, npm-audit, selftest]
     if: ${{ failure() && github.event_name == 'schedule' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     # the only job with write access to anything; ci.yml, which calls this file, allows it so that the file passes validation, and the job never runs there
     permissions:
       issues: write

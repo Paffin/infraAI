@@ -1,0 +1,5 @@
+services:
+  backend:
+    image: ${REGISTRY:-docker.io/library}/rust:${RUST_VERSION:-1.97}-slim-bookworm
+  iac-export:
+    image: ${REGISTRY:-docker.io/library}/rust:${RUST_VERSION:-1.97}-slim-bookworm

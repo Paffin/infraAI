@@ -1,0 +1,17 @@
+name: Python tools of the checks
+description: >-
+  Installs the Python packages of the checks under deploy/ (deploy/requirements-ci.txt: PyYAML, jsonschema) into a virtual environment and puts it first on PATH,
+  so that the `python3 deploy/...` of the steps after it find them. Pinned by version and hash.
+
+# A virtual environment, not the system Python: the hosted runner's python3 has packages of the distribution (PyYAML among them) that pip cannot replace
+# ("Cannot uninstall PyYAML ... installed by debian"), and a pin that is not the one that runs is not a pin. `--require-hashes` refuses a file that has no hash.
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        set -euo pipefail
+        python3 -m venv "$RUNNER_TEMP/ci-venv"
+        "$RUNNER_TEMP/ci-venv/bin/python" -m pip install --quiet --disable-pip-version-check --require-hashes -r "$GITHUB_WORKSPACE/deploy/requirements-ci.txt"
+        echo "$RUNNER_TEMP/ci-venv/bin" >> "$GITHUB_PATH"

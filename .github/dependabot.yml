@@ -3,6 +3,14 @@
 # THIRD_PARTY_LICENSES.md lists what is shipped and under which license, without versions: a plain version bump leaves it as it is. When a pull request adds or
 # removes a component or changes a license, run `python3 deploy/licenses.py` (it rewrites the file and refuses a license the project does not accept).
 #
+# `cooldown`: a release is proposed only after it has been out for a few days (five; a major version fourteen). A release that was pulled, or that was published by
+# someone who should not have been able to, is usually found in the first days; Dependabot's security updates are not delayed by it. Only cargo and npm have the
+# semver keys; Docker images and actions have no meaning of "major" Dependabot can use, so they get the plain number of days.
+#
+# Every directory that holds a lock file, a Dockerfile, a compose file, a requirements file or the workflows has an entry here, and deploy/check-dependabot.py
+# (the `docs` job) fails when a new one has none. An entry is not a promise of pull requests: a `FROM ${REGISTRY}/node:${NODE_VERSION}-slim` or an image named by
+# a variable of a compose file has no tag for Dependabot to read, and nothing is proposed for it (Insights, Dependency graph, Dependabot shows what it sees).
+#
 # Packages that must move together are one group, whatever the size of the step: Dependabot would otherwise open one pull request per package and each of
 # them would fail to build alone (the RustCrypto crates share the `digest` trait generation; axum, axum-extra and tower-http share axum-core and tower).
 version: 2
@@ -11,6 +19,7 @@ updates:
     directory: /backend
     schedule: { interval: weekly, day: tuesday }
     open-pull-requests-limit: 5
+    cooldown: { default-days: 5, semver-major-days: 14 }
     groups:
       rustcrypto:
         patterns: [hmac, hkdf, sha2, digest, crypto-common, aes-gcm, aes, aead, argon2, password-hash, subtle]
@@ -22,6 +31,7 @@ updates:
     directory: /frontend
     schedule: { interval: weekly, day: tuesday }
     open-pull-requests-limit: 5
+    cooldown: { default-days: 5, semver-major-days: 14 }
     groups:
       # the test runner, the bundler and their plugins are versioned against each other
       build-tooling:
@@ -35,12 +45,29 @@ updates:
       # TypeScript 7 is the native compiler; vue-tsc and @vue/compiler-sfc still need the TypeScript 5/6 API (revisit when vue-tsc supports it)
       - dependency-name: typescript
         versions: [">=7.0.0"]
+  # the workflows, and the composite actions of this repository (.github/actions/*) that have `uses:` of their own
   - package-ecosystem: github-actions
-    directory: /
+    directories: ["/", "/.github/actions/*"]
     schedule: { interval: weekly, day: tuesday }
+    cooldown: { default-days: 5 }
     groups:
       actions:
         patterns: ["*"]
+  # the application's image (Dockerfile) and the toolbox of the IaC check (deploy/iac-check/Dockerfile: helm, kubeconform, terraform, kubectl, Python)
   - package-ecosystem: docker
-    directory: /
+    directories: ["/", "/deploy/iac-check"]
     schedule: { interval: weekly, day: tuesday }
+    cooldown: { default-days: 5 }
+  # docker-compose*.yml at the root, deploy/compose.try.yml
+  - package-ecosystem: docker-compose
+    directories: ["/", "/deploy"]
+    schedule: { interval: weekly, day: tuesday }
+    cooldown: { default-days: 5 }
+  # what the checks under deploy/ install: deploy/requirements-ci.txt (versions and hashes), and PyYAML inside the IaC toolbox
+  - package-ecosystem: pip
+    directories: ["/deploy", "/deploy/iac-check"]
+    schedule: { interval: weekly, day: tuesday }
+    cooldown: { default-days: 5 }
+    groups:
+      python-tools:
+        patterns: ["*"]

@@ -1,9 +1,16 @@
 name: Release tables
 
-# The support dates of the products (catalog.versions) come from endoflife.date. Once a week this job fetches them again,
-# rebuilds what depends on them (recommended versions in the default catalog, generated documentation, the recorded
-# engine output the editor's tests run on), runs the tests and commits the result. A failing test or an unreachable
-# source leaves main as it was and fails the run.
+# The support dates of the products (catalog.versions) come from endoflife.date. Once a week this workflow fetches them again, rebuilds what depends on them
+# (recommended versions in the default catalog, generated documentation, the recorded engine output the editor's tests run on), runs the tests and commits
+# the result. A failing test or an unreachable source leaves main as it was and fails the run.
+#
+# Two jobs, because they must not trust each other:
+#   refresh  reads, downloads, builds and tests: cargo (build scripts), npm (lifecycle scripts) and the repository's tests run here. It cannot write to the
+#            repository, and hands over a patch with only the files the refresh is meant to write (deploy/release-patch.py make).
+#   commit   holds the permission to push and runs nothing but git and deploy/release-patch.py, which REFUSES a patch that touches anything else (a workflow,
+#            a script, a source file: what a dependency that went wrong could have made refresh emit).
+# A push with the workflow's token starts no CI run (GitHub does not run workflows for commits made by GITHUB_TOKEN): what vouches for the commit is the tests
+# of `refresh`, which ran on the same files.
 on:
   schedule:
     - cron: "17 5 * * 1"
@@ -14,15 +21,20 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   refresh:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
+    outputs:
+      changed: ${{ steps.diff.outputs.changed }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/rust-toolchain
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: backend
       - name: Fetch the support dates
@@ -43,7 +55,7 @@ jobs:
         if: steps.diff.outputs.changed == 'true'
         working-directory: backend
         run: cargo test -p engine --locked
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         if: steps.diff.outputs.changed == 'true'
         with:
           node-version: 22
@@ -55,11 +67,38 @@ jobs:
         run: |
           npm ci
           npm test
-      - name: Commit
+      - name: The patch (only what the refresh is meant to write)
         if: steps.diff.outputs.changed == 'true'
+        run: python3 deploy/release-patch.py make "$RUNNER_TEMP/release-tables.patch"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: steps.diff.outputs.changed == 'true'
+        with:
+          name: release-tables-patch
+          path: ${{ runner.temp }}/release-tables.patch
+          retention-days: 1
+          if-no-files-found: error
+
+  commit:
+    needs: refresh
+    if: needs.refresh.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      # main as it is now (the refresh took a quarter of an hour); the token stays in the checkout because this job pushes
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-tables-patch
+          path: ${{ runner.temp }}
+      - name: Refuse a patch that touches anything but the release tables, otherwise apply it
+        run: python3 deploy/release-patch.py apply "$RUNNER_TEMP/release-tables.patch"
+      - name: Commit
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A backend/crates/engine/defaults docs frontend/tests/fixtures README.md README.en.md
           git commit -m "Release tables: support dates refreshed from endoflife.date"
           git push
