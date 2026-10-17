@@ -6,6 +6,7 @@ import type {
 } from '@/api/types'
 import { CARD_H, CARD_W, DEFAULT_ZONE_H, DEFAULT_ZONE_W, boundsOf, layoutAll, mergeArchitecture, nodeRect, placeInZone, placeMissing, structureDrift, zoneAt, zoneChain, zoneDescendants, zoneRect } from '@/editor/layout'
 import { lang, lt, t } from '@/i18n'
+import { busyRetryMs } from '@/lib/busy'
 import { effectiveProps, kindPropDefs } from '@/lib/catalog'
 import { errorMessage, newId } from '@/lib/format'
 import { statusRank } from '@/lib/findings'
@@ -217,6 +218,7 @@ export const useEditor = defineStore('editor', () => {
     clearTimeout(evalTimer)
     clearTimeout(simTimer)
     evalAbort?.abort()
+    evaluating.value = false // a calculation that was waiting to be asked again (a busy server) has no timer left to end it
     projectId.value = ''
     project.value = null
     arch.value = emptyArchitecture()
@@ -270,6 +272,7 @@ export const useEditor = defineStore('editor', () => {
     const seq = ++evalSeq
     const edits = editSeq
     evaluating.value = true
+    let later = false
     try {
       const r = await api.engine.evaluate(arch.value, projectId.value, lang.value, ctl.signal)
       if (seq !== evalSeq) return
@@ -283,9 +286,18 @@ export const useEditor = defineStore('editor', () => {
       }
     } catch (e: any) {
       if (e?.name === 'AbortError' || seq !== evalSeq) return
+      // the server is busy with this person's other calculations (429 + Retry-After, `limits.heavyConcurrentPerUser`): the verdict is wanted and the server says when
+      // to come back, so this is "later" and not an error to show; the calculation stays in progress until the retry answers
+      const wait = busyRetryMs(e)
+      if (wait !== null) {
+        later = true
+        clearTimeout(evalTimer)
+        evalTimer = setTimeout(() => void evaluateNow(), wait)
+        return
+      }
       evalError.value = errorMessage(e)
     } finally {
-      if (seq === evalSeq) evaluating.value = false
+      if (seq === evalSeq && !later) evaluating.value = false
     }
   }
 
@@ -304,6 +316,12 @@ export const useEditor = defineStore('editor', () => {
       sim.value = { scenario, result, loading: false, error: '' }
     } catch (e) {
       if (seq !== simSeq || !sim.value) return
+      // a busy server (429 + Retry-After) is "later": the picture on screen stays, marked as coming, and the scenario is asked again unless another was chosen meanwhile
+      const wait = busyRetryMs(e)
+      if (wait !== null) {
+        simTimer = setTimeout(() => { if (seq === simSeq) void runScenario(scenario) }, wait)
+        return
+      }
       sim.value = { scenario, result: null, loading: false, error: errorMessage(e) }
     }
   }

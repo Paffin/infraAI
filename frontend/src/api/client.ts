@@ -5,11 +5,14 @@ export class ApiError extends Error {
   status: number
   code: string
   details?: any
-  constructor(status: number, code: string, message: string, details?: any) {
+  /** Seconds the server asks to wait before the same request is sent again (`Retry-After`; the server writes whole seconds). Only on the refusals that are about time. */
+  retryAfter?: number
+  constructor(status: number, code: string, message: string, details?: any, retryAfter?: number) {
     super(message)
     this.status = status
     this.code = code
     this.details = details
+    this.retryAfter = retryAfter
   }
 }
 
@@ -40,7 +43,8 @@ async function request<T>(method: string, path: string, body?: unknown, signal?:
   if (!res.ok) {
     const err = data?.error
     if (res.status === 401 && path !== '/auth/login') window.dispatchEvent(new Event(unauthorizedEvent))
-    throw new ApiError(res.status, err?.code || 'http_' + res.status, err?.message || res.statusText, err?.details)
+    const wait = Number(res.headers.get('Retry-After'))
+    throw new ApiError(res.status, err?.code || 'http_' + res.status, err?.message || res.statusText, err?.details, Number.isFinite(wait) && wait > 0 ? wait : undefined)
   }
   return data as T
 }
