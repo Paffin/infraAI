@@ -226,6 +226,6 @@ pub async fn bind_metrics(boot: &crate::config::BootConfig) -> std::io::Result<O
 
 /// Serves [`metrics_router`] on `listener` until `shutdown` completes (then the requests in flight finish). The same connection loop as the application's.
 pub async fn serve_metrics(listener: tokio::net::TcpListener, state: AppState, shutdown: impl std::future::Future<Output = ()> + Send + 'static) -> std::io::Result<()> {
-    let options = crate::serve::ServeOptions::from_settings(&state).await;
+    let options = crate::serve::ServeOptions::from_settings(&state);
     crate::serve::run(listener, metrics_router(state), options, shutdown).await
 }

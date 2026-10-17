@@ -89,24 +89,30 @@ async fn url_settings_are_validated() {
     let app = TestApp::new().await;
     let c = app.login_admin().await;
 
-    let refused: [(&str, Value); 9] = [
-        ("llm.baseUrl", json!("file:///etc")),
-        ("llm.baseUrl", json!("http://169.254.169.254@evil.example")),
-        ("llm.baseUrl", json!("not a url")),
-        ("ui.helpUrl", json!("javascript:alert(document.domain)")),
-        ("app.publicUrl", json!("https://architect.example.com/app")),
-        ("llm.appReferer", json!("https://x.example\r\nX-Evil: 1")),
-        ("llm.appTitle", json!("a\nb")),
-        ("versions.sourceBases", json!(["https://endoflife.date/api/", "ftp://mirror.internal/"])),
-        ("app.name", json!("x\u{0}y")),
+    // the third column is the code of the refusal: the interface says it in the language of the person, and the English `reason` stays for scripts
+    let refused: [(&str, Value, &str); 9] = [
+        ("llm.baseUrl", json!("file:///etc"), "not_http"),
+        ("llm.baseUrl", json!("http://169.254.169.254@evil.example"), "has_credentials"),
+        ("llm.baseUrl", json!("not a url"), "not_http"),
+        ("ui.helpUrl", json!("javascript:alert(document.domain)"), "not_http"),
+        ("app.publicUrl", json!("https://architect.example.com/app"), "not_origin"),
+        ("llm.appReferer", json!("https://x.example\r\nX-Evil: 1"), "not_single_line"),
+        ("llm.appTitle", json!("a\nb"), "not_single_line"),
+        ("versions.sourceBases", json!(["https://endoflife.date/api/", "ftp://mirror.internal/"]), "not_http"),
+        ("app.name", json!("x\u{0}y"), "not_single_line"),
     ];
-    for (key, bad) in refused {
+    for (key, bad, code) in refused {
         let before = setting(&app, &c, key).await;
         let (s, v) = app.put(&c, "/api/admin/settings", json!({"changes": {key: bad}})).await;
         assert_eq!((s, v["error"]["code"].as_str(), v["error"]["details"]["key"].as_str()), (StatusCode::BAD_REQUEST, Some("invalid_setting"), Some(key)), "{key} = {bad}: {v}");
         assert!(v["error"]["details"]["reason"].as_str().is_some_and(|r| !r.is_empty()), "the reason is said: {v}");
+        assert_eq!(v["error"]["details"]["reasonCode"], code, "{key} = {bad}: {v}");
         assert_eq!(setting(&app, &c, key).await, before, "{key}: a refused value is not stored");
     }
+    let (_, v) = app.put(&c, "/api/admin/settings", json!({"changes": {"versions.sourceBases": ["https://endoflife.date/api/", "ftp://mirror.internal/"]}})).await;
+    assert_eq!(v["error"]["details"]["params"]["value"], "ftp://mirror.internal/", "the entry that is wrong, for the interface to name: {v}");
+    let (_, v) = app.put(&c, "/api/admin/settings", json!({"changes": {"auth.sessionTtlHours": 0}})).await;
+    assert_eq!((v["error"]["details"]["reasonCode"].as_str(), v["error"]["details"]["params"]["min"].as_f64()), (Some("below_min"), Some(1.0)), "a bound carries the number: {v}");
 
     // one bad value in a set of changes keeps the good ones out too: the request is all or nothing
     let name = setting(&app, &c, "app.name").await;
@@ -205,6 +211,48 @@ async fn an_endless_answer_from_the_model_provider_is_cut_off_at_the_cap() {
     assert_eq!((job["status"].as_str(), job["errorCode"].as_str()), (Some("failed"), Some("llm_error")), "{job}");
     assert!(job["error"].as_str().unwrap().contains("too large"), "{job}");
     assert!(started.elapsed() < Duration::from_secs(8), "{:?}", started.elapsed());
+    app.cleanup().await;
+}
+
+/// The key check says "ok" only about an answer it has read. A 2xx answer past `outbound.maxAnswerKb` (or one that is not JSON) was once turned into `ok: true`
+/// with no information about the key: a statement the check could not back.
+#[tokio::test]
+async fn an_unreadable_answer_to_the_key_check_is_not_a_good_key() {
+    let app = TestApp::new().await;
+    let c = app.login_admin().await;
+    let provider = Hostile::listen(|_| None).await;
+    set(&app, &c, json!({"llm.apiKey": "sk-or-v1-test-key", "llm.baseUrl": provider.url(""), "outbound.maxAnswerKb": 64, "llm.catalogTimeoutSeconds": 60})).await;
+    let started = Instant::now();
+    let (s, v) = app.post(&c, "/api/admin/llm/test", json!({})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    assert_eq!(v["ok"], false, "an answer past the cap says nothing good about the key: {v}");
+    assert!(v["key"].is_null(), "{v}");
+    assert!(v["message"].as_str().unwrap().contains("too large"), "the reason is the one it failed for: {v}");
+    assert!(started.elapsed() < Duration::from_secs(5), "{:?}", started.elapsed());
+
+    // not JSON: the same
+    let html = Hostile::listen(|_| reply("200 OK", "Content-Type: text/html\r\n", "<html>a captive portal</html>")).await;
+    set(&app, &c, json!({"llm.baseUrl": html.url("")})).await;
+    let (_, v) = app.post(&c, "/api/admin/llm/test", json!({})).await;
+    assert_eq!(v["ok"], false, "{v}");
+    assert!(v["message"].as_str().unwrap().contains("not JSON"), "{v}");
+
+    // an error status with a body nobody can read is not "the key was rejected" either
+    let broken = Hostile::listen(|_| reply("502 Bad Gateway", "Content-Type: text/html\r\n", "<html>bad gateway</html>")).await;
+    set(&app, &c, json!({"llm.baseUrl": broken.url("")})).await;
+    let (_, v) = app.post(&c, "/api/admin/llm/test", json!({})).await;
+    assert_eq!(v["ok"], false, "{v}");
+    assert!(v["message"].as_str().unwrap().contains("502"), "says what happened, not that the key is bad: {v}");
+
+    // the control: a readable answer is a checked key
+    let good = Hostile::listen(|path| match path {
+        "/key" => reply("200 OK", "Content-Type: application/json\r\n", r#"{"data": {"label": "ci", "limit": null, "usage": 0.5, "is_free_tier": false}}"#),
+        _ => reply("404 Not Found", "Content-Type: application/json\r\n", "{}"),
+    })
+    .await;
+    set(&app, &c, json!({"llm.baseUrl": good.url("")})).await;
+    let (_, v) = app.post(&c, "/api/admin/llm/test", json!({})).await;
+    assert_eq!((v["ok"].as_bool(), v["key"]["label"].as_str()), (Some(true), Some("ci")), "{v}");
     app.cleanup().await;
 }
 
@@ -334,6 +382,39 @@ async fn list_stays_small_with_long_descriptions() {
     let (_, list) = app.get(&c, "/api/projects").await;
     assert_eq!(list["projects"].as_array().unwrap().iter().find(|p| p["id"] == short["id"]).unwrap()["description"], "short one");
     app.cleanup().await;
+}
+
+/// The list of projects cuts a description with `left(description, n)`. That counts characters in a UTF8 database and bytes in `SQL_ASCII`, where a cut
+/// inside a Cyrillic letter cannot be sent to the client at all (500 on `GET /api/projects` on a cluster made under the `C` locale). The requirement is
+/// documented (docs/DEPLOYMENT.md) and an installation that does not meet it is told at start (`db::warn_unless_utf8`). Two real databases, one of each.
+#[tokio::test]
+async fn a_database_that_is_not_utf8_is_named() {
+    let admin = sqlx::PgPool::connect(&admin_url()).await.expect("test postgres must be reachable");
+    let (utf8, ascii) = (format!("t_{}", uuid::Uuid::new_v4().simple()), format!("t_{}", uuid::Uuid::new_v4().simple()));
+    sqlx::query(&format!("create database {utf8} encoding 'UTF8' template template0")).execute(&admin).await.unwrap();
+    sqlx::query(&format!("create database {ascii} encoding 'SQL_ASCII' template template0")).execute(&admin).await.unwrap();
+    let connect = |name: &str| {
+        let url = admin_url().rsplit_once('/').map(|(a, _)| format!("{a}/{name}")).unwrap();
+        async move { sqlx::PgPool::connect(&url).await.unwrap() }
+    };
+    let (good, bad) = (connect(&utf8).await, connect(&ascii).await);
+
+    assert_eq!(server::db::encoding(&good).await.unwrap(), "UTF8");
+    assert_eq!(server::db::encoding(&bad).await.unwrap(), "SQL_ASCII");
+    assert_eq!(server::db::warn_unless_utf8(&good).await, None, "nothing to say about a UTF8 database");
+    assert_eq!(server::db::warn_unless_utf8(&bad).await.as_deref(), Some("SQL_ASCII"), "the other one is named");
+
+    // why it matters: the same cut, in the same words, is a string in one and an error in the other
+    let cut = "select left('привет', 3)";
+    assert_eq!(sqlx::query_scalar::<_, String>(cut).fetch_one(&good).await.unwrap(), "при");
+    let failed = sqlx::query_scalar::<_, String>(cut).fetch_one(&bad).await.expect_err("a cut inside a letter is not sent");
+    assert!(failed.to_string().contains("invalid byte sequence"), "{failed}");
+
+    good.close().await;
+    bad.close().await;
+    for name in [utf8, ascii] {
+        sqlx::query(&format!("drop database {name} with (force)")).execute(&admin).await.unwrap();
+    }
 }
 
 fn ids_of(page: &Value) -> Vec<String> {
@@ -692,10 +773,11 @@ async fn slow_header_connection_is_closed() {
     let app = TestApp::new().await;
     let c = app.login_admin().await;
     set(&app, &c, json!({"limits.headerReadTimeoutSeconds": 2})).await;
-    let options = ServeOptions::from_settings(&app.state).await;
-    assert_eq!(options.header_read_timeout, Some(Duration::from_secs(2)), "the setting is what the listener is given");
+    let options = ServeOptions::from_settings(&app.state);
+    assert_eq!(options.header_read_timeout().await, Some(Duration::from_secs(2)), "the setting is what the listener is given");
     set(&app, &c, json!({"limits.headerReadTimeoutSeconds": 0})).await;
-    assert_eq!(ServeOptions::from_settings(&app.state).await.header_read_timeout, None, "0 is no timeout");
+    assert_eq!(options.header_read_timeout().await, None, "0 is no timeout, and the same options hear the change: it is read for every connection, not once");
+    set(&app, &c, json!({"limits.headerReadTimeoutSeconds": 2})).await;
 
     let half = b"GET /api/public/config HTTP/1.1\r\nHost: localhost\r\nX-A: b";
     let start = |options: ServeOptions| {
@@ -724,6 +806,16 @@ async fn slow_header_connection_is_closed() {
     let (counted,): (i64,) = sqlx::query_as("select count(*) from rate_limits where key = 'login:ip:127.0.0.1'").fetch_one(&app.state.pool).await.unwrap();
     assert_eq!(counted, 1, "and it is the address of the peer");
     let mut buf = [0u8; 64];
+
+    // a change in the admin panel is in force for the next client, on the listener that is already running; the connection that is already here keeps the limit it came with
+    set(&app, &c, json!({"limits.headerReadTimeoutSeconds": 1})).await;
+    let mut newer = TcpStream::connect(addr).await.unwrap();
+    newer.write_all(half).await.unwrap();
+    let newer_started = Instant::now();
+    let closed = tokio::time::timeout(Duration::from_secs(6), newer.read(&mut buf)).await.expect("the newer connection was closed");
+    assert!(matches!(closed, Ok(0) | Err(_)), "closed without an answer: {closed:?}");
+    let waited = newer_started.elapsed();
+    assert!(waited >= Duration::from_millis(800) && waited < Duration::from_millis(1700), "closed by the 1 s the setting says now, not by the 2 s the listener started with: {waited:?}");
     let closed = tokio::time::timeout(Duration::from_secs(6), slow.read(&mut buf)).await.expect("the server closed the connection");
     assert!(matches!(closed, Ok(0) | Err(_)), "closed without an answer: {closed:?}");
     let waited = started.elapsed();
@@ -732,7 +824,7 @@ async fn slow_header_connection_is_closed() {
     tokio::time::timeout(Duration::from_secs(5), serving).await.expect("the loop ends when told to").unwrap().unwrap();
 
     // a connection kept open between two requests is closed by the same timeout when nothing comes: it is the time to the next request's headers, as hyper counts it
-    let (addr, stop, serving) = start(ServeOptions { header_read_timeout: Some(Duration::from_secs(1)) }).await;
+    let (addr, stop, serving) = start(ServeOptions::fixed(Some(Duration::from_secs(1)))).await;
     let mut kept = TcpStream::connect(addr).await.unwrap();
     kept.write_all(b"GET /api/public/config HTTP/1.1\r\nHost: localhost\r\n\r\n").await.unwrap();
     let mut answer = vec![0u8; 4096];
@@ -746,7 +838,7 @@ async fn slow_header_connection_is_closed() {
     tokio::time::timeout(Duration::from_secs(5), serving).await.expect("the loop ends when told to").unwrap().unwrap();
 
     // the control: without a timeout the same half-open connection is still open when the other one was closed long ago
-    let (addr, stop, serving) = start(ServeOptions { header_read_timeout: None }).await;
+    let (addr, stop, serving) = start(ServeOptions::fixed(None)).await;
     let mut open = TcpStream::connect(addr).await.unwrap();
     open.write_all(half).await.unwrap();
     let still = tokio::time::timeout(Duration::from_millis(3500), open.read(&mut buf)).await;

@@ -159,12 +159,7 @@ pub fn summarize(r: &Report) -> ReportSummary {
     }
 }
 
-/// The summary kept with a version: the architecture evaluated with the project's accepted risks.
-pub async fn evaluated_summary(cfg: &Arc<Loaded>, arch: Architecture, waivers: Vec<Waiver>, lang: String) -> ApiResult<Value> {
-    evaluated_summary_held(cfg, arch, waivers, lang, &Held::default()).await
-}
-
-/// [`evaluated_summary`] for a request that holds a slot of the heavy-request gate.
+/// The summary kept with a version: the architecture evaluated with the project's accepted risks, by a request that holds a slot of the heavy-request gate.
 pub async fn evaluated_summary_held(cfg: &Arc<Loaded>, arch: Architecture, waivers: Vec<Waiver>, lang: String, hold: &Held) -> ApiResult<Value> {
     let report = run_evaluate_held(cfg.clone(), arch, waivers, lang, hold).await?;
     Ok(serde_json::to_value(summarize(&report))?)

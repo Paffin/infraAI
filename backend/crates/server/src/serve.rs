@@ -24,21 +24,48 @@ use tokio::net::TcpListener;
 use tokio::sync::watch;
 use tower::ServiceExt;
 
-/// What `run` takes besides the listener and the router.
-#[derive(Debug, Clone, Copy, Default)]
+/// What `run` takes besides the listener and the router: where the limit on a client's headers comes from.
+#[derive(Clone, Default)]
 pub struct ServeOptions {
-    /// How long a client has to send the headers of a request (and, on a connection kept open, to start the next one). `None`: no limit.
-    pub header_read_timeout: Option<Duration>,
+    header_read_timeout: HeaderReadTimeout,
+}
+
+#[derive(Clone, Default)]
+enum HeaderReadTimeout {
+    /// No limit.
+    #[default]
+    None,
+    /// This long, whatever the settings say.
+    Fixed(Duration),
+    /// What `limits.headerReadTimeoutSeconds` says when the connection is accepted.
+    Setting(Box<crate::state::AppState>),
 }
 
 impl ServeOptions {
-    /// The options from the settings (`limits.headerReadTimeoutSeconds`; 0 = none). Read once, when the listener starts.
-    pub async fn from_settings(state: &crate::state::AppState) -> Self {
-        let secs = match state.cfg().await {
-            Ok(cfg) => cfg.settings.num("limits.headerReadTimeoutSeconds"),
-            Err(_) => crate::settings::Settings::defaults().num("limits.headerReadTimeoutSeconds"),
+    /// A limit that does not change: `None` = no limit.
+    pub fn fixed(header_read_timeout: Option<Duration>) -> Self {
+        ServeOptions { header_read_timeout: header_read_timeout.map_or(HeaderReadTimeout::None, HeaderReadTimeout::Fixed) }
+    }
+
+    /// The limit of `limits.headerReadTimeoutSeconds` (0 = none), **read for every accepted connection**, so that a change in the admin panel is in force for the
+    /// next client without a restart (the settings promise that; a value read once, when the listener starts, was the only one that did not keep it). A
+    /// connection already open keeps the limit it was accepted with.
+    pub fn from_settings(state: &crate::state::AppState) -> Self {
+        ServeOptions { header_read_timeout: HeaderReadTimeout::Setting(Box::new(state.clone())) }
+    }
+
+    /// The limit for a connection accepted now. A configuration that cannot be read (the database is away) falls back to the shipped default: a client that
+    /// stalls is no more welcome then.
+    pub async fn header_read_timeout(&self) -> Option<Duration> {
+        let secs = match &self.header_read_timeout {
+            HeaderReadTimeout::None => return None,
+            HeaderReadTimeout::Fixed(d) => return Some(*d),
+            HeaderReadTimeout::Setting(state) => match state.cfg().await {
+                Ok(cfg) => cfg.settings.num("limits.headerReadTimeoutSeconds"),
+                Err(_) => crate::settings::Settings::defaults().num("limits.headerReadTimeoutSeconds"),
+            },
         };
-        ServeOptions { header_read_timeout: (secs > 0.0).then(|| Duration::from_secs_f64(secs)) }
+        (secs > 0.0).then(|| Duration::from_secs_f64(secs))
     }
 }
 
@@ -78,11 +105,13 @@ pub async fn run(listener: TcpListener, app: Router, options: ServeOptions, shut
             req.extensions_mut().insert(ConnectInfo::<SocketAddr>(peer));
             req.map(Body::new)
         }));
-        let (signal_tx, close_rx) = (signal_tx.clone(), close_rx.clone());
+        let (signal_tx, close_rx, options) = (signal_tx.clone(), close_rx.clone(), options.clone());
         tokio::spawn(async move {
+            // asked in the task of the connection, not in the loop that accepts: reading the settings may take a query, and no client is made to wait for another's
+            let header_read_timeout = options.header_read_timeout().await;
             let mut builder = Builder::new(TokioExecutor::new());
             // hyper keeps a default of its own whenever a timer is set; `header_read_timeout(None)` is how it is switched off
-            builder.http1().timer(TokioTimer::new()).header_read_timeout(options.header_read_timeout);
+            builder.http1().timer(TokioTimer::new()).header_read_timeout(header_read_timeout);
             let mut connection = pin!(builder.serve_connection_with_upgrades(TokioIo::new(stream), service));
             let mut stopping = pin!(signal_tx.closed().fuse());
             loop {

@@ -86,7 +86,7 @@ async fn main() -> anyhow::Result<()> {
         tokio::time::sleep(Duration::from_secs(drain)).await;
         let _ = stop_after_drain.send(true);
     };
-    let serve = server::serve::run(listener, app, server::serve::ServeOptions::from_settings(&state).await, shutdown);
+    let serve = server::serve::run(listener, app, server::serve::ServeOptions::from_settings(&state), shutdown);
     tokio::select! {
         r = serve => { r?; }
         _ = async { wait_for_signal_then(grace).await } => { tracing::warn!("grace period elapsed, forcing shutdown"); }

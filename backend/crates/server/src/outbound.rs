@@ -7,15 +7,26 @@
 //! reqwest is built here without `gzip` or `brotli`, so an answer is read as it is on the wire: the bytes counted are the bytes held. Keep it that
 //! way, or count after decoding (a small body can inflate a thousandfold).
 
+/// How long a connection to another host may take to be made. One value for both clients, here and nowhere else: it only decides how fast an address that
+/// does not answer is given up (the whole request has its own bound from a setting - `llm.timeoutSeconds`, `llm.catalogTimeoutSeconds`,
+/// `versions.syncTimeoutSeconds` - which reqwest cannot be given once for a client that is built when the server starts).
+pub const CONNECT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+
+/// The builder both clients start from: who the server says it is, and the time to connect.
+pub fn client_builder() -> reqwest::ClientBuilder {
+    reqwest::Client::builder().user_agent(concat!("infra-architect/", env!("CARGO_PKG_VERSION"))).connect_timeout(CONNECT_TIMEOUT)
+}
+
+/// The client of the model provider (`AppState::http`) keeps reqwest's redirect policy: the provider's own redirects are its business, and reqwest drops the
+/// `Authorization` header when a redirect changes the host.
+pub fn llm_client() -> reqwest::Result<reqwest::Client> {
+    client_builder().build()
+}
+
 /// The client for fetching from a source that is held to an allowlist (`versions::fetch`): it never follows a redirect by itself, because the one who
-/// follows decides each hop against the allowlist. The client of the model provider (`AppState::http`) keeps reqwest's default - the provider's own
-/// redirects are its business, and reqwest drops the `Authorization` header when a redirect changes the host.
+/// follows decides each hop against the allowlist.
 pub fn sync_client() -> reqwest::Result<reqwest::Client> {
-    reqwest::Client::builder()
-        .user_agent(concat!("infra-architect/", env!("CARGO_PKG_VERSION")))
-        .connect_timeout(std::time::Duration::from_secs(10))
-        .redirect(reqwest::redirect::Policy::none())
-        .build()
+    client_builder().redirect(reqwest::redirect::Policy::none()).build()
 }
 
 /// The message of an answer that went past its ceiling. `LlmError::Other` and the sync outcome carry it as it is.

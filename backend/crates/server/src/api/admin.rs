@@ -36,12 +36,15 @@ async fn changed(state: &AppState) -> ApiResult<()> {
 /// setting, and it names no key (the answer must).
 fn setting_error(e: settings::SaveError) -> ApiError {
     use settings::SaveError;
-    let refused = |key: String, reason: String| ApiError::bad_request("invalid_setting", format!("{key}: {reason}")).with_details(json!({"key": key, "reason": reason}));
+    // `reason` is the English sentence; `reasonCode` and `params` are what the interface puts in the language of the person (docs/API.md)
+    let refused = |key: String, reason: settings::Refusal| {
+        ApiError::bad_request("invalid_setting", format!("{key}: {reason}")).with_details(json!({"key": key, "reason": reason.text(), "reasonCode": reason.code, "params": reason.params}))
+    };
     match e {
         SaveError::Invalid { key, reason } => refused(key, reason),
         SaveError::Store { key, source: sqlx::Error::Database(db) } => {
             tracing::warn!(%key, error = %db, "the database refused a setting");
-            refused(key, "the value cannot be stored".into())
+            refused(key, settings::Refusal::new("cannot_store", Value::Null, "the value cannot be stored"))
         }
         SaveError::Store { source, .. } => ApiError::internal(source),
     }
@@ -124,12 +127,19 @@ pub async fn llm_test(State(state): State<AppState>, user: AuthUser, body: Optio
         Err(e) => (false, Value::Null, format!("cannot reach OpenRouter: {}", e.without_url())),
         Ok(r) => {
             let status = r.status();
-            let v: Value = outbound::read_json_capped(r, outbound::answer_cap(&cfg.settings)).await.unwrap_or(Value::Null);
-            if status.is_success() {
-                let d = &v["data"];
-                (true, json!({"label": d["label"], "limit": d["limit"], "limitRemaining": d["limit_remaining"], "usage": d["usage"], "isFreeTier": d["is_free_tier"]}), String::new())
-            } else {
-                (false, Value::Null, v["error"]["message"].as_str().unwrap_or("the key was rejected").to_string())
+            // an answer that cannot be read (past `outbound.maxAnswerKb`, not JSON) says nothing about the key: it is not "ok" and not "rejected" either
+            match (status.is_success(), outbound::read_json_capped(r, outbound::answer_cap(&cfg.settings)).await) {
+                (true, Ok(v)) => {
+                    let d = &v["data"];
+                    (true, json!({"label": d["label"], "limit": d["limit"], "limitRemaining": d["limit_remaining"], "usage": d["usage"], "isFreeTier": d["is_free_tier"]}), String::new())
+                }
+                (true, Err(why)) => (false, Value::Null, format!("the answer of OpenRouter cannot be read ({why}), so the key was not checked")),
+                (false, Ok(v)) => {
+                    let said = v["error"]["message"].as_str().map(str::to_string);
+                    let rejected = matches!(status, reqwest::StatusCode::UNAUTHORIZED | reqwest::StatusCode::FORBIDDEN);
+                    (false, Value::Null, said.unwrap_or_else(|| if rejected { "the key was rejected".to_string() } else { format!("OpenRouter answered {status}") }))
+                }
+                (false, Err(_)) => (false, Value::Null, format!("OpenRouter answered {status}")),
             }
         }
     };

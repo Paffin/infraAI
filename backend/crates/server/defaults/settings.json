@@ -1041,8 +1041,8 @@
    "en": "Time to receive a request's headers (slow clients), seconds"
   },
   "help": {
-   "ru": "Клиент, который не дослал заголовки за этот срок, отключается (HTTP/1.1; так же закрывается соединение, простоявшее без запроса). Защита порта, открытого прямо в сеть, от «медленных» соединений; за обратным прокси это делает он. Читается при старте: после изменения нужен перезапуск. 0 — без срока.",
-   "en": "A client that has not sent the headers within this time is disconnected (HTTP/1.1; a connection that stood idle without a request is closed the same way). Protects a port that is open straight to the network from slow connections; behind a reverse proxy the proxy does it. Read at start: restart after changing it. 0 means no deadline."
+   "ru": "Клиент, который не дослал заголовки за этот срок, отключается (HTTP/1.1; так же закрывается соединение, простоявшее без запроса). Защита порта, открытого прямо в сеть, от «медленных» соединений; за обратным прокси это делает он. Читается при приёме каждого соединения: изменение действует на новые соединения, перезапуск не нужен. Прокси, который держит соединения к серверу открытыми между запросами (nginx, Ingress, балансировщик облака), закрывается этим же сроком: значение должно быть больше его срока простоя (у ingress-nginx и ALB — 60 секунд) либо 0, иначе изредка запрос уходит в соединение, которое сервер уже закрыл (502).",
+   "en": "A client that has not sent the headers within this time is disconnected (HTTP/1.1; a connection that stood idle without a request is closed the same way). Protects a port that is open straight to the network from slow connections; behind a reverse proxy the proxy does it. Read when each connection is accepted: a change is in force for new connections, no restart. A proxy that keeps its connections to the server open between requests (nginx, an ingress, a cloud load balancer) is closed by the same time: the value must be longer than the proxy's idle timeout (60 seconds for ingress-nginx and an ALB) or 0, otherwise a request now and then goes into a connection the server has just closed (502)."
   },
   "min": 0,
   "max": 3600

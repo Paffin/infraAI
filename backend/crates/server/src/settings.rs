@@ -67,47 +67,99 @@ impl SettingDef {
     }
 }
 
-fn check_line(s: &str) -> Result<String, String> {
+/// Why a value was refused. `code` is the stable part: the interface puts it in its own words, in the language of the person (the English sentence is for the API
+/// and the log, and says nothing to an administrator who reads Russian); `params` are the numbers and the names that sentence needs. Codes the interface does not
+/// know yet are shown by their English `text`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Refusal {
+    pub code: &'static str,
+    pub params: Value,
+    text: String,
+}
+
+impl Refusal {
+    pub fn new(code: &'static str, params: Value, text: impl Into<String>) -> Self {
+        Refusal { code, params, text: text.into() }
+    }
+
+    /// The same refusal for one entry of a list: the sentence names the entry, and the parameters carry it (`value`, at most 60 characters).
+    fn of_entry(mut self, entry: &str) -> Self {
+        let shown: String = entry.chars().take(60).collect();
+        self.text = format!("'{shown}' {}", self.text);
+        match &mut self.params {
+            Value::Object(m) => {
+                m.insert("value".into(), json!(shown));
+            }
+            other => *other = json!({"value": shown}),
+        }
+        self
+    }
+
+    pub fn text(&self) -> &str {
+        &self.text
+    }
+}
+
+impl std::fmt::Display for Refusal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.text)
+    }
+}
+
+/// A refusal nobody gave a code of its own: `invalid`, with its sentence.
+impl From<&str> for Refusal {
+    fn from(text: &str) -> Self {
+        Refusal::new("invalid", Value::Null, text)
+    }
+}
+
+impl From<String> for Refusal {
+    fn from(text: String) -> Self {
+        Refusal::new("invalid", Value::Null, text)
+    }
+}
+
+fn check_line(s: &str) -> Result<String, Refusal> {
     if s.chars().any(char::is_control) {
-        return Err("must be a single line, without line breaks or other control characters".into());
+        return Err(Refusal::new("not_single_line", Value::Null, "must be a single line, without line breaks or other control characters"));
     }
     if s.chars().count() > MAX_LINE_CHARS {
-        return Err(format!("must be at most {MAX_LINE_CHARS} characters"));
+        return Err(Refusal::new("line_too_long", json!({"max": MAX_LINE_CHARS}), format!("must be at most {MAX_LINE_CHARS} characters")));
     }
     Ok(s.to_string())
 }
 
 /// An address that is http or https, has a host and no credentials. Returns it parsed; the caller adds what its format forbids.
-fn parse_http(s: &str) -> Result<reqwest::Url, String> {
+fn parse_http(s: &str) -> Result<reqwest::Url, Refusal> {
     let lower = s.to_ascii_lowercase();
     if !(lower.starts_with("http://") || lower.starts_with("https://")) {
-        return Err("must be an address that starts with http:// or https://".into());
+        return Err(Refusal::new("not_http", Value::Null, "must be an address that starts with http:// or https://"));
     }
     // the URL parser silently drops tabs and line breaks and reads a backslash as a slash: what is stored must be what it will make of it
     if s.chars().any(|c| c.is_control() || c.is_whitespace() || c == '\\') {
-        return Err("must not contain spaces, backslashes or control characters".into());
+        return Err(Refusal::new("address_chars", Value::Null, "must not contain spaces, backslashes or control characters"));
     }
     if s.chars().count() > MAX_URL_CHARS {
-        return Err(format!("must be at most {MAX_URL_CHARS} characters"));
+        return Err(Refusal::new("address_too_long", json!({"max": MAX_URL_CHARS}), format!("must be at most {MAX_URL_CHARS} characters")));
     }
-    let u = reqwest::Url::parse(s).map_err(|e| format!("is not a valid address ({e})"))?;
+    let u = reqwest::Url::parse(s).map_err(|e| Refusal::new("bad_address", Value::Null, format!("is not a valid address ({e})")))?;
     if u.host_str().is_none_or(str::is_empty) {
-        return Err("must name a host".into());
+        return Err(Refusal::new("no_host", Value::Null, "must name a host"));
     }
     if !u.username().is_empty() || u.password().is_some() {
-        return Err("must not contain a user name or a password".into());
+        return Err(Refusal::new("has_credentials", Value::Null, "must not contain a user name or a password"));
     }
     Ok(u)
 }
 
-fn check_format(format: &str, s: &str) -> Result<String, String> {
+fn check_format(format: &str, s: &str) -> Result<String, Refusal> {
     match format {
         "single_line" | "line_list" => check_line(s),
         "http_link" => parse_http(s).map(|_| s.to_string()),
         "http_url" | "url_list" => {
             let u = parse_http(s)?;
             if u.query().is_some() || u.fragment().is_some() {
-                return Err("must not contain a query (?) or a fragment (#)".into());
+                return Err(Refusal::new("has_query", Value::Null, "must not contain a query (?) or a fragment (#)"));
             }
             if format == "url_list" && !s.ends_with('/') {
                 return Ok(format!("{s}/"));
@@ -119,11 +171,11 @@ fn check_format(format: &str, s: &str) -> Result<String, String> {
             // what follows the host, other than slashes, is a path: the parser would read `/.` as the root, the `Origin` check would not
             let after_scheme = s.split_once("://").map_or(s, |(_, rest)| rest);
             if u.query().is_some() || u.fragment().is_some() || after_scheme.trim_end_matches('/').contains('/') {
-                return Err("must be an origin, scheme://host[:port], without a path, a query or a fragment".into());
+                return Err(Refusal::new("not_origin", Value::Null, "must be an origin, scheme://host[:port], without a path, a query or a fragment"));
             }
             Ok(u.origin().ascii_serialization())
         }
-        other => Err(format!("unknown format {other}")),
+        other => Err(format!("unknown format {other}").into()),
     }
 }
 
@@ -138,27 +190,29 @@ pub fn def(key: &str) -> Option<&'static SettingDef> {
     registry().iter().find(|d| d.key == key)
 }
 
-/// Validate and normalise a value for a setting. Returns the value to store.
-pub fn validate(def: &SettingDef, v: &Value) -> Result<Value, String> {
+/// Validate and normalise a value for a setting. Returns the value to store, or the [`Refusal`] (a code for the interface, and a sentence in English).
+pub fn validate(def: &SettingDef, v: &Value) -> Result<Value, Refusal> {
+    let expected = |what: &'static str, text: &'static str| Refusal::new("wrong_type", json!({"expected": what}), text);
     match def.ty.as_str() {
         "string" | "model" | "secret" => match v {
             Value::String(s) => {
                 let s = s.trim();
                 match def.format.as_deref() {
                     Some(_) if s.is_empty() && def.allows_empty() => Ok(Value::String(String::new())),
-                    Some(_) if s.is_empty() => Err("must not be empty".into()),
+                    Some(_) if s.is_empty() => Err(Refusal::new("empty", Value::Null, "must not be empty")),
                     Some(f) => check_format(f, s).map(Value::String),
                     None => Ok(Value::String(s.to_string())),
                 }
             }
-            _ => Err("expected a string".into()),
+            _ => Err(expected("string", "expected a string")),
         },
         "enum" => {
-            let s = v.as_str().ok_or("expected a string")?;
-            if def.options.as_ref().map(|o| o.iter().any(|x| x == s)).unwrap_or(false) {
+            let s = v.as_str().ok_or_else(|| expected("string", "expected a string"))?;
+            let options = def.options.clone().unwrap_or_default();
+            if options.iter().any(|x| x == s) {
                 Ok(json!(s))
             } else {
-                Err(format!("must be one of: {}", def.options.clone().unwrap_or_default().join(", ")))
+                Err(Refusal::new("not_an_option", json!({"options": options.join(", ")}), format!("must be one of: {}", options.join(", "))))
             }
         }
         "number" => {
@@ -167,30 +221,30 @@ pub fn validate(def: &SettingDef, v: &Value) -> Result<Value, String> {
                 Value::String(s) => s.trim().parse::<f64>().ok(),
                 _ => None,
             }
-            .ok_or("expected a number")?;
+            .ok_or_else(|| expected("number", "expected a number"))?;
             if let Some(min) = def.min {
                 if n < min {
-                    return Err(format!("must be ≥ {min}"));
+                    return Err(Refusal::new("below_min", json!({"min": min}), format!("must be ≥ {min}")));
                 }
             }
             if let Some(max) = def.max {
                 if n > max {
-                    return Err(format!("must be ≤ {max}"));
+                    return Err(Refusal::new("above_max", json!({"max": max}), format!("must be ≤ {max}")));
                 }
             }
             Ok(json!(n))
         }
-        "boolean" => v.as_bool().map(|b| json!(b)).ok_or_else(|| "expected true or false".to_string()),
+        "boolean" => v.as_bool().map(|b| json!(b)).ok_or_else(|| expected("boolean", "expected true or false")),
         "string_list" => {
-            let a = v.as_array().ok_or("expected a list of strings")?;
+            let a = v.as_array().ok_or_else(|| expected("list", "expected a list of strings"))?;
             let mut out = vec![];
             for x in a {
-                let s = x.as_str().ok_or("expected a list of strings")?.trim();
+                let s = x.as_str().ok_or_else(|| expected("list", "expected a list of strings"))?.trim();
                 if s.is_empty() {
                     continue;
                 }
                 match def.format.as_deref() {
-                    Some(f) => out.push(json!(check_format(f, s).map_err(|e| format!("'{}' {e}", s.chars().take(60).collect::<String>()))?)),
+                    Some(f) => out.push(json!(check_format(f, s).map_err(|why| why.of_entry(s))?)),
                     None => out.push(json!(s)),
                 }
             }
@@ -200,10 +254,10 @@ pub fn validate(def: &SettingDef, v: &Value) -> Result<Value, String> {
             if v.is_object() || v.is_array() {
                 Ok(v.clone())
             } else {
-                Err("expected a JSON object".into())
+                Err(expected("object", "expected a JSON object"))
             }
         }
-        other => Err(format!("unknown setting type {other}")),
+        other => Err(format!("unknown setting type {other}").into()),
     }
 }
 
@@ -319,7 +373,7 @@ fn same_value(a: &Value, b: &Value) -> bool {
 #[derive(Debug)]
 pub enum SaveError {
     /// The registry refuses the value: unknown key, wrong type, out of range.
-    Invalid { key: String, reason: String },
+    Invalid { key: String, reason: Refusal },
     /// PostgreSQL refused the value (a string with U+0000 cannot be kept in `jsonb`) or could not be reached.
     Store { key: String, source: sqlx::Error },
 }
@@ -341,7 +395,7 @@ pub async fn save(pool: &PgPool, keys: &Keys, changes: &serde_json::Map<String, 
 pub async fn save_in(conn: &mut PgConnection, keys: &Keys, changes: &serde_json::Map<String, Value>, actor: &str) -> Result<Vec<String>, SaveError> {
     let mut changed = vec![];
     for (k, v) in changes {
-        let d = def(k).ok_or_else(|| SaveError::Invalid { key: k.clone(), reason: "unknown setting".into() })?;
+        let d = def(k).ok_or_else(|| SaveError::Invalid { key: k.clone(), reason: Refusal::new("unknown_setting", Value::Null, "unknown setting") })?;
         let norm = canonical(validate(d, v).map_err(|reason| SaveError::Invalid { key: k.clone(), reason })?);
         if d.ty == "secret" {
             let s = norm.as_str().unwrap_or("");
@@ -387,7 +441,7 @@ mod tests {
         }
     }
 
-    fn refuses(key: &str, v: Value) -> String {
+    fn refuses(key: &str, v: Value) -> Refusal {
         match validate(def(key).unwrap(), &v) {
             Err(e) => e,
             Ok(stored) => panic!("{key} accepted {v} and would store {stored}"),
@@ -483,7 +537,8 @@ mod tests {
     #[test]
     fn url_list_checks_every_entry_and_makes_each_base_a_directory() {
         let e = refuses("versions.sourceBases", json!(["https://endoflife.date/api/", "ftp://mirror.internal/"]));
-        assert!(e.contains("ftp://mirror.internal/"), "the entry that is wrong is named: {e}");
+        assert!(e.text().contains("ftp://mirror.internal/"), "the entry that is wrong is named: {e}");
+        assert_eq!((e.code, e.params["value"].as_str()), ("not_http", Some("ftp://mirror.internal/")), "and it is a parameter too, for the interface to name it in its own words");
         refuses("versions.sourceBases", json!(["https://endoflife.date/api/?x=1"]));
         refuses("versions.sourceBases", json!(["file:///etc/"]));
         refuses("versions.sourceBases", json!([7]));

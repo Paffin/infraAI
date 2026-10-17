@@ -34,6 +34,29 @@ pub async fn connect(cfg: &BootConfig) -> anyhow::Result<PgPool> {
     }
 }
 
+/// The encoding of the database the pool is connected to (`UTF8`, `SQL_ASCII`, ...).
+pub async fn encoding(pool: &PgPool) -> sqlx::Result<String> {
+    sqlx::query_scalar("select pg_encoding_to_char(encoding) from pg_database where datname = current_database()").fetch_one(pool).await
+}
+
+/// The server keeps and cuts text by characters, and the SQL that cuts (`left(description, n)` in the list of projects) counts characters only in a UTF8
+/// database: in `SQL_ASCII` (what `initdb` makes under the `C` locale) it counts bytes, and a cut in the middle of a Cyrillic letter is an invalid sequence that
+/// PostgreSQL refuses to send - `GET /api/projects` answered 500. So a database of another encoding is named at start, with what to do. Returns the encoding
+/// when it is not UTF8.
+pub async fn warn_unless_utf8(pool: &PgPool) -> Option<String> {
+    match encoding(pool).await {
+        Ok(enc) if enc.eq_ignore_ascii_case("UTF8") => None,
+        Ok(enc) => {
+            tracing::warn!(encoding = %enc, "the database is not UTF8: text is cut by bytes, and the list of projects fails once a description is cut inside a letter. Create the database with ENCODING 'UTF8' (docs/DEPLOYMENT.md)");
+            Some(enc)
+        }
+        Err(e) => {
+            tracing::warn!(error = %e, "the encoding of the database could not be read");
+            None
+        }
+    }
+}
+
 pub async fn migrate(pool: &PgPool) -> anyhow::Result<()> {
     // sqlx takes a Postgres advisory lock while migrating: concurrent replicas are safe
     sqlx::migrate!("./migrations").run(pool).await?;
