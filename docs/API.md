@@ -14,7 +14,10 @@ configured `app.publicUrl`); otherwise `403 forbidden`.
 
 Every failure under `/api` is `application/json` in the shape above, whatever went wrong: a request the server cannot read (broken JSON, a wrong type, a missing field, a wrong
 `Content-Type`, a bad identifier in the path or the query, a body past `limits.maxBodyMb`, a method the path does not take) is answered by the same extractors and the same table as one it
-refuses on the merits, never by a bare text. `code` is the stable part (the UI translates it, scripts branch on it), `message` is for a person, `details` is optional.
+refuses on the merits, never by a bare text. `code` is the stable part (the UI translates it, scripts branch on it), `message` is an English sentence for scripts and the log, `details` is optional
+and carries the numbers and names the sentence needs. The interface puts the refusals it knows in the language of the person from `code` and `details` and does not show them the English `message`: a text past its
+limit (`field_too_long`, `invalid_name`), too many changes (`ops_too_many`), a request that took too long (`request_timeout`), a body that is too large (`payload_too_large`), a busy server (`rate_limited` with
+`details.scope`) and a setting value that was not accepted (`invalid_setting`). A code it does not know is shown by its `message`.
 
 | Code | Status | Meaning |
 |---|---|---|
@@ -56,7 +59,7 @@ refuses on the merits, never by a bare text. `code` is the stable part (the UI t
 | `invalid_ref`, `invalid_version`, `unknown_format` | 400 | a version reference that is not `draft` or a number / an export format that does not exist |
 | `reason_too_short`, `unknown_finding`, `not_acceptable` | 400 | accepting a risk: the reason is too short / the finding does not exist / only critical and risk findings can be accepted |
 | `bad_kind`, `empty_prompt`, `missing_finding`, `prompt_too_long` | 400 | an AI request that cannot be made: unknown kind / empty / `fix` without `findingId` / longer than `llm.maxPromptChars` (`details {field, max, actual}`; a `findingId` past `limits.maxIdChars` is `field_too_long`) |
-| `invalid_setting`, `invalid_config`, `invalid_kind`, `invalid_id` | 400 | the administrator's input: a setting value (`details.key`, `reason`), a configuration item that does not parse or whose ranges allow no value (a `min` above the `max`, a default outside the range: the message names the property), the wrong kind, a malformed id |
+| `invalid_setting`, `invalid_config`, `invalid_kind`, `invalid_id` | 400 | the administrator's input: a setting value (`details {key, reason, reasonCode, params}`: `reason` is the English sentence, `reasonCode` is why, in a code the interface says in its own words - `not_http`, `has_credentials`, `has_query`, `not_origin`, `not_single_line`, `line_too_long`, `address_chars`, `address_too_long`, `bad_address`, `no_host`, `empty`, `below_min`, `above_max`, `not_an_option`, `wrong_type`, `unknown_setting`, `cannot_store`, `invalid` for a refusal that has no code of its own - and `params` are the numbers and names it needs: `min`, `max`, `options`, `expected`, and `value` for the entry of a list that is wrong), a configuration item that does not parse or whose ranges allow no value (a `min` above the `max`, a default outside the range: the message names the property), the wrong kind, a malformed id |
 | `invalid_email`, `invalid_role` | 400 | a user: not an email (empty, past 200 bytes, a control character) / not one of admin, editor, viewer |
 | `llm_unreachable` | 503 | the model catalog of OpenRouter cannot be reached |
 | `internal` | 500 | a bug or a failure of the database; the message never says more, the log does |
@@ -127,7 +130,7 @@ and a version with `props.variant` / `props.version`; an unknown variant is repo
 
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/projects?limit=&cursor=` | `{projects:[{id,name,description,owner,updatedAt,createdAt,headVersion,draftRev,nodeCount,summary,thumb}], next}`; `summary` = `ReportSummary` of the latest version; `thumb` = what a thumbnail needs, see below; `description` is only the first `limits.listDescriptionChars` (280) characters, the whole one is in `GET /projects/{id}`. Paged, see below |
+| GET | `/projects?limit=&cursor=` | `{projects:[{id,name,description,owner,updatedAt,createdAt,headVersion,draftRev,nodeCount,summary,thumb}], next}`; `summary` = `ReportSummary` of the latest version; `thumb` = what a thumbnail needs, see below; `description` is only the first `limits.listDescriptionChars` (280) characters, the whole one is in `GET /projects/{id}` (so the search of the project cards, which reads the list, covers the name and that beginning of the description, not what comes after it). Paged, see below |
 | POST | `/projects` | `{name, description?, templateId? \| architecture? \| placement?, lang?}` → `{id}` (editor); `placement` is a `PlacementRequest` (see Placement below), `400 placement_failed` if it cannot be generated; `400 invalid_name` / `field_too_long` for a name / description past `limits.maxNameChars` / `limits.maxTextChars` |
 | GET | `/projects/{id}` | `{project, architecture, rev, waivers}` |
 | PATCH | `/projects/{id}` | `{name?, description?}` (the same bounds as on create) |
@@ -181,7 +184,8 @@ cannot be read, so nothing is evaluated with them. A project id that never exist
 
 What costs the processors of the replica for seconds is counted while it **runs**, not by the minute: a person may have `limits.heavyConcurrentPerUser` (3) of these in flight and a replica `limits.heavyConcurrentPerCore` (4) per processor; past either
 the answer is `429 rate_limited` with `Retry-After` (`limits.heavyRetryAfterSeconds`), before the body is read and before the engine starts. The count is in the memory of the replica asked (the processors are its own), and a request that the client aborted
-still counts until its calculation has ended: a blocking task is not stopped by a closed connection. The editor treats the answer as "later" and asks again by itself; a script should wait the `Retry-After` and send the request again.
+still counts until its calculation has ended: a blocking task is not stopped by a closed connection. The editor treats the answer as "later" for what it asks for by itself after every edit - the verdict (`/evaluate`), the failure being watched (`/simulate`) and the plan of improvements (`/recommendations`): it shows no error,
+keeps what is on the screen marked as coming and asks again after the `Retry-After`. For a request the person made (an export, a version, a placement, an accepted risk) it says in the person's language that the server is busy and for how long; a script should wait the `Retry-After` and send the request again.
 The routes that are counted (`heavy::HEAVY_ROUTES`, the one list the gate and its test use):
 
 | Method | Route |
@@ -367,7 +371,7 @@ version first.
 |---|---|---|
 | GET/PUT | `/admin/settings` | GET → `{settings:[SettingDef & {value, modified}\|{secretSet, secretSource}], rev}`; PUT `{changes:{key:value}}`. Secrets are write-only; an empty secret clears it. A number equal to its default is stored as "not modified". An invalid value → `400 invalid_setting` with `details:{key, reason}` (first failing key) |
 | GET | `/admin/llm/models?q=&structured=1&refresh=1&limit=` | cached OpenRouter catalog `{models:[{id,name,contextLength,promptPerMillion,completionPerMillion,structuredOutputs,responseFormat,supportedParameters}], total}`; `503 llm_unreachable` when OpenRouter is down |
-| POST | `/admin/llm/test` | `{ping?: true}` → key info, planner/fast model checks, warnings, optional 1-token ping |
+| POST | `/admin/llm/test` | `{ping?: true}` → key info, planner/fast model checks, warnings, optional 1-token ping. The key is `ok` only when the provider's answer was read: an answer that is past `outbound.maxAnswerKb` or is not JSON gives `ok: false` and says so in `message`, an error status with no readable body gives `ok: false` with the status |
 | GET | `/admin/llm/usage?days=` | spend per day / model / user, month spend vs. budget |
 | GET | `/admin/config` | per-kind counters + items that failed to parse |
 | GET | `/admin/config/{kind}` | `{items:[{id,data,origin,modified,updateAvailable,hasDefault,updatedAt,updatedBy}]}` (jsonb: object keys come back sorted by length, not in the original order) |
