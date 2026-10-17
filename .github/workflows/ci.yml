@@ -506,7 +506,9 @@ jobs:
   # `latest` and the commit. No checkout and no repository script: this job holds the permission to write packages.
   publish:
     needs: ci-ok
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    # `!cancelled()` and the verdict instead of the implicit `success()`: that one also looks at the skipped jobs further up the chain (live-llm and the
+    # report of the security gate are skipped on a push), and a job after them is skipped too, whatever ci-ok said (run 39036608292: all green, no image)
+    if: ${{ !cancelled() && needs.ci-ok.result == 'success' && github.ref == 'refs/heads/main' && github.event_name == 'push' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
