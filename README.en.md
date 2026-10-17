@@ -240,14 +240,19 @@ verify it ([docs/TEMPLATES.md](docs/TEMPLATES.md), in Russian).
 
 ## Quick start
 
+All you need is Docker (Linux, macOS, Windows through WSL):
+
 ```bash
 git clone https://github.com/Paffin/infraAI.git && cd infraAI
-cp .env.example .env            # set APP_SECRET and POSTGRES_PASSWORD
-docker compose up -d --build    # the application + PostgreSQL
-open http://localhost:8080
+make try    # the published image ghcr.io/paffin/infra-architect + PostgreSQL, nothing is built
+# or
+make up     # the same, with the image built from the source
 ```
 
-The first administrator is created from `ADMIN_EMAIL` / `ADMIN_PASSWORD`; if no password is set, a random one is generated and printed **once** to the log (`docker compose logs app | grep -A3 "administrator"`) —
+Then open <http://localhost:8080> in a browser. The command writes the `.env` with the secrets (`APP_SECRET`, `POSTGRES_PASSWORD`, the password of the first administrator) itself, random and readable by you only
+(`deploy/init-env.sh`; it leaves an existing `.env` alone). Without `make`: `sh deploy/init-env.sh && docker compose up -d --build`. There is no need to copy `.env.example` by hand, and it would not work: its secrets are empty and `docker compose` refuses to start.
+
+The first administrator is created from `ADMIN_EMAIL` / `ADMIN_PASSWORD` in `.env` (`admin@example.com` and the generated password; it is needed once, at the first start). If no password is set, a random one is generated and printed **once** to the log (`docker compose logs app | grep -A3 "administrator"`) —
 change it at the first sign-in. The OpenRouter key is set in **Administration → OpenRouter** (or with the `OPENROUTER_API_KEY` variable). Without a key the editor, the checks, the simulation and the export work in full —
 only the AI is unavailable.
 

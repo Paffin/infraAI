@@ -1,0 +1,10 @@
+# Starts the published image instead of building one: `make try`, or
+#
+#   docker compose -f docker-compose.yml -f deploy/compose.try.yml up -d --pull always --wait
+#
+# Only the image differs from docker-compose.yml, so the hardening (read-only root, no capabilities, secrets that are required) is the same file's.
+# IA_IMAGE chooses another image (a version, a digest, an image built locally).
+services:
+  app:
+    build: !reset null
+    image: ${IA_IMAGE:-ghcr.io/paffin/infra-architect:latest}

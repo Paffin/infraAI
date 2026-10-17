@@ -5,15 +5,22 @@
 ## Docker Compose (один хост)
 
 ```bash
-cp .env.example .env     # APP_SECRET (openssl rand -hex 32), POSTGRES_PASSWORD, при желании ADMIN_*
-docker compose up -d --build
-./deploy/smoke.sh http://localhost:8080 admin@example.com '<пароль>'   # сквозная проверка
+make up        # пишет .env со случайными APP_SECRET, POSTGRES_PASSWORD и паролем первого администратора, собирает образ и запускает
+make try       # то же без сборки: берёт готовый образ ghcr.io/paffin/infra-architect:latest (IA_IMAGE — другой образ или версия)
+make smoke     # сквозная проверка (читает ADMIN_* из .env)
 ```
+
+Без `make`: `sh deploy/init-env.sh && docker compose up -d --build`. `deploy/init-env.sh` не трогает существующий `.env`, пишет файл с правами только владельцу и печатает, где он лежит; `.env.example` содержит
+пустые `APP_SECRET` и `POSTGRES_PASSWORD`, поэтому скопированный руками файл не запустится (`docker compose` скажет, что задать), а заготовка из старой версии примера (`change-me-…`) — сервер в production откажется принять.
+`deploy/compose.try.yml` меняет в `docker-compose.yml` только образ: ограничения (корневая ФС только для чтения, `cap_drop: ALL`, обязательные секреты) те же.
 
 * Образ собирается многоэтапно: `node` (сборка фронтенда) → `rust` (release-сборка с `--locked`) → `debian:bookworm-slim` без пакетного
   менеджера, пользователь `10001`, корневая ФС только для чтения, `cap_drop: ALL`. Размер ≈ 90 МБ.
 * Для публикации в интернет поставьте перед приложением TLS-терминатор (Caddy, nginx, Traefik, облачный LB) и задайте
-  `COOKIE_SECURE=true`, `TRUST_PROXY=true`.
+  `COOKIE_SECURE=true`, `TRUST_PROXY=true`; `TRUST_PROXY_HOPS` — сколько прокси между клиентом и приложением (по умолчанию 1; облачный балансировщик перед обратным прокси — 2).
+* **Обновление с версии, где `.env` копировали из `.env.example`.** В нём остался `APP_SECRET=change-me-…`: опубликованная строка, которой подписывается любая сессия. Новая версия в production с такой заготовкой не стартует
+  (под `restart: unless-stopped` контейнер будет перезапускаться, причина — в `docker compose logs app`). Замените значение случайным (`openssl rand -hex 32`) и перезапустите: все выйдут из системы, а сохранённые в БД секреты
+  (ключ OpenRouter из админ-панели) станут нечитаемыми — введите их заново; ключ из `OPENROUTER_API_KEY` не затронут. `POSTGRES_PASSWORD` в `.env` просто так не меняйте: том `pgdata` уже создан с прежним паролем (переменная читается только при создании кластера), приложение перестанет подключаться. Порт БД наружу в compose не публикуется; если хотите заменить `change-me`, сначала `docker compose exec db psql -U infra -c "alter user infra password '…'"`, потом то же значение в `.env`.
 * За корпоративным зеркалом образов: `REGISTRY=registry.example.com/mirror/library docker compose build`.
   За TLS-перехватывающим прокси сборка принимает секрет с корневым сертификатом: `docker build --secret id=ca,src=ca.pem .`
 
@@ -104,8 +111,8 @@ kubectl apply -k deploy/k8s
 
 ## Чек-лист безопасности
 
-* `APP_SECRET` — случайный, ≥ 32 символов, хранится в менеджере секретов; `ADMIN_PASSWORD` сменён при первом входе.
-* TLS на входе, `COOKIE_SECURE=true`, `TRUST_PROXY=true` только за доверенным прокси; `/metrics` закрыт (`METRICS_TOKEN` или сетевая политика).
+* `APP_SECRET` — случайный, ≥ 32 символов, хранится в менеджере секретов, не заготовка из шаблона (сервер её не примет); `ADMIN_PASSWORD` сменён при первом входе.
+* TLS на входе, `COOKIE_SECURE=true`, `TRUST_PROXY=true` только за доверенным прокси и с верным `TRUST_PROXY_HOPS` (сколько прокси между клиентом и сервером: ingress — 1, облачный балансировщик перед ним — 2); `/metrics` закрыт (`METRICS_TOKEN` или сетевая политика).
 * `llm.provider.dataCollection = deny` (по умолчанию), при необходимости `zdr`; решите, отправлять ли заметки (`llm.sendNotes`).
 * Ограничьте `llm.monthlyBudgetUsd` и `llm.perUserPerHour`; следите за расходом на странице OpenRouter.
-* Роли: большинству — `editor`/`viewer`; `admin` — единицы. Блокировка после неудачных входов и лимит по IP включены по умолчанию.
+* Роли: большинству — `editor`/`viewer`; `admin` — единицы. Блокировка после неудачных входов (отдельно для пары «аккаунт, адрес» и с потолком на аккаунт) и лимит по IP включены по умолчанию; их счётчики лежат в БД и общие для всех реплик.

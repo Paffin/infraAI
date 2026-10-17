@@ -70,6 +70,8 @@ jobs:
         run: python3 deploy/gen-docs.py --check
       - name: Everything shipped carries a license the project accepts, and the list of them is current
         run: python3 deploy/licenses.py --check
+      - name: The quick start holds together (generated .env, the example is refused as it is, the published-image override keeps the hardening)
+        run: sh deploy/check-env.sh
 
   manifests:
     runs-on: ubuntu-latest
@@ -150,10 +152,12 @@ jobs:
           tags: infra-architect:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      - name: "Smoke test the stack (compose: app + postgres)"
+      - name: "Smoke test the stack (`make try`: the image just built, started the way a user starts the published one)"
+        env:
+          IA_IMAGE: infra-architect:ci
+          TRY_PULL: never
         run: |
-          docker tag infra-architect:ci infra-architect:local
-          docker compose up -d --no-build --wait --wait-timeout 120
+          make try
           ./deploy/smoke.sh http://localhost:8080 "$ADMIN_EMAIL" "$ADMIN_PASSWORD"
       - name: "The gate in the image: every reference design passes, and the SARIF it writes is valid"
         run: |

@@ -240,14 +240,19 @@ flowchart LR
 
 ## Быстрый старт
 
+Нужен только Docker (Linux, macOS, Windows через WSL):
+
 ```bash
 git clone https://github.com/Paffin/infraAI.git && cd infraAI
-cp .env.example .env            # задайте APP_SECRET и POSTGRES_PASSWORD
-docker compose up -d --build    # приложение + PostgreSQL
-open http://localhost:8080
+make try    # готовый образ ghcr.io/paffin/infra-architect + PostgreSQL, ничего не собирается
+# или
+make up     # то же, но образ собирается из исходников
 ```
 
-Первый администратор создаётся из `ADMIN_EMAIL` / `ADMIN_PASSWORD`; если пароль не задан, он генерируется и печатается **один раз** в журнал (`docker compose logs app | grep -A3 "administrator"`) —
+Затем откройте <http://localhost:8080> в браузере. Файл `.env` с секретами (`APP_SECRET`, `POSTGRES_PASSWORD`, пароль первого администратора) команда пишет сама, случайными, с доступом только вам
+(`deploy/init-env.sh`; существующий `.env` она не трогает). Без `make`: `sh deploy/init-env.sh && docker compose up -d --build`. Копировать `.env.example` руками не нужно и не получится: секреты в нём пустые, и `docker compose` откажется стартовать.
+
+Первый администратор создаётся из `ADMIN_EMAIL` / `ADMIN_PASSWORD` в `.env` (`admin@example.com` и сгенерированный пароль; он нужен один раз, при первом запуске). Если пароль не задан, он генерируется и печатается **один раз** в журнал (`docker compose logs app | grep -A3 "administrator"`) —
 при первом входе его нужно сменить. Ключ OpenRouter задаётся в **Администрирование → OpenRouter** (или переменной `OPENROUTER_API_KEY`). Без ключа редактор, проверки, симуляция и экспорт работают полностью —
 недоступен только ИИ.
 

@@ -1,6 +1,10 @@
 # Local / single-host deployment: the application and PostgreSQL.
 #
-#   cp .env.example .env && docker compose up -d --build
+#   make up            (writes .env with generated secrets, builds the image and starts it; `make try` starts the published image instead)
+#   sh deploy/init-env.sh && docker compose up -d --build        - the same without make
+#
+# .env must hold APP_SECRET and POSTGRES_PASSWORD (compose refuses to start without them, the server refuses the placeholder of an old .env.example):
+# do not copy .env.example by hand, `make .env` / deploy/init-env.sh fills them in.
 #
 # High availability on one host (for trials; production belongs on Kubernetes, see deploy/k8s):
 #   docker compose -f docker-compose.yml -f docker-compose.ha.yml up -d --build
@@ -11,7 +15,7 @@ services:
     environment:
       POSTGRES_DB: infra
       POSTGRES_USER: infra
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env (make .env writes one)}
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -32,7 +36,7 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgres://infra:${POSTGRES_PASSWORD}@db:5432/infra
-      APP_SECRET: ${APP_SECRET:?set APP_SECRET in .env}
+      APP_SECRET: ${APP_SECRET:?set APP_SECRET in .env (make .env writes one)}
       APP_ENV: ${APP_ENV:-production}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}

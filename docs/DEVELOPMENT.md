@@ -4,11 +4,12 @@
 
 ```bash
 make test            # cargo test --workspace (с PostgreSQL) + typecheck/vitest/build фронтенда
-make up              # приложение + БД: http://localhost:8080
+make up              # пишет .env со случайными секретами, собирает образ и запускает приложение + БД: http://localhost:8080
+make try             # то же без сборки, из готового образа (IA_IMAGE; deploy/compose.try.yml)
 make iac-check       # IaC эталонных архитектур против схем Kubernetes/CRD, Helm и Terraform (см. IAC.md)
 ```
 
-Без Docker: Rust 1.89+ (stable), Node 22, PostgreSQL 14+.
+Без `make`: `sh deploy/init-env.sh` пишет `.env` (его же вызывает `make .env`), `sh deploy/check-env.sh` проверяет, что быстрый старт цел (в CI — задание `docs`). Без Docker: Rust 1.89+ (stable), Node 22, PostgreSQL 14+.
 
 ## Бэкенд
 
