@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { Plus, Search, Pencil, Trash2, Boxes, Copy, Network } from 'lucide-vue-next'
 import * as api from '@/api/endpoints'
@@ -12,6 +12,7 @@ import TopBar from '@/components/TopBar.vue'
 import { lang, t } from '@/i18n'
 import { fmtRelative } from '@/lib/format'
 import { errorMessage } from '@/lib/format'
+import { focusIsFree, focusPage } from '@/lib/pageFocus'
 import { scoreTone } from '@/lib/score'
 import { useApp } from '@/stores/app'
 import { useDialogs } from '@/stores/dialogs'
@@ -117,9 +118,18 @@ async function duplicate(p: ProjectListItem) {
 
 async function remove(p: ProjectListItem) {
   if (!(await dialogs.confirm({ title: t('projects.delete.confirm', { name: p.name }), danger: true, confirmLabel: t('common.delete') }))) return
+  const at = filtered.value.findIndex((x) => x.id === p.id)
   try {
     await api.projects.remove(p.id)
     items.value = items.value.filter((x) => x.id !== p.id)
+    // the button that was pressed went with the card: the keyboard goes on to the card that took its place, or to the heading when it was the last
+    await nextTick()
+    if (focusIsFree()) {
+      const links = document.querySelectorAll<HTMLElement>('article.project .plink')
+      const next = links[Math.min(at, links.length - 1)]
+      if (next) next.focus({ preventScroll: true })
+      else focusPage()
+    }
   } catch (e) {
     toasts.error(errorMessage(e))
   }
@@ -164,11 +174,12 @@ onMounted(load)
       </div>
 
       <div v-if="items.length" class="grid" data-tour="project-list">
-        <article v-for="(p, i) in filtered" :key="p.id" class="card project rise" :style="{ '--i': Math.min(i, 10) }" @click="router.push({ name: 'editor', params: { id: p.id } })">
+        <article v-for="(p, i) in filtered" :key="p.id" class="card project rise" :style="{ '--i': Math.min(i, 10) }">
           <DiagramThumb :id="p.id" :thumb="p.thumb" :node-count="p.nodeCount" />
           <div class="pbody">
           <div class="top">
-            <h2 class="grow truncate">{{ p.name }}</h2>
+            <!-- the whole card is the link (the stretched-link pattern: the name's ::after covers the card), so that it opens with Enter, in a new tab, from the context menu -->
+            <h2 class="grow truncate"><router-link :to="{ name: 'editor', params: { id: p.id } }" class="plink">{{ p.name }}</router-link></h2>
             <template v-if="app.canEdit">
               <button class="btn btn-ghost btn-icon" :title="t('projects.rename')" :aria-label="t('projects.rename')" @click.stop="rename(p)"><Pencil :size="15" /></button>
               <button class="btn btn-ghost btn-icon" :title="t('projects.duplicate')" :aria-label="t('projects.duplicate')" @click.stop="duplicate(p)"><Copy :size="15" /></button>
@@ -186,7 +197,7 @@ onMounted(load)
               <span v-if="p.summary.counts.risk" class="tag tag-risk">{{ p.summary.counts.risk }} {{ t('checks.risk') }}</span>
               <span v-if="p.summary.counts.noData" class="tag tag-nodata">{{ p.summary.counts.noData }} {{ t('checks.nodata') }}</span>
               <span v-if="!p.summary.counts.critical && !p.summary.counts.risk && !p.summary.counts.noData" class="tag tag-ok">{{ t('checks.none') }}</span>
-              <span v-if="p.summary.coverage < 0.7" class="tag tag-nodata" :title="t('checks.confidence.hint')">{{ t('editor.score.confidence', { pct: Math.round(p.summary.coverage * 100) }) }}</span>
+              <span v-if="p.summary.coverage < 0.7" class="tag tag-nodata hint" :title="t('checks.confidence.hint')">{{ t('editor.score.confidence', { pct: Math.round(p.summary.coverage * 100) }) }}</span>
             </div>
           </div>
           <div class="foot faint">
@@ -236,7 +247,7 @@ onMounted(load)
 .search svg { position: absolute; left: 10px; top: 10px; color: var(--faint); }
 .search .input { padding-left: 32px; }
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
-.project { padding: 0; overflow: hidden; cursor: pointer; display: flex; flex-direction: column; transition: box-shadow var(--dur-fast), border-color var(--dur-fast); content-visibility: auto; contain-intrinsic-size: auto 330px; }
+.project { position: relative; padding: 0; overflow: hidden; display: flex; flex-direction: column; transition: box-shadow var(--dur-fast), border-color var(--dur-fast); content-visibility: auto; contain-intrinsic-size: auto 330px; }
 .pbody { padding: 14px 18px 16px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
 .sort { width: 190px; }
 .chips { display: flex; gap: 8px; margin: -8px 0 16px; }
@@ -244,6 +255,14 @@ onMounted(load)
 .project:hover { box-shadow: var(--shadow-2); border-color: var(--line-strong); }
 .top { display: flex; align-items: center; gap: 4px; }
 .top h2 { font-size: 16px; }
+.plink { color: inherit; text-decoration: none; }
+.plink:hover { text-decoration: none; }
+.plink::after { content: ''; position: absolute; inset: 0; }
+/* the controls of the card sit above the link's cover: pressing them does not open the project; a hint on a tag is read, not clicked through */
+.top .btn-icon, .hint { position: relative; z-index: 1; }
+.plink:focus-visible { outline: none; }
+/* the ring is round the whole card, inside it: the card clips its content */
+.project:has(.plink:focus-visible) { outline: 2px solid var(--accent); outline-offset: -2px; }
 .desc { margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 13px; }
 .meta { display: flex; align-items: center; gap: 12px; margin-top: 4px; }
 .score { display: flex; align-items: baseline; gap: 3px; padding: 4px 10px; border-radius: var(--radius-sm); border: 1px solid var(--line); background: var(--surface-2); }

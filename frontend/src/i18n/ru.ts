@@ -45,6 +45,8 @@ export default {
 
   'nav.projects': 'Проекты',
   'nav.admin': 'Администрирование',
+  // the title of the browser tab: the page, then the name of the service (lib/pageTitle.ts)
+  'page.title': '{page} · {app}',
   'toast.undo': 'Отменить',
   'toast.removed.node': 'Узел «{name}» удалён',
   'toast.removed.edge': 'Связь удалена',

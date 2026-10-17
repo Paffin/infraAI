@@ -45,6 +45,8 @@ export default {
 
   'nav.projects': 'Projects',
   'nav.admin': 'Administration',
+  // the title of the browser tab: the page, then the name of the service (lib/pageTitle.ts)
+  'page.title': '{page} · {app}',
   'toast.undo': 'Undo',
   'toast.removed.node': 'Node “{name}” deleted',
   'toast.removed.edge': 'Edge deleted',
