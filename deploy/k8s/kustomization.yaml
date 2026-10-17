@@ -10,4 +10,4 @@ resources:
   - pdb.yaml
   - hpa.yaml
   - networkpolicy.yaml
-# secret.example.yaml and postgres-cnpg.example.yaml are examples and intentionally not listed
+# secret.example.yaml, postgres-cnpg.example.yaml and podmonitor.example.yaml are examples and intentionally not listed

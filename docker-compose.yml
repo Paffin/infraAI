@@ -46,6 +46,7 @@ services:
       TRUST_PROXY: ${TRUST_PROXY:-false}
       TRUST_PROXY_HOPS: ${TRUST_PROXY_HOPS:-}
       METRICS_TOKEN: ${METRICS_TOKEN:-}
+      METRICS_PORT: ${METRICS_PORT:-}
     ports:
       - "${APP_PORT:-8080}:8080"
     read_only: true

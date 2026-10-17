@@ -73,7 +73,9 @@ jobs:
       - name: The quick start holds together (generated .env, the example is refused as it is, the published-image override keeps the hardening)
         run: sh deploy/check-env.sh
       - name: The scripts under deploy/ that decide something are tested (they have a failing case of their own)
-        run: python3 -m unittest discover -s deploy/tests -v
+        run: |
+          python3 -c 'import yaml' 2>/dev/null || python3 -m pip install --quiet pyyaml
+          python3 -m unittest discover -s deploy/tests -v
 
   # cargo-deny on the locked crates, npm audit on the web application's packages, and the proof that cargo-deny is awake (.github/workflows/security.yml, which
   # also runs every day). It is a job here and not a workflow of its own because `publish` can only wait for a job of this file. The permission is the one
@@ -92,6 +94,10 @@ jobs:
         run: |
           docker run --rm -v "$PWD/deploy/k8s:/k8s:ro" registry.k8s.io/kustomize/kustomize:v5.4.3 build /k8s > /tmp/all.yaml
           docker run --rm -v /tmp/all.yaml:/all.yaml:ro ghcr.io/yannh/kubeconform:latest -strict -summary -ignore-missing-schemas /all.yaml
+      - name: "The metrics port is on no Service and no Ingress path, and has a caller of its own in the NetworkPolicy (kubeconform checks the schema, not that)"
+        run: |
+          python3 -c 'import yaml' 2>/dev/null || python3 -m pip install --quiet pyyaml
+          python3 deploy/check-k8s-exposure.py /tmp/all.yaml
 
   # Optional: the real OpenRouter. Runs on demand (Actions → CI → Run workflow) when the secret OPENROUTER_API_KEY is set.
   live-llm:
@@ -199,6 +205,13 @@ jobs:
           docker compose pull db
           make try
           ./deploy/smoke.sh http://localhost:8080 "$ADMIN_EMAIL" "$ADMIN_PASSWORD"
+      - name: "Smoke test with the metrics on a port of their own (METRICS_PORT: the application's port answers 404 on /metrics, the scrape is on :9090)"
+        env:
+          IA_IMAGE: infra-architect:ci
+        run: |
+          # the same stack with the override that sets METRICS_PORT and publishes it on the loopback; compose recreates the application container
+          docker compose -f docker-compose.yml -f deploy/compose.try.yml -f docker-compose.metrics.yml up -d --pull never --wait --wait-timeout 180
+          SMOKE_METRICS_URL=http://127.0.0.1:9090 ./deploy/smoke.sh http://localhost:8080 "$ADMIN_EMAIL" "$ADMIN_PASSWORD"
       - name: "The gate in the image: every reference design passes, and the SARIF it writes is valid"
         run: |
           mkdir -p /tmp/gate

@@ -11,7 +11,7 @@ use crate::auth;
 use crate::error::ApiError;
 use crate::state::AppState;
 use axum::extract::{DefaultBodyLimit, MatchedPath, Request, State};
-use axum::http::{header, HeaderValue, StatusCode};
+use axum::http::{header, HeaderValue, Method, StatusCode};
 use axum::middleware::{self, Next};
 use axum::response::Response;
 use axum::routing::{delete, get, post, put};
@@ -65,14 +65,30 @@ async fn security_headers(req: Request, next: Next) -> Response {
     res
 }
 
+/// The `method` label of the request metrics. A fixed set, because a label that is whatever the client sent is a series per value on a public
+/// endpoint: HTTP takes any token as a method, and every new one creates fifteen series (twelve buckets, the sum, the count and the counter) that are never
+/// freed (measured: twenty invented methods grew the registry from 752 to 1,052 series and a scrape from 87 KB to 120 KB). Everything else is `other`.
+pub fn method_label(method: &Method) -> &'static str {
+    match *method {
+        Method::GET => "GET",
+        Method::POST => "POST",
+        Method::PUT => "PUT",
+        Method::PATCH => "PATCH",
+        Method::DELETE => "DELETE",
+        Method::HEAD => "HEAD",
+        Method::OPTIONS => "OPTIONS",
+        _ => "other",
+    }
+}
+
 async fn track(State(state): State<AppState>, req: Request, next: Next) -> Response {
-    let method = req.method().to_string();
+    let method = method_label(req.method());
     let route = req.extensions().get::<MatchedPath>().map(|m| m.as_str().to_string()).unwrap_or_else(|| "unmatched".to_string());
     let t = Instant::now();
     let res = next.run(req).await;
     let status = res.status().as_u16().to_string();
-    state.metrics.http_requests.with_label_values(&[&method, &route, &status]).inc();
-    state.metrics.http_duration.with_label_values(&[&method, &route]).observe(t.elapsed().as_secs_f64());
+    state.metrics.http_requests.with_label_values(&[method, &route, &status]).inc();
+    state.metrics.http_duration.with_label_values(&[method, &route]).observe(t.elapsed().as_secs_f64());
     res
 }
 
@@ -141,10 +157,14 @@ pub async fn router(state: AppState) -> Router {
     let assets = ServeDir::new(web.join("assets"));
     let static_files = ServeDir::new(&web).append_index_html_on_directories(true).fallback(ServeFile::new(index));
 
+    // with METRICS_PORT the metrics are on another listener (`metrics_router`) and this port says so: the route stays, as an explicit 404, because the
+    // single-page application below is the fallback and would answer 200 with its index page
+    let metrics = if state.boot.metrics_port.is_some() { get(public::metrics_moved) } else { get(public::metrics) };
+
     Router::new()
         .route("/healthz", get(public::healthz))
         .route("/readyz", get(public::readyz))
-        .route("/metrics", get(public::metrics))
+        .route("/metrics", metrics)
         .nest("/api", api)
         .nest_service("/assets", assets)
         .fallback_service(static_files)
@@ -154,4 +174,28 @@ pub async fn router(state: AppState) -> Router {
         .layer(CompressionLayer::new())
         .layer(TraceLayer::new_for_http())
         .with_state(state)
+}
+
+/// The router of the metrics listener (`METRICS_PORT`): `GET /metrics` under the rules of [`public::metrics`] and nothing else, so that a port which is not
+/// published (`deploy/k8s`: the Service has no such port, the NetworkPolicy admits the monitoring namespace only) serves no part of the application.
+pub fn metrics_router(state: AppState) -> Router {
+    Router::new()
+        .route("/metrics", get(public::metrics))
+        .fallback(|| async { ApiError::not_found("this port serves /metrics and nothing else") })
+        .layer(middleware::from_fn_with_state(state.clone(), track))
+        .layer(middleware::from_fn(security_headers))
+        .layer(CompressionLayer::new())
+        .with_state(state)
+}
+
+/// Binds the metrics listener on `HOST` and `METRICS_PORT`, or returns `None` when the variable is not set. An address that cannot be bound is an error
+/// the caller must not ignore: an operator who asked for `/metrics` off the public port must not get it silently on neither.
+pub async fn bind_metrics(boot: &crate::config::BootConfig) -> std::io::Result<Option<tokio::net::TcpListener>> {
+    let Some(port) = boot.metrics_port else { return Ok(None) };
+    tokio::net::TcpListener::bind(std::net::SocketAddr::new(boot.bind.ip(), port)).await.map(Some)
+}
+
+/// Serves [`metrics_router`] on `listener` until `shutdown` completes (then the requests in flight finish).
+pub async fn serve_metrics(listener: tokio::net::TcpListener, state: AppState, shutdown: impl std::future::Future<Output = ()> + Send + 'static) -> std::io::Result<()> {
+    axum::serve(listener, metrics_router(state).into_make_service()).with_graceful_shutdown(shutdown).await
 }

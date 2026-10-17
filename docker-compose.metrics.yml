@@ -1,0 +1,16 @@
+# /metrics on a port of its own, away from the application's (METRICS_PORT): the application's port then answers 404 there, and what forwards it to the
+# world (a reverse proxy, an ingress) cannot publish the metrics. This file publishes the metrics port on the loopback of the host, for a Prometheus that runs
+# beside the stack; to scrape from other hosts put your own address in front of 9090 (a firewall rule, a private network) - the port has no login unless
+# METRICS_TOKEN is set.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.metrics.yml up -d --build     (or: -f deploy/compose.try.yml for the published image)
+#   curl http://127.0.0.1:9090/metrics
+#
+# Not for docker-compose.ha.yml: two replicas cannot both publish one host port. There, set METRICS_PORT=9090 in .env and scrape `app:9090` from a container
+# on the same compose network (Docker's DNS returns every replica); the load balancer forwards only the application's port.
+services:
+  app:
+    environment:
+      METRICS_PORT: "9090"
+    ports:
+      - "127.0.0.1:${METRICS_HOST_PORT:-9090}:9090"

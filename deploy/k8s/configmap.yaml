@@ -11,6 +11,10 @@ data:
   # 2 when a cloud load balancer stands in front of it and appends its own entry. Too small - everybody shares one address and one limit of
   # sign-in attempts; too large - the address can be forged.
   TRUST_PROXY_HOPS: "1"
+  # /metrics is served on this port of its own, not on the one the Service and the Ingress forward (8080): the Service does not publish it, and the NetworkPolicy
+  # admits only the monitoring namespace to it. Without this line /metrics would be on the application's port, i.e. on the Ingress (path `/`), open to
+  # the internet unless METRICS_TOKEN is set. deploy/check-k8s-exposure.py (CI, job `manifests`) fails if any of that is undone.
+  METRICS_PORT: "9090"
   # seconds the pod keeps serving after SIGTERM before it stops accepting connections
   DRAIN_SECONDS: "5"
   SHUTDOWN_GRACE_SECONDS: "30"

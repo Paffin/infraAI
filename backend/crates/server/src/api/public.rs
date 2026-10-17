@@ -27,18 +27,34 @@ pub async fn readyz(State(state): State<AppState>) -> Response {
     }
 }
 
+/// Does the `Authorization` header carry exactly `Bearer <token>`? The token is compared in constant time (`subtle`), so the time of a refusal does not say how
+/// many leading characters of a guess were right; a different length is refused at once, which tells nothing that the length of the header does not.
+/// The scheme is matched as Prometheus writes it (`Bearer`), nothing else is accepted.
+pub fn bearer_matches(header: Option<&str>, token: &str) -> bool {
+    use subtle::ConstantTimeEq;
+    header.and_then(|v| v.strip_prefix("Bearer ")).map(|given| bool::from(given.as_bytes().ct_eq(token.as_bytes()))).unwrap_or(false)
+}
+
+/// `GET /metrics`: Prometheus text. Served on the main port, or (with `METRICS_PORT`) on a listener of its own by [`crate::api::metrics_router`], under the same
+/// rules: off with `observability.metricsEnabled = false` (404), and with `METRICS_TOKEN` set a bearer token is required (401).
 pub async fn metrics(State(state): State<AppState>, headers: HeaderMap) -> Response {
     let enabled = state.cfg().await.map(|c| c.settings.boolean("observability.metricsEnabled")).unwrap_or(true);
     if !enabled {
         return StatusCode::NOT_FOUND.into_response();
     }
     if let Some(token) = &state.boot.metrics_token {
-        let ok = headers.get(header::AUTHORIZATION).and_then(|v| v.to_str().ok()).map(|v| v == format!("Bearer {token}")).unwrap_or(false);
-        if !ok {
+        if !bearer_matches(headers.get(header::AUTHORIZATION).and_then(|v| v.to_str().ok()), token) {
             return StatusCode::UNAUTHORIZED.into_response();
         }
     }
     Response::builder().header(header::CONTENT_TYPE, "text/plain; version=0.0.4").body(Body::from(state.metrics.render())).unwrap()
+}
+
+/// `GET /metrics` on the main port once `METRICS_PORT` moved it elsewhere. An explicit answer and not a missing route: the single-page application is the
+/// fallback of this router, and a missing route would answer `200 text/html`, the application's index page, which looks like a success to a scraper and
+/// like a hole to anyone who looks.
+pub async fn metrics_moved() -> ApiError {
+    ApiError::not_found("the metrics are not served on this port: Prometheus scrapes the metrics port (METRICS_PORT)")
 }
 
 /// What the login page needs before anybody is signed in.
@@ -182,4 +198,45 @@ pub async fn versions(State(state): State<AppState>, _user: AuthUser, headers: H
         .header(header::CACHE_CONTROL, "private, no-cache")
         .body(Body::from(bytes))
         .map_err(ApiError::internal)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::bearer_matches;
+
+    #[test]
+    fn bearer_matches_only_the_exact_token() {
+        let token = "s3cret-Token_0123456789";
+        // the one thing that passes
+        assert!(bearer_matches(Some("Bearer s3cret-Token_0123456789"), token));
+        // a strict prefix of the token, the token and one more character, a near miss in the last or the first character, other case
+        assert!(!bearer_matches(Some("Bearer s3cret-Token_012345678"), token));
+        assert!(!bearer_matches(Some("Bearer s3cret-Token_01234567890"), token));
+        assert!(!bearer_matches(Some("Bearer s3cret-Token_012345678X"), token));
+        assert!(!bearer_matches(Some("Bearer X3cret-Token_0123456789"), token));
+        assert!(!bearer_matches(Some("Bearer S3CRET-TOKEN_0123456789"), token));
+        // no header, nothing after the scheme, another scheme, the bare token, a doubled space, surrounding space
+        assert!(!bearer_matches(None, token));
+        assert!(!bearer_matches(Some("Bearer "), token));
+        assert!(!bearer_matches(Some("Bearer"), token));
+        assert!(!bearer_matches(Some(""), token));
+        assert!(!bearer_matches(Some("Basic s3cret-Token_0123456789"), token));
+        assert!(!bearer_matches(Some("s3cret-Token_0123456789"), token));
+        assert!(!bearer_matches(Some("Bearer  s3cret-Token_0123456789"), token));
+        assert!(!bearer_matches(Some("Bearer s3cret-Token_0123456789 "), token));
+    }
+
+    #[test]
+    fn bearer_matches_judges_bytes_so_non_ascii_near_misses_do_not_pass_or_panic() {
+        // "é" is two bytes in UTF-8: a guess that is as long in bytes but not in characters, or cut in the middle of a character, is a different token
+        let token = "tökén-ключ";
+        assert!(bearer_matches(Some("Bearer tökén-ключ"), token));
+        assert!(!bearer_matches(Some("Bearer tokén-ключ"), token));
+        assert!(!bearer_matches(Some("Bearer tökén-ключ!"), token));
+        assert!(!bearer_matches(Some("Bearer tökén-клю"), token));
+        // the same visible text in another normalisation form is not the same token
+        assert!(!bearer_matches(Some("Bearer to\u{308}ke\u{301}n-ключ"), token));
+        // an empty guess against a token
+        assert!(!bearer_matches(Some("Bearer "), "x"));
+    }
 }

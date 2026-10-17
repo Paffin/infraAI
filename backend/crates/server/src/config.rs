@@ -20,6 +20,9 @@ pub struct BootConfig {
     pub cookie_secure: bool,
     pub instance_id: String,
     pub metrics_token: Option<String>,
+    /// `METRICS_PORT`: a second listener, on `HOST` and this port, that serves only `/metrics`; the main port then answers `404` there. Empty (the default) keeps
+    /// `/metrics` on the main port, where an ingress that forwards `/` publishes it. A port that does not parse is an error, not "unset" (see [`parse_port`]).
+    pub metrics_port: Option<u16>,
     pub trust_proxy: bool,
     /// `TRUST_PROXY_HOPS`: how many reverse proxies stand between the client and this server, each appending the address it saw to
     /// `X-Forwarded-For`. The client's address is that many entries from the right; only read when `trust_proxy` is on.
@@ -43,6 +46,15 @@ fn env_bool(get: Lookup, key: &str, default: bool) -> bool {
 
 fn env_num<T: std::str::FromStr>(get: Lookup, key: &str, default: T) -> T {
     env(get, key).and_then(|v| v.parse().ok()).unwrap_or(default)
+}
+
+/// A TCP port as an operator writes it: 1 to 65535. A value that does not parse is an error and not a default, because the settings it guards fail open:
+/// `METRICS_PORT=90a0` read as "unset" would leave `/metrics` on the public port with no word about it.
+pub fn parse_port(name: &str, value: &str) -> anyhow::Result<u16> {
+    match value.trim().parse::<u16>() {
+        Ok(port) if port != 0 => Ok(port),
+        _ => anyhow::bail!("{name} must be a port number from 1 to 65535, not {value:?}"),
+    }
 }
 
 /// The most proxies in front of the server that `TRUST_PROXY_HOPS` accepts (a chain longer than this is a mistake, not a topology).
@@ -84,6 +96,16 @@ impl BootConfig {
                 base64_url(&b)
             }
         };
+        let metrics_port = match env(get, "METRICS_PORT") {
+            None => None,
+            Some(v) => {
+                let port = parse_port("METRICS_PORT", &v)?;
+                if port == bind.port() {
+                    anyhow::bail!("METRICS_PORT is the port of the application itself ({port}): /metrics would stay where it is; give the metrics listener a port of its own");
+                }
+                Some(port)
+            }
+        };
         let trust_proxy = env_bool(get, "TRUST_PROXY", false);
         let trust_proxy_hops = match env(get, "TRUST_PROXY_HOPS") {
             None => 1,
@@ -112,6 +134,7 @@ impl BootConfig {
             cookie_secure: env_bool(get, "COOKIE_SECURE", production),
             instance_id: env(get, "INSTANCE_ID").unwrap_or_else(|| uuid::Uuid::new_v4().to_string()[..8].to_string()),
             metrics_token: env(get, "METRICS_TOKEN"),
+            metrics_port,
             trust_proxy,
             trust_proxy_hops,
             shutdown_grace_secs: env_num(get, "SHUTDOWN_GRACE_SECONDS", 25),
@@ -201,6 +224,30 @@ mod tests {
         }
         let secret = example.lines().find_map(|l| l.strip_prefix("APP_SECRET=")).unwrap();
         assert!(boot(&[DB, ("APP_SECRET", secret)]).is_err(), "and the server refuses it");
+    }
+
+    #[test]
+    fn metrics_port_is_unset_by_default_and_a_bad_value_is_an_error_not_unset() {
+        assert_eq!(boot(&[DB, ("APP_ENV", "test")]).unwrap().metrics_port, None);
+        assert_eq!(boot(&[DB, ("APP_ENV", "test"), ("METRICS_PORT", "  ")]).unwrap().metrics_port, None, "blank is unset, like every other variable");
+        assert_eq!(boot(&[DB, ("APP_ENV", "test"), ("METRICS_PORT", "9090")]).unwrap().metrics_port, Some(9090));
+        assert_eq!(boot(&[DB, ("APP_ENV", "test"), ("METRICS_PORT", " 65535 ")]).unwrap().metrics_port, Some(65535));
+        // a value that is not a port must not fall back to "unset": that would leave /metrics on the public port with no word about it
+        for bad in ["90a0", "0", "-1", "65536", "99999999999", "9090.5", "http://x:9090", "9090,9091"] {
+            let e = boot(&[DB, ("APP_ENV", "test"), ("METRICS_PORT", bad)]).expect_err(bad).to_string();
+            assert!(e.contains("METRICS_PORT") && e.contains("1 to 65535"), "{bad}: {e}");
+        }
+    }
+
+    #[test]
+    fn metrics_port_cannot_be_the_applications_own_port() {
+        // the default PORT is 8080
+        let e = boot(&[DB, ("APP_ENV", "test"), ("METRICS_PORT", "8080")]).unwrap_err().to_string();
+        assert!(e.contains("METRICS_PORT") && e.contains("8080"), "{e}");
+        let e = boot(&[DB, ("APP_ENV", "test"), ("PORT", "3000"), ("METRICS_PORT", "3000")]).unwrap_err().to_string();
+        assert!(e.contains("3000"), "{e}");
+        // the same number is fine when the application is elsewhere
+        assert_eq!(boot(&[DB, ("APP_ENV", "test"), ("PORT", "3000"), ("METRICS_PORT", "8080")]).unwrap().metrics_port, Some(8080));
     }
 
     #[test]

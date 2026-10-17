@@ -1,4 +1,4 @@
-# The application only accepts traffic from the ingress controller and only talks to DNS, PostgreSQL and
+# The application only accepts traffic from the ingress controller (and the metrics port only from monitoring) and only talks to DNS, PostgreSQL and
 # HTTPS: OpenRouter (the AI) and endoflife.date (the support dates of the products; setting versions.sourceBases,
 # `versions.autoSyncDays = 0` switches the refresh off, an internal mirror replaces it in a closed network).
 # Adjust the selectors to your cluster.
@@ -12,15 +12,21 @@ spec:
       app.kubernetes.io/name: infra-architect
   policyTypes: [Ingress, Egress]
   ingress:
+    # the application: the ingress controller, and nobody else
     - from:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - port: 8080
+    # the metrics (METRICS_PORT): the monitoring namespace, and nobody else. A pod of the ingress controller cannot reach it, and Prometheus cannot reach
+    # the application. A NetworkPolicy tells ports apart, which it could not do for two paths on one port, and that is why /metrics has a port
+    - from:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: monitoring
       ports:
-        - port: 8080
+        - port: 9090
   egress:
     - to:
         - namespaceSelector: {}

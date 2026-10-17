@@ -41,6 +41,7 @@ pub fn boot(db_url: String) -> BootConfig {
         cookie_secure: false,
         instance_id: "test".into(),
         metrics_token: None,
+        metrics_port: None,
         trust_proxy: false,
         trust_proxy_hops: 1,
         shutdown_grace_secs: 1,

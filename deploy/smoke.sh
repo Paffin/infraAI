@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # End-to-end smoke test of a running stack:  deploy/smoke.sh http://localhost:8080 admin@example.com 'password'
+# With SMOKE_METRICS_URL=http://localhost:9090 (METRICS_PORT is set: docker-compose.metrics.yml publishes the port) it also checks that /metrics is on that address and not on BASE.
 # Signs in, loads the editor bootstrap, creates a project from a reference architecture, evaluates it,
 # asks what to improve first, simulates the loss of a site (with the steps of the recovery), reads the release tables and previews a placement. Exits non-zero on the first failed expectation.
 set -euo pipefail
@@ -22,6 +23,21 @@ echo "ready"
 
 curl -fsS "$BASE/" | grep -qi '<div id="app">' || fail "the single-page app is not served"
 echo "frontend served"
+
+# /metrics: on the application's port as it always was, or (SMOKE_METRICS_URL: METRICS_PORT is set) on a port of its own while the application's port refuses it.
+# The body is read into a variable and not piped to `grep -q`: grep stops reading at the first match, curl then fails with SIGPIPE, and `pipefail` calls that a failure.
+scrape_auth=(); [ -z "${METRICS_TOKEN:-}" ] || scrape_auth=(-H "Authorization: Bearer $METRICS_TOKEN")
+if [ -n "${SMOKE_METRICS_URL:-}" ]; then
+  moved=$(curl -s -o /dev/null -w '%{http_code} %{content_type}' "$BASE/metrics")
+  [ "${moved%% *}" = 404 ] || fail "/metrics on the application's port answered '$moved' although METRICS_PORT is set (it must be 404)"
+  case "$moved" in *text/html*) fail "/metrics on the application's port is the index page of the application, not a 404";; esac
+  scrape=$(curl -fsS ${scrape_auth[@]+"${scrape_auth[@]}"} "$SMOKE_METRICS_URL/metrics") || fail "nothing answers /metrics on $SMOKE_METRICS_URL"
+  echo "metrics: 404 on $BASE, served on $SMOKE_METRICS_URL"
+else
+  scrape=$(curl -fsS ${scrape_auth[@]+"${scrape_auth[@]}"} "$BASE/metrics") || fail "/metrics on $BASE"
+  echo "metrics: served on $BASE"
+fi
+grep -q '^infra_http_requests_total' <<<"$scrape" || fail "the scrape has no infra_http_requests_total"
 
 api -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}" "$BASE/api/auth/login" >/dev/null || fail "login"
 echo "signed in"

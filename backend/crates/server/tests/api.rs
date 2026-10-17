@@ -2812,3 +2812,59 @@ async fn password_hashing_waits_for_a_slot_in_every_handler() {
     let app = std::sync::Arc::try_unwrap(app).ok().expect("the tasks are done");
     app.cleanup().await;
 }
+
+/// The lines of `/metrics` that are samples (not `# HELP` / `# TYPE`): one per series.
+fn series(body: &Value) -> Vec<String> {
+    body.as_str().unwrap_or_default().lines().filter(|l| !l.is_empty() && !l.starts_with('#')).map(String::from).collect()
+}
+
+#[tokio::test]
+async fn metrics_method_label_is_bounded() {
+    // /metrics may be open (METRICS_TOKEN is empty by default), and HTTP takes any token as a method: a label that is "whatever the client sent" is an
+    // unauthenticated way to grow the registry without end, fifteen series (twelve buckets, sum, count, the counter) per invented method
+    let app = TestApp::new().await;
+    let scrape = || async { series(&app.request(Method::GET, "/metrics", None, None, &[]).await.2) };
+    let send = |method: &str| {
+        let method = Method::from_bytes(method.as_bytes()).unwrap();
+        let app = &app;
+        async move {
+            // two paths, so that a method that answers differently on one of them still lands on routes the first round has seen
+            for path in ["/healthz", "/api/projects"] {
+                app.request(method.clone(), path, None, None, &[]).await;
+            }
+        }
+    };
+
+    // the seven methods the label keeps, and one unusual one (it creates the `other` series, once)
+    for m in ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS", "AUDITB07M0"] {
+        send(m).await;
+    }
+    // a scrape is a request too, and its own series appear after the first one has been answered: let that happen before counting
+    scrape().await;
+    let before = scrape().await;
+    for m in ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS", "other"] {
+        assert!(before.iter().any(|l| l.starts_with("infra_http_requests_total{") && l.contains(&format!("method=\"{m}\""))), "{m} has a series of its own: {before:#?}");
+    }
+
+    // twenty more invented methods, and two that exist but are not on the list: none of them adds a series
+    let invented: Vec<String> = (1..=20).map(|i| format!("AUDITB07M{i}")).chain(["TRACE".to_string(), "CONNECT".to_string()]).collect();
+    for m in &invented {
+        send(m).await;
+    }
+    let after = scrape().await;
+    let name_of = |l: &String| l.rsplit_once(' ').map(|(name, _)| name.to_string()).unwrap_or_default();
+    let known: std::collections::BTreeSet<String> = before.iter().map(name_of).collect();
+    let new: Vec<String> = after.iter().map(name_of).filter(|n| !known.contains(n)).collect();
+    assert!(new.is_empty() && after.len() == before.len(), "{} invented methods changed the series: {} -> {}, new: {new:#?}", invented.len(), before.len(), after.len());
+    let text = after.join("\n");
+    for m in &invented {
+        assert!(!text.contains(&format!("method=\"{m}\"")), "{m} is a series of its own");
+    }
+    // every label that is there is one of the eight
+    let methods: std::collections::BTreeSet<&str> = after.iter().filter_map(|l| l.split("method=\"").nth(1)).filter_map(|rest| rest.split('"').next()).collect();
+    assert_eq!(methods, ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT", "other"].into_iter().collect(), "{methods:?}");
+    // and what the unusual requests did is counted, under `other`
+    let other: f64 = after.iter().filter(|l| l.starts_with("infra_http_requests_total{") && l.contains("method=\"other\"")).filter_map(|l| l.rsplit_once(' ')?.1.parse::<f64>().ok()).sum();
+    assert_eq!(other, 2.0 * (1 + invented.len()) as f64, "every unusual request is counted once, as `other`");
+    app.cleanup().await;
+}

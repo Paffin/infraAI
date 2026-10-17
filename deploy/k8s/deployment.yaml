@@ -19,7 +19,8 @@ spec:
       labels: *labels
       annotations:
         prometheus.io/scrape: "true"
-        prometheus.io/port: "8080"
+        # the metrics port (METRICS_PORT in the ConfigMap), not the application's: the Service does not forward it
+        prometheus.io/port: "9090"
         prometheus.io/path: /metrics
     spec:
       automountServiceAccountToken: false
@@ -48,6 +49,9 @@ spec:
           ports:
             - name: http
               containerPort: 8080
+            # only /metrics; reached by pod address (the scrape annotations above, or a PodMonitor: podmonitor.example.yaml), never through the Service
+            - name: metrics
+              containerPort: 9090
           envFrom:
             - configMapRef:
                 name: infra-architect

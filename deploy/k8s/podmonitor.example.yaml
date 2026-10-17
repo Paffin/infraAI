@@ -1,0 +1,22 @@
+# EXAMPLE, not in kustomization.yaml (it needs the Prometheus Operator's CRDs): scrape /metrics of every replica on the metrics port.
+#
+# A ServiceMonitor would not work, on purpose: the Service publishes only the application's port, because anything the Service publishes the Ingress can
+# route to (service.yaml has no 9090, and deploy/check-k8s-exposure.py keeps it so). A PodMonitor reaches the pods by their own addresses, which is what
+# the NetworkPolicy admits for the `monitoring` namespace. Put it in that namespace, or adjust namespaceSelector.
+#
+# With METRICS_TOKEN set (secret.example.yaml) add `authorization` to the endpoint with a Secret that holds the same token.
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: infra-architect
+  namespace: monitoring
+spec:
+  namespaceSelector:
+    matchNames: [infra-architect]
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: infra-architect
+  podMetricsEndpoints:
+    - port: metrics
+      path: /metrics
+      interval: 30s

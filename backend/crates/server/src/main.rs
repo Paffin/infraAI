@@ -54,8 +54,28 @@ async fn main() -> anyhow::Result<()> {
     let app = api::router(state.clone()).await;
     let listener = tokio::net::TcpListener::bind(bind).await?;
     tracing::info!(%bind, "listening");
+    // METRICS_PORT: /metrics on a listener of its own, which stops with the main one (after the drain). A port that cannot be bound stops the start-up.
+    let (stop_metrics, stopped) = tokio::sync::watch::channel(false);
+    let stop_metrics = std::sync::Arc::new(stop_metrics);
+    let metrics_server = match api::bind_metrics(&state.boot).await? {
+        Some(listener) => {
+            tracing::info!(addr = %listener.local_addr()?, "metrics listening (the main port answers 404 on /metrics)");
+            let mut stopped = stopped;
+            let st = state.clone();
+            Some(tokio::spawn(async move {
+                let stop = async move {
+                    let _ = stopped.wait_for(|stop| *stop).await;
+                };
+                if let Err(e) = api::serve_metrics(listener, st, stop).await {
+                    tracing::error!(error = %e, "the metrics listener stopped");
+                }
+            }))
+        }
+        None => None,
+    };
 
     let st = state.clone();
+    let stop_after_drain = stop_metrics.clone();
     let shutdown = async move {
         wait_for_signal().await;
         // fail readiness first so the load balancer stops sending traffic, then drain
@@ -63,11 +83,18 @@ async fn main() -> anyhow::Result<()> {
         tracing::info!("shutdown requested: draining");
         let drain = std::env::var("DRAIN_SECONDS").ok().and_then(|v| v.parse().ok()).unwrap_or(3u64);
         tokio::time::sleep(Duration::from_secs(drain)).await;
+        let _ = stop_after_drain.send(true);
     };
     let serve = axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>()).with_graceful_shutdown(shutdown);
     tokio::select! {
         r = serve => { r?; }
         _ = async { wait_for_signal_then(grace).await } => { tracing::warn!("grace period elapsed, forcing shutdown"); }
+    }
+    // also when the grace period cut the main server short
+    let _ = stop_metrics.send(true);
+    if let Some(metrics_server) = metrics_server {
+        // a scrape in flight finishes; nothing keeps the process waiting for a connection that stays open
+        let _ = tokio::time::timeout(Duration::from_secs(2), metrics_server).await;
     }
 
     // give running AI jobs a chance to finish; the sweeper on another replica handles the rest
