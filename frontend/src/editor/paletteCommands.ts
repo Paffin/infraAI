@@ -6,7 +6,8 @@ import {
 } from 'lucide-vue-next'
 import type { KindDef, Status } from '@/api/types'
 import { lang, lt, setLang, t } from '@/i18n'
-import { byUrgency, findingText, findingTitle, statusColor, statusLabel } from '@/lib/findings'
+import { findingText, findingTitle, statusColor, statusLabel } from '@/lib/findings'
+import { stepFinding } from '@/lib/navigate'
 import { shortcutText } from '@/lib/shortcuts'
 import { scenarioLabel } from '@/lib/sim'
 import { useApp } from '@/stores/app'
@@ -108,18 +109,10 @@ export function usePaletteCommands(): ComputedRef<Command[]> {
         run: () => { ui.tab = 'checks'; ui.findingCursor = f.id; editor.showSubjects(f) },
       })
     }
-    // the findings one after another, as the keys N and P go through them: the first of them is the worst
-    const worst = byUrgency(editor.openFindings)
-    if (worst.length > 1) {
-      const step = (dir: 1 | -1) => () => {
-        const at = worst.findIndex((f) => f.id === ui.findingCursor)
-        const next = worst[at < 0 ? (dir > 0 ? 0 : worst.length - 1) : (at + dir + worst.length) % worst.length]
-        ui.tab = 'checks'
-        ui.findingCursor = next.id
-        editor.showSubjects(next)
-      }
-      out.push({ id: 'finding:next', group: 'finding', title: t('cmd.finding.next'), shortcut: shortcutText('findingNext'), icon: Play, keywords: ['next', 'finding', 'находка', 'дальше'], run: step(1) })
-      out.push({ id: 'finding:prev', group: 'finding', title: t('cmd.finding.prev'), shortcut: shortcutText('findingPrev'), icon: Play, keywords: ['previous', 'finding', 'находка', 'назад'], run: step(-1) })
+    // the findings one after another: the keys N and P, the same function
+    if (editor.openFindings.length) {
+      out.push({ id: 'finding:next', group: 'finding', title: t('cmd.finding.next'), shortcut: shortcutText('findingNext'), icon: Play, keywords: ['next', 'finding', 'находка', 'дальше'], run: () => void stepFinding(1) })
+      out.push({ id: 'finding:prev', group: 'finding', title: t('cmd.finding.prev'), shortcut: shortcutText('findingPrev'), icon: Play, keywords: ['previous', 'finding', 'находка', 'назад'], run: () => void stepFinding(-1) })
     }
 
     // ---------------------------------------------------------------- failure scenarios

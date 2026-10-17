@@ -1094,6 +1094,7 @@ export default {
   'announce.crit': '{n} new critical finding|{n} new critical findings',
   'announce.risk': '{n} new risk|{n} new risks',
   'announce.resolved': '{n} finding resolved|{n} findings resolved',
+  'announce.eased': '{n} critical finding is now a risk|{n} critical findings are now risks',
   'announce.nodata.more': 'data is missing for {n} more check|data is missing for {n} more checks',
   'announce.nodata.less': 'data is now enough for {n} check|data is now enough for {n} checks',
   'announce.name': '"{name}"',

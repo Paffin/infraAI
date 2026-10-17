@@ -44,10 +44,15 @@ describe('what changed between two reports', () => {
     expect(levels.filter((s) => s === 'risk')).toHaveLength(5)
   })
 
-  it('counts a risk that became critical as new, and a critical that became a risk as nothing to report', () => {
+  it('counts a risk that became critical as new, and a critical that became a risk as eased (it is still open, so it is neither new nor resolved)', () => {
     const worse = edited(overloaded, (r) => { r.findings.find((f) => f.id === 'CAP-01:redis')!.status = 'critical' })
     expect(diffReports(overloaded, worse).introduced.map((f) => f.id)).toEqual(['CAP-01:redis'])
-    expect(diffReports(worse, overloaded)).toMatchObject({ introduced: [], resolved: [] })
+    expect(diffReports(overloaded, worse).eased).toEqual([])
+    const back = diffReports(worse, overloaded)
+    expect(back).toMatchObject({ introduced: [], resolved: [] })
+    expect(back.eased.map((f) => f.id)).toEqual(['CAP-01:redis'])
+    // a finding that stays where it was is none of them
+    expect(diffReports(overloaded, overloaded)).toMatchObject({ introduced: [], resolved: [], eased: [], noData: 0 })
   })
 
   it('does not count a finding that was accepted (waived) as open', () => {
@@ -83,6 +88,19 @@ describe('the words for a change', () => {
     expect(describeChange(spof, clean, rules)).toBe('2 находки устранены.')
     const one = edited(spof, (r) => { r.findings = r.findings.filter((f) => f.id !== 'HA-SPOF-01:waf') })
     expect(describeChange(spof, one, rules)).toBe('1 находка устранена.')
+  })
+
+  it('says what was eased: a critical finding that became a risk is not silence', () => {
+    const worse = edited(overloaded, (r) => { r.findings.find((f) => f.id === 'CAP-01:redis')!.status = 'critical' })
+    expect(describeChange(worse, overloaded, rules)).toBe('1 критичная находка стала риском.')
+    setLang('en')
+    expect(describeChange(worse, overloaded, rules)).toBe('1 critical finding is now a risk.')
+    // two at once, the Russian plural; and said together with what was resolved
+    setLang('ru')
+    const two = edited(overloaded, (r) => { for (const f of r.findings.filter((x) => x.status === 'risk').slice(0, 2)) f.status = 'critical' })
+    expect(describeChange(two, overloaded, rules)).toBe('2 критичные находки стали рисками.')
+    const withOldFinding = edited(two, (r) => { r.findings.push(structuredClone(spof.findings.find((f) => f.id === 'HA-SPOF-01:waf')!)) })
+    expect(describeChange(withOldFinding, overloaded, rules)).toBe('1 находка устранена, 2 критичные находки стали рисками.')
   })
 
   it('names at most two rules, the worst first, and counts the rest', () => {

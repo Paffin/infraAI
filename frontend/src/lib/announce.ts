@@ -22,6 +22,8 @@ export interface ReportDelta {
   introduced: Finding[]
   /** Open before, gone now. */
   resolved: Finding[]
+  /** Open before and now, and milder: a critical finding that became a risk (the open ones are critical or risk, so that is the only way down). */
+  eased: Finding[]
   /** The change in the number of checks that cannot say for lack of data (positive: more of them). */
   noData: number
 }
@@ -34,8 +36,12 @@ export function diffReports(prev: Report, next: Report): ReportDelta {
     return !was || statusRank[f.status] < statusRank[was.status]
   })
   const resolved = [...before.values()].filter((f) => !after.has(f.id))
+  const eased = [...after.values()].filter((f) => {
+    const was = before.get(f.id)
+    return !!was && statusRank[f.status] > statusRank[was.status]
+  })
   introduced.sort((a, b) => statusRank[a.status] - statusRank[b.status])
-  return { introduced, resolved, noData: next.counts.noData - prev.counts.noData }
+  return { introduced, resolved, eased, noData: next.counts.noData - prev.counts.noData }
 }
 
 /** The ids of rules in the order of first appearance, without repeats: three subjects of one rule are one thing to say. */
@@ -45,7 +51,7 @@ function distinctRules(list: readonly Finding[]): string[] {
 
 /**
  * The message for the change from `prev` to `next`, in the language of the page; `null` when nothing a person has to be told about changed (the same findings
- * are open, and the same number of checks lack data).
+ * are open at the same level, and the same number of checks lack data).
  */
 export function describeChange(prev: Report, next: Report, rules: { get(id: string): Rule | undefined }): string | null {
   const d = diffReports(prev, next)
@@ -55,6 +61,7 @@ export function describeChange(prev: Report, next: Report, rules: { get(id: stri
   if (crit) parts.push(t('announce.crit', { n: crit }))
   if (risk) parts.push(t('announce.risk', { n: risk }))
   if (d.resolved.length) parts.push(t('announce.resolved', { n: d.resolved.length }))
+  if (d.eased.length) parts.push(t('announce.eased', { n: d.eased.length }))
   if (d.noData > 0) parts.push(t('announce.nodata.more', { n: d.noData }))
   if (d.noData < 0) parts.push(t('announce.nodata.less', { n: -d.noData }))
   if (!parts.length) return null

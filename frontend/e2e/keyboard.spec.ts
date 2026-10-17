@@ -329,6 +329,29 @@ test.describe('links have no stop on the diagram, and are reached another way', 
   })
 })
 
+test.describe('the links of a card can be told apart', () => {
+  test('no two rows of the list of links of a card read alike, though the two sites each have a card of the same name; the row says where the other end stands', async ({ page }) => {
+    await createProject(page, uniqueName('kbd-linkrows'), '2 ЦОД + witness')
+    await expect(page.locator('.arch-node').first()).toBeVisible()
+    const ids = await page.locator('.arch-node').evaluateAll((els) => els.map((e) => e.getAttribute('data-id')!))
+    let twins = 0
+    for (const id of ids) {
+      // by the keyboard: the inspector covers part of the diagram, and a pointer would be stopped by it
+      await page.locator(`.arch-node[data-id="${id}"]`).focus()
+      await page.keyboard.press('Enter')
+      await expect(page.locator(`.arch-node[data-id="${id}"]`)).toHaveClass(/selected/)
+      const rows = await page.getByTestId('inspector-link').evaluateAll((els) => els.map((e) => ({ row: (e as HTMLElement).innerText.replace(/\s+/g, ' ').trim(), to: e.querySelector('.nm')!.textContent!.trim() })))
+      expect(new Set(rows.map((r) => r.row)).size, `the links of ${id}: ${rows.map((r) => r.row).join(' | ')}`).toBe(rows.length)
+      // the same card name twice: the rows say which site each stands in
+      if (new Set(rows.map((r) => r.to)).size < rows.length) {
+        twins++
+        expect(rows.some((r) => r.row.includes('ЦОД-1')) && rows.some((r) => r.row.includes('ЦОД-2')), rows.map((r) => r.row).join(' | ')).toBe(true)
+      }
+    }
+    expect(twins, 'a card with links to two cards of one name (the two sites): the case this guards').toBeGreaterThan(0)
+  })
+})
+
 test.describe('the table of shortcuts is the dispatcher', () => {
   /** The keyboard is on the page and on nothing in particular (the keys of the page do not work over a control that takes them itself). */
   const free = (page: Page) => page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
@@ -440,6 +463,22 @@ test.describe('the table of shortcuts is the dispatcher', () => {
     await page.keyboard.press('n')
     await page.keyboard.press('p')
     await expect.poll(() => page.locator('.arch-node.lit').evaluateAll((els) => els.map((e) => e.getAttribute('data-id')))).toEqual(first)
+
+    // the palette's "next finding" is the same walk (one function): it takes the same step as the key
+    await page.keyboard.press('Control+k')
+    await page.locator('.palette input').fill('Следующая находка')
+    await page.keyboard.press('Enter')
+    await expect.poll(() => page.locator('.arch-node.lit').evaluateAll((els) => els.map((e) => e.getAttribute('data-id')))).not.toEqual(first)
+    await free(page)
+    await page.keyboard.press('p')
+    await expect.poll(() => page.locator('.arch-node.lit').evaluateAll((els) => els.map((e) => e.getAttribute('data-id')))).toEqual(first)
+
+    // a level of the list that hides the finding the key went to is let go: the finding is in the list that is shown
+    await page.locator('.checks .tile.nodata, .right .tile.nodata').first().click()
+    await expect(page.locator('.tile.on')).toHaveCount(1)
+    await free(page)
+    await page.keyboard.press('n')
+    await expect(page.locator('.tile.on')).toHaveCount(0)
   })
 })
 
@@ -468,6 +507,26 @@ test.describe('skip links', () => {
     })
     expect(gap.lower).toBeLessThan(gap.half)
     await expect(page.locator('.canvas [data-kbd][tabindex="0"]')).toHaveCount(1)
+  })
+
+  test('a project opened from the list has the keyboard on its heading, which comes after the links: Tab from it still goes to the first link, and Enter to the first card', async ({ page }) => {
+    const name = uniqueName('kbd-skip4')
+    await createProject(page, name, '2 ЦОД + witness')
+    await expect(page.locator('.arch-node').first()).toBeVisible()
+    // in the app, not by a load: the list, then the project's link
+    await page.locator('header.eh a.muted').click()
+    await page.locator('article.project', { hasText: name }).locator('a[href]').first().click()
+    await expect(page.locator('header.eh h1')).toBeFocused()
+    await expect(page.locator('.arch-node').first()).toBeVisible()
+    await page.keyboard.press('Tab')
+    await expect(page.locator('.skip-link:focus')).toHaveText('К схеме')
+    await page.keyboard.press('Enter')
+    await expect(focusedCard(page)).toHaveClass(/arch-node/)
+    // Shift+Tab from the heading is the browser's: the link before it in the header, not a skip link
+    await page.locator('header.eh h1').focus()
+    await page.keyboard.press('Shift+Tab')
+    await expect(page.locator('.skip-link:focus')).toHaveCount(0)
+    await expect(page.locator('header.eh a:focus')).toHaveCount(1)
   })
 
   test('the other two go to the checks and to the library', async ({ page }) => {

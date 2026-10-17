@@ -37,15 +37,6 @@ export function setStop(root: ParentNode, el: HTMLElement) {
   if (el.getAttribute('tabindex') !== '0') el.setAttribute('tabindex', '0')
 }
 
-/** The first card in reading order (a zone head when there are no cards): where Tab enters a diagram nobody has been on yet. */
-function firstInReadingOrder(root: ParentNode): HTMLElement | null {
-  const all = itemsOf(root)
-  const cards = all.filter((el) => el.dataset.kbd === 'node')
-  const { boxes, byKey } = boxesOf(cards.length ? cards : all)
-  const first = readingOrder(boxes)[0]
-  return first ? byKey.get(first.id) ?? null : null
-}
-
 /**
  * Exactly one stop on the diagram, whatever happened to its cards (a card was deleted, a template replaced them all, a project opened): the one that has it
  * and is still there; else `prefer`; else the selected card; else the first card in reading order. `null` when there is nothing to stop at.
@@ -53,7 +44,7 @@ function firstInReadingOrder(root: ParentNode): HTMLElement | null {
 export function ensureStop(root: ParentNode, prefer?: HTMLElement | null): HTMLElement | null {
   const stops = Array.from(root.querySelectorAll<HTMLElement>(STOP))
   if (stops.length === 1 && !prefer) return stops[0]
-  const pick = prefer && prefer.isConnected ? prefer : stops[0] ?? root.querySelector<HTMLElement>(`${ITEM}.selected`) ?? firstInReadingOrder(root)
+  const pick = prefer && prefer.isConnected ? prefer : stops[0] ?? root.querySelector<HTMLElement>(`${ITEM}.selected`) ?? edgeItem(root, 'first')
   if (pick) setStop(root, pick)
   return pick
 }
@@ -80,7 +71,7 @@ export function neighbour(root: ParentNode, from: HTMLElement, dir: Dir): HTMLEl
   return key ? byKey.get(key) ?? null : null
 }
 
-/** The first or the last card in reading order (Home / End). */
+/** The first or the last card in reading order (a zone head when there are no cards): Home / End, and where Tab enters a diagram nobody has been on yet. */
 export function edgeItem(root: ParentNode, which: 'first' | 'last'): HTMLElement | null {
   const all = itemsOf(root)
   const cards = all.filter((el) => el.dataset.kbd === 'node')

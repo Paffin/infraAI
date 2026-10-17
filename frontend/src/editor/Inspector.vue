@@ -11,6 +11,7 @@ import { useUi } from '@/stores/ui'
 import { isManaged, versionRefs } from '@/lib/product'
 import { useToasts } from '@/stores/toasts'
 import { canvasEl, ensureStop, itemFor } from './canvasFocus'
+import { zoneChain } from './layout'
 import PropControl from './PropControl.vue'
 import VersionField from './VersionField.vue'
 
@@ -108,15 +109,20 @@ function remove() {
 }
 
 // ------------------------------------------------------------------------- keyboard: the way to the links, and back to the diagram
-/** The links of the selected card, each a way to that link: a link is not a stop of the Tab key on the diagram (a diagram has twice as many of them as cards). */
+/**
+ * The links of the selected card, each a way to that link: a link is not a stop of the Tab key on the diagram (a diagram has twice as many of them as cards). A row says
+ * where the card at the other end stands (its zones, from the outermost: "Site 1 / Rack 2") and the label of the link, if it has one: the two sites of a design each have
+ * a "WAF + Ingress", and "To «WAF + Ingress»" twice is not a list anybody can choose from.
+ */
 const links = computed(() => {
   const id = node.value?.id
   if (!id) return []
   return editor.shown.edges.filter((e) => e.source === id || e.target === id).map((e) => {
     const out = e.source === id
-    const other = out ? e.target : e.source
+    const other = editor.nodeById.get(out ? e.target : e.source)
     const def = ix.value.edgeTypes.get(e.type)
-    return { id: e.id, out, name: editor.nodeById.get(other)?.name ?? other, type: def ? lt(def.name) : e.type }
+    const where = zoneChain(editor.shown, other?.zoneId).map((z) => editor.zoneById.get(z)?.name ?? z).reverse().join(' / ')
+    return { id: e.id, out, name: other?.name ?? (out ? e.target : e.source), where, type: [def ? lt(def.name) : e.type, e.label].filter(Boolean).join(' · ') }
   })
 })
 
@@ -317,7 +323,7 @@ watch(() => ui.focusRequest, () => void nextTick(applyFocus), { immediate: true 
         <h3>{{ t('inspector.links') }}</h3>
         <ul class="links">
           <li v-for="l in links" :key="l.id">
-            <button class="link" data-testid="inspector-link" @click="openLink(l.id)"><span class="arrow" aria-hidden="true">{{ l.out ? '→' : '←' }}</span><span class="grow truncate">{{ t(l.out ? 'inspector.link.out' : 'inspector.link.in', { name: l.name }) }}</span><span class="faint">{{ l.type }}</span></button>
+            <button class="link" data-testid="inspector-link" @click="openLink(l.id)"><span class="arrow" aria-hidden="true">{{ l.out ? '→' : '←' }}</span><span class="grow to"><span class="nm truncate">{{ t(l.out ? 'inspector.link.out' : 'inspector.link.in', { name: l.name }) }}</span><template v-if="l.where">{{ ' ' }}<span class="where truncate">· {{ l.where }}</span></template></span>{{ ' ' }}<span class="faint">{{ l.type }}</span></button>
           </li>
         </ul>
       </template>
@@ -368,6 +374,9 @@ select.in { text-align-last: right; padding-right: 2px; }
 .link { width: 100%; display: flex; align-items: center; gap: 8px; min-height: 28px; padding: 2px 6px; border: 0; border-radius: var(--radius-sm); background: transparent; text-align: left; font-size: 12.5px; color: var(--text); }
 .link:hover { background: var(--surface-sunken); }
 .link .arrow { flex: none; color: var(--muted); }
+.link .to { min-width: 0; display: flex; gap: 4px; }
+.link .nm { flex: 0 1 auto; min-width: 0; }
+.link .where { flex: 0 1 auto; min-width: 0; color: var(--muted); }
 .link .faint { flex: none; font-size: 11.5px; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .finds { flex: none; list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; }
 .finds li { display: flex; align-items: flex-start; gap: 8px; }

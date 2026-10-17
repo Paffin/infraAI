@@ -23,7 +23,8 @@ import VersionsModal from '@/editor/VersionsModal.vue'
 import WhatIfBar from '@/editor/WhatIfBar.vue'
 import LiveRegion from '@/components/LiveRegion.vue'
 import { announce, clearAnnouncement, describeChange } from '@/lib/announce'
-import { byUrgency } from '@/lib/findings'
+import { stepFinding } from '@/lib/navigate'
+import { pageHeading } from '@/lib/pageFocus'
 import { blocked, matchShortcut, repeats, type WindowShortcutId } from '@/lib/shortcuts'
 import { decodeScenario, scenarioFits, SIM_PARAM } from '@/lib/simLink'
 import { useAi } from '@/stores/ai'
@@ -43,6 +44,7 @@ const toasts = useToasts()
 const route = useRoute()
 const router = useRouter()
 const library = ref<InstanceType<typeof Library> | null>(null)
+const skips = ref<HTMLElement | null>(null)
 
 async function open(id: string) {
   ai.reset()
@@ -106,18 +108,6 @@ function control(el: EventTarget | null): boolean {
 /** The project is there to export, to run a matrix on, to look through the findings of. */
 const ready = () => !editor.loading && !editor.loadError && !!editor.projectId
 
-/** The next (or previous) open finding in the order the list of checks has it: the checks tab opens on it and the diagram shows what it is about. */
-function stepFinding(dir: 1 | -1): boolean {
-  const list = byUrgency(editor.openFindings)
-  if (!ready() || !list.length) return false
-  const at = list.findIndex((f) => f.id === ui.findingCursor)
-  const next = list[at < 0 ? (dir > 0 ? 0 : list.length - 1) : (at + dir + list.length) % list.length]
-  ui.findingCursor = next.id
-  ui.tab = 'checks'
-  editor.showSubjects(next)
-  return true
-}
-
 /** What each shortcut of the table does here (`lib/shortcuts.ts`): an action that has nothing to do right now answers `false`, and the key goes on to the browser. */
 const actions: Record<WindowShortcutId, (e: KeyboardEvent) => boolean | void> = {
   palette: () => { ui.palette = !ui.palette },
@@ -136,8 +126,8 @@ const actions: Record<WindowShortcutId, (e: KeyboardEvent) => boolean | void> = 
   foldRight: () => { ui.rightOpen = !ui.rightOpen },
   export: () => { if (!ready()) return false; ui.modal = 'export' },
   matrix: () => { if (!ready()) return false; ui.modal = 'matrix' },
-  findingNext: () => stepFinding(1),
-  findingPrev: () => stepFinding(-1),
+  findingNext: () => ready() && stepFinding(1),
+  findingPrev: () => ready() && stepFinding(-1),
   undo: () => editor.undo(),
   redo: () => editor.redo(),
   duplicate: () => {
@@ -163,8 +153,23 @@ const actions: Record<WindowShortcutId, (e: KeyboardEvent) => boolean | void> = 
   step: (e) => { if (!editor.sim?.result || !playback.available) return false; playback.step(e.key === 'ArrowRight' ? 1 : -1) },
 }
 
+/**
+ * The skip links are the first stops of the page, and the page's heading comes after them: a project opened from the list puts the focus on that heading (lib/pageFocus.ts),
+ * and the Tab key goes on from there, with the links behind it. From the heading itself, Tab goes to the first of them (Shift+Tab, and Tab from anywhere else, are the
+ * browser's), so that the way to the first card is the same two key presses as on a page that was loaded afresh.
+ */
+function enterSkips(e: KeyboardEvent) {
+  if (e.shiftKey || e.ctrlKey || e.altKey || e.metaKey || e.defaultPrevented) return
+  const heading = pageHeading()
+  const first = skips.value?.querySelector<HTMLElement>('a')
+  if (!heading || !first || document.activeElement !== heading) return
+  e.preventDefault()
+  first.focus()
+}
+
 function onKey(e: KeyboardEvent) {
   if (e.isComposing) return
+  if (e.key === 'Tab') return enterSkips(e)
   const id = matchShortcut(e)
   if (!id || blocked(id, { typing: typing(e.target), control: control(e.target), dialog: ui.palette || !!ui.modal })) return
   // a key held down does the thing once, unless repeating is what it is for (zoom, undo)
@@ -191,7 +196,7 @@ function skipTo(where: 'canvas' | 'checks' | 'library') {
 
 <template>
   <div class="editor">
-    <nav class="skips" :aria-label="t('skip.label')">
+    <nav ref="skips" class="skips" :aria-label="t('skip.label')">
       <a class="skip-link" href="#editor-canvas" @click.prevent="skipTo('canvas')">{{ t('skip.canvas') }}</a>
       <a class="skip-link" href="#editor-checks" @click.prevent="skipTo('checks')">{{ t('skip.checks') }}</a>
       <a class="skip-link" href="#editor-library" @click.prevent="skipTo('library')">{{ t('skip.library') }}</a>

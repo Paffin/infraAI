@@ -4,7 +4,7 @@ import { Check, ChevronDown, ChevronRight, CircleCheck, CircleHelp, Download, Ga
 import type { Objective, Status } from '@/api/types'
 import { lt, t } from '@/i18n'
 import { fmtDuration, fmtPct } from '@/lib/format'
-import { statusRank } from '@/lib/findings'
+import { byUrgency } from '@/lib/findings'
 import { focusNeed } from '@/lib/navigate'
 import { formatAvailability } from '@/lib/nines'
 import { objectiveAction, type ObjectiveAction } from '@/lib/objectives'
@@ -47,7 +47,11 @@ const filter = ref<Status | 'all'>('all')
 const showOk = ref(false)
 const showAccepted = ref(false)
 
-const open = computed(() => [...editor.openFindings].sort((a, b) => statusRank[a.status] - statusRank[b.status]).filter((f) => filter.value === 'all' || f.status === filter.value))
+const open = computed(() => byUrgency(editor.openFindings).filter((f) => filter.value === 'all' || f.status === filter.value))
+// a finding that the keys N and P or the palette went to is one the list shows: a level that hides it is let go
+watch(() => ui.findingCursor, (id) => {
+  if (id && filter.value !== 'all' && !open.value.some((f) => f.id === id)) filter.value = 'all'
+})
 const accepted = computed(() => (report.value?.findings ?? []).filter((f) => f.accepted))
 const okRules = computed(() => (report.value?.rules ?? []).filter((r) => r.status === 'ok'))
 
