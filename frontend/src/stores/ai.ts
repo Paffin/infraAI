@@ -32,7 +32,8 @@ export const useAi = defineStore('ai', () => {
   const chatLoaded = ref(false)
 
   const busy = computed(() => submitting.value || (!!job.value && (job.value.status === 'queued' || job.value.status === 'running')))
-  const enabled = computed(() => !!app.boot?.ai.enabled && app.canEdit !== undefined)
+  /** The server has AI: a key is set and the administrator did not switch it off (`ai.enabled` of the bootstrap). */
+  const enabled = computed(() => !!app.boot?.ai.enabled)
   const step = computed(() => job.value?.steps[job.value.steps.length - 1] ?? null)
 
   let pollTimer: ReturnType<typeof setTimeout> | undefined

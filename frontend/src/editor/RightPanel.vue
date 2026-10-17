@@ -18,7 +18,14 @@ const ai = useAi()
 const editor = useEditor()
 const app = useApp()
 /** The failure on the diagram has a tab of its own (its story and the traffic) while it is on screen and is not detached into a window of its own. */
-const tabs = computed<RightTab[]>(() => (editor.sim && ui.simMode === 'dock' ? ['sim', 'checks', 'requirements', 'analysis', 'chat'] : ['checks', 'requirements', 'analysis', 'chat']))
+const tabs = computed<RightTab[]>(() => {
+  const own: RightTab[] = ['checks', 'requirements', 'analysis']
+  // the chat is the tab of the AI: a server without it has nothing to say there
+  if (ui.chrome.chatTab) own.push('chat')
+  return editor.sim && ui.simMode === 'dock' ? ['sim', ...own] : own
+})
+// a tab that is gone (AI switched off while the chat was open) must not stay the one that is shown
+watch(() => ui.chrome.chatTab, (has) => { if (!has && ui.tab === 'chat') ui.tab = 'checks' }, { immediate: true })
 const RAIL_ICONS = { sim: Activity, checks: ListChecks, requirements: SlidersHorizontal, analysis: ChartBar, chat: MessageSquare } as const
 const panels = { checks: ChecksPanel, requirements: RequirementsPanel, analysis: AnalysisPanel, chat: ChatPanel, sim: SimDetails }
 const panel = computed(() => panels[ui.tab] ?? ChatPanel)

@@ -68,7 +68,7 @@ async function leave() {
       <h1 class="pn"><button class="pname" :disabled="!app.canEdit" :title="t('projects.rename')" @click="rename">{{ name }}</button></h1>
       <span class="meta"><span class="vn">· v{{ editor.project?.headVersion ?? 0 }} · </span><span class="st" :class="'st-' + editor.saveState" :title="editor.saveError || saveText"><i class="sd" /><span class="stt">{{ saveText }}</span></span></span>
     </div>
-    <div class="mode" role="group">
+    <div v-if="ui.chrome.modeSwitch" class="mode" role="group">
       <button :class="{ on: ui.aiMode === 'ai' }" :title="app.boot?.ai.enabled ? '' : t('editor.mode.ai.off')" @click="ui.aiMode = 'ai'">{{ t('editor.mode.ai') }}</button>
       <button :class="{ on: ui.aiMode === 'manual' }" @click="ui.aiMode = 'manual'">{{ t('editor.mode.manual') }}</button>
     </div>

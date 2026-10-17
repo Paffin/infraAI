@@ -160,7 +160,7 @@ export function usePaletteCommands(): ComputedRef<Command[]> {
     out.push({ id: 'view:fit', group: 'view', title: t('canvas.fit'), icon: Maximize, keywords: ['fit', 'zoom', 'масштаб', 'вид'], suggest: true, run: () => { editor.fitToken++ } })
     out.push({ id: 'view:library', group: 'view', title: ui.libraryOpen ? t('library.collapse') : t('library.expand'), icon: PanelLeft, shortcut: shortcutText('foldLibrary'), run: () => { ui.libraryOpen = !ui.libraryOpen } })
     out.push({ id: 'view:right', group: 'view', title: ui.rightOpen ? t('right.fold') : t('right.unfold'), icon: PanelRight, shortcut: shortcutText('foldRight'), keywords: ['sidebar', 'панель', 'сайдбар'], run: () => { ui.rightOpen = !ui.rightOpen } })
-    out.push({ id: 'view:mode', group: 'view', title: ui.aiMode === 'ai' ? t('cmd.mode.manual') : t('cmd.mode.ai'), icon: Sparkles, keywords: ['ai', 'ии', 'manual', 'вручную'], run: () => { ui.aiMode = ui.aiMode === 'ai' ? 'manual' : 'ai' } })
+    if (ui.chrome.modeSwitch) out.push({ id: 'view:mode', group: 'view', title: ui.aiMode === 'ai' ? t('cmd.mode.manual') : t('cmd.mode.ai'), icon: Sparkles, keywords: ['ai', 'ии', 'manual', 'вручную'], run: () => { ui.aiMode = ui.aiMode === 'ai' ? 'manual' : 'ai' } })
     for (const l of ['all', 'network', 'data', 'dr'] as const) {
       out.push({ id: 'view:layer.' + l, group: 'view', title: t('cmd.layer', { name: t('layer.' + l) }), icon: Layers, keywords: ['layer', 'слой'], run: () => { editor.layer = l } })
     }
@@ -170,6 +170,7 @@ export function usePaletteCommands(): ComputedRef<Command[]> {
 
     // ---------------------------------------------------------------- panels and windows
     for (const tab of TABS) {
+      if (tab === 'chat' && !ui.chrome.chatTab) continue // no AI on the server: no chat to open
       out.push({ id: 'panel:' + tab, group: 'panel', title: t('cmd.open', { name: t('tab.' + tab) }), icon: TAB_ICON[tab], suggest: true, run: () => { ui.tab = tab } })
     }
     for (const view of ANALYSIS_VIEWS) {

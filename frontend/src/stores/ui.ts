@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
 import type { Need } from '@/api/types'
+import { aiChrome } from '@/lib/aiChrome'
 import { useAi } from './ai'
 import { useApp } from './app'
 
@@ -65,8 +66,10 @@ export const useUi = defineStore('ui', () => {
     tab.value = 'analysis'
   }
   watch(libraryOpen, (v) => write('ia_library', v ? 'open' : 'closed'))
+  /** Which AI controls exist at all (the server decides: without AI there is no bar, no switch, no chat tab) and whether the features work now (lib/aiChrome.ts). */
+  const chrome = computed(() => aiChrome({ serverEnabled: ai.enabled, canEdit: app.canEdit, mode: aiMode.value }))
   /** AI features are usable: the server has a key, the user did not switch to manual mode. */
-  const aiOn = computed(() => aiMode.value === 'ai' && ai.enabled)
+  const aiOn = computed(() => chrome.value.on)
 
-  return { aiMode, tab, analysis, showAnalysis, modal, palette, promptFocus, focusRequest, libraryOpen, aiOn, rightOpen, rightWidth, setRightWidth, whatIfFolded, simMode, simFolded }
+  return { aiMode, tab, analysis, showAnalysis, modal, palette, promptFocus, focusRequest, libraryOpen, chrome, aiOn, rightOpen, rightWidth, setRightWidth, whatIfFolded, simMode, simFolded }
 })

@@ -25,6 +25,9 @@ import { MIN_ZONE_H, MIN_ZONE_W } from './layout'
 const app = useApp()
 const editor = useEditor()
 const ui = useUi()
+/** What the empty diagram says. Without AI (the server has none, or the user chose manual mode) it does not send anyone to a prompt that is not there, and it names the
+ *  library only while the library is open: "on the left" is wrong when the panel is folded. */
+const emptyText = computed(() => (ui.aiOn && ui.chrome.promptBar ? t('canvas.empty.text') : t(ui.libraryOpen ? 'canvas.empty.text.manual' : 'canvas.empty.text.manual.nolib')))
 const motion = useMotion()
 const playback = usePlayback()
 const nodeTypes = { card: markRaw(ArchNode), zone: markRaw(ArchZone) } as any
@@ -359,7 +362,7 @@ function nodeColor(n: { id: string; type?: string }) {
 
     <div v-if="editor.isEmpty && !editor.loading && !editor.preview" class="empty-state" data-testid="canvas-empty">
       <h2>{{ t('canvas.empty.title') }}</h2>
-      <p>{{ t('canvas.empty.text') }}</p>
+      <p>{{ emptyText }}</p>
       <div v-if="app.canEdit && !editor.readonly" class="starts">
         <button v-if="ui.aiOn" class="start rise" style="--i: 0" @click="ui.promptFocus++"><Sparkles :size="18" /><b>{{ t('canvas.empty.ai') }}</b><span>{{ t('canvas.empty.ai.hint') }}</span></button>
         <button class="start rise" style="--i: 1" @click="ui.modal = 'placement'"><Network :size="18" /><b>{{ t('canvas.empty.wizard') }}</b><span>{{ t('canvas.empty.wizard.hint') }}</span></button>

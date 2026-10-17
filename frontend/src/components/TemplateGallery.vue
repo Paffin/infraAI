@@ -64,7 +64,7 @@ function toggle(id: string) {
       <label class="tpl" :class="{ on: !modelValue }" data-testid="tpl-blank">
         <input type="radio" name="template" value="" :checked="!modelValue" @change="emit('update:modelValue', '')" />
         <b>{{ t('projects.create.blank') }}</b>
-        <span class="muted desc">{{ t('projects.create.blank.hint') }}</span>
+        <span class="muted desc">{{ t(app.boot?.ai.enabled ? 'projects.create.blank.hint' : 'projects.create.blank.hint.manual') }}</span>
       </label>
       <label v-for="tpl in shown" :key="tpl.id" class="tpl" :class="{ on: modelValue === tpl.id }" :data-template="tpl.id">
         <input type="radio" name="template" :value="tpl.id" :checked="modelValue === tpl.id" @change="emit('update:modelValue', tpl.id)" />

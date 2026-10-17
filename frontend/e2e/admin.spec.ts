@@ -124,7 +124,8 @@ test.describe('admin panel', () => {
     await page.goto('/admin')
     await expect(page).toHaveURL(/\/$/)
     await page.locator('.project').first().click()
-    await expect(page.locator('.promptbar .pin')).toBeDisabled()
+    // nothing to ask an AI for (and, on this stack, no AI at all): the bar is not there, not there and disabled
+    await expect(page.locator('.promptbar')).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Связь' })).toHaveCount(0)
     void request
   })

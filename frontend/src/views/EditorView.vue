@@ -4,6 +4,7 @@ import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { t } from '@/i18n'
 import BulkCard from '@/editor/BulkCard.vue'
 import Canvas from '@/editor/Canvas.vue'
+import AiOffHint from '@/editor/AiOffHint.vue'
 import CommandPalette from '@/editor/CommandPalette.vue'
 import EditorHeader from '@/editor/EditorHeader.vue'
 import ExportModal from '@/editor/ExportModal.vue'
@@ -42,7 +43,8 @@ async function open(id: string) {
   ai.reset()
   ui.modal = null
   await editor.load(id)
-  void ai.loadChat()
+  // no AI on the server: there is no chat to read, and the request could only answer "nothing"
+  if (ai.enabled) void ai.loadChat()
   if (!editor.loadError) openLinkedFailure()
 }
 
@@ -138,7 +140,8 @@ const conflict = computed(() => editor.saveState === 'conflict')
 <template>
   <div class="editor">
     <EditorHeader />
-    <PromptBar />
+    <AiOffHint />
+    <PromptBar v-if="ui.chrome.promptBar" />
     <div class="body">
       <Library ref="library" />
       <main class="center">
