@@ -10,6 +10,7 @@ import { useEditor } from '@/stores/editor'
 import { useUi } from '@/stores/ui'
 import { isManaged, versionRefs } from '@/lib/product'
 import { useToasts } from '@/stores/toasts'
+import { canvasEl, ensureStop, itemFor } from './canvasFocus'
 import PropControl from './PropControl.vue'
 import VersionField from './VersionField.vue'
 
@@ -106,6 +107,49 @@ function remove() {
   editor.removeSelection()
 }
 
+// ------------------------------------------------------------------------- keyboard: the way to the links, and back to the diagram
+/** The links of the selected card, each a way to that link: a link is not a stop of the Tab key on the diagram (a diagram has twice as many of them as cards). */
+const links = computed(() => {
+  const id = node.value?.id
+  if (!id) return []
+  return editor.shown.edges.filter((e) => e.source === id || e.target === id).map((e) => {
+    const out = e.source === id
+    const other = out ? e.target : e.source
+    const def = ix.value.edgeTypes.get(e.type)
+    return { id: e.id, out, name: editor.nodeById.get(other)?.name ?? other, type: def ? lt(def.name) : e.type }
+  })
+})
+
+/** Open a link from the list of the card: the inspector now shows the link, and the keyboard is on its first way out. */
+async function openLink(id: string) {
+  editor.select({ type: 'edge', id })
+  editor.revealSelection()
+  await nextTick()
+  root.value?.querySelector<HTMLElement>('[data-go]')?.focus()
+}
+
+/** From a link to one of its ends: that card is selected, in view and has the keyboard. */
+async function goTo(nodeId: string) {
+  editor.select({ type: 'node', id: nodeId })
+  editor.revealSelection()
+  await nextTick()
+  const canvas = canvasEl()
+  itemFor(canvas ?? document, { type: 'node', id: nodeId })?.focus({ preventScroll: true })
+}
+
+/** Escape in the inspector: back to the card (or the end of the link) it is about; the selection stays. */
+function backToDiagram(e: KeyboardEvent) {
+  if (e.defaultPrevented) return
+  const canvas = canvasEl()
+  if (!canvas) return
+  const s = sel.value
+  const anchor = s?.type === 'edge' ? { type: 'node' as const, id: edge.value?.source ?? '' } : s
+  const target = itemFor(canvas, anchor) ?? ensureStop(canvas)
+  if (!target) return
+  e.stopPropagation()
+  target.focus({ preventScroll: true })
+}
+
 // ------------------------------------------------------------------------- "fill this in" requests
 const root = ref<HTMLElement | null>(null)
 const flashKey = ref('')
@@ -136,7 +180,7 @@ watch(() => ui.focusRequest, () => void nextTick(applyFocus), { immediate: true 
 </script>
 
 <template>
-  <div v-if="sel && (node || edge || zone)" ref="root" class="inspector card" role="region" :aria-label="t('inspector.selected', { name: title })">
+  <div v-if="sel && (node || edge || zone)" ref="root" class="inspector card" role="region" :aria-label="t('inspector.selected', { name: title })" @keydown.esc="backToDiagram">
     <header>
       <span class="dot" :class="edge ? 'edge' : zone ? 'zone' : ''" />
       <b class="grow truncate">{{ t('inspector.selected', { name: title }) }}</b>
@@ -228,6 +272,8 @@ watch(() => ui.focusRequest, () => void nextTick(applyFocus), { immediate: true 
           </select>
         </label>
         <button class="more" :disabled="dis" @click="editor.reverseEdge(edge!.id)"><ArrowLeftRight :size="14" />{{ t('inspector.reverse') }}</button>
+        <button class="more" data-go="source" @click="goTo(edge!.source)">{{ t('inspector.go.source', { name: editor.nodeById.get(edge!.source)?.name ?? edge!.source }) }}</button>
+        <button class="more" data-go="target" @click="goTo(edge!.target)">{{ t('inspector.go.target', { name: editor.nodeById.get(edge!.target)?.name ?? edge!.target }) }}</button>
         <template v-for="g in edgeSplit.groups" :key="g.id">
           <PropControl v-for="d in g.defs" :key="d.key" :def="d" :value="edge.props[d.key]" :fallback="edgeEff[d.key]" :disabled="dis" :flash="flashKey === d.key" @change="setEdgeProp(d.key, $event)" />
         </template>
@@ -265,6 +311,15 @@ watch(() => ui.focusRequest, () => void nextTick(applyFocus), { immediate: true 
         </label>
         <PropControl v-for="d in zoneDef?.props ?? []" :key="d.key" :def="d" :value="zone.props[d.key]" :disabled="dis" :flash="flashKey === d.key" @change="setZoneProp(d.key, $event)" />
         <p class="note">{{ t('inspector.zone.contains', { n: containedNodes }) }}</p>
+      </template>
+
+      <template v-if="links.length">
+        <h3>{{ t('inspector.links') }}</h3>
+        <ul class="links">
+          <li v-for="l in links" :key="l.id">
+            <button class="link" data-testid="inspector-link" @click="openLink(l.id)"><span class="arrow" aria-hidden="true">{{ l.out ? '→' : '←' }}</span><span class="grow truncate">{{ t(l.out ? 'inspector.link.out' : 'inspector.link.in', { name: l.name }) }}</span><span class="faint">{{ l.type }}</span></button>
+          </li>
+        </ul>
       </template>
 
       <template v-if="findings.length">
@@ -309,6 +364,11 @@ select.in { text-align-last: right; padding-right: 2px; }
 .assumed .in:not(:focus) { color: var(--faint); }
 .vdesc { flex: none; margin: 0 0 4px; font-size: 11.5px; line-height: 1.4; color: var(--muted); }
 .mgd { margin-left: 6px; font-size: 10.5px; vertical-align: 1px; }
+.links { flex: none; list-style: none; margin: 2px 0 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
+.link { width: 100%; display: flex; align-items: center; gap: 8px; min-height: 28px; padding: 2px 6px; border: 0; border-radius: var(--radius-sm); background: transparent; text-align: left; font-size: 12.5px; color: var(--text); }
+.link:hover { background: var(--surface-sunken); }
+.link .arrow { flex: none; color: var(--muted); }
+.link .faint { flex: none; font-size: 11.5px; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .finds { flex: none; list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; }
 .finds li { display: flex; align-items: flex-start; gap: 8px; }
 footer { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-top: 1px solid var(--line); }

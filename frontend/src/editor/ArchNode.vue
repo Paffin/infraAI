@@ -6,7 +6,7 @@ import KindChip from '@/components/KindChip.vue'
 import { lt, t } from '@/i18n'
 import { nodeSubtitle, variantOf } from '@/lib/catalog'
 import { isManaged } from '@/lib/product'
-import { statusColor } from '@/lib/findings'
+import { statusColor, statusLabel } from '@/lib/findings'
 import { fmtNumber } from '@/lib/format'
 import { longestWordEm } from '@/lib/textFit'
 import { amountText, FLOW_EPS } from '@/lib/traffic'
@@ -83,7 +83,31 @@ const loadTip = computed(() => {
 })
 const sides = { t: Position.Top, b: Position.Bottom, l: Position.Left, r: Position.Right }
 
-// the click must reach the flow's node wrapper: that is what selects a card (Shift+click extends the selection)
+/** The second line of the card: what it is made of (the sub-line of the product), or the kind of it when that is empty, or that it is a proposal. */
+const subLine = computed(() => (proposed.value && !subtitle.value ? t('inspector.proposed.short') : subtitle.value || (kind.value ? lt(kind.value.name) : t('kind.unknown', { kind: node.value?.kind ?? '' }))))
+/**
+ * What a screen reader and a voice control call the card. It begins with the words that are written on the card, in the order they are written (the name, the
+ * sub-line, the state and the load tags of a failure on screen): a voice control says "click Kafka", and a label that does not contain what is on the card makes
+ * that fail (WCAG 2.5.3; axe checks it as `label-content-name-mismatch`). After a comma: what the picture says without words (the finding it carries, the instances, a
+ * proposal) and what the tags mean.
+ */
+const label = computed(() => {
+  const n = node.value
+  if (!n) return undefined
+  const written = [n.name, subLine.value, stateLabel.value, loadText.value].filter(Boolean).join(' ')
+  const extras = [
+    status.value && !proposed.value ? statusLabel(status.value).toLowerCase() : '',
+    instances.value > 1 ? t('card.instances', { n: instances.value }) : '',
+    stateLabel.value ? t('card.sim') : '',
+    loadTone.value === 'up' ? t('card.load.up') : loadTone.value === 'down' ? t('card.load.down') : loadTone.value === 'none' ? t('card.load.none') : '',
+    proposed.value && subLine.value !== t('inspector.proposed.short') ? t('inspector.proposed.short') : '',
+    ghost.value ? t('card.removed') : '',
+    connecting.value ? t('card.connecting') : '',
+  ].filter(Boolean)
+  return extras.length ? `${written}, ${extras.join(', ')}` : written
+})
+
+// the click must reach the flow's node wrapper: that is what selects a card (Shift+click extends the selection); the keys of the card are the canvas's (Canvas.vue)
 function onClick(e: MouseEvent) {
   editor.clickNode(id.value, e)
 }
@@ -99,17 +123,20 @@ function onClick(e: MouseEvent) {
     ]"
     :title="tip"
     :style="{ '--i': wave, '--wem': wordEm }"
+    role="button" tabindex="-1" data-kbd="node" :data-id="id" :aria-pressed="selected || inMulti" :aria-label="label"
     @click="onClick"
   >
     <KindChip class="chip" :kind="kind" :size="38" />
+    <!-- the space between the two lines is in the text, not only in the layout: a reader that joins the text of blocks without one reads "NameSub-line" -->
     <div class="txt">
-      <div class="name truncate">{{ node.name }}</div>
-      <div class="sub truncate mono">{{ proposed && !subtitle ? t('inspector.proposed.short') : subtitle || (kind ? lt(kind.name) : t('kind.unknown', { kind: node.kind })) }}</div>
+      <div class="name truncate">{{ node.name }}</div>{{ ' ' }}
+      <div class="sub truncate mono">{{ subLine }}</div>
     </div>
     <span v-if="dot" class="dot" :style="{ background: dot }" />
     <span v-if="managed" class="mgd" aria-hidden="true"><Cloud :size="11" /></span>
-    <span v-if="stateLabel" class="state-tag">{{ stateLabel }}</span>
-    <span v-if="loadText" class="load-tag" :class="loadTone" :title="loadTip">{{ loadText }}</span>
+    <!-- the tags of a failure on screen are written on the card, so they are the first words of its label too; the spaces keep the words of a reader apart -->
+    {{ ' ' }}<span v-if="stateLabel" class="state-tag">{{ stateLabel }}</span>
+    {{ ' ' }}<span v-if="loadText" class="load-tag" :class="loadTone" :title="loadTip">{{ loadText }}</span>
     <template v-for="s in SIDES" :key="s">
       <Handle :id="s" type="source" :position="sides[s]" class="h" />
       <Handle :id="s" type="target" :position="sides[s]" class="h" />

@@ -17,7 +17,10 @@ import ArchEdge from './ArchEdge.vue'
 import ArchNode from './ArchNode.vue'
 import ArchZone from './ArchZone.vue'
 import LegendPopover from './LegendPopover.vue'
+import { byKeyboard, edgeItem, ensureStop, ITEM, keyOf, neighbour, setStop, successor } from './canvasFocus'
 import { createFlowBuilder, nodeFlowId, zoneFlowId } from './flowModel'
+import { moveIntoArea, toggleId, type Dir } from '@/lib/canvasNav'
+import { tabbables } from '@/lib/useFocusScope'
 import { lodOf } from '@/lib/lod'
 import { DURATIONS } from '@/lib/motion'
 import { MIN_ZONE_H, MIN_ZONE_W } from './layout'
@@ -33,7 +36,7 @@ const playback = usePlayback()
 const nodeTypes = { card: markRaw(ArchNode), zone: markRaw(ArchZone) } as any
 const edgeTypes = { arch: markRaw(ArchEdge), detour: markRaw(ArchDetour) } as any
 
-const { screenToFlowCoordinate, fitView, zoomIn, zoomOut, viewport, onNodesInitialized, addSelectedNodes, removeSelectedElements, findNode, getSelectedNodes } = useVueFlow()
+const { screenToFlowCoordinate, fitView, zoomIn, zoomOut, setViewport, viewport, onNodesInitialized, addSelectedNodes, removeSelectedElements, findNode, getSelectedNodes } = useVueFlow()
 const wrap = ref<HTMLElement | null>(null)
 
 const build = createFlowBuilder()
@@ -148,9 +151,14 @@ function watchOverlays() {
 // the caption of a failure comes and goes with it
 watch(() => !!editor.sim?.result, () => void nextTick(watchOverlays))
 
-onNodesInitialized(() => { if (autoFit) void fit() })
-onMounted(() => { void fit(); watchOverlays(); placeBars() })
-onBeforeUnmount(() => { resized.disconnect(); clearTimeout(settle) })
+onNodesInitialized(() => { if (autoFit) void fit(); keepStop() })
+onMounted(() => {
+  void fit(); watchOverlays(); placeBars(); keepStop()
+  // a card comes or goes: the diagram must still have its one stop of the Tab key
+  const host = wrap.value?.querySelector('.vue-flow__nodes')
+  if (host) { stopWatch = new MutationObserver(keepStop); stopWatch.observe(host, { childList: true, subtree: true }) }
+})
+onBeforeUnmount(() => { resized.disconnect(); clearTimeout(settle); stopWatch?.disconnect(); cancelAnimationFrame(stopFrame) })
 watch(() => editor.fitToken, () => { void fit(); watchOverlays(); placeBars() })
 
 watch(() => editor.highlight, (h) => {
@@ -186,6 +194,158 @@ watch(() => editor.multi.length, (n) => { if (!n && getSelectedNodes.value.lengt
 
 const zoomPct = computed(() => Math.round((viewport.value.zoom || 1) * 100))
 const lod = computed(() => lodOf(viewport.value.zoom || 1, app.editorCfg))
+
+// -------------------------------------------------------------------------------------- keyboard
+// The diagram is ONE stop of the Tab key: a card (or the head of a zone) with tabindex="0" while all the others have -1; the arrow keys walk to the next card
+// on the screen and the stop goes with the focus (editor/canvasFocus.ts). Vue Flow's own keyboard layer is off (`disable-keyboard-a11y` below): it selected a
+// card inside the flow only, then moved it with the arrow keys without ever saving the move, and described itself in English.
+let stopWatch: MutationObserver | undefined
+let stopFrame = 0
+function keepStop() {
+  cancelAnimationFrame(stopFrame)
+  stopFrame = requestAnimationFrame(() => { if (wrap.value) ensureStop(wrap.value) })
+}
+
+/** The room in which a focused card is seen: the canvas without what floats over it (the toolbar, the zoom bar, the caption of a failure) and without the inspector. */
+function freeArea(): { left: number; top: number; right: number; bottom: number } | null {
+  const host = wrap.value?.getBoundingClientRect()
+  if (!host) return null
+  const { top, bottom } = clearance()
+  let left = host.left
+  const panel = wrap.value?.parentElement?.querySelector<HTMLElement>('.inspector')?.getBoundingClientRect()
+  // the inspector covers the left of the canvas; a narrow window that it would take more than half of keeps its whole width
+  if (panel?.width && host.right - panel.right > (host.right - host.left) / 2) left = Math.max(left, panel.right)
+  return { left, top: host.top + top, right: host.right, bottom: host.bottom - bottom }
+}
+
+/**
+ * Where an item is on the screen, from the state of the view (its place in the diagram, the zoom and the offset) and not from what the browser has drawn: a
+ * view that has just been moved is drawn at its new place only a frame later (every element has a transition of a frame while animations are off), and an item
+ * measured in between would be moved for twice.
+ */
+function screenRect(el: HTMLElement): { left: number; top: number; right: number; bottom: number } | null {
+  const host = wrap.value?.getBoundingClientRect()
+  const id = el.dataset.id ?? ''
+  if (!host) return null
+  let at: { x: number; y: number }
+  let w: number
+  let h: number
+  if (el.dataset.kbd === 'zone') {
+    const z = findNode(zoneFlowId(id))
+    if (!z) return null
+    at = { x: z.computedPosition.x + el.offsetLeft, y: z.computedPosition.y + el.offsetTop }
+    w = el.offsetWidth
+    h = el.offsetHeight
+  } else {
+    const n = findNode(nodeFlowId(id))
+    if (!n?.dimensions.width) return null
+    at = n.computedPosition
+    w = n.dimensions.width
+    h = n.dimensions.height
+  }
+  const v = viewport.value
+  const left = host.left + v.x + at.x * v.zoom
+  const top = host.top + v.y + at.y * v.zoom
+  return { left, top, right: left + w * v.zoom, bottom: top + h * v.zoom }
+}
+
+/** The view moves the least that brings the focused card into the room, at the zoom it has: the user's place on the diagram is not lost. */
+function panIntoView(el: HTMLElement) {
+  const area = freeArea()
+  const box = el.isConnected ? screenRect(el) ?? el.getBoundingClientRect() : null
+  if (!area || !box) return
+  const { dx, dy } = moveIntoArea(box, area, GAP)
+  if (!dx && !dy) return
+  autoFit = false
+  const v = viewport.value
+  void setViewport({ x: v.x + dx, y: v.y + dy, zoom: v.zoom }, { duration: glide(DURATIONS.fast) })
+}
+
+/** The focus goes to `el` and the view follows it. */
+function focusAndReveal(el: HTMLElement) {
+  el.focus({ preventScroll: true })
+  panIntoView(el)
+}
+
+function onFocusin(e: FocusEvent) {
+  const el = e.target instanceof HTMLElement && e.target.matches(ITEM) ? e.target : null
+  if (!el || !wrap.value) return
+  setStop(wrap.value, el)
+  // the focus came with Tab or Shift+Tab (the keys of the diagram call `focusAndReveal`, whatever the browser takes a script's focus for)
+  if (byKeyboard(el)) panIntoView(el)
+}
+
+/** The first control of the inspector (Enter on a card that is selected already goes there; Escape comes back). */
+function openInspector(): boolean {
+  const body = wrap.value?.parentElement?.querySelector<HTMLElement>('.inspector .body')
+  const first = body && tabbables(body)[0]
+  first?.focus()
+  return !!first
+}
+
+/** Enter / Space on a card: what a click does (select it, pick it as the failure, be an end of a link), and on a card that is the selection already, go to its inspector. */
+function activate(el: HTMLElement) {
+  const id = el.dataset.id ?? ''
+  if (el.dataset.kbd === 'zone') {
+    if (editor.selection?.type === 'zone' && editor.selection.id === id && openInspector()) return
+    editor.select({ type: 'zone', id })
+  } else {
+    const alone = editor.selection?.type === 'node' && editor.selection.id === id && !editor.multi.length
+    if (alone && editor.tool === 'select' && !editor.pickingNode && openInspector()) return
+    editor.clickNode(id)
+  }
+  // the inspector opens over the left of the canvas: a card under it moves out from under
+  void nextTick(() => panIntoView(el))
+}
+
+/** Shift+Enter: the card joins the selection, or leaves it when it is there already (what Shift+click does). */
+function extendSelection(id: string) {
+  const current = editor.multi.length ? editor.multi : editor.selection?.type === 'node' ? [editor.selection.id] : []
+  const next = toggleId(current, id)
+  if (next.length) editor.selectNodes(next)
+  else editor.select(null)
+}
+
+/** Delete on a focused card removes THAT card (and the whole selection when it is part of it); the focus is on its closest neighbour before the card is gone. */
+function removeFocused(el: HTMLElement) {
+  const root = wrap.value
+  if (!root || editor.readonly) return
+  const id = el.dataset.id ?? ''
+  const zone = el.dataset.kbd === 'zone'
+  const doomed = zone ? [] : editor.multi.includes(id) ? editor.multi : [id]
+  const next = successor(root, el, new Set(zone ? [keyOf(el)] : doomed.map((x) => 'node:' + x)))
+  if (next) focusAndReveal(next)
+  else root.focus({ preventScroll: true })
+  if (zone) editor.removeZone(id)
+  else if (doomed.length === 1) editor.removeNode(id) // one card: the message names it
+  else editor.removeNodes(doomed)
+}
+
+const ARROWS: Record<string, Dir> = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' }
+
+/** The keys of a focused card or zone head. What they do is handled here and goes no further, so that the page's own handler (the playback, the tool letters) does not do it too. */
+function onKeydown(e: KeyboardEvent) {
+  const el = e.target instanceof HTMLElement && e.target.matches(ITEM) ? e.target : null
+  const root = wrap.value
+  if (!el || !root || e.defaultPrevented || e.isComposing || e.ctrlKey || e.metaKey || e.altKey) return
+  const done = () => { e.preventDefault(); e.stopPropagation() }
+  if (e.key === 'Enter' || e.key === ' ') {
+    done()
+    if (e.shiftKey && el.dataset.kbd === 'node') extendSelection(el.dataset.id ?? '')
+    else activate(el)
+  } else if (e.key === 'Delete' || e.key === 'Backspace') {
+    done()
+    removeFocused(el)
+  } else if (ARROWS[e.key]) {
+    done()
+    const to = neighbour(root, el, ARROWS[e.key])
+    if (to) focusAndReveal(to)
+  } else if ((e.key === 'Home' || e.key === 'End') && !e.shiftKey) {
+    done()
+    const to = edgeItem(root, e.key === 'Home' ? 'first' : 'last')
+    if (to) focusAndReveal(to)
+  }
+}
 
 // ------------------------------------------------------------------------------------ interaction
 function onDragStop(ev: NodeDragEvent) {
@@ -306,10 +466,16 @@ function nodeColor(n: { id: string; type?: string }) {
 </script>
 
 <template>
-  <div ref="wrap" class="canvas" :class="['tool-' + editor.tool, editor.pickingNode && 'picking']" :data-lod="lod" :data-dense="dense ? 1 : 0" :style="{ '--zoom': viewport.zoom || 1 }" @dragover="onDragOver" @drop="onDrop" @pointerdown.capture="takeHold">
+  <div
+    ref="wrap" class="canvas" role="group" tabindex="-1" :aria-label="t('canvas.label')" aria-describedby="canvas-help" :class="['tool-' + editor.tool, editor.pickingNode && 'picking']" :data-lod="lod" :data-dense="dense ? 1 : 0" :style="{ '--zoom': viewport.zoom || 1 }"
+    @dragover="onDragOver" @drop="onDrop" @pointerdown.capture="takeHold" @keydown="onKeydown" @focusin="onFocusin"
+  >
+    <span id="canvas-help" class="sr-only">{{ t('canvas.help') }}</span>
+    <!-- The keys of the diagram are the cards' own (see `onKeydown`): Vue Flow's layer (a tab stop on every card, Enter selecting inside the flow only, the arrow
+         keys moving the selected card without saving it, a live region in English) is off. -->
     <VueFlow
       :nodes="flow.nodes" :edges="flow.edges" :node-types="nodeTypes" :edge-types="edgeTypes"
-      :min-zoom="0.15" :max-zoom="1.8" :default-viewport="{ x: 40, y: 40, zoom: 0.8 }"
+      :min-zoom="0.15" :max-zoom="1.8" :default-viewport="{ x: 40, y: 40, zoom: 0.8 }" :nodes-focusable="false" :disable-keyboard-a11y="true"
       :nodes-draggable="!editor.readonly" :nodes-connectable="!editor.readonly" :elements-selectable="true"
       :connection-mode="ConnectionMode.Loose" :connection-radius="30" :delete-key-code="null" :selection-key-code="'Shift'" :multi-selection-key-code="'Shift'"
       :pan-on-drag="editor.tool !== 'zone'" :zoom-on-double-click="false" :prevent-scrolling="true" :snap-to-grid="false" :auto-pan-on-node-drag="true"
@@ -341,7 +507,7 @@ function nodeColor(n: { id: string; type?: string }) {
       <button class="tool" :class="{ on: editor.focusOn }" :aria-pressed="editor.focusOn" :title="t('tool.focus.hint')" data-testid="focus-toggle" @click="editor.setFocusOn(!editor.focusOn)"><Focus :size="14" />{{ t('tool.focus') }}</button>
       <LegendPopover />
     </div>
-    <div v-if="hint" class="hint-bar">{{ hint }}</div>
+    <div v-if="hint" class="hint-bar" role="status">{{ hint }}</div>
     <div v-else-if="driftNote" class="drift-bar" role="status" data-testid="drift-note">
       <TriangleAlert :size="14" aria-hidden="true" />
       <span>{{ t('canvas.drift') }}</span>
@@ -374,6 +540,10 @@ function nodeColor(n: { id: string; type?: string }) {
 
 <style>
 .canvas { position: absolute; inset: 0; background: var(--bg); overflow: hidden; }
+/* the focus of the keyboard: on a card and on the head of a zone a ring that keeps its size on the screen however far the diagram is zoomed out, on the canvas itself (an empty project) an inner one */
+.canvas:focus-visible { outline-offset: -3px; }
+.canvas .arch-node:focus-visible, .canvas .zone-head:focus-visible { outline: calc(2.5px / var(--zoom, 1)) solid var(--accent); outline-offset: calc(4px / var(--zoom, 1)); }
+.canvas[data-lod] .arch-node.selected:focus-visible { outline-width: calc(3px / var(--zoom, 1)); outline-offset: calc(5px / var(--zoom, 1)); }
 .canvas .vue-flow { background: transparent; }
 .canvas .vue-flow__background { background: transparent; }
 .canvas .vue-flow__background pattern circle, .canvas .vue-flow__background circle { fill: var(--grid-dot); }

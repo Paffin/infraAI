@@ -225,7 +225,7 @@ export default {
   'canvas.empty.wizard.hint': 'От одного ЦОД со стойками до десяти площадок: схема строится под выбранное число.',
   'canvas.empty.template': 'Эталонная архитектура',
   'canvas.empty.template.hint': 'Готовая схема с известными свойствами — слева, над библиотекой.',
-  'canvas.connect.hint': 'Режим «Связь»: потяните от точки узла к другому узлу',
+  'canvas.connect.hint': 'Режим «Связь»: потяните от узла к узлу или нажмите Enter на источнике, затем на цели',
   'canvas.zone.hint': 'Режим «Зона»: нарисуйте прямоугольник на схеме',
   'canvas.drop.zone': 'Отпустите, чтобы поместить в зону «{name}»',
 
@@ -1047,4 +1047,19 @@ export default {
   'sites.show.hint': 'Выделить площадку на схеме и подвести к ней холст',
   'sites.fail': 'Отказ',
   'sites.fail.hint': 'Проиграть отказ площадки на схеме',
+  // ---- keyboard: cards, links, the diagram as a whole
+  'card.instances': '{n} экземпляр|{n} экземпляра|{n} экземпляров',
+  'card.sim': 'в показанном отказе',
+  'card.load.up': 'нагрузка выше обычной',
+  'card.load.down': 'нагрузка ниже обычной',
+  'card.load.none': 'нагрузки нет',
+  'card.removed': 'будет удалено при применении',
+  'card.connecting': 'начало новой связи',
+  'canvas.label': 'Схема архитектуры',
+  'canvas.help': 'Стрелки: перейти к соседней карточке. Enter или пробел: выбрать. Shift и Enter: добавить к выбору или убрать из него. Enter на выбранной карточке: перейти к её свойствам. Delete: удалить. Home и End: первая и последняя карточка.',
+  'inspector.links': 'Связи',
+  'inspector.link.out': 'К «{name}»',
+  'inspector.link.in': 'От «{name}»',
+  'inspector.go.source': 'К источнику «{name}»',
+  'inspector.go.target': 'К цели «{name}»',
 } as Record<string, string>

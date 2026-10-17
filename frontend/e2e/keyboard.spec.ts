@@ -1,0 +1,330 @@
+import { expect, type Page } from '@playwright/test'
+import { test } from './fixtures'
+import { createProject, login, settled, uniqueName } from './helpers'
+
+/**
+ * The diagram by keyboard. The whole diagram is ONE stop of the Tab key (a card with tabindex 0, the others -1); the arrow keys walk from card to card, Enter does
+ * what a click does, Shift+Enter extends the selection, Delete removes the card that has the focus. Vue Flow's own keyboard layer is off: it selected a card inside the
+ * flow only, moved the selected card with the arrow keys without saving it, and spoke English.
+ */
+test.beforeEach(async ({ page }) => {
+  // the view glides to a card in full motion; the tests look at where it ends
+  await page.addInitScript(() => { try { localStorage.setItem('ia_motion', 'off') } catch { /* no storage: the default motion applies */ } })
+  await login(page)
+})
+
+const card = (page: Page, text: string) => page.locator('.arch-node', { hasText: text }).first()
+const tool = (page: Page, name: string) => page.locator('.toolbar .tool', { hasText: name })
+const focusedCard = (page: Page) => page.locator('.canvas [data-kbd]:focus')
+/** The project that is open, as the server has it. */
+async function stored(page: Page) {
+  const id = page.url().split('/p/')[1]
+  return (await (await page.request.get(`/api/projects/${id}`)).json()) as { architecture: { nodes: { id: string; ui: { x: number; y: number } }[]; edges: unknown[] } }
+}
+
+test.describe('the diagram is one stop of the Tab key and nothing in it moves by itself', () => {
+  test('one card has the stop, no wrapper and no link is focusable, Tab leaves the diagram in one press', async ({ page }) => {
+    await createProject(page, uniqueName('kbd-stop'), '10 площадок')
+    await expect(page.locator('.arch-node').first()).toBeVisible()
+    await settled(page)
+    const cardsAndHeads = await page.locator('.arch-node, .zone-head').count()
+    expect(cardsAndHeads).toBeGreaterThan(50) // 62 stops on this design before: one per card and one per zone
+    await expect(page.locator('.canvas [data-kbd][tabindex="0"]')).toHaveCount(1)
+    await expect(page.locator('.canvas [data-kbd][tabindex="-1"]')).toHaveCount(cardsAndHeads - 1)
+    await expect(page.locator('.vue-flow__node[tabindex]')).toHaveCount(0)
+    await expect(page.locator('.vue-flow__edge[tabindex]')).toHaveCount(0)
+    // Vue Flow's own description of a card (English) and its live region are gone
+    await expect(page.locator('[id^="vue-flow__aria-live"]')).toHaveCount(0)
+    await expect(page.locator('[aria-describedby^="vue-flow__node-desc"]')).toHaveCount(0)
+
+    await page.locator('.canvas [data-kbd][tabindex="0"]').focus()
+    await page.keyboard.press('Tab')
+    expect(await page.evaluate(() => !!document.activeElement?.closest('.vue-flow') || !!document.activeElement?.closest('[data-kbd]'))).toBe(false)
+    expect(await page.evaluate(() => !!document.activeElement?.closest('.canvas'))).toBe(true) // the toolbar of the canvas
+    await page.keyboard.press('Shift+Tab')
+    await expect(page.locator('.canvas [data-kbd]:focus')).toHaveCount(1)
+  })
+
+  test('the stop goes with the focus, and a card that goes does not leave the diagram without one', async ({ page }) => {
+    await createProject(page, uniqueName('kbd-roving'), '2 ЦОД + witness')
+    await expect(page.locator('.arch-node').first()).toBeVisible()
+    await expect(page.locator('.canvas [data-kbd][tabindex="0"]')).toHaveCount(1)
+    const first = await page.locator('.canvas [data-kbd][tabindex="0"]').getAttribute('data-id')
+    // the first card in reading order is the one at the top
+    await expect(page.locator('.canvas .arch-node[tabindex="0"]')).toHaveAttribute('data-id', first!)
+    const second = card(page, 'Kafka')
+    await second.focus()
+    await expect(second).toHaveAttribute('tabindex', '0')
+    await expect(page.locator('.canvas [data-kbd][tabindex="0"]')).toHaveCount(1)
+    // the card that has the stop is deleted: another one takes it over
+    await page.keyboard.press('Delete')
+    await expect(page.locator('.canvas [data-kbd][tabindex="0"]')).toHaveCount(1)
+    await expect(page.locator('.arch-node:focus')).toHaveCount(1)
+  })
+
+  test('the arrow keys walk from card to card; they do not move a card, do not save anything and do not speak English', async ({ page }) => {
+    await createProject(page, uniqueName('kbd-arrows'), '2 ЦОД + witness')
+    await expect(page.locator('.arch-node').first()).toBeVisible()
+    await settled(page)
+    await expect(page.locator('.crumbs .meta')).toContainText('сохранено', { timeout: 10_000 })
+    const before = await stored(page)
+    const moved = before.architecture.nodes[0].id
+    const places = () => page.locator('.vue-flow__node-card').evaluateAll((els) => els.map((e) => [e.getAttribute('data-id'), (e as HTMLElement).style.transform]))
+    const at = await places()
+
+    await page.locator(`.arch-node[data-id="${moved}"]`).focus()
+    await page.keyboard.press('Enter') // selected: this is where the arrow keys used to move it
+    await expect(page.locator('.arch-node.selected')).toHaveCount(1)
+    const seen = new Set<string>([moved])
+    for (const key of ['ArrowRight', 'ArrowDown', 'ArrowRight', 'ArrowDown']) {
+      await page.keyboard.press(key)
+      seen.add((await focusedCard(page).getAttribute('data-id')) ?? '')
+    }
+    expect(seen.size).toBeGreaterThan(2) // the focus walked over other cards
+    expect(await places()).toEqual(at) // no card is anywhere else than it was
+    await expect(page.locator('.crumbs .meta')).toContainText('сохранено')
+    await expect(page.locator('.zoom').getByRole('button', { name: 'Отменить' })).toBeDisabled()
+    await page.reload()
+    await expect(page.locator('.arch-node').first()).toBeVisible()
+    const after = await stored(page)
+    expect(after.architecture.nodes.map((n) => [n.id, n.ui.x, n.ui.y])).toEqual(before.architecture.nodes.map((n) => [n.id, n.ui.x, n.ui.y]))
+  })
+})
+
+test.describe('Enter does what a click does', () => {
+  test('Enter selects and opens the inspector; Shift+Enter extends; Enter on the selected card goes to its properties and Escape comes back', async ({ page }) => {
+    await createProject(page, uniqueName('kbd-select'), '2 ЦОД + witness')
+    await expect(page.locator('.arch-node').first()).toBeVisible()
+    const a = card(page, 'Kafka')
+    await a.focus()
+    await page.keyboard.press('Enter')
+    await expect(page.locator('.arch-node.selected')).toHaveCount(1)
+    await expect(a).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.locator('.inspector')).toBeVisible()
+    // the focus stays on the card (the inspector is not a trap)
+    await expect(a).toBeFocused()
+
+    // a second card joins with Shift+Enter: two are selected, the card with the actions on several appears
+    const b = card(page, 'PostgreSQL primary')
+    await b.focus()
+    await page.keyboard.press('Shift+Enter')
+    await expect(page.locator('.arch-node.multi')).toHaveCount(2)
+    await expect(page.locator('.bulk')).toBeVisible()
+    // and leaves with the same key
+    await page.keyboard.press('Shift+Enter')
+    await expect(page.locator('.arch-node.multi')).toHaveCount(0)
+    await expect(page.locator('.arch-node.selected')).toHaveCount(1)
+
+    // Enter on the card that is the selection: into its properties; Escape: back to the card, the selection stays
+    await a.focus()
+    await page.keyboard.press('Enter')
+    await expect.poll(() => page.evaluate(() => !!document.activeElement?.closest('.inspector'))).toBe(true)
+    await page.keyboard.press('Escape')
+    await expect(a).toBeFocused()
+    await expect(page.locator('.arch-node.selected')).toHaveCount(1)
+    await expect(page.locator('.inspector')).toBeVisible()
+    // Escape on the card clears the selection, and the keyboard stays where it was
+    await page.keyboard.press('Escape')
+    await expect(page.locator('.arch-node.selected')).toHaveCount(0)
+    await expect(page.locator('.inspector')).toHaveCount(0)
+    await expect(a).toBeFocused()
+  })
+
+  test('with the connect tool, Enter on the source and Enter on the target make exactly one link', async ({ page }) => {
+    await createProject(page, uniqueName('kbd-connect'), '2 ЦОД + witness')
+    await expect(page.locator('.arch-node').first()).toBeVisible()
+    const edges = page.locator('.vue-flow__edge')
+    const before = await edges.count()
+    const a = card(page, 'GitOps')
+    await a.focus()
+    await page.keyboard.press('c')
+    await expect(tool(page, 'Связь')).toHaveClass(/\bon\b/)
+    await expect(page.locator('.hint-bar')).toBeVisible()
+    await page.keyboard.press('Enter')
+    await expect(a).toHaveAttribute('aria-label', /начало новой связи/)
+    // to the card the arrow key reaches (a design has no link from the GitOps to the monitoring)
+    await page.keyboard.press('ArrowLeft')
+    const target = focusedCard(page)
+    await expect(target).toHaveCount(1)
+    expect(await target.getAttribute('data-id')).toBe('mon-dc2')
+    await page.keyboard.press('Enter')
+    await expect.poll(() => edges.count()).toBe(before + 1)
+    await expect(a).not.toHaveAttribute('aria-label', /начало новой связи/)
+    await page.keyboard.press('Escape')
+    await expect(tool(page, 'Выбор')).toHaveClass(/\bon\b/)
+  })
+
+  test('Delete removes the card that has the focus, not the selection; the focus stays on the diagram; Ctrl+Z brings it back', async ({ page }) => {
+    await createProject(page, uniqueName('kbd-delete'), '2 ЦОД + witness')
+    await expect(page.locator('.arch-node').first()).toBeVisible()
+    const cards = page.locator('.arch-node')
+    const n = await cards.count()
+    const selected = card(page, 'Kafka')
+    await selected.focus()
+    await page.keyboard.press('Enter')
+    await expect(page.locator('.arch-node.selected')).toHaveCount(1)
+    const other = card(page, 'Redis (master)')
+    await other.focus()
+    await page.keyboard.press('Delete')
+    await expect(cards).toHaveCount(n - 1)
+    await expect(card(page, 'Redis (master)')).toHaveCount(0)
+    await expect(selected).toBeVisible() // the selected one is still there
+    await expect(page.locator('.toast', { hasText: 'удалён' })).toBeVisible()
+    expect(await page.evaluate(() => !!document.activeElement?.closest('.arch-node'))).toBe(true) // not on the page body
+    await page.keyboard.press('Control+z')
+    await expect(cards).toHaveCount(n)
+  })
+})
+
+test.describe('every card has a name', () => {
+  test('a button whose name begins with what is written on it, with what the picture says without words after it', async ({ page }) => {
+    await createProject(page, uniqueName('kbd-names'), '2 ЦОД + witness')
+    await expect(page.locator('.arch-node').first()).toBeVisible()
+    await settled(page)
+    const check = async () => {
+      const rows = await page.locator('.arch-node').evaluateAll((els) => els.map((e) => ({ role: e.getAttribute('role'), label: e.getAttribute('aria-label') ?? '', text: (e as HTMLElement).innerText.replace(/\s+/g, ' ').trim() })))
+      expect(rows.length).toBeGreaterThan(10)
+      for (const r of rows) {
+        expect(r.role).toBe('button')
+        expect(r.label.toLowerCase().startsWith(r.text.toLowerCase()), `"${r.label}" begins with "${r.text}"`).toBe(true)
+      }
+    }
+    await check()
+    // several instances are said in words
+    await expect(page.locator('.arch-node.stack-2, .arch-node.stack-3').first()).toHaveAttribute('aria-label', /\d+ экземпляр/)
+    // a finding is said in words, in the language of the page
+    await card(page, 'PostgreSQL replica').click()
+    await page.keyboard.press('Delete')
+    const risky = page.locator('.arch-node.st-risk, .arch-node.st-critical').first()
+    await expect(risky).toBeVisible({ timeout: 15_000 })
+    await expect(risky).toHaveAttribute('aria-label', /риск|критично/i)
+    await page.locator('.lang-switch button', { hasText: 'EN' }).click()
+    await expect(page.locator('.arch-node.st-risk, .arch-node.st-critical').first()).toHaveAttribute('aria-label', /risk|critical/i)
+    await check()
+    await page.locator('.lang-switch button', { hasText: 'RU' }).click()
+  })
+
+  test('zones too: the head of a zone is a button named after the zone, and Enter selects it', async ({ page }) => {
+    await createProject(page, uniqueName('kbd-zone'), '2 ЦОД + witness')
+    await expect(page.locator('.zone-head').first()).toBeVisible()
+    const head = page.locator('.zone-head').first()
+    await expect(head).toHaveAttribute('role', 'button')
+    const text = await head.locator('.zname').innerText()
+    await expect(head).toHaveAttribute('aria-label', new RegExp('^' + text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+    await head.focus()
+    await page.keyboard.press('Enter')
+    await expect(head).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.locator('.inspector')).toBeVisible()
+    await expect(page.locator('.inspector')).toContainText('Площадка')
+  })
+})
+
+test.describe('the focused card is in view', () => {
+  test.use({ viewport: { width: 1440, height: 900 } })
+
+  test('forty arrow presses over a big design: the card with the focus is never outside the canvas or under what floats over it, and the zoom stays', async ({ page }) => {
+    await createProject(page, uniqueName('kbd-view'), '10 площадок')
+    await expect(page.locator('.arch-node').first()).toBeVisible()
+    // zoomed in, so that the design does not fit and the view has to follow the focus
+    const zoom = () => page.locator('.zoom .pct').innerText()
+    for (let i = 0; i < 12 && parseInt(await zoom(), 10) < 85; i++) await page.locator('.zoom').getByRole('button', { name: 'Приблизить' }).click()
+    expect(parseInt(await zoom(), 10)).toBeGreaterThanOrEqual(80)
+    const level = await zoom()
+    await page.locator('.canvas [data-kbd][tabindex="0"]').focus()
+    const visible = () => page.evaluate(() => {
+      const el = document.activeElement?.closest('[data-kbd]')
+      if (!el) return 'no focus on a card'
+      const r = el.getBoundingClientRect()
+      const c = document.querySelector('.canvas')!.getBoundingClientRect()
+      if (r.left < c.left || r.top < c.top || r.right > c.right || r.bottom > c.bottom) return `outside the canvas: ${JSON.stringify(r)}`
+      for (const o of document.querySelectorAll('[data-overlay]:not([data-overlay="float"])')) {
+        const b = o.getBoundingClientRect()
+        if (b.height && Math.min(r.right, b.right) - Math.max(r.left, b.left) > 1 && Math.min(r.bottom, b.bottom) - Math.max(r.top, b.top) > 1) return `under ${o.className}`
+      }
+      return 'ok'
+    })
+    const keys = ['ArrowRight', 'ArrowRight', 'ArrowDown', 'ArrowRight', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowDown']
+    for (let i = 0; i < 40; i++) {
+      await page.keyboard.press(keys[i % keys.length])
+      await expect.poll(visible, { message: `after press ${i + 1} (${keys[i % keys.length]})` }).toBe('ok')
+    }
+    expect(await zoom()).toBe(level)
+    // the canvas itself was not scrolled by the focus
+    expect(await page.locator('.canvas').evaluate((e) => [e.scrollLeft, e.scrollTop])).toEqual([0, 0])
+  })
+})
+
+test.describe('a failure on screen', () => {
+  test.beforeEach(async ({ page }) => {
+    expect((await page.request.put('/api/admin/settings', { data: { changes: { 'editor.failureLeadMs': 0 } } })).ok()).toBeTruthy()
+  })
+  test.afterEach(async ({ page }) => {
+    await page.request.put('/api/admin/settings', { data: { changes: { 'editor.failureLeadMs': 2400 } } })
+  })
+
+  test('the arrow keys and Space on a card are the card\'s, they do not play or step the failure; the timeline still does', async ({ page }) => {
+    await createProject(page, uniqueName('kbd-sim'), '2 ЦОД + witness')
+    await expect(page.locator('.arch-node').first()).toBeVisible()
+    await page.locator('.whatif button', { hasText: 'ЦОД-1' }).click()
+    const sim = page.getByTestId('simcard')
+    await expect(sim).toBeVisible({ timeout: 15_000 })
+    const step = sim.locator('.steps > li.cur')
+    const last = await step.getAttribute('data-step')
+    const a = card(page, 'Kafka')
+    await a.focus()
+    // the arrows walk from card to card; the step of the failure stays where it was
+    await page.keyboard.press('ArrowLeft')
+    await expect(a).not.toBeFocused()
+    await expect(focusedCard(page)).toHaveCount(1)
+    await expect(step).toHaveAttribute('data-step', last!)
+    await page.keyboard.press('ArrowRight')
+    await expect(step).toHaveAttribute('data-step', last!)
+    // Space on a card selects it (it did not start the playback)
+    await a.focus()
+    await page.keyboard.press('Space')
+    await expect(page.locator('.arch-node.selected')).toHaveCount(1)
+    await expect(a).toHaveClass(/selected/)
+    await expect(step).toHaveAttribute('data-step', last!)
+    await expect(sim.getByTestId('play')).toHaveAttribute('aria-label', 'Воспроизвести')
+    // the timeline keeps its keys
+    await sim.locator('.track').focus()
+    await page.keyboard.press('ArrowLeft')
+    await expect(step).not.toHaveAttribute('data-step', last!)
+    // what a card says in a failure: its state, in words
+    await expect(page.locator('.arch-node[aria-label*="в показанном отказе"]').first()).toBeVisible()
+  })
+})
+
+test.describe('links have no stop on the diagram, and are reached another way', () => {
+  test('the palette finds a link by its two ends; the inspector of a card lists its links; the inspector of a link goes to its ends', async ({ page }) => {
+    await createProject(page, uniqueName('kbd-links'), '2 ЦОД + witness')
+    await expect(page.locator('.arch-node').first()).toBeVisible()
+    await expect(page.locator('.vue-flow__edge[tabindex]')).toHaveCount(0)
+    const detail = await stored(page)
+    const edge = detail.architecture.edges[0] as { id: string; source: string; target: string }
+    const name = (id: string) => page.locator(`.arch-node[data-id="${id}"] .name`).innerText()
+    const from = await name(edge.source)
+    const to = await name(edge.target)
+
+    await page.keyboard.press('Control+k')
+    await page.locator('.palette input').fill(`${from} -> ${to}`)
+    const hit = page.locator(`.palette [id="pal-edge:${edge.id}"]`)
+    await expect(hit).toBeVisible()
+    await page.keyboard.press('Enter')
+    await expect(page.locator('.inspector')).toContainText('Связь')
+    await expect(page.locator('.inspector [data-go="source"]')).toBeVisible()
+
+    // from a link to its end: the card is selected, in view and has the keyboard
+    await page.locator('.inspector [data-go="target"]').click()
+    await expect(page.locator(`.arch-node[data-id="${edge.target}"]`)).toHaveClass(/selected/)
+    await expect(page.locator(`.arch-node[data-id="${edge.target}"]`)).toBeFocused()
+    // and the other way: the links of a card are buttons
+    const links = page.getByTestId('inspector-link')
+    expect(await links.count()).toBeGreaterThan(0)
+    await links.first().click()
+    await expect(page.locator('.inspector')).toContainText('Связь')
+    await expect.poll(() => page.evaluate(() => !!document.activeElement?.closest('.inspector'))).toBe(true) // the keyboard went with it
+    await page.keyboard.press('Escape')
+    await expect(page.locator('.arch-node:focus')).toHaveCount(1)
+  })
+})

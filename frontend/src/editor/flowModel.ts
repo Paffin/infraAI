@@ -25,6 +25,13 @@ export function sidesFor(a: { x: number; y: number }, b: { x: number; y: number 
   return dy >= 0 ? ['b', 't'] : ['t', 'b']
 }
 
+/**
+ * Vue Flow gives the wrapper of every card `aria-roledescription="node"` (in English). With its keyboard layer off the wrapper has no role, and an
+ * element without one may not carry a role description (axe: aria-roledescription): the card inside it is the one with the role and the name.
+ * The same object for every node, so the cache below does not see it.
+ */
+const PLAIN_WRAPPER = { 'aria-roledescription': undefined } as const
+
 type Cache = Map<string, { sig: string; value: FlowNode | FlowEdge }>
 
 export interface FlowModel { nodes: FlowNode[]; edges: FlowEdge[] }
@@ -67,7 +74,7 @@ export function createFlowBuilder() {
       const sig = `${x}|${y}|${w}|${h}|${parent}|${draggable}|${depth}`
       nodes.push(reuse<FlowNode>(id, sig, () => ({
         id, type: 'zone', position: { x, y }, width: w, height: h, parentNode: parent ? zoneFlowId(parent) : undefined,
-        draggable, selectable: false, dragHandle: '.zone-head', zIndex: depth, data: { id: z.id }, connectable: false,
+        draggable, selectable: false, dragHandle: '.zone-head', zIndex: depth, data: { id: z.id }, connectable: false, domAttributes: PLAIN_WRAPPER,
       })))
     }
     for (const n of arch.nodes) {
@@ -80,7 +87,7 @@ export function createFlowBuilder() {
       const sig = `${x}|${y}|${parent}|${draggable}`
       nodes.push(reuse<FlowNode>(id, sig, () => ({
         id, type: 'card', position: { x, y }, width: CARD_W, height: CARD_H, parentNode: parent ? zoneFlowId(parent) : undefined,
-        draggable, selectable: true, zIndex: 20, data: { id: n.id, wave: firstBuild ? Math.max(0, Math.round((n.ui?.y ?? 0) / WAVE_ROW)) : 0 },
+        draggable, selectable: true, zIndex: 20, domAttributes: PLAIN_WRAPPER, data: { id: n.id, wave: firstBuild ? Math.max(0, Math.round((n.ui?.y ?? 0) / WAVE_ROW)) : 0 },
       })))
     }
 

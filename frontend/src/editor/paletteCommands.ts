@@ -85,6 +85,20 @@ export function usePaletteCommands(): ComputedRef<Command[]> {
       })
     }
 
+    // a link is found by its two ends (typing "Kafka -> Redis"), the way a card is found by its name: it is no stop of the Tab key on the diagram, this is the way to it
+    for (const e of editor.shown.edges) {
+      const from = editor.nodeById.get(e.source)?.name ?? e.source
+      const to = editor.nodeById.get(e.target)?.name ?? e.target
+      const def = ix.edgeTypes.get(e.type)
+      const status = editor.edgeStatus.get(e.id)
+      out.push({
+        id: 'edge:' + e.id, group: 'element', title: `${from} → ${to}`, hint: [def ? lt(def.name) : e.type, e.label].filter(Boolean).join(' · '),
+        keywords: [`${from} -> ${to}`, e.type, 'link', 'edge', 'связь'],
+        icon: Spline, color: def?.style.color, dot: status ? statusColor(status) : undefined,
+        run: () => { editor.select({ type: 'edge', id: e.id }); editor.revealSelection() },
+      })
+    }
+
     // ---------------------------------------------------------------- findings
     for (const f of editor.openFindings) {
       const rule = app.rules.get(f.ruleId)

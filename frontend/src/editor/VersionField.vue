@@ -88,6 +88,12 @@ function onInput(e: Event) {
   emit('change', v === '' ? undefined : v)
   if (props.table) open.value = true
 }
+/** Escape closes the list of versions and nothing else; with the list closed it goes on (the inspector hands the keyboard back to the diagram). */
+function onEscape(e: KeyboardEvent) {
+  if (!open.value) return
+  open.value = false
+  e.stopPropagation()
+}
 function onFocusOut(e: FocusEvent) {
   if (!root.value?.contains(e.relatedTarget as Node | null)) {
     open.value = false
@@ -99,7 +105,7 @@ const staleText = computed(() => (view.value?.stale && view.value.ageDays !== nu
 </script>
 
 <template>
-  <div ref="root" class="vf" :class="{ assumed: !declared, flash }" :data-prop="def.key" @focusout="onFocusOut" @keydown.esc="open = false">
+  <div ref="root" class="vf" :class="{ assumed: !declared, flash }" :data-prop="def.key" @focusout="onFocusOut" @keydown.esc="onEscape">
     <label class="prop" :title="def.help ? lt(def.help) : undefined">
       <span class="lbl">{{ lt(def.label) }}</span>
       <span class="ctl">

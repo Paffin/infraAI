@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import { useVueFlow, type NodeProps } from '@vue-flow/core'
 import { lt, t } from '@/i18n'
-import { statusColor } from '@/lib/findings'
+import { statusColor, statusLabel } from '@/lib/findings'
 import { iconFor } from '@/lib/icons'
 import { useApp } from '@/stores/app'
 import { useEditor } from '@/stores/editor'
@@ -48,6 +48,24 @@ const tags = computed(() => {
   return out
 })
 
+/**
+ * What a screen reader and a voice control call the head of the zone: the words written on it in the order they are written (the name, the pills, how many cards
+ * stand in it, that it has failed), then after a comma what is not written: the type of the zone and the finding its dot stands for.
+ */
+const label = computed(() => {
+  const z = zone.value
+  if (!z) return undefined
+  const written = [z.name, ...tags.value.map((g) => g.text), count.value ? t('projects.nodes', { n: count.value }) : '', simDown.value ? t('node.state.down') : ''].filter(Boolean).join(' ')
+  const extras = [
+    def.value ? lt(def.value.name) : z.type,
+    status.value ? statusLabel(status.value).toLowerCase() : '',
+    added.value ? t('inspector.proposed.short') : '',
+    ghost.value ? t('card.removed') : '',
+  ].filter(Boolean)
+  return `${written}, ${extras.join(', ')}`
+})
+
+// the keys of the head are the canvas's (Canvas.vue): Enter selects the zone
 function onClick(e: MouseEvent) {
   e.stopPropagation()
   editor.select({ type: 'zone', id: id.value })
@@ -80,13 +98,14 @@ function startResize(e: PointerEvent) {
 
 <template>
   <div v-if="zone" class="arch-zone" :class="{ selected, added, ghost, lit, down: simDown }" :style="{ width: w + 'px', height: h + 'px', '--zc': def?.color ?? 'var(--line-strong)' }">
-    <div class="zone-head" :title="def ? lt(def.name) : zone.type" @click="onClick">
+    <div class="zone-head" :title="def ? lt(def.name) : zone.type" role="button" tabindex="-1" data-kbd="zone" :data-id="id" :aria-pressed="selected" :aria-label="label" @click="onClick">
       <span class="zico" aria-hidden="true"><component :is="icon" :size="14" :stroke-width="2" /></span>
       <span class="zname truncate">{{ zone.name }}</span>
-      <span v-for="g in tags" :key="g.text" class="ztag" :class="g.cls">{{ g.text }}</span>
-      <span v-if="count" class="zmeta">{{ t('projects.nodes', { n: count }) }}</span>
+      <!-- the spaces keep the words of a reader apart; the pills, the count and the dot are in the label of the head too -->
+      <template v-for="g in tags" :key="g.text">{{ ' ' }}<span class="ztag" :class="g.cls">{{ g.text }}</span></template>
+      {{ ' ' }}<span v-if="count" class="zmeta">{{ t('projects.nodes', { n: count }) }}</span>
       <span v-if="status" class="zdot" :style="{ background: statusColor(status) }" />
-      <span v-if="simDown" class="zfail">{{ t('node.state.down') }}</span>
+      {{ ' ' }}<span v-if="simDown" class="zfail">{{ t('node.state.down') }}</span>
     </div>
     <div v-if="!editor.readonly" class="zone-resize nodrag nopan" @pointerdown="startResize" />
   </div>

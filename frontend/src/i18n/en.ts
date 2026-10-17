@@ -225,7 +225,7 @@ export default {
   'canvas.empty.wizard.hint': 'From one data center with racks to ten sites: the diagram is built for the number you pick.',
   'canvas.empty.template': 'Reference architecture',
   'canvas.empty.template.hint': 'A ready diagram with known properties: on the left, above the library.',
-  'canvas.connect.hint': 'Connect mode: drag from a node handle to another node',
+  'canvas.connect.hint': 'Connect mode: drag from one node to another, or press Enter on the source, then on the target',
   'canvas.zone.hint': 'Zone mode: draw a rectangle on the canvas',
   'canvas.drop.zone': 'Release to place into zone “{name}”',
 
@@ -1047,4 +1047,19 @@ export default {
   'sites.show.hint': 'Select the site on the diagram and bring the canvas to it',
   'sites.fail': 'Fail it',
   'sites.fail.hint': 'Replay the loss of the site on the diagram',
+  // ---- keyboard: cards, links, the diagram as a whole
+  'card.instances': '{n} instance|{n} instances',
+  'card.sim': 'in the failure on screen',
+  'card.load.up': 'load above the usual',
+  'card.load.down': 'load below the usual',
+  'card.load.none': 'no load',
+  'card.removed': 'will be removed when applied',
+  'card.connecting': 'start of a new link',
+  'canvas.label': 'Architecture diagram',
+  'canvas.help': 'Arrow keys: go to the next card. Enter or Space: select. Shift and Enter: add to the selection or take out of it. Enter on the selected card: go to its properties. Delete: remove. Home and End: the first and the last card.',
+  'inspector.links': 'Links',
+  'inspector.link.out': 'To "{name}"',
+  'inspector.link.in': 'From "{name}"',
+  'inspector.go.source': 'Go to the source "{name}"',
+  'inspector.go.target': 'Go to the target "{name}"',
 } as Record<string, string>
