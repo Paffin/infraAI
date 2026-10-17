@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ApiError } from '@/api/client'
 import * as api from '@/api/endpoints'
 import BrandLogo from '@/components/BrandLogo.vue'
 import LangSwitch from '@/components/LangSwitch.vue'
 import MotionSwitch from '@/components/MotionSwitch.vue'
 import { t } from '@/i18n'
+import { passwordChangeError, signInError } from '@/lib/authErrors'
 import { useApp } from '@/stores/app'
 
 const app = useApp()
@@ -27,15 +27,6 @@ function target(): string {
   return typeof n === 'string' && n.startsWith('/') && !n.startsWith('//') ? n : '/'
 }
 
-function explain(e: unknown): string {
-  if (e instanceof ApiError) {
-    if (e.code === 'locked') return t('login.locked')
-    if (e.status === 401) return t('login.failed')
-    return e.message
-  }
-  return t('error.network')
-}
-
 async function submit() {
   error.value = ''
   busy.value = true
@@ -44,7 +35,7 @@ async function submit() {
     if (u.mustChangePassword) { current.value = password.value; return }
     router.replace(target())
   } catch (e) {
-    error.value = explain(e)
+    error.value = signInError(e)
   } finally {
     busy.value = false
   }
@@ -58,7 +49,7 @@ async function change() {
     await app.loadBootstrap()
     router.replace(target())
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : t('error.network')
+    error.value = passwordChangeError(e)
   } finally {
     busy.value = false
   }
