@@ -73,8 +73,9 @@ compose() { dir=$1; shift; env -u APP_SECRET -u POSTGRES_PASSWORD -u IA_IMAGE -u
 fresh e
 cp "$root/.env.example" "$work/e/.env"
 if compose "$work/e" config >/dev/null 2>"$work/e/err"; then fail "docker compose accepts the untouched .env.example"; fi
-grep -q 'set APP_SECRET in .env' "$work/e/err" || fail "the refusal does not say what to do: $(cat "$work/e/err")"
-ok "docker compose refuses the untouched .env.example and says to set APP_SECRET"
+# compose reports the first of the two empty variables it meets, and which one that is differs between versions and runs: either message tells what to do
+grep -Eq 'set (APP_SECRET|POSTGRES_PASSWORD) in \.env' "$work/e/err" || fail "the refusal does not say what to do: $(cat "$work/e/err")"
+ok "docker compose refuses the untouched .env.example and says which variable to set"
 
 compose "$work/a" config >/dev/null || fail "docker compose refuses the generated .env"
 ok "docker compose accepts the generated .env"
