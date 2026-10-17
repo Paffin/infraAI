@@ -715,6 +715,8 @@ export interface SettingDef {
   options?: string[] | null
   min?: number | null
   max?: number | null
+  /** what a text setting is (`single_line`, `http_url`, `http_link`, `http_origin`, `line_list`, `url_list`): the server checks it when the value is saved, the form still renders by `type` */
+  format?: string | null
   // present in the admin listing
   value?: unknown
   modified?: boolean

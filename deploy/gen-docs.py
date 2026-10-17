@@ -71,6 +71,8 @@ def settings_block():
         out += [f"### {GROUPS.get(g, g)}", "", "| Ключ | Тип | По умолчанию | Описание |", "|---|---|---|---|"]
         for s in by_group[g]:
             ty = s["type"] + (f" ({', '.join(s['options'])})" if s.get("options") else "")
+            if s.get("format"):
+                ty += f", формат `{s['format']}`"
             if s.get("min") is not None or s.get("max") is not None:
                 ty += f" [{s.get('min', '')}…{s.get('max', '')}]"
             default = "—" if s["type"] == "secret" else code(s.get("default"))

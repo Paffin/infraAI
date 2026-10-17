@@ -17,6 +17,7 @@ pub mod jobs;
 pub mod json;
 pub mod llm;
 pub mod metrics;
+pub mod outbound;
 pub mod posture;
 pub mod ratelimit;
 pub mod settings;

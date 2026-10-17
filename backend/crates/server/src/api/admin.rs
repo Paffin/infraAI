@@ -8,6 +8,7 @@ use crate::crypto::random_password;
 use crate::error::{ApiError, ApiResult};
 use crate::json::{Json, Path, Query};
 use crate::llm::openrouter::{call, fetch_models, CallCtx, LlmRequest, ModelRole, Msg};
+use crate::outbound;
 use crate::ratelimit;
 use crate::settings;
 use crate::state::AppState;
@@ -122,7 +123,7 @@ pub async fn llm_test(State(state): State<AppState>, user: AuthUser, body: Optio
         Err(e) => (false, Value::Null, format!("cannot reach OpenRouter: {}", e.without_url())),
         Ok(r) => {
             let status = r.status();
-            let v: Value = r.json().await.unwrap_or(Value::Null);
+            let v: Value = outbound::read_json_capped(r, outbound::answer_cap(&cfg.settings)).await.unwrap_or(Value::Null);
             if status.is_success() {
                 let d = &v["data"];
                 (true, json!({"label": d["label"], "limit": d["limit"], "limitRemaining": d["limit_remaining"], "usage": d["usage"], "isFreeTier": d["is_free_tier"]}), String::new())

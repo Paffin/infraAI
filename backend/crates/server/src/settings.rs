@@ -25,6 +25,106 @@ pub struct SettingDef {
     pub min: Option<f64>,
     #[serde(default)]
     pub max: Option<f64>,
+    /// What a text setting (`string`, `string_list`, `model`, `secret`) is, beyond "a string": see [`FORMATS`]. Checked whenever the value is saved - by an
+    /// administrator, by a configuration import - so a value that cannot work is refused with its key named instead of failing later, somewhere else.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub format: Option<String>,
+}
+
+/// The formats of text settings and what each one accepts:
+///
+/// * `single_line` - one line of at most [`MAX_LINE_CHARS`] characters, no control characters (a carriage return or a line feed in a value that goes
+///   into an HTTP header makes the request unbuildable). Empty is allowed.
+/// * `http_url` - the address of an endpoint or a base the server calls: `http://` or `https://`, a host, no user name or password, no query, no fragment.
+///   Empty only where the default is empty.
+/// * `http_link` - the same for a link a person follows (a documentation page): a query and a fragment are fine.
+/// * `http_origin` - `scheme://host[:port]` and nothing after it (the `Origin` check compares exactly that). It is stored as the browser writes an origin:
+///   the host in lower case, no default port, no trailing slash.
+/// * `line_list` - a list of `single_line` values.
+/// * `url_list` - a list of `http_url` values, each stored with a trailing `/` so that a base is a directory (`.../api` cannot admit `.../api-evil/`).
+pub const FORMATS: &[&str] = &["single_line", "http_url", "http_link", "http_origin", "line_list", "url_list"];
+
+/// The longest a `single_line` value is. Part of what the format means, not a tunable.
+pub const MAX_LINE_CHARS: usize = 200;
+/// The longest an address is. Part of what the formats mean, not a tunable (browsers and proxies refuse longer ones anyway).
+pub const MAX_URL_CHARS: usize = 2048;
+
+impl SettingDef {
+    /// The types whose values are text and so must say what kind of text (`format`), and the formats that fit each.
+    pub fn takes_format(ty: &str) -> Option<&'static [&'static str]> {
+        match ty {
+            "string" => Some(&["single_line", "http_url", "http_link", "http_origin"]),
+            "model" | "secret" => Some(&["single_line"]),
+            "string_list" => Some(&["line_list", "url_list"]),
+            _ => None,
+        }
+    }
+
+    /// May the empty string be saved? It is a way to say "not set" for a link, an origin, a header value; an endpoint the server cannot work without has
+    /// a default that is not empty, and stays that way.
+    fn allows_empty(&self) -> bool {
+        self.format.as_deref() == Some("single_line") || self.default.as_str() == Some("")
+    }
+}
+
+fn check_line(s: &str) -> Result<String, String> {
+    if s.chars().any(char::is_control) {
+        return Err("must be a single line, without line breaks or other control characters".into());
+    }
+    if s.chars().count() > MAX_LINE_CHARS {
+        return Err(format!("must be at most {MAX_LINE_CHARS} characters"));
+    }
+    Ok(s.to_string())
+}
+
+/// An address that is http or https, has a host and no credentials. Returns it parsed; the caller adds what its format forbids.
+fn parse_http(s: &str) -> Result<reqwest::Url, String> {
+    let lower = s.to_ascii_lowercase();
+    if !(lower.starts_with("http://") || lower.starts_with("https://")) {
+        return Err("must be an address that starts with http:// or https://".into());
+    }
+    // the URL parser silently drops tabs and line breaks and reads a backslash as a slash: what is stored must be what it will make of it
+    if s.chars().any(|c| c.is_control() || c.is_whitespace() || c == '\\') {
+        return Err("must not contain spaces, backslashes or control characters".into());
+    }
+    if s.chars().count() > MAX_URL_CHARS {
+        return Err(format!("must be at most {MAX_URL_CHARS} characters"));
+    }
+    let u = reqwest::Url::parse(s).map_err(|e| format!("is not a valid address ({e})"))?;
+    if u.host_str().is_none_or(str::is_empty) {
+        return Err("must name a host".into());
+    }
+    if !u.username().is_empty() || u.password().is_some() {
+        return Err("must not contain a user name or a password".into());
+    }
+    Ok(u)
+}
+
+fn check_format(format: &str, s: &str) -> Result<String, String> {
+    match format {
+        "single_line" | "line_list" => check_line(s),
+        "http_link" => parse_http(s).map(|_| s.to_string()),
+        "http_url" | "url_list" => {
+            let u = parse_http(s)?;
+            if u.query().is_some() || u.fragment().is_some() {
+                return Err("must not contain a query (?) or a fragment (#)".into());
+            }
+            if format == "url_list" && !s.ends_with('/') {
+                return Ok(format!("{s}/"));
+            }
+            Ok(s.to_string())
+        }
+        "http_origin" => {
+            let u = parse_http(s)?;
+            // what follows the host, other than slashes, is a path: the parser would read `/.` as the root, the `Origin` check would not
+            let after_scheme = s.split_once("://").map_or(s, |(_, rest)| rest);
+            if u.query().is_some() || u.fragment().is_some() || after_scheme.trim_end_matches('/').contains('/') {
+                return Err("must be an origin, scheme://host[:port], without a path, a query or a fragment".into());
+            }
+            Ok(u.origin().ascii_serialization())
+        }
+        other => Err(format!("unknown format {other}")),
+    }
 }
 
 pub const SETTINGS_JSON: &str = include_str!("../defaults/settings.json");
@@ -42,7 +142,15 @@ pub fn def(key: &str) -> Option<&'static SettingDef> {
 pub fn validate(def: &SettingDef, v: &Value) -> Result<Value, String> {
     match def.ty.as_str() {
         "string" | "model" | "secret" => match v {
-            Value::String(s) => Ok(Value::String(s.trim().to_string())),
+            Value::String(s) => {
+                let s = s.trim();
+                match def.format.as_deref() {
+                    Some(_) if s.is_empty() && def.allows_empty() => Ok(Value::String(String::new())),
+                    Some(_) if s.is_empty() => Err("must not be empty".into()),
+                    Some(f) => check_format(f, s).map(Value::String),
+                    None => Ok(Value::String(s.to_string())),
+                }
+            }
             _ => Err("expected a string".into()),
         },
         "enum" => {
@@ -78,8 +186,12 @@ pub fn validate(def: &SettingDef, v: &Value) -> Result<Value, String> {
             let mut out = vec![];
             for x in a {
                 let s = x.as_str().ok_or("expected a list of strings")?.trim();
-                if !s.is_empty() {
-                    out.push(json!(s));
+                if s.is_empty() {
+                    continue;
+                }
+                match def.format.as_deref() {
+                    Some(f) => out.push(json!(check_format(f, s).map_err(|e| format!("'{}' {e}", s.chars().take(60).collect::<String>()))?)),
+                    None => out.push(json!(s)),
                 }
             }
             Ok(Value::Array(out))
@@ -273,6 +385,128 @@ mod tests {
                 validate(d, &d.default).unwrap_or_else(|e| panic!("default of {} invalid: {e}", d.key));
             }
         }
+    }
+
+    fn refuses(key: &str, v: Value) -> String {
+        match validate(def(key).unwrap(), &v) {
+            Err(e) => e,
+            Ok(stored) => panic!("{key} accepted {v} and would store {stored}"),
+        }
+    }
+
+    fn accepts(key: &str, v: Value) -> Value {
+        validate(def(key).unwrap(), &v).unwrap_or_else(|e| panic!("{key} refused {v}: {e}"))
+    }
+
+    /// The ratchet: a text setting says what kind of text it is. A new `string` setting without a `format` fails here, so that "any string will do"
+    /// is a decision someone made (`single_line` at the least) and not the default.
+    #[test]
+    fn every_text_setting_declares_a_format() {
+        let mut used = std::collections::HashSet::new();
+        for d in registry() {
+            match SettingDef::takes_format(&d.ty) {
+                Some(fits) => {
+                    let f = d.format.as_deref().unwrap_or_else(|| panic!("{} is a text setting and declares no format (settings.rs, FORMATS)", d.key));
+                    assert!(fits.contains(&f), "{}: the format {f} does not fit the type {}", d.key, d.ty);
+                    assert!(FORMATS.contains(&f), "{}: {f} is not a known format", d.key);
+                    used.insert(f);
+                }
+                None => assert!(d.format.is_none(), "{} is not text and cannot have a format", d.key),
+            }
+        }
+        for f in FORMATS {
+            assert!(used.contains(f), "no setting uses the format {f}: a format nothing needs is dead code");
+        }
+        for (key, f) in [
+            ("llm.baseUrl", "http_url"),
+            ("app.publicUrl", "http_origin"),
+            ("ui.helpUrl", "http_link"),
+            ("versions.sourceBases", "url_list"),
+            ("llm.appReferer", "single_line"),
+            ("llm.appTitle", "single_line"),
+            ("app.name", "single_line"),
+        ] {
+            assert_eq!(def(key).unwrap().format.as_deref(), Some(f), "{key}");
+        }
+    }
+
+    #[test]
+    fn http_url_refuses_what_cannot_be_called_and_accepts_what_can() {
+        for bad in [
+            "file:///etc",
+            "javascript:alert(1)",
+            "not a url",
+            "http://169.254.169.254@evil",
+            "https://user:secret@openrouter.ai/api/v1",
+            "https://openrouter.ai/api/v1?key=1",
+            "https://openrouter.ai/api/v1#top",
+            "http:openrouter.ai",
+            "ftp://openrouter.ai/",
+            "http://open router.ai/",
+            "https://openrouter.ai\\@evil.example/",
+            "http://",
+            "https://openrouter.ai:99999/",
+            "//openrouter.ai/api",
+            "",
+        ] {
+            refuses("llm.baseUrl", json!(bad));
+        }
+        for good in ["https://openrouter.ai/api/v1", "http://127.0.0.1:9", "http://localhost:8080/v1/", "http://[::1]:9/x", "  https://openrouter.ai/api/v1  "] {
+            accepts("llm.baseUrl", json!(good));
+        }
+        assert_eq!(accepts("llm.baseUrl", json!("  https://gateway.internal/v1  ")), json!("https://gateway.internal/v1"), "trimmed, otherwise as written");
+        refuses("llm.baseUrl", json!(5));
+    }
+
+    #[test]
+    fn http_link_takes_a_query_and_a_fragment_but_not_a_scheme_that_runs_code() {
+        for bad in ["javascript:alert(document.domain)", "data:text/html,<script>1</script>", "//docs.example.com/guide", "https://docs.example.com/a\nb", "mailto:x@y.z"] {
+            refuses("ui.helpUrl", json!(bad));
+        }
+        assert_eq!(accepts("ui.helpUrl", json!("")), json!(""), "no link is a way to have none");
+        accepts("ui.helpUrl", json!("https://docs.example.com/guide?lang=ru#start"));
+    }
+
+    /// `csrf_guard` compares the host of the `Origin` header with what follows `://` in this setting: a path in it makes every browser write fail.
+    #[test]
+    fn http_origin_refuses_a_path_and_stores_the_form_a_browser_sends() {
+        for bad in ["https://x.com/app", "https://x.com/app/", "https://x.com/.", "https://x.com?x=1", "https://x.com/#a", "x.com", "https://user@x.com"] {
+            refuses("app.publicUrl", json!(bad));
+        }
+        assert_eq!(accepts("app.publicUrl", json!("")), json!(""), "empty: the Origin must match the Host");
+        assert_eq!(accepts("app.publicUrl", json!("https://x.com")), json!("https://x.com"));
+        assert_eq!(accepts("app.publicUrl", json!("https://x.com/")), json!("https://x.com"), "the slash is not part of an origin");
+        assert_eq!(accepts("app.publicUrl", json!("HTTPS://Architect.Example.COM:443")), json!("https://architect.example.com"), "lower case, no default port: the Origin header has neither");
+        assert_eq!(accepts("app.publicUrl", json!("http://localhost:8080")), json!("http://localhost:8080"));
+    }
+
+    #[test]
+    fn url_list_checks_every_entry_and_makes_each_base_a_directory() {
+        let e = refuses("versions.sourceBases", json!(["https://endoflife.date/api/", "ftp://mirror.internal/"]));
+        assert!(e.contains("ftp://mirror.internal/"), "the entry that is wrong is named: {e}");
+        refuses("versions.sourceBases", json!(["https://endoflife.date/api/?x=1"]));
+        refuses("versions.sourceBases", json!(["file:///etc/"]));
+        refuses("versions.sourceBases", json!([7]));
+        assert_eq!(accepts("versions.sourceBases", json!(["http://127.0.0.1:9/api", " https://endoflife.date/api/ ", ""])), json!(["http://127.0.0.1:9/api/", "https://endoflife.date/api/"]));
+        assert_eq!(accepts("versions.sourceBases", json!([])), json!([]), "no base: nothing is fetched");
+    }
+
+    #[test]
+    fn single_line_refuses_line_breaks_and_other_control_characters() {
+        for bad in ["a\r\nX-Evil: 1", "a\nb", "a\tb", "x\u{0}y", "a\u{7f}b", &"x".repeat(MAX_LINE_CHARS + 1)] {
+            for key in ["llm.appReferer", "llm.appTitle", "app.name"] {
+                refuses(key, json!(bad));
+            }
+        }
+        for good in ["", "Infra Architect", "Инфра Архитектор", &"x".repeat(MAX_LINE_CHARS)] {
+            for key in ["llm.appReferer", "llm.appTitle", "app.name"] {
+                accepts(key, json!(good));
+            }
+        }
+        refuses("llm.apiKey", json!("sk-or-v1-abc\r\nX-Evil: 1"));
+        refuses("llm.model.planner", json!("anthropic/claude\nx"));
+        refuses("llm.model.fallbacks", json!(["ok/model", "bad\nmodel"]));
+        accepts("llm.model.fallbacks", json!(["openai/gpt-5", " anthropic/claude-sonnet-4 "]));
     }
 
     #[test]

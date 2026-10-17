@@ -1,3 +1,4 @@
+mod budgets;
 mod common;
 
 use axum::http::{header, Method, StatusCode};
@@ -1612,7 +1613,8 @@ async fn restore_snapshots_the_draft_first() {
 }
 
 /// An item that is valid, with a setting the validator accepts and PostgreSQL refuses (U+0000 cannot be stored in jsonb): the import used to
-/// commit the item, then fail on the setting, and answer with the database's own words.
+/// commit the item, then fail on the setting, and answer with the database's own words. The setting is a `json` one: every text setting now has a
+/// format that refuses a control character before the database is asked (the first import below), so only a JSON value still reaches it.
 #[tokio::test]
 async fn config_import_is_atomic() {
     let app = TestApp::new().await;
@@ -1622,9 +1624,14 @@ async fn config_import_is_atomic() {
     let category = json!({"id": "zz-import", "order": 99, "name": {"ru": "Проба", "en": "Probe"}});
 
     let (s, v) = app.post(&c, "/api/admin/config-import", json!({"items": [{"kind": "catalog.category", "id": "zz-import", "data": category}], "settings": {"app.name": "x\u{0}y"}})).await;
+    assert_eq!((s, v["applied"].as_bool()), (StatusCode::OK, Some(false)), "{v}");
+    assert!(v["problems"][0].as_str().unwrap().starts_with("app.name:"), "a control character in a text setting is refused by its format, before anything is written: {v}");
+
+    let (s, v) =
+        app.post(&c, "/api/admin/config-import", json!({"items": [{"kind": "catalog.category", "id": "zz-import", "data": category}], "settings": {"ui.theme": {"--accent": "x\u{0}y"}}})).await;
     assert_eq!((s, v["error"]["code"].as_str()), (StatusCode::BAD_REQUEST, Some("invalid_setting")), "{v}");
     assert!(!v.to_string().contains("error returned from database"), "the database's words stay in the log: {v}");
-    assert_eq!(v["error"]["details"]["key"], "app.name", "{v}");
+    assert_eq!(v["error"]["details"]["key"], "ui.theme", "{v}");
 
     let (_, list) = app.get(&c, "/api/admin/config/catalog.category").await;
     assert!(list["items"].as_array().unwrap().iter().all(|i| i["id"] != "zz-import"), "the item of a failed import is not there");

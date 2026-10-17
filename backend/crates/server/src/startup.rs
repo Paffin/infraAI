@@ -122,6 +122,7 @@ pub async fn init_state(boot: BootConfig) -> anyhow::Result<AppState> {
         keys,
         config,
         http,
+        fetch_http: crate::outbound::sync_client()?,
         metrics,
         jobs: Arc::new(JobRunner::new(max_jobs)),
         shutting_down: Arc::new(AtomicBool::new(false)),

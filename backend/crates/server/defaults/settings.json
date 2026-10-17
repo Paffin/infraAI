@@ -3,6 +3,7 @@
   "key": "app.name",
   "group": "general",
   "type": "string",
+  "format": "single_line",
   "default": "Infra Architect",
   "label": {
    "ru": "Название сервиса",
@@ -27,6 +28,7 @@
   "key": "app.languages",
   "group": "general",
   "type": "string_list",
+  "format": "line_list",
   "default": [
    "ru",
    "en"
@@ -40,14 +42,15 @@
   "key": "app.publicUrl",
   "group": "general",
   "type": "string",
+  "format": "http_origin",
   "default": "",
   "label": {
    "ru": "Публичный URL",
    "en": "Public URL"
   },
   "help": {
-   "ru": "Используется для проверки Origin (CSRF) и ссылок. Пусто — проверяется совпадение Origin и Host.",
-   "en": "Used for Origin (CSRF) checks and links. Empty — Origin must match Host."
+   "ru": "Используется для проверки Origin (CSRF) и ссылок. Пусто — проверяется совпадение Origin и Host. Только схема, хост и порт (https://architect.example.com), без пути: проверка сравнивает именно их с заголовком Origin. Сохраняется в той форме, в какой Origin пишет браузер (хост строчными, без порта по умолчанию).",
+   "en": "Used for Origin (CSRF) checks and links. Empty — Origin must match Host. Scheme, host and port only (https://architect.example.com), no path: the check compares exactly these with the Origin header. Saved the way a browser writes an Origin (host in lower case, no default port)."
   }
  },
  {
@@ -173,6 +176,7 @@
   "key": "ui.helpUrl",
   "group": "general",
   "type": "string",
+  "format": "http_link",
   "default": "",
   "label": {
    "ru": "Ссылка на документацию в меню «Помощь»",
@@ -339,16 +343,22 @@
   "key": "llm.baseUrl",
   "group": "llm",
   "type": "string",
+  "format": "http_url",
   "default": "https://openrouter.ai/api/v1",
   "label": {
    "ru": "OpenRouter: базовый URL",
    "en": "OpenRouter: base URL"
+  },
+  "help": {
+   "ru": "Адрес API, совместимого с OpenRouter: http:// или https://, без логина, параметров и якоря; к нему дописывается /chat/completions. В закрытой сети здесь может быть внутренний шлюз: частный адрес не запрещён.",
+   "en": "The address of an OpenRouter-compatible API: http:// or https://, no user name, query or fragment; /chat/completions is appended to it. In a closed network this can be an internal gateway: a private address is not refused."
   }
  },
  {
   "key": "llm.apiKey",
   "group": "llm",
   "type": "secret",
+  "format": "single_line",
   "default": "",
   "label": {
    "ru": "OpenRouter: API-ключ",
@@ -363,6 +373,7 @@
   "key": "llm.model.planner",
   "group": "llm",
   "type": "model",
+  "format": "single_line",
   "default": "anthropic/claude-sonnet-5.5",
   "label": {
    "ru": "Модель для проектирования и правок",
@@ -377,6 +388,7 @@
   "key": "llm.model.fast",
   "group": "llm",
   "type": "model",
+  "format": "single_line",
   "default": "anthropic/claude-haiku-5.5",
   "label": {
    "ru": "Быстрая модель (чат, объяснения)",
@@ -387,6 +399,7 @@
   "key": "llm.model.fallbacks",
   "group": "llm",
   "type": "string_list",
+  "format": "line_list",
   "default": [],
   "label": {
    "ru": "Резервные модели",
@@ -550,6 +563,7 @@
   "key": "llm.provider.only",
   "group": "llm",
   "type": "string_list",
+  "format": "line_list",
   "default": [],
   "label": {
    "ru": "Только эти провайдеры",
@@ -560,6 +574,7 @@
   "key": "llm.provider.ignore",
   "group": "llm",
   "type": "string_list",
+  "format": "line_list",
   "default": [],
   "label": {
    "ru": "Исключить провайдеров",
@@ -570,6 +585,7 @@
   "key": "llm.appReferer",
   "group": "llm",
   "type": "string",
+  "format": "single_line",
   "default": "https://github.com/Paffin/infraAI",
   "label": {
    "ru": "HTTP-Referer",
@@ -580,6 +596,7 @@
   "key": "llm.appTitle",
   "group": "llm",
   "type": "string",
+  "format": "single_line",
   "default": "Infra Architect",
   "label": {
    "ru": "X-Title",
@@ -638,6 +655,7 @@
   "key": "llm.autoFixKinds",
   "group": "llm",
   "type": "string_list",
+  "format": "line_list",
   "default": [
    "scale",
    "set_dcs",
@@ -960,6 +978,22 @@
   },
   "min": 1,
   "max": 64
+ },
+ {
+  "key": "outbound.maxAnswerKb",
+  "group": "limits",
+  "type": "number",
+  "default": 4096,
+  "label": {
+   "ru": "Максимальный ответ внешнего сервиса, КБ",
+   "en": "Max answer of an external service, KB"
+  },
+  "help": {
+   "ru": "Таблицы версий и ответы OpenRouter читаются не дальше этого размера: ответ считается по мере поступления, поэтому источник без Content-Length (chunked) тоже обрезается. Больше — ошибка этого запроса, а не память сервера.",
+   "en": "Release tables and OpenRouter answers are read up to this size and no further: the answer is counted as it arrives, so a source with no Content-Length (chunked) is cut off too. Past it the request fails instead of filling the server's memory."
+  },
+  "min": 64,
+  "max": 65536
  },
  {
   "key": "limits.waiverMinReasonChars",
@@ -1599,6 +1633,7 @@
   "key": "versions.sourceBases",
   "group": "lifecycle",
   "type": "string_list",
+  "format": "url_list",
   "default": [
    "https://endoflife.date/api/"
   ],
@@ -1607,8 +1642,8 @@
    "en": "Allowed sources of version tables"
   },
   "help": {
-   "ru": "Сервер обращается только по адресам под этими префиксами (схема, хост и порт совпадают). Для закрытой сети укажите внутреннее зеркало.",
-   "en": "The server fetches only addresses under these prefixes (scheme, host and port must match). In a closed network name an internal mirror."
+   "ru": "Сервер обращается только по адресам под этими префиксами (схема, хост и порт совпадают). Для закрытой сети укажите внутреннее зеркало. Адрес сохраняется как каталог (со слэшем в конце), перенаправление источника на адрес вне списка не выполняется.",
+   "en": "The server fetches only addresses under these prefixes (scheme, host and port must match). In a closed network name an internal mirror. Each address is saved as a directory (with a trailing slash); a source that redirects to an address outside the list is not followed."
   }
  },
  {

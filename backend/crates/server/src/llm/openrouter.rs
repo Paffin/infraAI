@@ -12,6 +12,7 @@
 use crate::config_store::Loaded;
 use crate::crypto::sha256_hex;
 use crate::error::ApiError;
+use crate::outbound;
 use crate::settings::Settings;
 use crate::state::AppState;
 use serde_json::{json, Value};
@@ -261,6 +262,7 @@ pub async fn call(state: &AppState, cfg: &Loaded, ctx: &CallCtx, req: LlmRequest
 
     let url = format!("{}/chat/completions", s.str("llm.baseUrl").trim_end_matches('/'));
     let timeout = Duration::from_secs(s.num("llm.timeoutSeconds") as u64);
+    let answer_cap = outbound::answer_cap(s);
     let retries = s.num("llm.retries") as u32;
     let prompt_hash = sha256_hex(serde_json::to_string(&body["messages"]).unwrap_or_default().as_bytes());
     let started = Instant::now();
@@ -282,8 +284,11 @@ pub async fn call(state: &AppState, cfg: &Loaded, ctx: &CallCtx, req: LlmRequest
             Err(e) => Err((LlmError::Other(format!("network error: {}", e.without_url())), true)),
             Ok(r) => {
                 let status = r.status().as_u16();
-                let text = r.text().await.unwrap_or_default();
-                interpret(status, &text, &primary)
+                // the answer is read up to `outbound.maxAnswerKb` and no further: a provider that does not stop is an error of this call, not memory
+                match outbound::read_capped(r, answer_cap).await {
+                    Err(e) if e == outbound::TOO_LARGE => Err((LlmError::Other(e), false)),
+                    read => interpret(status, &String::from_utf8_lossy(&read.unwrap_or_default()), &primary),
+                }
             }
         };
         match step {
@@ -370,7 +375,7 @@ pub async fn fetch_models(state: &AppState, cfg: &Loaded, refresh: bool) -> Resu
         }
         return Err(ApiError::unavailable("llm_unreachable", format!("model catalog returned HTTP {}", res.status())));
     }
-    let raw: Value = res.json().await.map_err(|e| ApiError::unavailable("llm_unreachable", e.to_string()))?;
+    let raw: Value = outbound::read_json_capped(res, outbound::answer_cap(&cfg.settings)).await.map_err(|e| ApiError::unavailable("llm_unreachable", e))?;
     let per_million = |v: &Value| v.as_str().and_then(|s| s.parse::<f64>().ok()).map(|x| x * 1_000_000.0);
     let list: Vec<Value> = raw["data"]
         .as_array()

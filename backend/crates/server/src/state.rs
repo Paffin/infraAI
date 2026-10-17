@@ -22,7 +22,10 @@ pub struct AppState {
     pub boot: Arc<BootConfig>,
     pub keys: Arc<Keys>,
     pub config: Arc<ConfigCache>,
+    /// The model provider's client (default redirect policy).
     pub http: reqwest::Client,
+    /// The client of the release-table sync: no redirects of its own (`outbound::sync_client`).
+    pub fetch_http: reqwest::Client,
     pub metrics: Arc<Metrics>,
     pub jobs: Arc<JobRunner>,
     pub shutting_down: Arc<AtomicBool>,
