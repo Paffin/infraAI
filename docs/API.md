@@ -10,6 +10,53 @@ SameSite=Lax) obtained from `POST /api/auth/login`. All errors share one shape:
 State-changing requests carrying an `Origin` header must come from the same origin (or the
 configured `app.publicUrl`); otherwise `403 forbidden`.
 
+### Errors
+
+Every failure under `/api` is `application/json` in the shape above, whatever went wrong: a request the server cannot read (broken JSON, a wrong type, a missing field, a wrong
+`Content-Type`, a bad identifier in the path or the query, a body past `limits.maxBodyMb`, a method the path does not take) is answered by the same extractors and the same table as one it
+refuses on the merits, never by a bare text. `code` is the stable part (the UI translates it, scripts branch on it), `message` is for a person, `details` is optional.
+
+| Code | Status | Meaning |
+|---|---|---|
+| `invalid_json` | 400 | the body is not JSON (`details` none; the message says where the parser stopped) |
+| `invalid_body` | 422 | the body is JSON but not what the endpoint takes: `details.field` is the path of the field (`ops[0].op`, `architecture`), or the missing field's name |
+| `unsupported_media_type` | 415 | a body without `Content-Type: application/json` |
+| `payload_too_large` | 413 | the body is past `limits.maxBodyMb` |
+| `invalid_path` | 400 | an identifier in the path is not of the right form (a project id that is not a UUID, a version that is not a number) |
+| `invalid_query` | 400 | a query parameter is not of the right form (`download=abc`) |
+| `method_not_allowed` | 405 | the path exists but not for this method; the `Allow` header lists the ones it has |
+| `not_found` | 404 | no such endpoint, project, version, job, proposal or item |
+| `unauthorized` | 401 | no valid session, or the sign-in was wrong |
+| `forbidden` | 403 | the role may not do this, or the request came from another origin |
+| `password_change_required` | 403 | a temporary password is still in force: only `/auth/me`, `/auth/password` and `/auth/logout` answer |
+| `wrong_password`, `weak_password` | 400 | changing a password: the current one is wrong / the new one is too short or too simple |
+| `locked` | 429 | the account is locked after repeated failures |
+| `rate_limited` | 429 | too many sign-in attempts from this address |
+| `ai_rate_limited` | 429 | the hourly limit of AI requests of the user is spent |
+| `conflict` | 409 | the project was changed by someone else (`details.currentRev`); also other revision clashes |
+| `duplicate` | 409 | an item with this id already exists |
+| `project_limit` | 409 | `limits.maxProjectsPerUser` is reached |
+| `job_running` | 409 | the project already has a running AI job |
+| `llm_disabled`, `llm_not_configured` | 409 | AI is switched off by the administrator / has no API key |
+| `proposal_stale`, `proposal_closed` | 409 | the proposal's base moved on / it was already applied or rejected |
+| `last_admin`, `self_lockout` | 409 | the last active administrator / your own account cannot be demoted or disabled |
+| `not_deletable` | 409 | a built-in configuration item cannot be deleted (reset it instead) |
+| `invalid_architecture` | 400 | the design is refused by validation; `details.issues` lists the errors (see Validation below) |
+| `ops_invalid` | 400 | the operations cannot be applied, or what they make is refused; `details.issues` |
+| `limits_exceeded` | 400 | the design is larger than `limits.maxNodes` / `maxEdges` / `maxZones` (`/evaluate`) |
+| `unknown_scenario_reference` | 400 | `/simulate`: the scenario names a zone, node, unit or geo label the design does not have; `details.refs` lists every one |
+| `invalid_scenario` | 400 | `/simulate`: the scenario cannot be a failure at all (nothing named, a count out of range, a link from a site to itself, nested too deep); `details.reason` |
+| `placement_failed` | 400 | the placement cannot be generated; `details.code` |
+| `invalid_variants` | 400 | `/placement/compare`: no variants, or more than `limits.placementCompareMax` |
+| `invalid_name` | 400 | a project name must be 1–200 characters |
+| `invalid_ref`, `invalid_version`, `unknown_format` | 400 | a version reference that is not `draft` or a number / an export format that does not exist |
+| `reason_too_short`, `unknown_finding`, `not_acceptable` | 400 | accepting a risk: the reason is too short / the finding does not exist / only critical and risk findings can be accepted |
+| `bad_kind`, `empty_prompt`, `missing_finding`, `prompt_too_long` | 400 | an AI request that cannot be made: unknown kind / empty / `fix` without `findingId` / longer than `llm.maxPromptChars` |
+| `invalid_setting`, `invalid_config`, `invalid_kind`, `invalid_id` | 400 | the administrator's input: a setting value (`details.key`, `reason`), a configuration item that does not parse, the wrong kind, a malformed id |
+| `invalid_email`, `invalid_role` | 400 | a user: not an email / not one of admin, editor, viewer |
+| `llm_unreachable` | 503 | the model catalog of OpenRouter cannot be reached |
+| `internal` | 500 | a bug or a failure of the database; the message never says more, the log does |
+
 Roles: `viewer` (read) < `editor` (write projects, use AI, accept risks) < `admin` (settings, catalog,
 users, audit). `chat` AI requests are available to every role.
 

@@ -2066,3 +2066,154 @@ async fn simulate_rejects_unknown_scenario_references() {
     }
     app.cleanup().await;
 }
+
+// ---------------------------------------------------------------------------------------------
+// One shape for every error, and a missing file is a missing file.
+// ---------------------------------------------------------------------------------------------
+
+/// The codes API.md documents: the first column of its error table, and every other code in backticks.
+fn documented_codes() -> std::collections::BTreeSet<String> {
+    let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../../docs/API.md")).expect("docs/API.md");
+    let table = text.split("### Errors").nth(1).and_then(|t| t.split("\n### ").next()).expect("the error table of API.md");
+    let mut codes = std::collections::BTreeSet::new();
+    for line in table.lines().filter(|l| l.starts_with('|')) {
+        let first = line.split('|').nth(1).unwrap_or("");
+        for part in first.split('`').skip(1).step_by(2) {
+            codes.insert(part.to_string());
+        }
+    }
+    codes
+}
+
+#[tokio::test]
+async fn every_error_is_the_json_shape() {
+    let app = TestApp::new().await;
+    let c = app.login_admin().await;
+    let pid = app.first_project(&c).await;
+    let documented = documented_codes();
+    assert!(documented.len() > 40, "{documented:?}");
+    let big = "x".repeat(5 * 1024 * 1024);
+    let evaluate = "/api/evaluate";
+    // (method, path, body, content type, the status and the code that are expected)
+    type Probe<'a> = (Method, String, Option<String>, Option<&'a str>, u16, &'a str);
+    let probes: Vec<Probe> = vec![
+        (Method::POST, evaluate.into(), Some("{\"architecture\": ".into()), Some("application/json"), 400, "invalid_json"),
+        (Method::POST, evaluate.into(), Some("not json at all".into()), Some("application/json"), 400, "invalid_json"),
+        (Method::POST, evaluate.into(), Some("{}".into()), Some("application/json"), 422, "invalid_body"),
+        (Method::POST, "/api/ops/apply".into(), Some("{\"architecture\": {}, \"ops\": \"x\"}".into()), Some("application/json"), 422, "invalid_body"),
+        (Method::POST, "/api/simulate".into(), Some("{\"architecture\": {}, \"scenario\": {\"type\": \"nope\"}}".into()), Some("application/json"), 422, "invalid_body"),
+        (Method::POST, evaluate.into(), Some("{\"architecture\": {}}".into()), None, 415, "unsupported_media_type"),
+        (Method::POST, evaluate.into(), Some("{\"architecture\": {}}".into()), Some("text/plain"), 415, "unsupported_media_type"),
+        (Method::GET, "/api/projects/not-a-uuid".into(), None, None, 400, "invalid_path"),
+        (Method::GET, format!("/api/projects/{pid}/versions/abc"), None, None, 400, "invalid_path"),
+        (Method::GET, format!("/api/projects/{pid}/export/json?download=abc"), None, None, 400, "invalid_query"),
+        (Method::GET, "/api/admin/audit?limit=many".to_string(), None, None, 400, "invalid_query"),
+        (Method::POST, evaluate.into(), Some(format!("{{\"architecture\": {{}}, \"lang\": \"{big}\"}}")), Some("application/json"), 413, "payload_too_large"),
+        (Method::DELETE, evaluate.into(), None, None, 405, "method_not_allowed"),
+        (Method::PUT, "/api/projects".into(), None, None, 405, "method_not_allowed"),
+        (Method::GET, "/api/no/such/endpoint".into(), None, None, 404, "not_found"),
+    ];
+    let mut shown = 0;
+    for (method, path, body, ct, status, code) in probes {
+        let (s, h, v) = app.raw(method.clone(), &path, body.as_deref(), ct, Some(c.as_str())).await;
+        assert_eq!(s.as_u16(), status, "{method} {path}: {v}");
+        let ctype = h.get(header::CONTENT_TYPE).and_then(|x| x.to_str().ok()).unwrap_or("");
+        assert!(ctype.starts_with("application/json"), "{method} {path} answers {ctype:?}: {v}");
+        assert_eq!(v["error"]["code"], code, "{method} {path}: {v}");
+        assert!(v["error"]["message"].as_str().is_some_and(|m| !m.is_empty()), "{method} {path}: {v}");
+        assert!(documented.contains(code), "{code} is not in the error table of docs/API.md");
+        if status == 405 {
+            let allow = h.get(header::ALLOW).and_then(|x| x.to_str().ok()).unwrap_or("");
+            assert!(!allow.is_empty() && !allow.contains(method.as_str()), "{method} {path}: Allow is {allow:?}");
+        }
+        shown += 1;
+    }
+    assert_eq!(shown, 15);
+    // where the body is wrong the answer says which field
+    let (_, _, v) = app.raw(Method::POST, "/api/ops/apply", Some("{\"architecture\": {}, \"ops\": \"x\"}"), Some("application/json"), Some(c.as_str())).await;
+    assert_eq!(v["error"]["details"]["field"], "ops", "{v}");
+    let (_, _, v) = app.raw(Method::POST, "/api/simulate", Some("{\"architecture\": {}}"), Some("application/json"), Some(c.as_str())).await;
+    assert_eq!(v["error"]["details"]["field"], "scenario", "{v}");
+    // the endpoints without a session answer in the same shape as the ones with one
+    let (s, h, v) = app.raw(Method::POST, evaluate, Some("{"), Some("application/json"), None).await;
+    assert_eq!((s.as_u16(), v["error"]["code"].as_str()), (401, Some("unauthorized")), "{v}");
+    assert!(h.get(header::CONTENT_TYPE).unwrap().to_str().unwrap().starts_with("application/json"));
+    let (s, _, v) = app.raw(Method::POST, "/api/auth/login", Some("{\"email\": "), Some("application/json"), None).await;
+    assert_eq!((s.as_u16(), v["error"]["code"].as_str()), (400, Some("invalid_json")), "{v}");
+    app.cleanup().await;
+}
+
+#[tokio::test]
+async fn every_error_code_is_documented() {
+    // the codes are read off the source of the server: one added without a row in the table of docs/API.md fails here
+    fn rust_files(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
+        for e in std::fs::read_dir(dir).unwrap().flatten() {
+            let p = e.path();
+            if p.is_dir() {
+                rust_files(&p, out);
+            } else if p.extension().is_some_and(|x| x == "rs") {
+                out.push(p);
+            }
+        }
+    }
+    let mut files = vec![];
+    rust_files(&std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src"), &mut files);
+    let mut found: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+    let first_literal = |rest: &str| -> Option<String> {
+        let lit = rest.trim_start().strip_prefix('"')?.split('"').next()?;
+        (!lit.is_empty() && lit.chars().all(|c| c.is_ascii_lowercase() || c == '_')).then(|| lit.to_string())
+    };
+    for f in &files {
+        let text = std::fs::read_to_string(f).unwrap();
+        for opener in ["ApiError::bad_request(", "ApiError::conflict(", "ApiError::too_many(", "ApiError::unavailable(", "ApiError::forbidden_code("] {
+            for rest in text.split(opener).skip(1) {
+                found.extend(first_literal(rest));
+            }
+        }
+        // `ApiError::new(<status>, "code", …)`, and the same as `Self::new` inside error.rs where the helpers are
+        let opener = if f.file_name().is_some_and(|n| n == "error.rs") { "Self::new(" } else { "ApiError::new(" };
+        for rest in text.split(opener).skip(1) {
+            if let Some((_, after_status)) = rest.split_once(',') {
+                found.extend(first_literal(after_status));
+            }
+        }
+    }
+    let documented = documented_codes();
+    let missing: Vec<&String> = found.iter().filter(|c| !documented.contains(*c)).collect();
+    assert!(missing.is_empty(), "error codes the server says and docs/API.md does not list: {missing:?}");
+    assert!(found.len() > 40, "only {} codes were found in the source: the scan is blind", found.len());
+    for known in ["invalid_json", "unknown_scenario_reference", "payload_too_large", "internal", "not_found"] {
+        assert!(found.contains(known), "the scan misses {known}");
+    }
+}
+
+#[tokio::test]
+async fn missing_asset_is_404_without_immutable_cache() {
+    // a page that was built before a deploy asks for a chunk the new build no longer has: that is a 404, not the index page that every browser
+    // would then keep for a year as if it were the chunk
+    let web = temp_web_dir(&[("index.html", "<!doctype html><title>index</title>"), ("assets/app-ABC.js", "console.log('app')")]);
+    let w = web.clone();
+    let app = TestApp::with_boot(move |b| b.web_dir = w).await;
+    let cache = |h: &axum::http::HeaderMap| h.get(header::CACHE_CONTROL).and_then(|x| x.to_str().ok()).unwrap_or("").to_string();
+
+    let (s, h, body) = app.request(Method::GET, "/assets/app-ABC.js", None, None, &[]).await;
+    assert_eq!(s, StatusCode::OK, "{body}");
+    assert!(cache(&h).contains("immutable") && cache(&h).contains("max-age=31536000"), "{}", cache(&h));
+
+    let (s, h, body) = app.request(Method::GET, "/assets/gone-123.js", None, None, &[]).await;
+    assert_eq!(s, StatusCode::NOT_FOUND);
+    assert_eq!(cache(&h), "no-store", "a file that is not there is not cached");
+    assert!(!body.to_string().contains("<title>index</title>"), "{body}");
+    let (s, _, _) = app.request(Method::GET, "/assets/", None, None, &[]).await;
+    assert_eq!(s, StatusCode::NOT_FOUND);
+
+    // the pages of the application are the index page, and are asked about every time
+    for route in ["/", "/projects/abc", "/some/spa/route"] {
+        let (s, h, body) = app.request(Method::GET, route, None, None, &[]).await;
+        assert_eq!(s, StatusCode::OK, "{route}");
+        assert!(body.to_string().contains("<title>index</title>"), "{route}: {body}");
+        assert_eq!(cache(&h), "no-cache", "{route}");
+    }
+    app.cleanup().await;
+    let _ = std::fs::remove_dir_all(web);
+}

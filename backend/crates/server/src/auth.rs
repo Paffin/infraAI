@@ -9,13 +9,13 @@
 use crate::audit;
 use crate::crypto::{hash_password, verify_password};
 use crate::error::{ApiError, ApiResult};
+use crate::json::Json;
 use crate::state::AppState;
 use axum::extract::{ConnectInfo, FromRequestParts, Request, State};
 use axum::http::request::Parts;
 use axum::http::{HeaderMap, Method};
 use axum::middleware::Next;
 use axum::response::Response;
-use axum::Json;
 use axum_extra::extract::cookie::{Cookie, CookieJar, SameSite};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};

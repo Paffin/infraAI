@@ -14,6 +14,7 @@ pub mod crypto;
 pub mod db;
 pub mod error;
 pub mod jobs;
+pub mod json;
 pub mod llm;
 pub mod metrics;
 pub mod settings;

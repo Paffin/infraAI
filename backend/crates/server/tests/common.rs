@@ -48,14 +48,32 @@ pub fn boot(db_url: String) -> BootConfig {
     }
 }
 
+/// A directory with the given files (`("assets/app-1.js", "…")`) to serve as the web application; the caller removes it.
+pub fn temp_web_dir(files: &[(&str, &str)]) -> std::path::PathBuf {
+    let dir = std::env::temp_dir().join(format!("ia-web-{}", uuid::Uuid::new_v4().simple()));
+    for (name, text) in files {
+        let path = dir.join(name);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, text).unwrap();
+    }
+    dir
+}
+
 impl TestApp {
     pub async fn new() -> TestApp {
+        TestApp::with_boot(|_| {}).await
+    }
+
+    /// The application with its boot configuration changed by `tweak` (another web directory, secure cookies…).
+    pub async fn with_boot(tweak: impl FnOnce(&mut BootConfig)) -> TestApp {
         let db_name = format!("t_{}", uuid::Uuid::new_v4().simple());
         let admin = sqlx::PgPool::connect(&admin_url()).await.expect("test postgres must be reachable (see docs/DEVELOPMENT.md)");
         sqlx::query(&format!("create database {db_name}")).execute(&admin).await.unwrap();
         let base = admin_url();
         let url = base.rsplit_once('/').map(|(a, _)| format!("{a}/{db_name}")).unwrap();
-        let state = server::startup::init_state(boot(url)).await.expect("init");
+        let mut b = boot(url);
+        tweak(&mut b);
+        let state = server::startup::init_state(b).await.expect("init");
         let router = server::api::router(state.clone()).await;
         TestApp { router, state, db_name, cookie: Mutex::new(None) }
     }
@@ -86,6 +104,24 @@ impl TestApp {
             b = b.header(*k, *v);
         }
         let req = if let Some(v) = body { b.header(header::CONTENT_TYPE, "application/json").body(Body::from(v.to_string())).unwrap() } else { b.body(Body::empty()).unwrap() };
+        self.send(req).await
+    }
+
+    /// A request as a client that gets it wrong sends it: the body is text as it is (broken JSON, anything), with the content type the caller
+    /// names (or none). Answers with the status, the headers and the body (JSON if it is, else the text).
+    pub async fn raw(&self, method: Method, path: &str, body: Option<&str>, content_type: Option<&str>, cookie: Option<&str>) -> (StatusCode, axum::http::HeaderMap, Value) {
+        let mut b = Request::builder().method(method).uri(path).header(header::HOST, "localhost");
+        if let Some(c) = cookie {
+            b = b.header(header::COOKIE, c);
+        }
+        if let Some(ct) = content_type {
+            b = b.header(header::CONTENT_TYPE, ct);
+        }
+        let req = b.body(body.map(|t| Body::from(t.to_string())).unwrap_or_else(Body::empty)).unwrap();
+        self.send(req).await
+    }
+
+    async fn send(&self, req: Request<Body>) -> (StatusCode, axum::http::HeaderMap, Value) {
         let mut req = req;
         req.extensions_mut().insert(ConnectInfo("127.0.0.1:50000".parse::<SocketAddr>().unwrap()));
         let res = self.router.clone().oneshot(req).await.unwrap();

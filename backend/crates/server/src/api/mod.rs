@@ -11,7 +11,7 @@ use crate::auth;
 use crate::error::ApiError;
 use crate::state::AppState;
 use axum::extract::{DefaultBodyLimit, MatchedPath, Request, State};
-use axum::http::{header, HeaderValue};
+use axum::http::{header, HeaderValue, StatusCode};
 use axum::middleware::{self, Next};
 use axum::response::Response;
 use axum::routing::{delete, get, post, put};
@@ -25,9 +25,15 @@ async fn api_not_found() -> ApiError {
     ApiError::not_found("no such endpoint")
 }
 
+/// A path that exists but not for this method. axum adds the `Allow` header to a `405` itself.
+async fn api_method_not_allowed() -> ApiError {
+    ApiError::new(StatusCode::METHOD_NOT_ALLOWED, "method_not_allowed", "this path does not take that method (the Allow header lists the ones it takes)")
+}
+
 async fn security_headers(req: Request, next: Next) -> Response {
     let path = req.uri().path().to_string();
     let mut res = next.run(req).await;
+    let found = matches!(res.status().as_u16(), 200 | 206 | 304);
     let h = res.headers_mut();
     let set = |h: &mut axum::http::HeaderMap, k: &'static str, v: &'static str| {
         if !h.contains_key(k) {
@@ -42,7 +48,13 @@ async fn security_headers(req: Request, next: Next) -> Response {
     // the SPA needs inline styles (Vue Flow) but never inline scripts or foreign origins
     set(h, "content-security-policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'");
     if path.starts_with("/assets/") {
-        h.insert(header::CACHE_CONTROL, HeaderValue::from_static("public, max-age=31536000, immutable"));
+        // built files carry a hash of their content in the name, so the file that is there never changes; one that is not there must not be remembered
+        // for a year as if it were (a tab opened before a deploy asks for a chunk the new build no longer has)
+        if found {
+            h.insert(header::CACHE_CONTROL, HeaderValue::from_static("public, max-age=31536000, immutable"));
+        } else {
+            h.insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
+        }
     } else if path.starts_with("/api/") {
         if !h.contains_key(header::CACHE_CONTROL) {
             h.insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
@@ -120,10 +132,13 @@ pub async fn router(state: AppState) -> Router {
         .route("/admin/audit", get(admin::audit_list))
         .route("/admin/system", get(admin::system))
         .fallback(api_not_found)
+        .method_not_allowed_fallback(api_method_not_allowed)
         .layer(middleware::from_fn_with_state(state.clone(), auth::csrf_guard));
 
     let web = state.boot.web_dir.clone();
     let index = web.join("index.html");
+    // the built files have a place of their own and no fallback: a file that is not there is a 404, not the index page of the application
+    let assets = ServeDir::new(web.join("assets"));
     let static_files = ServeDir::new(&web).append_index_html_on_directories(true).fallback(ServeFile::new(index));
 
     Router::new()
@@ -131,6 +146,7 @@ pub async fn router(state: AppState) -> Router {
         .route("/readyz", get(public::readyz))
         .route("/metrics", get(public::metrics))
         .nest("/api", api)
+        .nest_service("/assets", assets)
         .fallback_service(static_files)
         .layer(DefaultBodyLimit::max(body_limit))
         .layer(middleware::from_fn_with_state(state.clone(), track))
