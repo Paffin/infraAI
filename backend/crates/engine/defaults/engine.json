@@ -40,7 +40,9 @@
   "includeIsolation": true,
   "isolationMaxSites": 2,
   "maxSiteFailures": 4,
-  "maxCombinations": 120
+  "maxCombinations": 120,
+  "maxComboItems": 100,
+  "maxComboDepth": 4
  },
  "tolerance": {
   "levels": [

@@ -13,7 +13,7 @@ use axum::http::{header, StatusCode};
 use axum::response::Response;
 use axum::Json;
 use engine::ops::{apply_ops, diff, Op};
-use engine::sim::{simulate_timeline, Scenario};
+use engine::sim::{check_scenario, simulate_timeline, Scenario, ScenarioFault};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::collections::HashSet;
@@ -100,11 +100,24 @@ pub async fn simulate_scenario(State(state): State<AppState>, _user: AuthUser, J
     let result = tokio::task::spawn_blocking(move || {
         let ec = cfg.engine_config("en");
         let ix = engine::graph::Index::build(&arch, &ec.catalog, &ec.settings);
-        simulate_timeline(&ix, &b.scenario)
+        // a failure of something the design does not have takes nothing away: the simulator would answer "up". For a scenario that a person (or a
+        // link, or a stale tab) brings that is a wrong answer, so it is refused, naming what is not there
+        check_scenario(&ix, &b.scenario).map(|()| simulate_timeline(&ix, &b.scenario))
     })
     .await
-    .map_err(ApiError::internal)?;
+    .map_err(ApiError::internal)?
+    .map_err(scenario_error)?;
     Ok(Json(serde_json::to_value(result)?))
+}
+
+fn scenario_error(fault: ScenarioFault) -> ApiError {
+    match fault {
+        ScenarioFault::Unknown(refs) => {
+            let names: Vec<String> = refs.iter().map(|r| format!("{} '{}'", r.kind, r.id)).collect();
+            ApiError::bad_request("unknown_scenario_reference", format!("the scenario names what the design does not have: {}", names.join(", "))).with_details(json!({"refs": refs}))
+        }
+        ScenarioFault::Invalid { reason, message } => ApiError::bad_request("invalid_scenario", message).with_details(json!({"reason": reason})),
+    }
 }
 
 #[derive(Deserialize)]

@@ -216,6 +216,10 @@ pub struct ScenarioSettings {
     /// Largest number of site combinations simulated for one `siteFailures` value. Past it the
     /// combinations are sampled evenly and the check says so.
     pub max_combinations: usize,
+    /// Most failures one "several at the same time" scenario may name (a request with more is refused as `invalid_scenario`).
+    pub max_combo_items: usize,
+    /// How deep such scenarios may nest.
+    pub max_combo_depth: usize,
 }
 
 impl Default for ScenarioSettings {
@@ -230,6 +234,8 @@ impl Default for ScenarioSettings {
             isolation_max_sites: 2,
             max_site_failures: 4,
             max_combinations: 120,
+            max_combo_items: 100,
+            max_combo_depth: 4,
         }
     }
 }

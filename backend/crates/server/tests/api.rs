@@ -1979,3 +1979,90 @@ async fn extreme_numbers_never_500() {
     assert!(ok > 120 && refused > 0, "the run is neither all accepted nor all refused: {ok} / {refused}");
     app.cleanup().await;
 }
+
+// ---------------------------------------------------------------------------------------------
+// A scenario names what the design has: nothing is "up" because the failed thing does not exist.
+// ---------------------------------------------------------------------------------------------
+
+#[tokio::test]
+async fn simulate_rejects_unknown_scenario_references() {
+    let app = TestApp::new().await;
+    let c = app.login_admin().await;
+    let arch = demo_architecture(&app, &c).await;
+    let ask = |scenario: Value| {
+        let (c, arch) = (c.clone(), arch.clone());
+        let app = &app;
+        async move { app.post(&c, "/api/simulate", json!({"architecture": arch, "scenario": scenario})).await }
+    };
+    // (scenario, code, what the answer has to name: the id that is not there, or the reason a scenario is no failure)
+    let refused: Vec<(Value, &str, &str)> = vec![
+        (json!({"type": "zone", "zoneId": "dc9"}), "unknown_scenario_reference", "dc9"),
+        (json!({"type": "node", "nodeId": "ghost"}), "unknown_scenario_reference", "ghost"),
+        (json!({"type": "instance", "nodeId": "ghost", "count": 1}), "unknown_scenario_reference", "ghost"),
+        (json!({"type": "unit", "unit": "no-such-cluster"}), "unknown_scenario_reference", "no-such-cluster"),
+        (json!({"type": "geo", "geo": "atlantis"}), "unknown_scenario_reference", "atlantis"),
+        (json!({"type": "link", "a": "dc1", "b": "dc9"}), "unknown_scenario_reference", "dc9"),
+        (json!({"type": "link", "a": "dc1", "b": "dc1"}), "invalid_scenario", "link_to_itself"),
+        (json!({"type": "isolate", "zoneIds": []}), "invalid_scenario", "no_zones"),
+        (json!({"type": "sites", "zoneIds": []}), "invalid_scenario", "no_zones"),
+        (json!({"type": "sites", "zoneIds": ["nope"]}), "unknown_scenario_reference", "nope"),
+        (json!({"type": "sites", "zoneIds": ["dc1", "nope"]}), "unknown_scenario_reference", "nope"),
+        (json!({"type": "combo", "items": []}), "invalid_scenario", "empty_combo"),
+        (json!({"type": "combo", "items": [{"type": "zone", "zoneId": "dc1"}, {"type": "zone", "zoneId": "dc9"}]}), "unknown_scenario_reference", "dc9"),
+        // an id that is a node where a zone is meant
+        (json!({"type": "zone", "zoneId": "app-dc1"}), "unknown_scenario_reference", "app-dc1"),
+        (json!({"type": "instance", "nodeId": "app-dc1", "count": 0}), "invalid_scenario", "count_out_of_range"),
+        (json!({"type": "instance", "nodeId": "app-dc1", "count": 100001}), "invalid_scenario", "count_out_of_range"),
+    ];
+    for (sc, code, names) in &refused {
+        let (s, v) = ask(sc.clone()).await;
+        assert_eq!(s, StatusCode::BAD_REQUEST, "{sc}: {v}");
+        assert_eq!(v["error"]["code"], *code, "{sc}: {v}");
+        if *code == "unknown_scenario_reference" {
+            assert!(v["error"]["message"].as_str().unwrap().contains(names), "the message names '{names}': {v}");
+            assert!(v["error"]["details"]["refs"].as_array().unwrap().iter().any(|r| r["id"] == *names), "{v}");
+        } else {
+            assert_eq!(v["error"]["details"]["reason"], *names, "{v}");
+        }
+    }
+    // every name that is wrong is listed, not only the first
+    let (_, v) = ask(json!({"type": "sites", "zoneIds": ["x1", "dc1", "x2"]})).await;
+    let refs: Vec<&str> = v["error"]["details"]["refs"].as_array().unwrap().iter().map(|r| r["id"].as_str().unwrap()).collect();
+    assert_eq!(refs, vec!["x1", "x2"], "{v}");
+    assert_eq!(v["error"]["details"]["refs"][0]["kind"], "zone");
+    // a combo nested past the limit
+    let mut deep = json!({"type": "zone", "zoneId": "dc1"});
+    for _ in 0..6 {
+        deep = json!({"type": "combo", "items": [deep]});
+    }
+    let (s, v) = ask(deep).await;
+    assert_eq!((s, v["error"]["code"].as_str(), v["error"]["details"]["reason"].as_str()), (StatusCode::BAD_REQUEST, Some("invalid_scenario"), Some("too_deep")), "{v}");
+
+    // and what is real is answered, at the edges too
+    for sc in [
+        json!({"type": "none"}),
+        json!({"type": "zone", "zoneId": "dc1"}),
+        json!({"type": "combo", "items": [{"type": "zone", "zoneId": "dc1"}, {"type": "node", "nodeId": "app-dc2"}]}),
+        json!({"type": "instance", "nodeId": "app-dc1", "count": 1}),
+        json!({"type": "instance", "nodeId": "app-dc1", "count": 100000}),
+        json!({"type": "link", "a": "dc1", "b": "dc2"}),
+        json!({"type": "unit", "unit": "pg"}),
+    ] {
+        let (s, v) = ask(sc.clone()).await;
+        assert_eq!(s, StatusCode::OK, "{sc}: {v}");
+    }
+    // every failure the engine itself lists for a design is one it accepts, a geo label that is the id of a region zone included
+    for template in ["two-dc-witness", "ten-sites-regions", "multi-region-pilot-light", "three-az-region"] {
+        let (_, t) = app.get(&c, &format!("/api/templates/{template}")).await;
+        let a = t["architecture"].clone();
+        let (s, rep) = app.post(&c, "/api/evaluate", json!({"architecture": a})).await;
+        assert_eq!(s, StatusCode::OK, "{template}: {rep}");
+        let listed = rep["scenarios"].as_array().unwrap();
+        assert!(!listed.is_empty());
+        for sc in listed.iter().take(40) {
+            let (s, v) = app.post(&c, "/api/simulate", json!({"architecture": a, "scenario": sc["scenario"]})).await;
+            assert_eq!(s, StatusCode::OK, "{template} {}: {v}", sc["scenario"]);
+        }
+    }
+    app.cleanup().await;
+}

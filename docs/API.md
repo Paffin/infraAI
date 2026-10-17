@@ -119,6 +119,12 @@ cannot be read, so nothing is evaluated with them. A project id that never exist
 `{"type":"sites","zoneIds":["…","…"]}`, `{"type":"geo","geo":"<label>"}`,
 `{"type":"combo","items":[<scenario>, …]}` (several failures at the same time: what each item takes away is taken away together; one item equals that item, items nest).
 
+A scenario has to name what the design has. A failure of a zone, node, cluster or disaster domain that is not there takes nothing away, and the simulator would answer "up": for a scenario that comes from a typo,
+a link made on another design or a tab that still shows a node deleted since, that is a wrong answer, not a service that survived. `/simulate` refuses it with `400 unknown_scenario_reference` (the message names what is
+missing, `details.refs` lists all of it: `[{kind: zone|node|unit|geo, id}]`) or, when it cannot be a failure at all, `400 invalid_scenario` with `details.reason`: `no_zones` (`isolate` / `sites` of nothing), `empty_combo`,
+`too_many_items` and `too_deep` (a combination past `scenarios.maxComboItems` / `maxComboDepth` of the engine settings, 100 and 4), `link_to_itself`, `count_out_of_range` (an instance count from 1 to `limits.maxReplicas`). A `geo` label is
+one the engine gives: the `geo` property of the innermost zone around a node, else the id of the nearest disaster-level zone. Every scenario the engine lists in `Report.scenarios` is accepted.
+
 ### Validation: what is refused and what is only said
 
 One validator (`engine::model::validate`) judges every design, and it says the same things everywhere: `Issue = {level: error|warning, code, message, subject?}`. **Structure** (ids, references, kinds,

@@ -967,3 +967,140 @@ fn the_generator_sizes_for_the_load_up_to_what_a_node_may_have_and_says_when_it_
     let report = evaluate(&nonsense.architecture, &c, &[]);
     assert!(report.issues.iter().any(|i| i.code == "requirement_out_of_range" && i.level == Warning), "{:?}", report.issues);
 }
+
+// ---------------------------------------------------------------------------------------------
+// A scenario names what the design has
+// ---------------------------------------------------------------------------------------------
+
+use engine::sim::{check_scenario, MissingRef, ScenarioFault};
+
+fn asked(a: &Architecture, sc: Value) -> Result<(), ScenarioFault> {
+    let c = cfg();
+    let ix = Index::build(a, &c.catalog, &c.settings);
+    check_scenario(&ix, &serde_json::from_value(sc).unwrap())
+}
+
+fn missing(kind: &'static str, id: &str) -> MissingRef {
+    MissingRef { kind, id: id.into() }
+}
+
+#[test]
+fn a_scenario_that_names_what_the_design_does_not_have_is_not_a_question_the_simulator_can_answer() {
+    let a = base();
+    let unknown = |sc: Value, refs: Vec<MissingRef>| assert_eq!(asked(&a, sc.clone()), Err(ScenarioFault::Unknown(refs)), "{sc}");
+    unknown(json!({"type": "zone", "zoneId": "dc9"}), vec![missing("zone", "dc9")]);
+    unknown(json!({"type": "node", "nodeId": "ghost"}), vec![missing("node", "ghost")]);
+    unknown(json!({"type": "instance", "nodeId": "ghost", "count": 2}), vec![missing("node", "ghost")]);
+    unknown(json!({"type": "unit", "unit": "no-such-cluster"}), vec![missing("unit", "no-such-cluster")]);
+    unknown(json!({"type": "geo", "geo": "atlantis"}), vec![missing("geo", "atlantis")]);
+    unknown(json!({"type": "link", "a": "dc1", "b": "dc9"}), vec![missing("zone", "dc9")]);
+    unknown(json!({"type": "link", "a": "x", "b": "y"}), vec![missing("zone", "x"), missing("zone", "y")]);
+    // a part of the list that is wrong is wrong, and all of what is wrong is said, once each
+    unknown(json!({"type": "sites", "zoneIds": ["x1", "dc1", "x2", "x1"]}), vec![missing("zone", "x1"), missing("zone", "x2")]);
+    unknown(json!({"type": "isolate", "zoneIds": ["dc1", "x2"]}), vec![missing("zone", "x2")]);
+    // an id of the wrong kind of thing is an unknown id
+    unknown(json!({"type": "zone", "zoneId": "app-dc1"}), vec![missing("zone", "app-dc1")]);
+    unknown(json!({"type": "node", "nodeId": "dc1"}), vec![missing("node", "dc1")]);
+    unknown(
+        json!({"type": "combo", "items": [{"type": "zone", "zoneId": "dc1"}, {"type": "node", "nodeId": "ghost"}, {"type": "combo", "items": [{"type": "zone", "zoneId": "dc9"}]}]}),
+        vec![missing("node", "ghost"), missing("zone", "dc9")],
+    );
+
+    let invalid = |sc: Value, why: &str| match asked(&a, sc.clone()) {
+        Err(ScenarioFault::Invalid { reason, message }) => assert!(reason == why && !message.is_empty(), "{sc}: {reason} {message}"),
+        other => panic!("{sc}: {other:?}"),
+    };
+    invalid(json!({"type": "isolate", "zoneIds": []}), "no_zones");
+    invalid(json!({"type": "sites", "zoneIds": []}), "no_zones");
+    invalid(json!({"type": "combo", "items": []}), "empty_combo");
+    invalid(json!({"type": "link", "a": "dc1", "b": "dc1"}), "link_to_itself");
+    invalid(json!({"type": "instance", "nodeId": "app-dc1", "count": 0}), "count_out_of_range");
+    invalid(json!({"type": "instance", "nodeId": "app-dc1", "count": 100001}), "count_out_of_range");
+    // the shape is judged before the names: a combination of nothing is not asked what it names
+    invalid(json!({"type": "combo", "items": [{"type": "zone", "zoneId": "nowhere"}, {"type": "combo", "items": []}]}), "empty_combo");
+    let items: Vec<Value> = (0..101).map(|_| json!({"type": "zone", "zoneId": "dc1"})).collect();
+    invalid(json!({"type": "combo", "items": items}), "too_many_items");
+    let mut deep = json!({"type": "zone", "zoneId": "dc1"});
+    for _ in 0..5 {
+        deep = json!({"type": "combo", "items": [deep]});
+    }
+    invalid(deep.clone(), "too_deep");
+    // four levels are allowed (the numbers are settings: `scenarios.maxComboItems`, `maxComboDepth`)
+    let Value::Object(mut outer) = deep else { panic!() };
+    outer["items"] = outer["items"][0]["items"].clone();
+    assert_eq!(asked(&a, Value::Object(outer)), Ok(()));
+}
+
+#[test]
+fn what_is_real_is_accepted_at_its_edges() {
+    let a = base();
+    for sc in [
+        json!({"type": "none"}),
+        json!({"type": "instance", "nodeId": "app-dc1"}),
+        json!({"type": "instance", "nodeId": "app-dc1", "count": 1}),
+        json!({"type": "instance", "nodeId": "app-dc1", "count": 100000}),
+        json!({"type": "node", "nodeId": "pg-primary"}),
+        json!({"type": "unit", "unit": "pg"}),
+        json!({"type": "unit", "unit": "gslb"}),
+        json!({"type": "zone", "zoneId": "dc1"}),
+        json!({"type": "link", "a": "dc1", "b": "site3"}),
+        json!({"type": "isolate", "zoneIds": ["dc1"]}),
+        json!({"type": "sites", "zoneIds": ["dc1", "dc2"]}),
+        json!({"type": "geo", "geo": "moscow"}),
+        json!({"type": "combo", "items": [{"type": "zone", "zoneId": "dc1"}, {"type": "instance", "nodeId": "app-dc2", "count": 3}]}),
+    ] {
+        assert_eq!(asked(&a, sc.clone()), Ok(()), "{sc}");
+    }
+    // the engine's ceiling on instances is the ceiling of a count of failed ones
+    let c = cfg();
+    let mut settings = c.settings.clone();
+    settings.limits.max_replicas = 50;
+    let ix = Index::build(&a, &c.catalog, &settings);
+    let sc = |n: u32| Scenario::Instance { node_id: "app-dc1".into(), count: n };
+    assert!(check_scenario(&ix, &sc(50)).is_ok() && check_scenario(&ix, &sc(51)).is_err());
+}
+
+#[test]
+fn every_failure_the_engine_lists_for_a_design_is_one_it_accepts() {
+    let c = cfg();
+    let mut checked = 0;
+    for t in defaults::templates() {
+        let a = t.architecture;
+        let ix = Index::build(&a, &c.catalog, &c.settings);
+        let report = evaluate(&a, &c, &[]);
+        assert!(!report.scenarios.is_empty(), "{}", t.id);
+        for s in &report.scenarios {
+            assert_eq!(check_scenario(&ix, &s.scenario), Ok(()), "template {}: the engine lists {:?}", t.id, s.scenario);
+            checked += 1;
+        }
+        for sc in engine::sim::standard_scenarios(&ix) {
+            assert_eq!(check_scenario(&ix, &sc), Ok(()), "template {}: {sc:?}", t.id);
+        }
+    }
+    assert!(checked > 500, "{checked}");
+}
+
+#[test]
+fn a_disaster_domain_is_named_the_way_the_engine_names_it() {
+    // a zone with a `geo` prop is in the domain of that name; one without is in the domain named by the id of the region zone around it. The check is made
+    // against the labels of the engine, not against the `geo` props, or the failures it lists itself (here: the loss of the whole region) would be refused
+    let c = cfg();
+    let mut a = template("aws-three-az");
+    for z in a.zones.iter_mut() {
+        z.props.remove("geo");
+    }
+    let ix = Index::build(&a, &c.catalog, &c.settings);
+    let listed = engine::sim::standard_scenarios(&ix);
+    assert!(listed.iter().any(|s| matches!(s, Scenario::Geo { geo } if geo == "region")), "the premise: the engine lists the loss of the region: {listed:?}");
+    for s in &listed {
+        assert_eq!(check_scenario(&ix, s), Ok(()), "{s:?}");
+    }
+    assert_eq!(asked(&a, json!({"type": "geo", "geo": "region"})), Ok(()));
+    assert_eq!(asked(&a, json!({"type": "geo", "geo": "region-dr"})), Ok(()), "a region with nodes is a domain");
+    assert_eq!(asked(&a, json!({"type": "geo", "geo": "azs"})), Err(ScenarioFault::Unknown(vec![missing("geo", "azs")])));
+    // and a `geo` prop on a zone names the domain of what is in it, wherever the zone stands
+    let mut b = base();
+    assert_eq!(asked(&b, json!({"type": "geo", "geo": "moscow"})), Ok(()));
+    b.zones[0].props.insert("geo".into(), json!("tver"));
+    assert_eq!(asked(&b, json!({"type": "geo", "geo": "tver"})), Ok(()));
+}

@@ -74,6 +74,102 @@ impl Scenario {
     }
 }
 
+/// Something a scenario names that the design does not have.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct MissingRef {
+    /// `zone`, `node`, `unit` or `geo`.
+    pub kind: &'static str,
+    pub id: String,
+}
+
+/// Why a question about a failure cannot be answered for a design.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ScenarioFault {
+    /// It names what the design does not have (every such name, in the order they occur).
+    Unknown(Vec<MissingRef>),
+    /// It cannot be a failure at all: nothing named, a count out of its range, a link from a site to itself, too many items, nested too deep.
+    /// `reason` is a stable word (`no_zones`, `empty_combo`, `count_out_of_range`, `link_to_itself`, `too_many_items`, `too_deep`).
+    Invalid { reason: &'static str, message: String },
+}
+
+impl Scenario {
+    fn shape(&self, ix: &Index, depth: usize) -> Result<(), ScenarioFault> {
+        let invalid = |reason: &'static str, message: String| Err(ScenarioFault::Invalid { reason, message });
+        match self {
+            Scenario::Instance { count, .. } => {
+                let most = ix.settings.limits.max_replicas;
+                if *count < 1 || *count > most {
+                    return invalid("count_out_of_range", format!("an instance count of {count} is not a failure of instances: it is from 1 to {most}"));
+                }
+            }
+            Scenario::Link { a, b } if a == b => return invalid("link_to_itself", format!("a link between '{a}' and itself is not a link that can be cut")),
+            Scenario::Isolate { zone_ids } if zone_ids.is_empty() => return invalid("no_zones", "an isolate scenario names no site".to_string()),
+            Scenario::Sites { zone_ids } if zone_ids.is_empty() => return invalid("no_zones", "a sites scenario names no site".to_string()),
+            Scenario::Combo { items } => {
+                let cfg = &ix.settings.scenarios;
+                if items.is_empty() {
+                    return invalid("empty_combo", "a combination of failures names no failure".to_string());
+                }
+                if items.len() > cfg.max_combo_items {
+                    return invalid("too_many_items", format!("a combination names {} failures: at most {}", items.len(), cfg.max_combo_items));
+                }
+                if depth >= cfg.max_combo_depth {
+                    return invalid("too_deep", format!("combinations nest {} deep: at most {}", depth + 1, cfg.max_combo_depth));
+                }
+                for item in items {
+                    item.shape(ix, depth + 1)?;
+                }
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+
+    fn missing(&self, ix: &Index, out: &mut Vec<MissingRef>) {
+        let mut want = |kind: &'static str, id: &str, there: bool| {
+            if !there && !out.iter().any(|m| m.kind == kind && m.id == id) {
+                out.push(MissingRef { kind, id: id.to_string() });
+            }
+        };
+        match self {
+            Scenario::None => {}
+            Scenario::Instance { node_id, .. } | Scenario::Node { node_id } => want("node", node_id, ix.node_ix.contains_key(node_id.as_str())),
+            Scenario::Unit { unit } => want("unit", unit, ix.unit_ix.contains_key(unit.as_str())),
+            Scenario::Zone { zone_id } => want("zone", zone_id, ix.zone_ix.contains_key(zone_id.as_str())),
+            Scenario::Link { a, b } => {
+                want("zone", a, ix.zone_ix.contains_key(a.as_str()));
+                want("zone", b, ix.zone_ix.contains_key(b.as_str()));
+            }
+            Scenario::Isolate { zone_ids } | Scenario::Sites { zone_ids } => {
+                for z in zone_ids {
+                    want("zone", z, ix.zone_ix.contains_key(z.as_str()));
+                }
+            }
+            // the labels the engine itself gives (the innermost `geo` prop, else the id of the nearest geo-level zone), not the `geo` props alone
+            Scenario::Geo { geo } => want("geo", geo, ix.geo_of.iter().any(|g| g.as_deref() == Some(geo.as_str()))),
+            Scenario::Combo { items } => {
+                for item in items {
+                    item.missing(ix, out);
+                }
+            }
+        }
+    }
+}
+
+/// May `sc` be asked about the design? The simulator itself skips what it cannot find (a failure of a zone that is not there takes nothing
+/// away, and the answer is "up"), which is right for the scenarios the engine lists and wrong for one a person or a link brings: a typo, a node
+/// deleted since the link was made. This is the check for those. A scenario that fails it is a request that cannot be answered, not a service that is up.
+pub fn check_scenario(ix: &Index<'_>, sc: &Scenario) -> Result<(), ScenarioFault> {
+    sc.shape(ix, 0)?;
+    let mut missing = Vec::new();
+    sc.missing(ix, &mut missing);
+    if missing.is_empty() {
+        Ok(())
+    } else {
+        Err(ScenarioFault::Unknown(missing))
+    }
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(rename_all = "snake_case")]
 pub enum ServiceState {
