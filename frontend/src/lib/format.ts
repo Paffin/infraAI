@@ -69,6 +69,17 @@ export function newId(prefix: string): string {
   return `${prefix}-${Date.now().toString(36).slice(-4)}${rnd}${counter.toString(36)}`
 }
 
+/** The longest name a project can have: what the server accepts (`api/projects.rs`). A check of the input of the API, not a setting. */
+export const PROJECT_NAME_MAX = 200
+
+/** The name proposed for a copy of a project ("<name> (copy)"): it is the NAME that is cut when the whole would be too long for the server, never the mark of the copy. */
+export function copyName(name: string): string {
+  const whole = t('projects.duplicate.name', { name })
+  const chars = Array.from(name)
+  const over = Array.from(whole).length - PROJECT_NAME_MAX
+  return over <= 0 ? whole : t('projects.duplicate.name', { name: chars.slice(0, Math.max(0, chars.length - over)).join('') })
+}
+
 /**
  * What a failure says on the screen. A request that got no answer (no connection, a server that is down) throws the browser's own sentence ("Failed to fetch",
  * "NetworkError when attempting to fetch resource"): English, different in each browser, and no help to anybody. The client marks such a failure with the code

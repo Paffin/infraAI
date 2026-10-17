@@ -5,6 +5,7 @@ import * as api from '@/api/endpoints'
 import type { Bootstrap, Rule, User } from '@/api/types'
 import { setLang, supportedLangs } from '@/i18n'
 import { indexCatalog, type CatalogIndex } from '@/lib/catalog'
+import { errorMessage } from '@/lib/format'
 import { indexVersions, type VersionIndex } from '@/lib/lifecycle'
 import { browserStorage, dropUser } from '@/lib/unsavedBackup'
 import { editorSettings } from '@/lib/uiConfig'
@@ -96,7 +97,7 @@ export const useApp = defineStore('app', () => {
         await loadPublic()
         return false
       }
-      bootError.value = e instanceof Error ? e.message : String(e)
+      bootError.value = errorMessage(e) // in the words of the page, not the browser's "Failed to fetch"
       return false
     }
   }

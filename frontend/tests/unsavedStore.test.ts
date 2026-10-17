@@ -34,7 +34,7 @@ function setup(userId = 'u1') {
   return { app, editor, unsaved: useUnsaved(), dialogs: useDialogs(), toasts: useToasts() }
 }
 
-const backup = (architecture: Architecture, o: { userId?: string; baseRev?: number } = {}) => ({ userId: 'u1', projectId: 'p1', baseRev: 4, savedAt: Date.now(), architecture, ...o })
+const backup = (architecture: Architecture, o: { userId?: string; projectId?: string; baseRev?: number } = {}) => ({ userId: 'u1', projectId: 'p1', baseRev: 4, savedAt: Date.now(), architecture, ...o })
 
 beforeEach(() => {
   setActivePinia(createPinia())
@@ -140,6 +140,62 @@ describe('opening a project that has a copy', () => {
   })
 })
 
+describe('an offer belongs to the project it was found for', () => {
+  it('is gone when the editor moves to another project in the same page, and its buttons do nothing there', async () => {
+    const { editor, unsaved, dialogs, toasts } = setup()
+    write(localStorage, backup(renamed('Typed name')), retention)
+    await unsaved.check('p1')
+    const stale = unsaved.offer!
+    expect(stale).not.toBeNull()
+
+    editor.projectId = 'p2' // a route update: the editor now shows another project
+    expect(unsaved.offer).toBeNull()
+    await unsaved.restore()
+    await unsaved.discard()
+    expect(dialogs.confirmReq).toBeNull() // nothing was asked: there is nothing to answer
+    expect(await unsaved.openAsNew(editor.arch, stale)).toBeNull() // and the old offer, held by a button that had not re-rendered yet, cannot make a project of p1's edits
+    expect(editor.arch.nodes[0].name).toBe(arch.nodes[0].name) // p2 is untouched: not replaced by p1's edits, not turned into a false conflict
+    expect(editor.saveState).toBe('saved')
+    expect(toasts.items).toEqual([])
+    expect(localStorage.getItem(keyOf('u1', 'p1'))).not.toBeNull() // the copy of p1 waits for p1
+  })
+
+  it('is not shown while a project loads, and not shown beside the error of a load that failed', async () => {
+    const { editor, unsaved } = setup()
+    write(localStorage, backup(renamed('Typed name')), retention)
+    await unsaved.check('p1')
+    expect(unsaved.offer).not.toBeNull()
+
+    editor.loading = true
+    expect(unsaved.offer).toBeNull()
+    await unsaved.restore()
+    expect(editor.arch.nodes[0].name).toBe(arch.nodes[0].name)
+
+    editor.loading = false
+    editor.projectId = 'p2'
+    editor.loadError = 'the project could not be loaded'
+    expect(unsaved.offer).toBeNull()
+  })
+
+  it('a check that is answered after the project was closed does not bring its offer back', async () => {
+    const { unsaved } = setup()
+    write(localStorage, backup(renamed('Typed name')), retention)
+    const checking = unsaved.check('p1') // the engine is asked what the edits change ...
+    unsaved.clear() // ... and the person goes elsewhere before it answers
+    await checking
+    expect(unsaved.offer).toBeNull()
+  })
+
+  it('and the check of the project that is open now is not undone by one that was started earlier', async () => {
+    const { unsaved } = setup()
+    write(localStorage, backup(renamed('Typed name')), retention)
+    const first = unsaved.check('p1')
+    const second = unsaved.check('p1')
+    await Promise.all([first, second])
+    expect(unsaved.offer).not.toBeNull()
+  })
+})
+
 describe('answering the offer', () => {
   it('restore puts the copy in place as one step the person can undo; the copy stays until the save got through', async () => {
     const { editor, unsaved, toasts } = setup()
@@ -221,6 +277,32 @@ describe('answering the offer', () => {
 })
 
 describe('signing out', () => {
+  it('asks first when there are copies, says how many, and "no" keeps the copies', async () => {
+    const { unsaved, dialogs } = setup()
+    write(localStorage, backup(renamed('a')), retention)
+    write(localStorage, backup(renamed('b'), { projectId: 'p2' }), retention)
+    write(localStorage, backup(renamed('theirs'), { userId: 'u2' }), retention)
+    const asked = unsaved.confirmSignOut()
+    await tick()
+    expect(dialogs.confirmReq?.danger).toBe(true)
+    expect(dialogs.confirmReq?.text).toContain(': 2.') // two projects of this user; the copy of the other user is not counted
+    dialogs.answerConfirm(false)
+    expect(await asked).toBe(false)
+    expect(copies()).toHaveLength(3)
+
+    const again = unsaved.confirmSignOut()
+    await tick()
+    dialogs.answerConfirm(true)
+    expect(await again).toBe(true)
+  })
+
+  it('does not ask when there is nothing to lose', async () => {
+    const { unsaved, dialogs } = setup()
+    write(localStorage, backup(renamed('theirs'), { userId: 'u2' }), retention)
+    expect(await unsaved.confirmSignOut()).toBe(true)
+    expect(dialogs.confirmReq).toBeNull()
+  })
+
   it('removes the copies of that user from the browser and leaves the others', async () => {
     const { app } = setup()
     write(localStorage, backup(renamed('mine')), retention)

@@ -1,7 +1,9 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { createPinia, setActivePinia } from 'pinia'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { ApiError, http } from '../src/api/client'
 import { setLang, t } from '../src/i18n'
 import { errorMessage } from '../src/lib/format'
+import { useApp } from '../src/stores/app'
 
 // `errorMessage` is what 70-odd places of the application put on the screen when something failed (toasts, the export window, the versions window, the chat,
 // the save status). The browser's own sentence for a request that got no answer is English, differs from one browser to the next and tells nobody what to do.
@@ -41,6 +43,19 @@ describe('a request that got no answer', () => {
     expect((failure as ApiError).code).toBe('network')
     expect(errorMessage(failure)).toBe(t('error.network'))
     expect(errorMessage(failure)).not.toMatch(/fetch|parse|url/i)
+  })
+})
+
+describe('the application that cannot reach the server while it starts', () => {
+  beforeEach(() => setActivePinia(createPinia()))
+
+  it('says so in the words of the page (it showed "Что-то пошло не так: Failed to fetch")', async () => {
+    const app = useApp()
+    expect(await app.init()).toBe(false) // the real client, the real `fetch`, and no server at the address of the page
+    expect(app.bootError).toBe(t('error.network'))
+    expect(app.bootError).not.toMatch(/fetch|parse|url/i)
+    setLang('en')
+    expect(errorMessage(new ApiError(0, 'network', 'Failed to fetch'))).toBe('Cannot reach the server')
   })
 })
 

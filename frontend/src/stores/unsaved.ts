@@ -4,8 +4,8 @@ import * as api from '@/api/endpoints'
 import type { ArchDiff, Architecture } from '@/api/types'
 import { t } from '@/i18n'
 import { diffLines, type DiffLine } from '@/lib/diff'
-import { errorMessage } from '@/lib/format'
-import { browserStorage, drop, judge, read, write, type Backup, type Retention } from '@/lib/unsavedBackup'
+import { copyName, errorMessage } from '@/lib/format'
+import { browserStorage, countUser, drop, judge, read, write, type Backup, type Retention } from '@/lib/unsavedBackup'
 import { useApp } from './app'
 import { useDialogs } from './dialogs'
 import { useEditor } from './editor'
@@ -25,9 +25,6 @@ export interface Offer {
 /** What happened to the unsaved edits when the session ended: nothing was unsaved, they were kept in this browser, or they could not be kept. */
 export type Outcome = 'none' | 'kept' | 'lost'
 
-/** Lines of the offer that are shown; the rest is said as a count. */
-const SHOWN_LINES = 4
-
 /** Marks the comparison view that shows the offered copy (a `Preview` of a comparison has no use for the id of a proposal). */
 const PREVIEW_MARK = 'unsaved'
 
@@ -41,7 +38,19 @@ export const useUnsaved = defineStore('unsaved', () => {
   const toasts = useToasts()
   const dialogs = useDialogs()
 
-  const offer = shallowRef<Offer | null>(null)
+  /** The offer that was made when a project opened; what the page and the buttons see is `offer`, which is it only for the project that is on the screen. */
+  const held = shallowRef<Offer | null>(null)
+  /**
+   * The offer, for the project on the screen and no other: it is gone the moment another project (or the same one again) is being loaded, and stays gone when that
+   * load fails. The buttons act on this, so they cannot restore, discard or copy the edits of one project into another; that holds by construction, not by the
+   * order in which the view happens to clear the offer.
+   */
+  const offer = computed(() => {
+    const o = held.value
+    return o && !editor.loading && o.backup.projectId === editor.projectId ? o : null
+  })
+  /** Which `check` is the latest: an answer of an earlier one (or of one that was cleared) must not bring an offer back. */
+  let checking = 0
   /** The user the open project belongs to, kept from the moment it opened: after the session has ended the store of the application no longer knows who it was. */
   let owner = ''
   /** The edits of the open project were put elsewhere (a new project): leaving it is not a loss, and a copy would offer them a second time. */
@@ -80,7 +89,8 @@ export const useUnsaved = defineStore('unsaved', () => {
 
   /** A project has just opened: is there a copy of edits that did not get through? Nothing, or an offer to restore. */
   async function check(projectId: string): Promise<void> {
-    offer.value = null
+    const mine = ++checking
+    held.value = null
     handedOver = false
     if (!app.user || !app.canEdit) return
     owner = app.user.id
@@ -91,9 +101,10 @@ export const useUnsaved = defineStore('unsaved', () => {
     if (verdict.kind !== 'offer' || !found) return
     let diff: ArchDiff | null = null
     try { diff = await api.engine.diff(editor.arch, found.architecture) } catch { /* the offer is made without the list of lines */ }
-    if (editor.projectId !== projectId) return // the person has gone elsewhere while the engine was asked
+    if (mine !== checking || editor.projectId !== projectId) return // the person has gone elsewhere (or the project was closed) while the engine was asked
     const lines = diff ? diffLines(diff, 1) : []
-    offer.value = { backup: found, lines: lines.slice(0, SHOWN_LINES), more: Math.max(0, lines.length - SHOWN_LINES), diff, moved: verdict.moved }
+    const shown = app.editorCfg.unsavedOfferLines
+    held.value = { backup: found, lines: lines.slice(0, shown), more: Math.max(0, lines.length - shown), diff, moved: verdict.moved }
   }
 
   /** Put the copy in place of the document: one step of the history (the person can undo it), stored by the autosave; the copy is let go once the save got through. */
@@ -104,7 +115,7 @@ export const useUnsaved = defineStore('unsaved', () => {
     if (offer.value !== o) return // answered elsewhere while the question was open
     editor.setPreview(null)
     editor.replaceArchitecture(o.backup.architecture)
-    offer.value = null
+    held.value = null
     if (await editor.flushSave()) {
       drop(browserStorage(), o.backup.userId, o.backup.projectId)
       toasts.ok(t('unsaved.restored'))
@@ -118,7 +129,7 @@ export const useUnsaved = defineStore('unsaved', () => {
     if (!(await dialogs.confirm({ title: t('unsaved.discard.title'), text: t('unsaved.discard.confirm'), confirmLabel: t('unsaved.discard'), danger: true }))) return
     if (showing.value) editor.setPreview(null)
     drop(browserStorage(), o.backup.userId, o.backup.projectId)
-    if (offer.value === o) offer.value = null
+    if (offer.value === o) held.value = null
   }
 
   /** Look at what the copy changes, drawn on the diagram (the comparison view); again to go back. */
@@ -134,12 +145,13 @@ export const useUnsaved = defineStore('unsaved', () => {
    * Returns the id of the new project, or null when it could not be made (the error is said).
    */
   async function openAsNew(architecture: Architecture, offered: Offer | null): Promise<string | null> {
+    if (offered && offer.value !== offered) return null // the copy of a project that is not on the screen: it is not this document's to turn into a project
     try {
-      const name = t('projects.duplicate.name', { name: editor.project?.name ?? '' }).slice(0, 200)
+      const name = copyName(editor.project?.name ?? '')
       const made = await api.projects.create({ name, architecture })
       if (offered) drop(browserStorage(), offered.backup.userId, offered.backup.projectId)
       handedOver = true
-      offer.value = null
+      held.value = null
       return made.id
     } catch (e) {
       toasts.error(errorMessage(e))
@@ -147,11 +159,23 @@ export const useUnsaved = defineStore('unsaved', () => {
     }
   }
 
-  /** The project closed: its offer goes with it (the copy stays in the storage until it is used up). */
+  /** The project closes, or another one is about to open: the offer goes (the copy stays in the storage until it is used up), and so does any check still under way. */
   function clear() {
-    offer.value = null
+    checking++
+    held.value = null
     handedOver = false
   }
 
-  return { offer, showing, stash, onSessionExpired, settle, check, restore, discard, toggleView, openAsNew, clear }
+  /**
+   * Signing out removes the copies of this user from the browser (the next person at it must not find them), so the person is told before, if there are any:
+   * edits that never reached the server are not something to lose in a click on "Sign out". True when they may go on.
+   */
+  async function confirmSignOut(): Promise<boolean> {
+    if (!app.user) return true
+    const n = countUser(browserStorage(), app.user.id, retention())
+    if (!n) return true
+    return dialogs.confirm({ title: t('unsaved.signout.title'), text: t('unsaved.signout.confirm', { n }), confirmLabel: t('unsaved.signout.go'), danger: true })
+  }
+
+  return { offer, showing, stash, onSessionExpired, settle, check, restore, discard, toggleView, openAsNew, clear, confirmSignOut }
 })

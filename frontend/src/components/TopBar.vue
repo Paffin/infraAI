@@ -3,6 +3,7 @@ import { LogOut, Settings, FolderKanban } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
 import { t } from '@/i18n'
 import { useApp } from '@/stores/app'
+import { useUnsaved } from '@/stores/unsaved'
 import BrandLogo from './BrandLogo.vue'
 import LangSwitch from './LangSwitch.vue'
 import HelpMenu from './HelpMenu.vue'
@@ -10,8 +11,10 @@ import MotionSwitch from './MotionSwitch.vue'
 
 const app = useApp()
 const router = useRouter()
+const unsaved = useUnsaved()
 
 async function logout() {
+  if (!(await unsaved.confirmSignOut())) return // the copies of unsaved edits go with the session: the person is asked first, if there are any
   await app.logout()
   router.push({ name: 'login' })
 }

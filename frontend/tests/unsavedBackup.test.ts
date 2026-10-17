@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { Architecture } from '../src/api/types'
-import { PREFIX, browserStorage, drop, dropUser, judge, keyOf, prune, read, sameArchitecture, write, type Backup, type Retention, type StorageLike } from '../src/lib/unsavedBackup'
+import { PREFIX, browserStorage, countUser, drop, dropUser, judge, keyOf, prune, read, sameArchitecture, write, type Backup, type Retention, type StorageLike } from '../src/lib/unsavedBackup'
 import { fixture } from './fixtures'
 
-// The real storage of jsdom, with its real quota: nothing is faked. The only doubles are two storages that misbehave on purpose (one that throws on every call,
-// one that accepts a write and keeps nothing), because no real one can be made to do that on demand.
+// The real storage of jsdom, with its real quota: nothing is faked. The only doubles in the frontend tests are the two storages of this file that misbehave on
+// purpose (one that throws on every call, one that accepts a write and keeps nothing), because jsdom's cannot be made to do that on demand (docs/DEVELOPMENT.md).
 
 const HOUR = 3_600_000
 const keep = 168 * HOUR
@@ -115,6 +115,22 @@ describe('letting go of a copy', () => {
     write(localStorage, backup({ userId: 'u10', projectId: 'a' }), at(T0))
     dropUser(localStorage, 'u1')
     expect(Object.keys(localStorage)).toEqual([`${PREFIX}u10:a`])
+  })
+})
+
+describe('counting what signing out would delete', () => {
+  it('counts the copies of that user and no one else\'s, without the ones that are too old or unreadable', () => {
+    write(localStorage, backup({ projectId: 'a' }), at(T0))
+    write(localStorage, backup({ projectId: 'b' }), at(T0))
+    write(localStorage, backup({ projectId: 'old', savedAt: T0 - 2 * keep }), at(T0 - 2 * keep))
+    write(localStorage, backup({ userId: 'u2', projectId: 'a' }), at(T0))
+    localStorage.setItem(`${PREFIX}u1:broken`, '{not json')
+    localStorage.setItem('ia_tour_off', '1')
+    expect(countUser(localStorage, 'u1', at(T0))).toBe(2)
+    expect(countUser(localStorage, 'u2', at(T0))).toBe(1)
+    expect(countUser(localStorage, 'u3', at(T0))).toBe(0)
+    expect(countUser(localStorage, 'u', at(T0))).toBe(0) // a user whose id is the beginning of another's
+    expect(countUser(null, 'u1', at(T0))).toBe(0)
   })
 })
 

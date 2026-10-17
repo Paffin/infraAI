@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { durationText, lang, setLang, substitute, t, lt, ltf } from '../src/i18n'
 import { diffIsEmpty, diffLines } from '../src/lib/diff'
-import { splitSeconds, toSeconds, newId } from '../src/lib/format'
+import { PROJECT_NAME_MAX, copyName, splitSeconds, toSeconds, newId } from '../src/lib/format'
 import { renderSubtitle } from '../src/lib/catalog'
 import { scoreTone } from '../src/lib/score'
 import { sameScenario, shortZone } from '../src/lib/sim'
@@ -95,5 +95,26 @@ describe('semantic zoom', () => {
     expect(lodOf(0.24, limits)).toBe('mini')
     // an administrator can move the thresholds
     expect(lodOf(0.59, { lodCompactBelow: 0.5, lodMiniBelow: 0.2 })).toBe('full')
+  })
+})
+
+describe('the name of a copy of a project', () => {
+  it('is the name and the mark of a copy, in the language of the page', () => {
+    setLang('ru')
+    expect(copyName('Платёжный контур')).toBe('Платёжный контур (копия)')
+    setLang('en')
+    expect(copyName('Payments')).toBe('Payments (copy)')
+    setLang('ru')
+  })
+
+  it('is cut in the NAME when the whole would be longer than the server takes, and keeps the mark of the copy', () => {
+    for (const lang of ['ru', 'en']) {
+      setLang(lang)
+      const made = copyName('я'.repeat(PROJECT_NAME_MAX))
+      expect(Array.from(made).length, lang).toBe(PROJECT_NAME_MAX)
+      expect(made, lang).toMatch(/\((копия|copy)\)$/)
+      expect(copyName('x'.repeat(PROJECT_NAME_MAX - 20)), lang).toBe(t('projects.duplicate.name', { name: 'x'.repeat(PROJECT_NAME_MAX - 20) })) // room enough: nothing is cut
+    }
+    setLang('ru')
   })
 })

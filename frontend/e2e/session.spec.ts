@@ -1,4 +1,4 @@
-import { expect, type Page } from '@playwright/test'
+import { expect, type BrowserContext, type Page } from '@playwright/test'
 import { test } from './fixtures'
 import { createProject, email, login, loginTo, password, uniqueName } from './helpers'
 
@@ -80,7 +80,37 @@ test.describe('the connection goes', () => {
     const saved = await (await page.request.get('/api/projects/' + id)).json()
     expect(saved.architecture.nodes.some((n: { name: string }) => n.name === 'Typed before leaving')).toBe(true)
   })
+
+  test('a page that cannot reach the server while it starts says so in its own words, not the browser\'s', async ({ page }) => {
+    await page.route('**/api/bootstrap', (route) => route.abort())
+    await page.goto('/')
+    await expect(page.locator('.boot-error')).toContainText('Нет связи с сервером')
+    expect(await page.locator('body').innerText()).not.toContain('Failed to fetch')
+  })
 })
+
+/** The editor on the screen and the other tab having stored a different change: the next save of this page is a real 409. Leaves the conflict on the screen. */
+async function inConflict(page: Page, context: BrowserContext) {
+  await login(page)
+  await createProject(page, uniqueName('conflict'), TEMPLATE)
+  const url = page.url()
+  const id = url.split('/p/')[1]
+  // the first visit lays the template out and stores it: the other tab must read the stored one, or its own first save would be the conflict
+  await expect(page.locator('.crumbs .meta')).toContainText('сохранено', { timeout: 10_000 })
+
+  const other = await context.newPage()
+  await other.goto(url)
+  await other.locator('.arch-node').first().click()
+  await other.locator(NAME_FIELD).first().fill('From the other tab')
+  await expect(other.locator('.crumbs .meta')).toContainText('сохранено', { timeout: 10_000 })
+  await other.close()
+
+  await page.locator('.arch-node').nth(2).click()
+  await page.locator(NAME_FIELD).first().fill('Mine in conflict')
+  const conflict = page.locator('.conflict')
+  await expect(conflict).toBeVisible({ timeout: 10_000 })
+  return { id, conflict }
+}
 
 test.describe('the session ends', () => {
   test('under an open editor the edit is kept, the sign-in page says why, and after signing in the edit is offered and restored', async ({ page, context }) => {
@@ -156,7 +186,7 @@ test.describe('the session ends', () => {
     await other.dispose()
   })
 
-  test('signing out removes the copies of unsaved edits from the browser', async ({ page, context }) => {
+  test('signing out asks first when copies of unsaved edits are in the browser, names how many, and removes them when the answer is yes', async ({ page, context }) => {
     await openWithCard(page, 'signout')
     await context.setOffline(true)
     await page.locator(NAME_FIELD).first().fill('Typed before signing out')
@@ -164,7 +194,18 @@ test.describe('the session ends', () => {
     await expect(page).toHaveURL(/\/$/)
     await expect.poll(() => copies(page)).toHaveLength(1)
     await context.setOffline(false)
+
     await page.getByRole('button', { name: 'Выйти' }).click()
+    const ask = page.locator('.modal', { hasText: 'Выйти и удалить несохранённые правки?' })
+    await expect(ask).toBeVisible()
+    await expect(ask).toContainText('в этом браузере: 1.')
+    await ask.getByRole('button', { name: 'Отмена' }).click()
+    await expect(ask).toHaveCount(0)
+    await expect(page).not.toHaveURL(/\/login/) // still signed in, and the copy is where it was
+    expect(await copies(page)).toHaveLength(1)
+
+    await page.getByRole('button', { name: 'Выйти' }).click()
+    await ask.getByRole('button', { name: 'Выйти и удалить' }).click()
     await expect(page).toHaveURL(/\/login/)
     expect(await copies(page)).toEqual([])
   })
@@ -172,26 +213,12 @@ test.describe('the session ends', () => {
 
 test.describe('a conflict', () => {
   test('can be answered by opening the edits as a project of their own, the other version untouched', async ({ page, context }) => {
-    await login(page)
-    await createProject(page, uniqueName('conflict'), TEMPLATE)
-    const url = page.url()
-    const id = url.split('/p/')[1]
-    // the first visit lays the template out and stores it: the other tab must read the stored one, or its own first save would be the conflict
-    await expect(page.locator('.crumbs .meta')).toContainText('сохранено', { timeout: 10_000 })
-
-    const other = await context.newPage()
-    await other.goto(url)
-    await other.locator('.arch-node').first().click()
-    await other.locator(NAME_FIELD).first().fill('From the other tab')
-    await expect(other.locator('.crumbs .meta')).toContainText('сохранено', { timeout: 10_000 })
-
-    await page.locator('.arch-node').nth(2).click()
-    await page.locator(NAME_FIELD).first().fill('Mine in conflict')
-    const conflict = page.locator('.conflict')
-    await expect(conflict).toBeVisible({ timeout: 10_000 })
+    const { id, conflict } = await inConflict(page, context)
     // a strip, not a card over the diagram
     const bar = (await conflict.boundingBox())!
     expect((await page.locator('.toolbar').boundingBox())!.y).toBeGreaterThanOrEqual(bar.y + bar.height)
+    // and the tooltip of the header says it in the words of the page, not with the sentence the server sent (English, in a Russian page)
+    await expect(page.locator('.crumbs .st')).toHaveAttribute('title', 'конфликт версий')
 
     await page.getByTestId('conflict-new').click()
     await expect(page).toHaveURL(new RegExp('/p/(?!' + id + ')'))
@@ -200,5 +227,118 @@ test.describe('a conflict', () => {
     const original = await (await page.request.get('/api/projects/' + id)).json()
     expect(original.architecture.nodes.some((n: { name: string }) => n.name === 'From the other tab')).toBe(true)
     expect(original.architecture.nodes.some((n: { name: string }) => n.name === 'Mine in conflict')).toBe(false)
+  })
+
+  test('that is left keeps the edit in this browser, and the offer does not blame a lost connection or a session that did not end', async ({ page, context }) => {
+    const { id } = await inConflict(page, context)
+    await page.locator('header.eh .crumbs a').click()
+    await expect(page).toHaveURL(/\/$/)
+    await expect(page.locator('.toast', { hasText: 'сохранены в этом браузере' })).toBeVisible()
+    expect(await copies(page)).toHaveLength(1)
+
+    await page.locator('article.project a[href="/p/' + id + '"]').first().click()
+    const offer = page.getByTestId('unsaved-offer')
+    await expect(offer).toBeVisible()
+    await expect(offer).toContainText('Mine in conflict')
+    await expect(offer.locator('.sb-moved')).toBeVisible() // the other tab saved since
+    const said = await offer.innerText()
+    expect(said).toContain('Они не были сохранены на сервере')
+    expect(said).not.toMatch(/сессия|связь/i)
+  })
+
+  test('under a session that ends is kept too (a real 409 first, then the cookie goes)', async ({ page, context }) => {
+    await inConflict(page, context)
+    await context.clearCookies()
+    await page.locator(NAME_FIELD).first().fill('Typed after the conflict') // the check that follows every edit answers 401
+    await expect(page).toHaveURL(/\/login\?.*expired=kept/)
+    expect(await copies(page)).toHaveLength(1)
+
+    await loginTo(page, /\/p\//)
+    const offer = page.getByTestId('unsaved-offer')
+    await expect(offer).toBeVisible()
+    await expect(offer).toContainText('Typed after the conflict')
+    await expect(offer.locator('.sb-moved')).toBeVisible()
+  })
+})
+
+test.describe('the offer of a project', () => {
+  /** The router of the page, to move to another project the way a link does: the editor stays mounted and the route changes under it. */
+  const goTo = (page: Page, id: string) =>
+    page.evaluate((to) => {
+      const app = document.getElementById('app') as unknown as { __vue_app__: { config: { globalProperties: { $router: { push: (to: string) => Promise<unknown> } } } } }
+      return app.__vue_app__.config.globalProperties.$router.push('/p/' + to)
+    }, id)
+
+  test('is not shown beside the load of another project, or the error of a load that failed, and the other project is not touched', async ({ page, context }) => {
+    const a = await openWithCard(page, 'offer-a')
+    await context.setOffline(true)
+    await page.locator(NAME_FIELD).first().fill('Edited in A')
+    await page.locator('header.eh .crumbs a').click()
+    await expect(page).toHaveURL(/\/$/)
+    expect(await copies(page)).toHaveLength(1)
+    await context.setOffline(false)
+
+    await createProject(page, uniqueName('offer-b'), TEMPLATE)
+    const b = page.url().split('/p/')[1]
+    await expect(page.locator('.crumbs .meta')).toContainText('сохранено', { timeout: 10_000 })
+    await page.locator('header.eh .crumbs a').click()
+    await expect(page).toHaveURL(/\/$/)
+    await page.locator('article.project a[href="/p/' + a + '"]').first().click()
+    const offer = page.getByTestId('unsaved-offer')
+    await expect(offer).toBeVisible()
+
+    // B answers late: its skeleton is on the screen, and the edits of A are not offered beside it
+    let release!: () => void
+    const held = new Promise<void>((r) => { release = r })
+    await page.route('**/api/projects/' + b, async (route) => {
+      if (route.request().method() === 'GET') await held
+      await route.continue()
+    })
+    await goTo(page, b)
+    await expect(page.getByTestId('editor-skeleton')).toBeVisible()
+    await expect(offer).toHaveCount(0)
+    release()
+    await expect(page.locator('.arch-node').first()).toBeVisible()
+    await expect(offer).toHaveCount(0)
+    await expect(page.locator('.conflict')).toHaveCount(0) // and B was not taken for a project somebody else changed
+    await page.unroute('**/api/projects/' + b)
+
+    // back to A: the offer is there again (the copy was never touched); B cannot be loaded: the error is B's, and A's offer is not beside it
+    await goTo(page, a)
+    await expect(offer).toBeVisible()
+    await page.route('**/api/projects/' + b, (route) => route.abort())
+    await goTo(page, b)
+    await expect(page.locator('.state .banner-err')).toContainText('Нет связи с сервером')
+    await expect(offer).toHaveCount(0)
+    expect(await copies(page)).toHaveLength(1)
+    await page.unroute('**/api/projects/' + b)
+  })
+
+  test('lists as many changes as the setting says (`editor.unsavedOfferLines`) and counts the rest', async ({ page }) => {
+    const id = await openWithCard(page, 'lines')
+    await expect(page.locator('.crumbs .meta')).toContainText('сохранено', { timeout: 10_000 })
+    const userId = (await (await page.request.get('/api/bootstrap')).json()).user.id as string
+    const cur = await (await page.request.get('/api/projects/' + id)).json()
+    const edited = JSON.parse(JSON.stringify(cur.architecture))
+    expect(edited.nodes.length).toBeGreaterThanOrEqual(6)
+    edited.nodes.slice(0, 6).forEach((n: { name: string }, i: number) => { n.name = 'Renamed ' + i })
+    await page.evaluate(([key, value]) => localStorage.setItem(key, value), [`ia_unsaved:${userId}:${id}`, JSON.stringify({ v: 1, userId, projectId: id, baseRev: cur.rev, savedAt: Date.now(), architecture: edited })])
+
+    const offer = page.getByTestId('unsaved-offer')
+    const lines = async (shown: number, rest: number) => {
+      await expect(offer.locator('.sb-lines li:not(.more)')).toHaveCount(shown)
+      await expect(offer.locator('.sb-lines .more')).toContainText(`ещё ${rest}`)
+    }
+    await page.reload()
+    await lines(4, 2) // the default of the registry
+
+    const setting = (value: number) => page.request.put('/api/admin/settings', { data: { changes: { 'editor.unsavedOfferLines': value } } })
+    try {
+      expect((await setting(2)).ok()).toBe(true)
+      await page.reload()
+      await lines(2, 4)
+    } finally {
+      expect((await setting(4)).ok()).toBe(true) // put it back, whatever happened above
+    }
   })
 })

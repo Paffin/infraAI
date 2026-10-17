@@ -6,8 +6,9 @@ import type { Architecture } from '@/api/types'
 //
 // The rules, each of them a test (`tests/unsavedBackup.test.ts`):
 //  * one entry per user AND project: `ia_unsaved:<userId>:<projectId>`; nobody reads the copy of another user of the same browser;
-//  * a copy is dropped only when it is used up: restored and saved, thrown away by the person, identical to what the server holds, signed out, or too old;
-//    NEVER because the server has a newer revision (those are exactly the edits the person would otherwise lose: they decide, not the code);
+//  * a copy is dropped only when it is used up: restored and saved, thrown away by the person, made a project of its own ("Open as a new project"), identical
+//    to what the server holds, signed out (after the person was told how many there are), or too old; NEVER because the server has a newer revision (those are
+//    exactly the edits the person would otherwise lose: they decide, not the code);
 //  * every access to the storage is guarded: a full or disabled storage (private window, quota) is a `false` and a `null`, never an exception, and `write`
 //    says whether the copy is really there, because the page tells the person so.
 
@@ -95,6 +96,20 @@ export function read(storage: StorageLike | null, userId: string, projectId: str
     return b && b !== 'corrupt' && b !== 'foreign' && b.userId === userId && b.projectId === projectId ? b : null
   } catch {
     return null
+  }
+}
+
+/** How many copies of this user are in the storage (signing out removes them all, so the person is told how many). Old and unreadable ones are pruned first: nobody could miss those. */
+export function countUser(storage: StorageLike | null, userId: string, o: Retention): number {
+  if (!storage) return 0
+  try {
+    prune(storage, o)
+    const mine = `${PREFIX}${userId}:`
+    let n = 0
+    for (let i = 0; i < storage.length; i++) if (storage.key(i)?.startsWith(mine)) n++
+    return n
+  } catch {
+    return 0
   }
 }
 

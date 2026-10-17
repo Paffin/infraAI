@@ -50,6 +50,7 @@ const library = ref<InstanceType<typeof Library> | null>(null)
 const skips = ref<HTMLElement | null>(null)
 
 async function open(id: string) {
+  unsaved.clear() // the offer of the project that was open belongs to it: it is not shown beside this one's load, or its error
   ai.reset()
   ui.modal = null
   await editor.load(id)
