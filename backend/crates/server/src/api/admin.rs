@@ -41,7 +41,7 @@ fn setting_error(e: settings::SaveError) -> ApiError {
         ApiError::bad_request("invalid_setting", format!("{key}: {reason}")).with_details(json!({"key": key, "reason": reason.text(), "reasonCode": reason.code, "params": reason.params}))
     };
     match e {
-        SaveError::Invalid { key, reason } => refused(key, reason),
+        SaveError::Invalid { key, reason } => refused(key, *reason),
         SaveError::Store { key, source: sqlx::Error::Database(db) } => {
             tracing::warn!(%key, error = %db, "the database refused a setting");
             refused(key, settings::Refusal::new("cannot_store", Value::Null, "the value cannot be stored"))

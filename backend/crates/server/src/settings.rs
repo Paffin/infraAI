@@ -372,8 +372,8 @@ fn same_value(a: &Value, b: &Value) -> bool {
 /// Why a change to the settings was not stored.
 #[derive(Debug)]
 pub enum SaveError {
-    /// The registry refuses the value: unknown key, wrong type, out of range.
-    Invalid { key: String, reason: Refusal },
+    /// The registry refuses the value: unknown key, wrong type, out of range. Boxed: a `Refusal` is large and the `Err` of every caller would carry it.
+    Invalid { key: String, reason: Box<Refusal> },
     /// PostgreSQL refused the value (a string with U+0000 cannot be kept in `jsonb`) or could not be reached.
     Store { key: String, source: sqlx::Error },
 }
@@ -395,8 +395,8 @@ pub async fn save(pool: &PgPool, keys: &Keys, changes: &serde_json::Map<String, 
 pub async fn save_in(conn: &mut PgConnection, keys: &Keys, changes: &serde_json::Map<String, Value>, actor: &str) -> Result<Vec<String>, SaveError> {
     let mut changed = vec![];
     for (k, v) in changes {
-        let d = def(k).ok_or_else(|| SaveError::Invalid { key: k.clone(), reason: Refusal::new("unknown_setting", Value::Null, "unknown setting") })?;
-        let norm = canonical(validate(d, v).map_err(|reason| SaveError::Invalid { key: k.clone(), reason })?);
+        let d = def(k).ok_or_else(|| SaveError::Invalid { key: k.clone(), reason: Box::new(Refusal::new("unknown_setting", Value::Null, "unknown setting")) })?;
+        let norm = canonical(validate(d, v).map_err(|reason| SaveError::Invalid { key: k.clone(), reason: Box::new(reason) })?);
         if d.ty == "secret" {
             let s = norm.as_str().unwrap_or("");
             if s.is_empty() {
