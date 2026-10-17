@@ -9,6 +9,7 @@ import { buildScene, sceneToSvg, themePalette, type LegendItem } from '@/lib/dia
 import { errorMessage } from '@/lib/format'
 import { copyText } from '@/lib/clipboard'
 import { focusNeed } from '@/lib/navigate'
+import { useTabs } from '@/lib/useTabs'
 import { useApp } from '@/stores/app'
 import { useEditor } from '@/stores/editor'
 import { useToasts } from '@/stores/toasts'
@@ -160,6 +161,9 @@ const tabs = computed(() => {
   return list
 })
 
+// the tab pattern (lib/useTabs.ts); every pane below is the tab panel of the selected tab
+const { tablist, tab: tabAttrs, panel: panelAttrs } = useTabs({ tabs: computed(() => tabs.value.map((x) => x.id)), selected: tab, select: (id) => { tab.value = id as Tab }, label: computed(() => t('export.tabs')) })
+
 watch(format, load, { immediate: true })
 </script>
 
@@ -195,14 +199,14 @@ watch(format, load, { immediate: true })
           </div>
           <p v-if="report" class="honest muted"><Info :size="14" />{{ t('export.honest') }}</p>
 
-          <div class="tabsbar" role="tablist">
-            <button v-for="x in tabs" :key="x.id" role="tab" :aria-selected="tab === x.id" :class="{ on: tab === x.id }" :data-test="'export-tab-' + x.id" @click="tab = x.id">
+          <div class="tabsbar" v-bind="tablist">
+            <button v-for="x in tabs" :key="x.id" v-bind="tabAttrs(x.id)" :class="{ on: tab === x.id }" :data-test="'export-tab-' + x.id">
               {{ x.label }}<span v-if="x.badge" class="bdg">{{ x.badge }}</span>
             </button>
           </div>
 
           <!-- coverage -->
-          <div v-if="tab === 'coverage' && report" class="pane">
+          <div v-if="tab === 'coverage' && report" class="pane" v-bind="panelAttrs">
             <div v-if="!report.clusters.length" class="banner banner-warn">{{ t('export.clusters.none') }}</div>
             <h4 v-if="report.generated.length">{{ t('export.generated.title') }}</h4>
             <ul class="rows">
@@ -231,7 +235,7 @@ watch(format, load, { immediate: true })
           </div>
 
           <!-- prerequisites and secrets -->
-          <div v-else-if="tab === 'setup' && report" class="pane">
+          <div v-else-if="tab === 'setup' && report" class="pane" v-bind="panelAttrs">
             <h4>{{ t('export.prereq.title') }}</h4>
             <p class="muted small">{{ t('export.prereq.text') }}</p>
             <table v-if="report.prerequisites.length" class="table">
@@ -259,7 +263,7 @@ watch(format, load, { immediate: true })
           </div>
 
           <!-- notes -->
-          <div v-else-if="tab === 'notes' && report" class="pane">
+          <div v-else-if="tab === 'notes' && report" class="pane" v-bind="panelAttrs">
             <ul v-if="report.notes.length" class="rows">
               <li v-for="(n, i) in report.notes" :key="i" class="row-n" :class="n.level">
                 <TriangleAlert v-if="n.level === 'warn'" :size="16" class="wc" />
@@ -271,7 +275,7 @@ watch(format, load, { immediate: true })
           </div>
 
           <!-- files -->
-          <template v-else>
+          <div v-else class="filesview" v-bind="panelAttrs">
             <div class="bar row">
               <div class="tabs2 grow">
                 <button v-for="(f, i) in files" :key="f.path" :class="{ on: i === current }" :title="f.path" @click="current = i">{{ f.path }}</button>
@@ -281,7 +285,7 @@ watch(format, load, { immediate: true })
             </div>
             <div v-if="isSvg && blobUrl" class="svgprev"><img :src="blobUrl" :alt="t('export.svg')" /></div>
             <pre v-else class="code mono">{{ content }}</pre>
-          </template>
+          </div>
 
           <div v-if="tab !== 'files'" class="foot-actions">
             <a class="btn btn-sm btn-primary" :href="href" download><Download :size="13" />{{ t('export.download') }} ({{ t('export.files.count', { n: files.length }) }})</a>
@@ -327,6 +331,7 @@ watch(format, load, { immediate: true })
 .bdg { background: var(--surface-sunken); color: var(--text-2); border-radius: 10px; font-size: 11px; padding: 0 6px; line-height: 17px; font-weight: 600; }
 .tabsbar button.on .bdg { background: var(--accent-soft); color: var(--accent); }
 
+.filesview { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .pane { display: flex; flex-direction: column; gap: 10px; max-height: 50vh; overflow: auto; padding-right: 4px; }
 .pane h4 { margin: 8px 0 0; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 6px; }
 .rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }

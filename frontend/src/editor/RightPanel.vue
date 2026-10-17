@@ -7,6 +7,7 @@ import { useApp } from '@/stores/app'
 import { useAi } from '@/stores/ai'
 import { useEditor } from '@/stores/editor'
 import { useUi, type RightTab } from '@/stores/ui'
+import { useTabs } from '@/lib/useTabs'
 import AnalysisPanel from './AnalysisPanel.vue'
 import ChatPanel from './ChatPanel.vue'
 import ChecksPanel from './ChecksPanel.vue'
@@ -26,6 +27,9 @@ const tabs = computed<RightTab[]>(() => {
 })
 // a tab that is gone (AI switched off while the chat was open) must not stay the one that is shown
 watch(() => ui.chrome.chatTab, (has) => { if (!has && ui.tab === 'chat') ui.tab = 'checks' }, { immediate: true })
+// the tab pattern (lib/useTabs.ts): one Tab stop, the arrows and Home / End move between the tabs, the tab and the panel name each other
+const bar = ref<HTMLElement | null>(null)
+const { tablist, tab: tabAttrs, panel: panelAttrs } = useTabs({ tabs, selected: computed(() => ui.tab), select: (x) => { ui.tab = x as RightTab }, label: computed(() => t('right.tabs')) })
 const RAIL_ICONS = { sim: Activity, checks: ListChecks, requirements: SlidersHorizontal, analysis: ChartBar, chat: MessageSquare } as const
 const panels = { checks: ChecksPanel, requirements: RequirementsPanel, analysis: AnalysisPanel, chat: ChatPanel, sim: SimDetails }
 const panel = computed(() => panels[ui.tab] ?? ChatPanel)
@@ -88,7 +92,6 @@ function resizeKey(e: KeyboardEvent) {
 }
 
 // The underline slides to the active tab; where it is comes from the tab's own box, so any font or language fits.
-const bar = ref<HTMLElement | null>(null)
 const ink = ref({ x: 0, w: 0, ready: false })
 function place() {
   const el = bar.value?.querySelector<HTMLElement>('.tab.active')
@@ -104,13 +107,13 @@ watch(() => ui.tab, () => nextTick(place))
 </script>
 
 <template>
-  <aside class="right" :class="{ folded: !ui.rightOpen, resizing }" :style="{ '--right-w': ui.rightWidth + 'px' }" data-tour="checks" :aria-label="t('right.title')" data-testid="right-panel">
+  <aside id="editor-checks" class="right" :class="{ folded: !ui.rightOpen, resizing }" :style="{ '--right-w': ui.rightWidth + 'px' }" data-tour="checks" :aria-label="t('right.title')" data-testid="right-panel">
     <template v-if="ui.rightOpen">
       <div class="edge" role="separator" aria-orientation="vertical" tabindex="0" :aria-valuenow="ui.rightWidth" :aria-valuemin="app.editorCfg.rightPanelMinWidth" :aria-valuemax="app.editorCfg.rightPanelMaxWidth"
            :aria-label="t('right.resize')" :title="t('right.resize.hint')" data-testid="right-edge" @pointerdown="startResize" @dblclick="ui.setRightWidth(null)" @keydown="resizeKey" />
       <div class="head">
-        <div ref="bar" class="tabs" role="tablist">
-          <button v-for="x in tabs" :key="x" class="tab" :class="{ active: ui.tab === x }" role="tab" :aria-selected="ui.tab === x" @click="ui.tab = x">
+        <div ref="bar" class="tabs" v-bind="tablist">
+          <button v-for="x in tabs" :key="x" class="tab" :class="{ active: ui.tab === x }" v-bind="tabAttrs(x)">
             {{ t('tab.' + x) }}<span v-if="x === 'chat' && ai.busy" class="spinner pip" /><i v-if="x === 'sim'" class="rec" aria-hidden="true" />
           </button>
           <span class="ink" :class="{ ready: ink.ready }" :style="{ width: ink.w + 'px', transform: `translateX(${ink.x}px)` }" aria-hidden="true" />
@@ -118,7 +121,7 @@ watch(() => ui.tab, () => nextTick(place))
         <button class="fold" :title="t('right.fold') + ' (])'" :aria-label="t('right.fold')" data-testid="right-fold" @click="ui.rightOpen = false"><PanelRightClose :size="16" /></button>
       </div>
       <Transition name="swap" mode="out-in">
-        <component :is="panel" :key="ui.tab" />
+        <component :is="panel" :key="ui.tab" v-bind="panelAttrs" />
       </Transition>
     </template>
     <nav v-else class="rail" :aria-label="t('right.title')">

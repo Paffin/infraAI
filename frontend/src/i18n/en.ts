@@ -1079,4 +1079,11 @@ export default {
   'cmd.finding.next': 'Next finding',
   'cmd.finding.prev': 'Previous finding',
   'cmd.focus': 'Focus on the selection: toggle',
+  // ---- skip links, and names for the lists of tabs
+  'skip.label': 'Skip to',
+  'skip.canvas': 'To the diagram',
+  'skip.checks': 'To the checks',
+  'skip.library': 'To the library',
+  'right.tabs': 'Panel sections',
+  'export.tabs': 'Export sections',
 } as Record<string, string>

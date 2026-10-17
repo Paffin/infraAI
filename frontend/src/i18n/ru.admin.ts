@@ -299,6 +299,7 @@ const ru: Record<string, string> = {
   'admin.items.json': 'JSON элемента',
   'admin.items.tabForm': 'Форма',
   'admin.items.tabJson': 'JSON',
+  'admin.items.tabs': 'Вид редактора',
   'admin.items.serverSays': 'Сервер отклонил изменение:',
   'admin.items.rejected': 'Сервер отклонил изменение',
   'admin.items.parseFailed': 'Этот элемент не разобран движком и не используется:',

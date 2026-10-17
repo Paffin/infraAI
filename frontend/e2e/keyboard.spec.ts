@@ -442,3 +442,140 @@ test.describe('the table of shortcuts is the dispatcher', () => {
     await expect.poll(() => page.locator('.arch-node.lit').evaluateAll((els) => els.map((e) => e.getAttribute('data-id')))).toEqual(first)
   })
 })
+
+test.describe('skip links', () => {
+  test.use({ viewport: { width: 1920, height: 1080 } })
+
+  test('from the start of the page the first Tab is a skip link, and Enter lands on the first card in reading order: two key presses (it was 436 Tab presses)', async ({ page }) => {
+    await createProject(page, uniqueName('kbd-skip'), '2 ЦОД + witness')
+    await expect(page.locator('.arch-node').first()).toBeVisible()
+    // a page loaded afresh: nothing has the focus
+    await page.goto(page.url())
+    await expect(page.locator('.arch-node').first()).toBeVisible()
+    await settled(page)
+    await page.keyboard.press('Tab')
+    const skip = page.locator('.skip-link:focus')
+    await expect(skip).toBeVisible()
+    await expect(skip).toHaveText('К схеме')
+    await page.keyboard.press('Enter')
+    await expect(focusedCard(page)).toHaveClass(/arch-node/)
+    // the card is in the first row of the diagram: no other card is higher by more than half a card
+    const gap = await page.evaluate(() => {
+      const top = (el: Element) => el.getBoundingClientRect().top
+      const heights = Array.from(document.querySelectorAll('.arch-node')).map(top)
+      const here = top(document.activeElement!)
+      return { lower: here - Math.min(...heights), half: document.activeElement!.getBoundingClientRect().height / 2 }
+    })
+    expect(gap.lower).toBeLessThan(gap.half)
+    await expect(page.locator('.canvas [data-kbd][tabindex="0"]')).toHaveCount(1)
+  })
+
+  test('the other two go to the checks and to the library', async ({ page }) => {
+    await createProject(page, uniqueName('kbd-skip2'), '2 ЦОД + witness')
+    await expect(page.locator('.arch-node').first()).toBeVisible()
+    await page.goto(page.url())
+    await expect(page.locator('.arch-node').first()).toBeVisible()
+    await page.keyboard.press('Tab')
+    await page.keyboard.press('Tab')
+    await expect(page.locator('.skip-link:focus')).toHaveText('К проверкам')
+    await page.keyboard.press('Enter')
+    await expect(page.locator('.right [role="tab"][aria-selected="true"]')).toBeFocused()
+    await page.locator('.skip-link', { hasText: 'К библиотеке' }).focus()
+    await page.keyboard.press('Enter')
+    await expect(page.locator('.library input')).toBeFocused()
+    // folded, the checks are one button away
+    await page.locator('[data-testid="right-fold"]').click()
+    await page.locator('.skip-link', { hasText: 'К проверкам' }).focus()
+    await page.keyboard.press('Enter')
+    await expect(page.getByTestId('right-unfold')).toBeFocused()
+  })
+
+  test('an empty project has no card: the link to the diagram lands on the diagram itself', async ({ page }) => {
+    await createProject(page, uniqueName('kbd-skip3'))
+    await expect(page.locator('.canvas')).toBeVisible()
+    await expect(page.locator('.arch-node')).toHaveCount(0)
+    await page.goto(page.url())
+    await expect(page.locator('.canvas')).toBeVisible()
+    await page.keyboard.press('Tab')
+    await expect(page.locator('.skip-link:focus')).toBeVisible()
+    await page.keyboard.press('Enter')
+    await expect(page.locator('.canvas')).toBeFocused()
+  })
+})
+
+test.describe('the library is one stop of the Tab key', () => {
+  test.use({ viewport: { width: 1920, height: 1080 } })
+  const lib = '.library'
+  const stops = (page: Page) => page.locator(`${lib} [tabindex="0"]`)
+
+  test('Tab from the search leaves it in a few presses (it was 417); the arrows walk the headers and the tiles in the order of the page; Enter adds one card', async ({ page }) => {
+    await createProject(page, uniqueName('kbd-lib'), '2 ЦОД + witness')
+    await expect(page.locator('.arch-node').first()).toBeVisible()
+    await expect(page.locator(`${lib} .kind`).first()).toBeVisible()
+    expect(await page.locator(`${lib} button`).count()).toBeGreaterThan(100) // the list is long
+    await expect(stops(page)).toHaveCount(1)
+
+    const search = page.locator(`${lib} input`)
+    await search.focus()
+    let presses = 0
+    while (presses < 40) {
+      await page.keyboard.press('Tab')
+      presses++
+      if (!(await page.evaluate(() => !!document.activeElement?.closest('.library')))) break
+    }
+    expect(presses).toBeLessThanOrEqual(6)
+
+    // the arrows, Home and End walk the buttons in the order of the page
+    const order = await page.locator(`${lib} .scroll button`).evaluateAll((els) => els.filter((e) => !(e as HTMLButtonElement).disabled).map((e) => e.textContent?.trim().slice(0, 30) ?? ''))
+    const here = () => page.evaluate(() => Array.from(document.querySelectorAll('.library .scroll button')).filter((e) => !(e as HTMLButtonElement).disabled).indexOf(document.activeElement as Element))
+    await stops(page).focus()
+    const start = await here()
+    await page.keyboard.press('ArrowDown')
+    expect(await here()).toBe(start + 1)
+    await page.keyboard.press('ArrowDown')
+    await page.keyboard.press('ArrowUp')
+    expect(await here()).toBe(start + 1)
+    await page.keyboard.press('End')
+    expect(await here()).toBe(order.length - 1)
+    await page.keyboard.press('Home')
+    expect(await here()).toBe(0)
+    await expect(stops(page)).toHaveCount(1)
+    await expect(stops(page)).toBeFocused() // the stop went with the focus
+
+    // a header opens and closes with Right and Left
+    const header = page.locator(`${lib} .ch[aria-expanded]`).first()
+    await header.focus()
+    const open = await header.getAttribute('aria-expanded')
+    await page.keyboard.press(open === 'true' ? 'ArrowLeft' : 'ArrowRight')
+    await expect(header).toHaveAttribute('aria-expanded', open === 'true' ? 'false' : 'true')
+    await page.keyboard.press(open === 'true' ? 'ArrowRight' : 'ArrowLeft')
+    await expect(header).toHaveAttribute('aria-expanded', open!)
+
+    // Enter on a product adds exactly one card
+    const cards = page.locator('.arch-node')
+    const n = await cards.count()
+    await page.locator(`${lib} .kind[data-kind]`).first().focus()
+    await page.keyboard.press('Enter')
+    await expect(cards).toHaveCount(n + 1)
+  })
+
+  test('the list is never left without its one stop: after "collapse all", after a search, after the search is cleared; "/" still goes to the search', async ({ page }) => {
+    await createProject(page, uniqueName('kbd-lib2'), '2 ЦОД + witness')
+    await expect(page.locator('.arch-node').first()).toBeVisible()
+    await expect(stops(page)).toHaveCount(1)
+    await page.locator(`${lib} .bar .lnk`).nth(1).click() // collapse all
+    await expect(stops(page)).toHaveCount(1)
+    expect(await stops(page).evaluate((e) => e.tagName)).toBe('BUTTON')
+    await page.locator(`${lib} .bar .lnk`).nth(0).click() // expand all
+    await expect(stops(page)).toHaveCount(1)
+    const search = page.locator(`${lib} input`)
+    await search.fill('kafka')
+    await expect(page.locator(`${lib} .kind`).first()).toBeVisible()
+    await expect(stops(page)).toHaveCount(1)
+    await search.fill('')
+    await expect(stops(page)).toHaveCount(1)
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
+    await page.keyboard.press('/')
+    await expect(search).toBeFocused()
+  })
+})

@@ -9,6 +9,7 @@ import { lt, t } from '@/i18n'
 import { functionGroups } from '@/lib/catalog'
 import { iconFor } from '@/lib/icons'
 import { errorMessage } from '@/lib/format'
+import { useRoving } from '@/lib/useRoving'
 import { useApp } from '@/stores/app'
 import { useEditor } from '@/stores/editor'
 import { useUi } from '@/stores/ui'
@@ -21,6 +22,11 @@ const ui = useUi()
 
 const q = ref('')
 const input = ref<HTMLInputElement | null>(null)
+// The list is ONE stop of the Tab key (hundreds of products behind a search box used to be 418 of them): the arrow keys walk the headers, the products and the
+// reference architectures in the order of the page, Home / End jump to the ends, Right / Left open and close a header. Read from the page at the moment of use,
+// so what the folds, the search or the ranking leave on it is what the keys walk.
+const scroll = ref<HTMLElement | null>(null)
+useRoving(scroll, 'button')
 const pending = ref<{ meta: TemplateMeta; arch: Architecture } | null>(null)
 
 const query = computed(() => q.value.trim().toLowerCase())
@@ -135,7 +141,7 @@ defineExpose({ focus: () => { ui.libraryOpen = true; setTimeout(() => input.valu
 </script>
 
 <template>
-  <aside v-show="ui.libraryOpen" class="library" data-tour="library" :aria-label="t('library.title')">
+  <aside v-show="ui.libraryOpen" id="editor-library" class="library" data-tour="library" :aria-label="t('library.title')">
     <div class="search">
       <Search :size="15" />
       <input ref="input" v-model="q" class="input" :placeholder="t('library.search') + ' ( / )'" @keydown.esc="q = ''; input?.blur()" />
@@ -148,7 +154,7 @@ defineExpose({ focus: () => { ui.libraryOpen = true; setTimeout(() => input.valu
     </div>
     <div v-else-if="query" class="bar"><span class="faint">{{ t('library.found', { n: found + templates.length }) }}</span></div>
 
-    <div class="scroll">
+    <div ref="scroll" class="scroll">
       <section v-if="templates.length">
         <h2>
           <button class="ch" :aria-expanded="catOpen(TEMPLATES)" data-testid="lib-cat-templates" @click="toggleCat(TEMPLATES)">

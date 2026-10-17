@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { t } from '@/i18n'
 import BulkCard from '@/editor/BulkCard.vue'
+import { focusDiagram } from '@/editor/canvasFocus'
 import Canvas from '@/editor/Canvas.vue'
 import AiOffHint from '@/editor/AiOffHint.vue'
 import CommandPalette from '@/editor/CommandPalette.vue'
@@ -162,10 +163,29 @@ function onKey(e: KeyboardEvent) {
 }
 
 const conflict = computed(() => editor.saveState === 'conflict')
+
+/**
+ * The skip links, the first stops of the page: the diagram, the checks, the library. Without them the keyboard walks the header, the library and the whole right
+ * panel's toolbar to get anywhere. The link is a real link to the element (it works without the script), the click does better: the diagram takes the focus on
+ * the card the Tab key stops at, the checks on their selected tab (or on the button that unfolds the panel), the library on its search.
+ */
+function skipTo(where: 'canvas' | 'checks' | 'library') {
+  if (where === 'canvas') focusDiagram()
+  else if (where === 'library') library.value?.focus()
+  else {
+    const panel = document.querySelector<HTMLElement>('[data-testid="right-panel"]')
+    ;(panel?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]') ?? panel?.querySelector<HTMLElement>('[data-testid="right-unfold"]'))?.focus()
+  }
+}
 </script>
 
 <template>
   <div class="editor">
+    <nav class="skips" :aria-label="t('skip.label')">
+      <a class="skip-link" href="#editor-canvas" @click.prevent="skipTo('canvas')">{{ t('skip.canvas') }}</a>
+      <a class="skip-link" href="#editor-checks" @click.prevent="skipTo('checks')">{{ t('skip.checks') }}</a>
+      <a class="skip-link" href="#editor-library" @click.prevent="skipTo('library')">{{ t('skip.library') }}</a>
+    </nav>
     <EditorHeader />
     <AiOffHint />
     <PromptBar v-if="ui.chrome.promptBar" />
@@ -212,6 +232,10 @@ const conflict = computed(() => editor.saveState === 'conflict')
 
 <style scoped>
 .editor { height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+/* the skip links are there for the keyboard: out of the way until one has the focus, then over the header */
+.skips { position: fixed; left: 12px; top: 8px; z-index: 600; display: flex; gap: 6px; }
+.skip-link:not(:focus) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.skip-link { padding: 7px 14px; border-radius: var(--radius); background: var(--accent); color: #fff; font-size: 13px; font-weight: 600; text-decoration: none; box-shadow: var(--shadow-2); }
 .body { flex: 1; display: flex; min-height: 0; }
 .center { flex: 1; position: relative; min-width: 0; container-type: inline-size; }
 .state { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 12px; align-items: center; justify-content: center; }

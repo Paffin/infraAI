@@ -299,6 +299,7 @@ const en: Record<string, string> = {
   'admin.items.json': 'Item JSON',
   'admin.items.tabForm': 'Form',
   'admin.items.tabJson': 'JSON',
+  'admin.items.tabs': 'Editor view',
   'admin.items.serverSays': 'The server rejected the change:',
   'admin.items.rejected': 'The server rejected the change',
   'admin.items.parseFailed': 'The engine failed to parse this item, so it is not in use:',

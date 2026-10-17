@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import type { Component } from 'vue'
+import { computed, type Component } from 'vue'
 import { t } from '@/i18n'
+import { useTabs } from '@/lib/useTabs'
 import { ANALYSIS_VIEWS, useUi, type AnalysisView } from '@/stores/ui'
 import AvailabilityPanel from './AvailabilityPanel.vue'
 import CapacityPanel from './CapacityPanel.vue'
@@ -9,17 +10,19 @@ import SitesPanel from './SitesPanel.vue'
 
 const ui = useUi()
 const panels: Record<AnalysisView, Component> = { capacity: CapacityPanel, availability: AvailabilityPanel, cost: CostPanel, sites: SitesPanel }
+// the tab pattern (lib/useTabs.ts); the panel under the tabs gets the attributes of the tab panel, its root is the element they land on
+const { tablist, tab: tabAttrs, panel: panelAttrs } = useTabs({ tabs: computed(() => [...ANALYSIS_VIEWS]), selected: computed(() => ui.analysis), select: (v) => { ui.analysis = v as AnalysisView }, label: computed(() => t('tab.analysis')) })
 </script>
 
 <template>
   <div class="analysis">
-    <div class="seg" role="tablist" :aria-label="t('tab.analysis')">
-      <button v-for="v in ANALYSIS_VIEWS" :key="v" class="segbtn" :class="{ on: ui.analysis === v }" role="tab" :aria-selected="ui.analysis === v" :data-view="v" @click="ui.analysis = v">
+    <div class="seg" v-bind="tablist">
+      <button v-for="v in ANALYSIS_VIEWS" :key="v" class="segbtn" :class="{ on: ui.analysis === v }" v-bind="tabAttrs(v)" :data-view="v">
         {{ t('tab.' + v) }}
       </button>
     </div>
     <Transition name="swap" mode="out-in">
-      <component :is="panels[ui.analysis]" :key="ui.analysis" />
+      <component :is="panels[ui.analysis]" :key="ui.analysis" v-bind="panelAttrs" />
     </Transition>
   </div>
 </template>

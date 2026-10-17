@@ -1079,4 +1079,11 @@ export default {
   'cmd.finding.next': 'Следующая находка',
   'cmd.finding.prev': 'Предыдущая находка',
   'cmd.focus': 'Фокус на выбранном: переключить',
+  // ---- skip links, and names for the lists of tabs
+  'skip.label': 'Быстрый переход',
+  'skip.canvas': 'К схеме',
+  'skip.checks': 'К проверкам',
+  'skip.library': 'К библиотеке',
+  'right.tabs': 'Разделы панели',
+  'export.tabs': 'Разделы экспорта',
 } as Record<string, string>

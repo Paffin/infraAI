@@ -469,7 +469,7 @@ function nodeColor(n: { id: string; type?: string }) {
 
 <template>
   <div
-    ref="wrap" class="canvas" role="group" tabindex="-1" :aria-label="t('canvas.label')" aria-describedby="canvas-help" :class="['tool-' + editor.tool, editor.pickingNode && 'picking']" :data-lod="lod" :data-dense="dense ? 1 : 0" :style="{ '--zoom': viewport.zoom || 1 }"
+    ref="wrap" id="editor-canvas" class="canvas" role="group" tabindex="-1" :aria-label="t('canvas.label')" aria-describedby="canvas-help" :class="['tool-' + editor.tool, editor.pickingNode && 'picking']" :data-lod="lod" :data-dense="dense ? 1 : 0" :style="{ '--zoom': viewport.zoom || 1 }"
     @dragover="onDragOver" @drop="onDrop" @pointerdown.capture="takeHold" @keydown="onKeydown" @focusin="onFocusin"
   >
     <span id="canvas-help" class="sr-only">{{ t('canvas.help') }}</span>

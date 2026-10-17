@@ -12,6 +12,7 @@ import { useDirtyGuard } from '../lib/dirty'
 import { modKey } from '../lib/platform'
 import { itemTitle, orderedForEditor, skeleton, validItemId, withId } from '../lib/configKinds'
 import { deepEqual, isPlainObject, parseJson, pretty } from '../lib/json'
+import { useTabs } from '@/lib/useTabs'
 import { useAdminConfig } from '../store'
 import JsonEditor from './JsonEditor.vue'
 import PromptForm from './PromptForm.vue'
@@ -104,6 +105,8 @@ function onKeydown(e: KeyboardEvent) {
 function switchTab(to: 'form' | 'json') {
   tab.value = to
 }
+// the tab pattern (lib/useTabs.ts); only a prompt has two views
+const { tablist, tab: tabAttrs, panel: panelAttrs } = useTabs({ tabs: computed(() => ['form', 'json']), selected: tab, select: (id) => switchTab(id as 'form' | 'json'), label: computed(() => t('admin.items.tabs')) })
 </script>
 
 <template>
@@ -141,13 +144,16 @@ function switchTab(to: 'form' | 'json') {
         </div>
       </div>
 
-      <div v-if="kind === 'prompt'" class="tabs sub-tabs" role="tablist">
-        <button class="tab" role="tab" :class="{ active: tab === 'form' }" :aria-selected="tab === 'form'" @click="switchTab('form')">{{ t('admin.items.tabForm') }}</button>
-        <button class="tab" role="tab" :class="{ active: tab === 'json' }" :aria-selected="tab === 'json'" @click="switchTab('json')">{{ t('admin.items.tabJson') }}</button>
+      <div v-if="kind === 'prompt'" class="tabs sub-tabs" v-bind="tablist">
+        <button class="tab" :class="{ active: tab === 'form' }" v-bind="tabAttrs('form')">{{ t('admin.items.tabForm') }}</button>
+        <button class="tab" :class="{ active: tab === 'json' }" v-bind="tabAttrs('json')">{{ t('admin.items.tabJson') }}</button>
       </div>
 
-      <PromptForm v-if="kind === 'prompt' && tab === 'form'" v-model="text" :prompt-id="item?.id || newId" />
-      <JsonEditor v-show="tab === 'json' || kind !== 'prompt'" ref="editor" v-model="text" :result="parsed" height="clamp(260px, 52vh, 640px)" :label="t('admin.items.json')" @save="save" />
+      <!-- both views of a prompt are in the one panel the tabs control; any other kind has no tabs and no panel -->
+      <div v-bind="kind === 'prompt' ? panelAttrs : {}">
+        <PromptForm v-if="kind === 'prompt' && tab === 'form'" v-model="text" :prompt-id="item?.id || newId" />
+        <JsonEditor v-show="tab === 'json' || kind !== 'prompt'" ref="editor" v-model="text" :result="parsed" height="clamp(260px, 52vh, 640px)" :label="t('admin.items.json')" @save="save" />
+      </div>
       <div v-if="serverError && tab === 'form' && kind === 'prompt'" class="banner banner-err" role="alert">{{ serverError }}</div>
       <div v-else-if="serverError" class="banner banner-err" role="alert">
         <strong>{{ t('admin.items.serverSays') }}</strong> {{ serverError }}
