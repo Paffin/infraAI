@@ -10,10 +10,13 @@ import { lang, lt, t } from '@/i18n'
 import { effectiveProps, kindPropDefs } from '@/lib/catalog'
 import { errorMessage, newId } from '@/lib/format'
 import { statusRank } from '@/lib/findings'
+import * as hist from '@/lib/history'
+import { initialQueue, step as stepQueue, type SaveEffect, type SaveEvent, type SaveQueue, type SaveStatus } from '@/lib/saveQueue'
 import { useApp } from './app'
 import { useToasts } from './toasts'
 
-export type SaveState = 'saved' | 'dirty' | 'saving' | 'conflict' | 'error' | 'readonly'
+/** What the header says about the document: the state of the save path (`lib/saveQueue.ts`), or `readonly` for somebody who cannot edit. */
+export type SaveState = SaveStatus | 'readonly'
 export type Tool = 'select' | 'connect' | 'zone'
 export type Layer = 'all' | 'network' | 'data' | 'dr'
 export type Selection = { type: 'node' | 'edge' | 'zone'; id: string } | null
@@ -27,6 +30,9 @@ export interface Preview {
   arch: Architecture
   diff: ArchDiff
 }
+
+/** A timer fires a little after it is due; a check made when it fires ("has the whole pause passed?") is given this much room so that it does not miss by a hair. Not a tunable: no one's pause. */
+const TIMER_SLACK_MS = 100
 
 const readPref = (k: string): string | null => { try { return localStorage.getItem(k) } catch { return null } }
 const writePref = (k: string, v: string) => { try { localStorage.setItem(k, v) } catch { /* the preference is not kept: it still holds for this visit */ } }
@@ -49,9 +55,10 @@ export const useEditor = defineStore('editor', () => {
   const waivers = ref<Waiver[]>([])
   const loading = ref(false)
   const loadError = ref('')
-  const saveState = ref<SaveState>('saved')
-  const saveError = ref('')
-  const serverRev = ref<number | null>(null)
+  /** The save path (`lib/saveQueue.ts`): a reducer; this store runs its effects (the one timer, the request) and feeds what happens back to it as events. */
+  const queue = shallowRef<SaveQueue>(initialQueue())
+  /** What the last failed save threw. The text is made when it is shown, so that a language switch changes it. */
+  const lastSaveError = shallowRef<unknown>(null)
 
   const report = shallowRef<Report | null>(null)
   /**
@@ -83,18 +90,20 @@ export const useEditor = defineStore('editor', () => {
   const pickingNode = ref(false)
   const connectFrom = ref<string | null>(null)
 
-  const past: Architecture[] = []
-  const future: Architecture[] = []
-  const historyVersion = ref(0)
-  let lastKey = ''
-  let lastAt = 0
+  /** The undo and redo steps (`lib/history.ts`); replaced, never changed, after every edit. */
+  const history = shallowRef<hist.History<Architecture>>(hist.emptyHistory())
 
   watch(selection, (s) => { if (s && multi.value.length) multi.value = [] })
 
   // ------------------------------------------------------------------------------------ derived
   const readonly = computed(() => !app.canEdit || preview.value !== null)
-  const canUndo = computed(() => historyVersion.value >= 0 && past.length > 0 && !readonly.value)
-  const canRedo = computed(() => historyVersion.value >= 0 && future.length > 0 && !readonly.value)
+  const canUndo = computed(() => history.value.past.length > 0 && !readonly.value)
+  const canRedo = computed(() => history.value.future.length > 0 && !readonly.value)
+  const saveState = computed<SaveState>(() => (app.canEdit ? queue.value.status : 'readonly'))
+  /** Why the last save failed (`offline`: no answer, `server`: 5xx, `rejected`: a refusal), until a save succeeds; null when nothing failed. */
+  const saveFailure = computed(() => queue.value.failure)
+  const saveError = computed(() => (lastSaveError.value === null ? '' : errorMessage(lastSaveError.value)))
+  const serverRev = computed(() => queue.value.serverRev)
   const isEmpty = computed(() => arch.value.nodes.length === 0 && arch.value.zones.length === 0)
   /** Some card lies outside the zone it belongs to, or a zone outside its parent: the picture says something other than the model. */
   const layoutDrift = computed(() => structureDrift(arch.value))
@@ -187,8 +196,7 @@ export const useEditor = defineStore('editor', () => {
       waivers.value = d.waivers
       const placed = placeMissing(d.architecture, app.index!, layoutOpts())
       arch.value = placed
-      saveState.value = app.canEdit ? 'saved' : 'readonly'
-      if (placed !== d.architecture && app.canEdit) touchSave()
+      if (placed !== d.architecture) touchSave()
       fitToken.value++
       void evaluateNow()
     } catch (e) {
@@ -199,7 +207,10 @@ export const useEditor = defineStore('editor', () => {
   }
 
   function reset() {
-    clearTimeout(saveTimer)
+    dispatch({ type: 'reset' })
+    inflight = null // a request of the project that was open answers into nothing: its epoch is gone
+    lastSaveError.value = null
+    history.value = hist.clear()
     clearTimeout(evalTimer)
     clearTimeout(simTimer)
     evalAbort?.abort()
@@ -223,77 +234,81 @@ export const useEditor = defineStore('editor', () => {
     highlight.value = null
     reveal.value = null
     loadError.value = ''
-    saveState.value = 'saved'
-    saveError.value = ''
-    serverRev.value = null
-    past.length = 0
-    future.length = 0
-    historyVersion.value++
   }
 
   // -------------------------------------------------------------------------------------- saving
+  // The rules are in `lib/saveQueue.ts` (and tested there). Here are the only timer and the only request of the save path: `dispatch` runs the effects of a
+  // transition, and what happens to them (the timer fires, the answer comes) goes back in as an event.
   let saveTimer: ReturnType<typeof setTimeout> | undefined
   let inflight: Promise<boolean> | null = null
-  let retryDelay = 0 // the pause before the next retry; 0 = start from `editor.saveRetryMs`
 
-  function touchSave() {
-    if (!app.canEdit || saveState.value === 'conflict') return
-    saveState.value = 'dirty'
-    clearTimeout(saveTimer)
-    saveTimer = setTimeout(() => void flushSave(), app.editorCfg.autosaveMs)
+  function dispatch(ev: SaveEvent) {
+    const c = app.editorCfg
+    const r = stepQueue(queue.value, ev, { autosaveMs: c.autosaveMs, retryMs: c.saveRetryMs, retryMaxMs: c.saveRetryMaxMs })
+    queue.value = r.state
+    for (const fx of r.effects) run(fx)
   }
 
-  /** Store the working copy now; resolves when everything that was edited so far is on the server. */
+  function run(fx: SaveEffect) {
+    if (fx.type === 'cancel') clearTimeout(saveTimer)
+    else if (fx.type === 'schedule') {
+      clearTimeout(saveTimer)
+      saveTimer = setTimeout(() => { if (app.canEdit) dispatch({ type: fx.kind === 'autosave' ? 'autosaveDue' : 'retryDue' }) }, fx.ms)
+    } else {
+      const p = persist(fx.epoch)
+      inflight = p
+      void p.finally(() => { if (inflight === p) inflight = null })
+    }
+  }
+
+  function touchSave() {
+    if (app.canEdit) dispatch({ type: 'edit' })
+  }
+
+  /** The network is back (the browser's `online`): a save that was waiting for it goes out now instead of after its pause. */
+  function retryNow() {
+    if (app.canEdit) dispatch({ type: 'online' })
+  }
+
+  /** Store the working copy now; resolves when everything that was edited so far is on the server. A refusal, a conflict or a lost connection: false. */
   async function flushSave(): Promise<boolean> {
-    clearTimeout(saveTimer)
-    if (!projectId.value || !app.canEdit) return true
+    if (!projectId.value) return true
+    if (!app.canEdit) return queue.value.status === 'saved'
     for (let round = 0; round < 3; round++) {
-      if (saveState.value === 'conflict') return false
+      const status = queue.value.status
+      if (status === 'conflict') return false
       if (inflight) {
         if (!(await inflight)) return false
         continue
       }
-      if (saveState.value === 'saved') return true
-      inflight = persist().finally(() => { inflight = null })
+      if (status === 'saved') return true
+      dispatch({ type: 'flush' })
+      if (!inflight) return queue.value.status === 'saved'
       if (!(await inflight)) return false
     }
-    return saveState.value === 'saved'
+    return queue.value.status === 'saved'
   }
 
-  async function persist(): Promise<boolean> {
-    saveState.value = 'saving'
+  async function persist(epoch: number): Promise<boolean> {
     const snapshot = arch.value
-    try {
-      const r = await api.projects.saveDraft(projectId.value, snapshot, rev.value)
-      rev.value = r.rev
-      retryDelay = 0
-      saveError.value = ''
-      saveState.value = arch.value === snapshot ? 'saved' : 'dirty'
+    const answer = await api.projects.saveDraft(projectId.value, snapshot, rev.value).then((r) => ({ r }), (e: unknown) => ({ e }))
+    if (epoch !== queue.value.epoch) return false // another project was opened meanwhile: this answer is not about the document on the screen
+    if ('r' in answer) {
+      rev.value = answer.r.rev
+      lastSaveError.value = null
+      dispatch({ type: 'persistOk', epoch })
       return true
-    } catch (e) {
-      if (e instanceof ApiError && e.status === 409) {
-        serverRev.value = (e.details?.currentRev as number) ?? null
-        saveState.value = 'conflict'
-      } else {
-        saveState.value = 'error'
-        saveError.value = errorMessage(e)
-        // transient failures (network, 5xx) are retried with a growing delay; validation errors are not
-        if (!(e instanceof ApiError) || e.status === 0 || e.status >= 500) {
-          const wait = retryDelay || app.editorCfg.saveRetryMs
-          saveTimer = setTimeout(() => { saveState.value = 'dirty'; void flushSave() }, wait)
-          retryDelay = Math.min(wait * 2, app.editorCfg.saveRetryMaxMs)
-        }
-      }
-      return false
     }
+    const e = answer.e
+    lastSaveError.value = e
+    const currentRev = e instanceof ApiError ? e.details?.currentRev : undefined
+    dispatch({ type: 'persistFail', epoch, status: e instanceof ApiError ? e.status : null, currentRev: typeof currentRev === 'number' ? currentRev : null })
+    return false
   }
 
   /** Discard local changes and take the server's version (after a conflict). */
   async function reloadFromServer() {
-    const id = projectId.value
-    clearTimeout(saveTimer)
-    saveState.value = 'saved'
-    await load(id)
+    await load(projectId.value)
   }
 
   // ------------------------------------------------------------------------------------ evaluate
@@ -370,18 +385,10 @@ export const useEditor = defineStore('editor', () => {
   }
 
   // ------------------------------------------------------------------------------------- history
+  // The steps and the merging of repeated edits are `lib/history.ts`; the clock and the limits (`editor.coalesceMs`, `editor.historySteps`) come from here.
   function commit(next: Architecture, o: { coalesce?: string } = {}) {
     toasts.clearActions() // "Undo" of the previous action is stale now
-    const now = Date.now()
-    const merge = !!o.coalesce && o.coalesce === lastKey && now - lastAt < 1200
-    if (!merge) {
-      past.push(arch.value)
-      if (past.length > app.editorCfg.historySteps) past.shift()
-    }
-    lastKey = o.coalesce ?? ''
-    lastAt = now
-    future.length = 0
-    historyVersion.value++
+    history.value = hist.record(history.value, arch.value, o.coalesce, Date.now(), { windowMs: app.editorCfg.coalesceMs, limit: app.editorCfg.historySteps })
     arch.value = next
     afterChange()
   }
@@ -401,29 +408,19 @@ export const useEditor = defineStore('editor', () => {
     return true
   }
 
-  function undo() {
-    const prev = past.pop()
-    if (!prev || readonly.value) return
+  // A view that cannot be edited (a proposal or a version being compared) takes no steps: the check comes BEFORE the step is taken out of the history.
+  function walk(take: typeof hist.undo) {
+    if (readonly.value) return
+    const r = take(history.value, arch.value)
+    if (!r) return
     toasts.clearActions()
-    future.push(arch.value)
-    arch.value = prev
-    lastKey = ''
-    historyVersion.value++
+    history.value = r.history
+    arch.value = r.value
     pruneSelection()
     afterChange()
   }
-
-  function redo() {
-    const next = future.pop()
-    if (!next || readonly.value) return
-    toasts.clearActions()
-    past.push(arch.value)
-    arch.value = next
-    lastKey = ''
-    historyVersion.value++
-    pruneSelection()
-    afterChange()
-  }
+  const undo = () => walk(hist.undo)
+  const redo = () => walk(hist.redo)
 
   function pruneSelection() {
     const s = selection.value
@@ -804,18 +801,16 @@ export const useEditor = defineStore('editor', () => {
   function replaceArchitecture(next: Architecture, o: { keepRev?: number; history?: boolean } = {}) {
     const placed = placeMissing(next, app.index!, { ...layoutOpts(), previous: arch.value })
     if (o.history === false) {
-      past.length = 0
-      future.length = 0
-      historyVersion.value++
+      history.value = hist.clear()
       arch.value = placed
       afterChange()
     } else commit(placed)
     selection.value = null
     fitToken.value++
+    // the server stored this very document itself (an applied proposal): it is saved, unless laying it out changed it
     if (o.keepRev !== undefined) {
       rev.value = o.keepRev
-      saveState.value = placed === next ? 'saved' : 'dirty'
-      if (saveState.value === 'dirty') touchSave()
+      if (placed === next) dispatch({ type: 'synced' })
     }
   }
 
@@ -878,7 +873,7 @@ export const useEditor = defineStore('editor', () => {
   function showSubjects(f: { subjects: { nodes: string[]; edges: string[]; zones: string[] } }) {
     highlight.value = { ...f.subjects, token: Date.now() }
     selection.value = null
-    setTimeout(() => { if (highlight.value && Date.now() - highlight.value.token >= app.editorCfg.highlightMs) highlight.value = null }, app.editorCfg.highlightMs + 100)
+    setTimeout(() => { if (highlight.value && Date.now() - highlight.value.token >= app.editorCfg.highlightMs) highlight.value = null }, app.editorCfg.highlightMs + TIMER_SLACK_MS)
   }
 
   /** Pan/zoom the canvas to the given elements. */
@@ -932,10 +927,10 @@ export const useEditor = defineStore('editor', () => {
   }
 
   return {
-    projectId, project, arch, rev, waivers, loading, loadError, saveState, saveError, serverRev, report, reportChange, evaluating, evalError,
+    projectId, project, arch, rev, waivers, loading, loadError, saveState, saveFailure, saveError, serverRev, report, reportChange, evaluating, evalError,
     selection, multi, selectRequest, tool, layer, highlight, preview, viewCenter, fitToken, reveal, sim, pickingNode, connectFrom, focusOn, focus, setFocusOn,
     readonly, canUndo, canRedo, isEmpty, shown, previewSets, nodeById, edgeById, zoneById, openFindings, nodeStatus, edgeStatus, zoneStatus, findingsOf, groups, siteZones, rackZones,
-    load, reset, flushSave, touchSave, reloadFromServer, evaluateNow, scheduleEvaluate,
+    load, reset, flushSave, touchSave, retryNow, reloadFromServer, evaluateNow, scheduleEvaluate,
     runScenario, exitSim, undo, redo, edit, commit,
     addNode, addZone, updateNode, changeKind, setProp, updateEdge, reverseEdge, updateZone, connect, removeNode, removeEdge, removeZone, removeSelection, duplicateNode,
     layoutDrift, setMulti, selectNodes, removeNodes, duplicateNodes, groupNodes, moveNodesToZone, commitMoves, resizeZone, setRequirement, setMeta, autoLayout, replaceArchitecture, addTemplate, applyFix, applyOps,
