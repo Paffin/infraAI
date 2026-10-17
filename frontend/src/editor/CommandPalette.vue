@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { CornerDownLeft, Search } from 'lucide-vue-next'
 import KindChip from '@/components/KindChip.vue'
 import { t } from '@/i18n'
 import { rank } from '@/lib/fuzzy'
+import { useFocusScope } from '@/lib/useFocusScope'
 import { useApp } from '@/stores/app'
 import { useUi } from '@/stores/ui'
 import { GROUP_ORDER, usePaletteCommands, type Command } from './paletteCommands'
@@ -15,6 +16,8 @@ const q = ref('')
 const active = ref(0)
 const input = ref<HTMLInputElement | null>(null)
 const list = ref<HTMLElement | null>(null)
+const backdrop = ref<HTMLElement | null>(null)
+const panel = ref<HTMLElement | null>(null)
 
 /** Best matches for the query; with an empty query the commands marked as suggestions. */
 const results = computed<Command[]>(() => {
@@ -34,8 +37,14 @@ watch(flat, (f) => { if (active.value >= f.length) active.value = Math.max(0, f.
 
 function close() { ui.palette = false }
 
+// The palette is one control, a combobox: the focus stays in the input (Tab does not move it), the page behind is inert, Escape closes it and nothing else.
+const scope = useFocusScope(backdrop, { onEscape: close, container: () => panel.value, initial: () => input.value, tab: 'hold' })
+
 function run(c: Command | undefined) {
   if (!c) return
+  // the keyboard goes back to where it was BEFORE the command runs: a dialog that the command opens remembers that control as its own opener
+  // (the palette's input is gone by then), and a menu item or a card that the command acts on is found where the user left it
+  scope.release()
   close()
   c.run()
 }
@@ -51,17 +60,13 @@ function onKey(e: KeyboardEvent) {
   else if (e.key === 'Home' && !q.value) { e.preventDefault(); active.value = 0; scrollToActive() }
   else if (e.key === 'End' && !q.value) { e.preventDefault(); active.value = Math.max(0, n - 1); scrollToActive() }
   else if (e.key === 'Enter') { e.preventDefault(); run(flat.value[active.value]) }
-  else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close() }
-  else if (e.key === 'Tab') { e.preventDefault() } // the dialog is one control: keep the focus in the input
 }
-
-onMounted(() => input.value?.focus())
 </script>
 
 <template>
   <Teleport to="body">
-    <div class="modal-backdrop pal-backdrop" @mousedown.self="close">
-      <div class="palette" role="dialog" aria-modal="true" :aria-label="t('palette.title')">
+    <div ref="backdrop" class="modal-backdrop pal-backdrop" @mousedown.self="close">
+      <div ref="panel" class="palette" role="dialog" aria-modal="true" :aria-label="t('palette.title')">
         <div class="pbar">
           <Search :size="17" class="mag" />
           <input

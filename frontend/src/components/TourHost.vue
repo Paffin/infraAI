@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { t } from '@/i18n'
+import { lockInert } from '@/lib/inert'
 import { holeOf, placeCard, stepKeys, tourFor, visibleSteps, type Rect, type TourDef } from '@/lib/tour'
 import { useApp } from '@/stores/app'
 import { useTour } from '@/stores/tour'
@@ -65,12 +66,12 @@ async function settle() {
   cardEl.value?.focus?.({ preventScroll: true })
 }
 watch(step, () => void settle())
-/** What is behind the tour cannot be reached while it is open: not by the mouse, not by Tab, not by a screen reader. */
+/** What is behind the tour cannot be reached while it is open: not by the mouse, not by Tab, not by a screen reader. The lock is counted (lib/inert.ts): a dialog under the tour keeps its own. */
+let unlock: (() => void) | null = null
 function lock(on: boolean) {
   const root = document.getElementById('app')
-  if (!root) return
-  if (on) root.setAttribute('inert', '')
-  else root.removeAttribute('inert')
+  if (on && root && !unlock) unlock = lockInert(root)
+  else if (!on) { unlock?.(); unlock = null }
 }
 watch(() => tour.active !== null, (on) => {
   lock(on)

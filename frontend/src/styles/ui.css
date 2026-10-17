@@ -86,6 +86,7 @@ button.chip:hover { background: var(--surface-2); border-color: #b8c2d4; }
 /* modal */
 .modal-backdrop { position: fixed; inset: 0; background: rgba(20, 23, 31, .45); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 24px; }
 .modal { background: var(--surface); border-radius: var(--radius-lg); box-shadow: var(--shadow-3); width: min(560px, 100%); max-height: calc(100vh - 48px); display: flex; flex-direction: column; overflow: hidden; }
+.modal:focus-visible { outline: none; } /* the dialog takes the focus itself when it holds nothing to press (lib/useFocusScope.ts) */
 .modal-lg { width: min(980px, 100%); }
 .modal-xl { width: min(1180px, 100%); }
 .modal-head { display: flex; align-items: center; gap: 8px; padding: 16px 20px; border-bottom: 1px solid var(--line); }
