@@ -1,7 +1,7 @@
 //! Projects: working copy (draft) with optimistic concurrency, immutable versions, diff,
 //! accepted risks (waivers).
 
-use crate::api_support::{ensure_valid, evaluated_summary, lang_of, limits, parse_arch, parse_valid_arch, run_evaluate, summarize};
+use crate::api_support::{ensure_valid, evaluated_summary, lang_of, limits, parse_arch, parse_valid_arch, run_evaluate, summarize, text, TextField};
 use crate::audit;
 use crate::auth::{client_ip, AuthUser, Role};
 use crate::error::{ApiError, ApiResult};
@@ -9,7 +9,9 @@ use crate::json::{Json, Path, Query};
 use crate::state::AppState;
 use axum::extract::{ConnectInfo, State};
 use axum::http::HeaderMap;
-use chrono::{DateTime, Utc};
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+use base64::Engine;
+use chrono::{DateTime, SecondsFormat, Utc};
 use engine::config::Waiver;
 use engine::model::Architecture;
 use serde::{Deserialize, Serialize};
@@ -46,19 +48,61 @@ const THUMB_SQL: &str = "(select jsonb_build_object(
         'edges', coalesce((select jsonb_agg(jsonb_build_array(e->'source', e->'target', e->'type'))
                              from jsonb_array_elements(coalesce(p.draft->'edges', '[]'::jsonb)) e), '[]'::jsonb)))";
 
-pub async fn list(State(state): State<AppState>, _user: AuthUser) -> ApiResult<Json<Value>> {
-    // the thumbnail comes with the list only for the most recently changed projects (`limits.listThumbnails`);
-    // the web UI loads the rest when their cards scroll into view, so the list stays light for a long project list
-    let thumbs = state.cfg().await?.settings.num("limits.listThumbnails") as i64;
+#[derive(Deserialize)]
+pub struct ListQuery {
+    /// How many projects at most (1 to `limits.listPageMax`, which is also the default).
+    #[serde(default)]
+    pub limit: Option<i64>,
+    /// Where the page starts: the `next` of the previous one. Without it, the first page.
+    #[serde(default)]
+    pub cursor: Option<String>,
+}
+
+/// A position in the list, handed out as `next` and read back as `cursor`: the last project of a page, by the two things the list is ordered by. Opaque to
+/// the client (base64 of `updated_at|id`); microseconds are kept, because the row's own time is what the next page compares with.
+fn encode_cursor(at: DateTime<Utc>, id: Uuid) -> String {
+    URL_SAFE_NO_PAD.encode(format!("{}|{id}", at.to_rfc3339_opts(SecondsFormat::Micros, true)))
+}
+
+fn decode_cursor(cursor: &str) -> Option<(DateTime<Utc>, Uuid)> {
+    let raw = String::from_utf8(URL_SAFE_NO_PAD.decode(cursor).ok()?).ok()?;
+    let (at, id) = raw.split_once('|')?;
+    Some((DateTime::parse_from_rfc3339(at).ok()?.with_timezone(&Utc), Uuid::parse_str(id).ok()?))
+}
+
+/// The projects, newest change first (ties by id, so that a page boundary never splits or repeats a row), a page at a time: `{projects, next}`; `next` is
+/// `null` on the last page. Without parameters it answers what it always did - the first `limits.listPageMax` (500) - and `next` tells whether there are more.
+/// The description is cut to `limits.listDescriptionChars`: a card shows a couple of lines, and one project with a description of megabytes made the list of
+/// everybody's projects megabytes (`GET /projects/{id}` has all of it). The thumbnails (`limits.listThumbnails`) come with the first page only: they are
+/// for the most recently changed projects, and a later page is, by definition, not those.
+pub async fn list(State(state): State<AppState>, _user: AuthUser, Query(q): Query<ListQuery>) -> ApiResult<Json<Value>> {
+    let cfg = state.cfg().await?;
+    let cursor = match q.cursor.as_deref() {
+        Some(c) => Some(decode_cursor(c).ok_or_else(|| ApiError::bad_request("invalid_cursor", "the cursor is not one that this list gave out; start again without it"))?),
+        None => None,
+    };
+    let page_max = (cfg.settings.num("limits.listPageMax") as i64).max(1);
+    let limit = q.limit.unwrap_or(page_max).clamp(1, page_max);
+    let thumbs = if cursor.is_some() { 0 } else { cfg.settings.num("limits.listThumbnails") as i64 };
+    let description_chars = cfg.settings.num("limits.listDescriptionChars") as i32;
+    // the window function is only there when a thumbnail is: it makes the database number every row before the page is cut
+    let thumb = if thumbs > 0 { format!("case when row_number() over (order by p.updated_at desc, p.id desc) <= $5 then {THUMB_SQL} end") } else { "null::jsonb".to_string() };
     let sql = format!(
-        "select p.id, p.name, p.description, u.email as owner, p.updated_at, p.created_at, p.head_version, p.draft_rev,
+        "select p.id, p.name, left(p.description, $1) as description, u.email as owner, p.updated_at, p.created_at, p.head_version, p.draft_rev,
                 jsonb_array_length(coalesce(p.draft->'nodes', '[]'::jsonb)) as node_count,
                 (select v.summary from versions v where v.project_id = p.id and v.n = p.head_version) as summary,
-                case when row_number() over (order by p.updated_at desc) <= $1 then {THUMB_SQL} end as thumb
+                {thumb} as thumb
          from projects p left join users u on u.id = p.owner_id
-         where p.deleted_at is null order by p.updated_at desc limit 500"
+         where p.deleted_at is null and ($2::timestamptz is null or (p.updated_at <= $2 and (p.updated_at, p.id) < ($2, $3)))
+         order by p.updated_at desc, p.id desc limit $4"
     );
-    let rows = sqlx::query(&sql).bind(thumbs).fetch_all(&state.pool).await?;
+    let mut query = sqlx::query(&sql).bind(description_chars).bind(cursor.map(|c| c.0)).bind(cursor.map(|c| c.1)).bind(limit + 1);
+    if thumbs > 0 {
+        query = query.bind(thumbs);
+    }
+    let mut rows = query.fetch_all(&state.pool).await?;
+    let more = rows.len() as i64 > limit;
+    rows.truncate(limit as usize);
     let items: Vec<ProjectRow> = rows
         .into_iter()
         .map(|r| ProjectRow {
@@ -75,7 +119,19 @@ pub async fn list(State(state): State<AppState>, _user: AuthUser) -> ApiResult<J
             thumb: r.get("thumb"),
         })
         .collect();
-    Ok(Json(json!({"projects": items})))
+    let next = if more { items.last().map(|p| encode_cursor(p.updated_at, p.id)) } else { None };
+    Ok(Json(json!({"projects": items, "next": next})))
+}
+
+/// `invalid_name` when a project name is empty or longer than `limits.maxNameChars` (the name is already trimmed). The code is the one the editor knows;
+/// `details {field, max, actual}` says the bound.
+fn check_project_name(cfg: &crate::config_store::Loaded, name: &str) -> ApiResult<()> {
+    let max = cfg.settings.num("limits.maxNameChars") as usize;
+    let actual = name.chars().count();
+    if actual == 0 || actual > max {
+        return Err(ApiError::bad_request("invalid_name", format!("project name must be 1–{max} characters")).with_details(json!({"field": "name", "max": max, "actual": actual})));
+    }
+    Ok(())
 }
 
 #[derive(Deserialize)]
@@ -99,9 +155,8 @@ pub async fn create(State(state): State<AppState>, user: AuthUser, ConnectInfo(a
     user.require_editor()?;
     let cfg = state.cfg().await?;
     let name = b.name.trim();
-    if name.is_empty() || name.chars().count() > 200 {
-        return Err(ApiError::bad_request("invalid_name", "project name must be 1–200 characters"));
-    }
+    check_project_name(&cfg, name)?;
+    let description = text(&cfg, TextField::LongText, "description", &b.description)?;
     let (count,): (i64,) = sqlx::query_as("select count(*) from projects where owner_id = $1 and deleted_at is null").bind(user.id).fetch_one(&state.pool).await?;
     if count >= cfg.settings.num("limits.maxProjectsPerUser") as i64 {
         return Err(ApiError::conflict("project_limit", "project limit reached"));
@@ -134,7 +189,7 @@ pub async fn create(State(state): State<AppState>, user: AuthUser, ConnectInfo(a
     let mut tx = state.pool.begin().await?;
     let (id,): (Uuid,) = sqlx::query_as("insert into projects (name, description, owner_id, draft, head_version) values ($1, $2, $3, $4, 1) returning id")
         .bind(name)
-        .bind(&b.description)
+        .bind(description)
         .bind(user.id)
         .bind(serde_json::to_value(&arch)?)
         .fetch_one(&mut *tx)
@@ -301,10 +356,12 @@ pub struct Patch {
 
 pub async fn patch(State(state): State<AppState>, user: AuthUser, Path(id): Path<Uuid>, Json(b): Json<Patch>) -> ApiResult<Json<Value>> {
     user.require_editor()?;
+    let cfg = state.cfg().await?;
     if let Some(n) = &b.name {
-        if n.trim().is_empty() || n.chars().count() > 200 {
-            return Err(ApiError::bad_request("invalid_name", "project name must be 1–200 characters"));
-        }
+        check_project_name(&cfg, n.trim())?;
+    }
+    if let Some(d) = &b.description {
+        text(&cfg, TextField::LongText, "description", d)?;
     }
     let r = sqlx::query("update projects set name = coalesce($2, name), description = coalesce($3, description), updated_at = now() where id = $1 and deleted_at is null")
         .bind(id)
@@ -393,6 +450,7 @@ pub struct NewVersion {
 pub async fn create_version(State(state): State<AppState>, user: AuthUser, Path(id): Path<Uuid>, Json(b): Json<NewVersion>) -> ApiResult<Json<Value>> {
     user.require_editor()?;
     let cfg = state.cfg().await?;
+    let message = text(&cfg, TextField::LongText, "message", b.message.trim())?;
     // everything that takes a connection or CPU happens before the transaction: it only writes
     let st = load_draft(&state.pool, id).await?;
     let waivers = engine_waivers(&state, id).await?;
@@ -401,7 +459,7 @@ pub async fn create_version(State(state): State<AppState>, user: AuthUser, Path(
     let mut tx = state.pool.begin().await?;
     // lock the project row so concurrent snapshots get consecutive numbers
     let (_, head) = lock_project(&mut tx, id).await?;
-    let n = append_version(&mut tx, id, head, keep, &user, VersionEntry { message: b.message.trim(), architecture: &st.draft, summary: &summary }).await?;
+    let n = append_version(&mut tx, id, head, keep, &user, VersionEntry { message, architecture: &st.draft, summary: &summary }).await?;
     tx.commit().await?;
     Ok(Json(json!({"n": n})))
 }
@@ -547,9 +605,12 @@ pub async fn create_waiver(
     user.require_editor()?;
     let cfg = state.cfg().await?;
     let min = cfg.settings.num("limits.waiverMinReasonChars") as usize;
-    if b.reason.trim().chars().count() < min {
+    let reason = text(&cfg, TextField::LongText, "reason", b.reason.trim())?;
+    if reason.chars().count() < min {
         return Err(ApiError::bad_request("reason_too_short", format!("justification must be at least {min} characters")));
     }
+    // a fingerprint that no finding can have is refused before the engine is started to find that out
+    text(&cfg, TextField::Id, "fingerprint", &b.fingerprint)?;
     // only real, currently open critical/risk findings can be accepted
     let arch = arch_of(&state, id, "draft").await?;
     let waivers = engine_waivers(&state, id).await?;
@@ -569,7 +630,7 @@ pub async fn create_waiver(
     .bind(id)
     .bind(&b.fingerprint)
     .bind(&rule_id)
-    .bind(b.reason.trim())
+    .bind(reason)
     .bind(&user.email)
     .bind(days.to_string())
     .fetch_one(&state.pool)

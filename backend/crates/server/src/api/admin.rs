@@ -1,6 +1,7 @@
 //! Administration: settings, LLM, catalog/rules/templates/prompts, users, audit, system status.
 //! Every mutating call is audited; secrets are never returned.
 
+use crate::api_support::{text, TextField};
 use crate::audit;
 use crate::auth::{check_password_policy, client_ip, failure_key, forget_user, is_acceptable_email, pwchange_key, AuthUser, Role};
 use crate::config_store::{bump_rev, default_items, is_valid_item_id, range_regressions, single_document_id, validate_item, ALL_KINDS, MSG_INVALID_ITEM_ID, MSG_SINGLE_DOCUMENT};
@@ -542,6 +543,7 @@ pub async fn users_create(State(state): State<AppState>, user: AuthUser, Connect
     if !email.contains('@') || !is_acceptable_email(&email) {
         return Err(ApiError::bad_request("invalid_email", "invalid email"));
     }
+    let name = text(&cfg, TextField::Name, "name", b.name.trim())?;
     let role = Role::parse(&b.role).ok_or_else(|| ApiError::bad_request("invalid_role", "role must be admin, editor or viewer"))?;
     let (pw, generated) = match b.password.filter(|p| !p.is_empty()) {
         Some(p) => {
@@ -552,7 +554,7 @@ pub async fn users_create(State(state): State<AppState>, user: AuthUser, Connect
     };
     let id: Uuid = sqlx::query_scalar("insert into users (email, name, role, password_hash, must_change_password) values ($1, $2, $3, $4, $5) returning id")
         .bind(&email)
-        .bind(b.name.trim())
+        .bind(name)
         .bind(role.as_str())
         .bind(state.passwords.hash(pw.clone()).await?)
         .bind(generated)
@@ -582,6 +584,10 @@ pub async fn users_patch(
     Json(b): Json<PatchUser>,
 ) -> ApiResult<Json<Value>> {
     user.require_admin()?;
+    let cfg = state.cfg().await?;
+    if let Some(n) = &b.name {
+        text(&cfg, TextField::Name, "name", n.trim())?;
+    }
     let new_role = match &b.role {
         Some(r) => Some(Role::parse(r).ok_or_else(|| ApiError::bad_request("invalid_role", "role must be admin, editor or viewer"))?),
         None => None,

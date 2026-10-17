@@ -43,15 +43,18 @@ refuses on the merits, never by a bare text. `code` is the stable part (the UI t
 | `not_deletable` | 409 | a built-in configuration item cannot be deleted (reset it instead) |
 | `invalid_architecture` | 400 | the design is refused by validation; `details.issues` lists the errors (see Validation below) |
 | `ops_invalid` | 400 | the operations cannot be applied, or what they make is refused; `details.issues` |
-| `limits_exceeded` | 400 | the design is larger than `limits.maxNodes` / `maxEdges` / `maxZones` (`/evaluate`) |
+| `limits_exceeded` | 400 | the design is larger than `limits.maxNodes` / `maxEdges` / `maxZones` (`/evaluate`, `/diff`); `details` has the numbers |
+| `ops_too_many` | 400 | `/ops/apply`: more than `limits.maxOpsPerRequest` operations (`details {max, actual}`) |
 | `unknown_scenario_reference` | 400 | `/simulate`: the scenario names a zone, node, unit or geo label the design does not have; `details.refs` lists every one |
 | `invalid_scenario` | 400 | `/simulate`: the scenario cannot be a failure at all (nothing named, a count out of range, a link from a site to itself, nested too deep); `details.reason` |
 | `placement_failed` | 400 | the placement cannot be generated; `details.code` |
 | `invalid_variants` | 400 | `/placement/compare`: no variants, or more than `limits.placementCompareMax` |
-| `invalid_name` | 400 | a project name must be 1–200 characters |
+| `invalid_name` | 400 | a project name must be 1 to `limits.maxNameChars` (200) characters; `details {field, max, actual}` |
+| `field_too_long` | 400 | a text past its bound, counted in characters: a description, a version message, the reason for an accepted risk (`limits.maxTextChars`, 20 000), a user's name (`limits.maxNameChars`), a finding's fingerprint (`limits.maxIdChars`); `details {field, max, actual}`. The bounds are settings and are read on every request |
+| `invalid_cursor` | 400 | `GET /projects`: the `cursor` is not one that the list gave out |
 | `invalid_ref`, `invalid_version`, `unknown_format` | 400 | a version reference that is not `draft` or a number / an export format that does not exist |
 | `reason_too_short`, `unknown_finding`, `not_acceptable` | 400 | accepting a risk: the reason is too short / the finding does not exist / only critical and risk findings can be accepted |
-| `bad_kind`, `empty_prompt`, `missing_finding`, `prompt_too_long` | 400 | an AI request that cannot be made: unknown kind / empty / `fix` without `findingId` / longer than `llm.maxPromptChars` |
+| `bad_kind`, `empty_prompt`, `missing_finding`, `prompt_too_long` | 400 | an AI request that cannot be made: unknown kind / empty / `fix` without `findingId` / longer than `llm.maxPromptChars` (`details {field, max, actual}`; a `findingId` past `limits.maxIdChars` is `field_too_long`) |
 | `invalid_setting`, `invalid_config`, `invalid_kind`, `invalid_id` | 400 | the administrator's input: a setting value (`details.key`, `reason`), a configuration item that does not parse or whose ranges allow no value (a `min` above the `max`, a default outside the range: the message names the property), the wrong kind, a malformed id |
 | `invalid_email`, `invalid_role` | 400 | a user: not an email (empty, past 200 bytes, a control character) / not one of admin, editor, viewer |
 | `llm_unreachable` | 503 | the model catalog of OpenRouter cannot be reached |
@@ -123,20 +126,25 @@ and a version with `props.variant` / `props.version`; an unknown variant is repo
 
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/projects` | `{projects:[{id,name,description,owner,updatedAt,createdAt,headVersion,draftRev,nodeCount,summary,thumb}]}`; `summary` = `ReportSummary` of the latest version; `thumb` = what a thumbnail needs, see below |
-| POST | `/projects` | `{name, description?, templateId? \| architecture? \| placement?, lang?}` → `{id}` (editor); `placement` is a `PlacementRequest` (see Placement below), `400 placement_failed` if it cannot be generated |
+| GET | `/projects?limit=&cursor=` | `{projects:[{id,name,description,owner,updatedAt,createdAt,headVersion,draftRev,nodeCount,summary,thumb}], next}`; `summary` = `ReportSummary` of the latest version; `thumb` = what a thumbnail needs, see below; `description` is only the first `limits.listDescriptionChars` (280) characters, the whole one is in `GET /projects/{id}`. Paged, see below |
+| POST | `/projects` | `{name, description?, templateId? \| architecture? \| placement?, lang?}` → `{id}` (editor); `placement` is a `PlacementRequest` (see Placement below), `400 placement_failed` if it cannot be generated; `400 invalid_name` / `field_too_long` for a name / description past `limits.maxNameChars` / `limits.maxTextChars` |
 | GET | `/projects/{id}` | `{project, architecture, rev, waivers}` |
-| PATCH | `/projects/{id}` | `{name?, description?}` |
+| PATCH | `/projects/{id}` | `{name?, description?}` (the same bounds as on create) |
 | DELETE | `/projects/{id}` | soft delete (owner or admin) |
 | PUT | `/projects/{id}/draft` | `{architecture, expectedRev}` → `{rev}`; `409 conflict` with `details.currentRev` |
 | GET | `/projects/{id}/versions` | `{versions:[{n,message,author,summary,createdAt}]}` |
-| POST | `/projects/{id}/versions` | `{message, lang?}` → `{n}` (snapshot of the draft + report summary) |
+| POST | `/projects/{id}/versions` | `{message, lang?}` → `{n}` (snapshot of the draft + report summary); `400 field_too_long` for a message past `limits.maxTextChars` |
 | GET | `/projects/{id}/versions/{n}` | `{n,message,author,architecture,summary,createdAt}` |
 | POST | `/projects/{id}/versions/{n}/restore` | `{expectedRev}` → `{rev, snapshot}`. The draft being replaced is saved first as the version «Before restore of vN» (`snapshot` = its number) unless it already is the newest version (`snapshot: null`): nothing that was not in a version is lost. `409 conflict` with `details.currentRev` when the revision is not `expectedRev`. Audited as `project.restore` |
 | GET | `/projects/{id}/diff?from=draft\|N&to=draft\|N&ui=0` | `ArchDiff` |
-| POST | `/projects/{id}/waivers` | `{fingerprint, reason, expiresInDays?, lang?}` → `{id}` (accept a risk) |
+| POST | `/projects/{id}/waivers` | `{fingerprint, reason, expiresInDays?, lang?}` → `{id}` (accept a risk); `400 field_too_long` for a reason past `limits.maxTextChars` or a fingerprint past `limits.maxIdChars` |
 | DELETE | `/projects/{id}/waivers/{wid}` | revoke |
 | GET | `/projects/{id}/export/{format}?lang=&version=&download=1` | JSON `{format, files:[{path,content}], report}`; `report` (only for `kubernetes`/`helm`/`terraform`, see [IAC.md](IAC.md)) = `{clusters, generated, skipped:[{unit,name,kind,nodes,code,message,props}], notes, prerequisites, secrets}`; with `download=1` a file or a zip |
+
+**Paging.** The list is ordered by the time of the last change, newest first, and by id among projects changed at the same instant, so the order is total. `limit` (1 to `limits.listPageMax`, 500 by default,
+which is also what a request without `limit` gets; a value outside the range is clamped, not refused) and `cursor` (the `next` of the previous page; opaque, and `400 invalid_cursor` for anything this list did not give out) walk it: `next` is `null` on the last page. A client
+that sends neither gets what it always got, the first 500, plus `next`: whoever stops at the first page sees what they saw before, and the 501st project is reachable by following `next`. A cursor is a position, not a snapshot: the page after it is the next rows in the order
+at the time of the request (a project changed meanwhile moves to the front, one deleted meanwhile is gone, the cursor stays valid even if the row it names is deleted). Thumbnails come with the first page only. `GET /projects/{id}/versions` is not paged (a project keeps at most `limits.maxVersionsPerProject` versions) and neither is `GET /admin/users`.
 
 `thumb` is the working copy boiled down to a layout: `{zones:[{i,x,y,w,h,t,p}], nodes:[{i,x,y,k,z}], edges:[[source,target,type]]}`
 (`i` id, `t` zone type, `p` parent zone, `k` kind, `z` zone). It carries no names or properties, so the list does not grow
@@ -164,8 +172,8 @@ cannot be read, so nothing is evaluated with them. A project id that never exist
 | POST | `/evaluate` | `{architecture, projectId?, lang?}` → `Report` (accepted risks of `projectId` are applied) |
 | POST | `/recommendations` | `{architecture, projectId?, lang?}` → `Plan`: что улучшить в первую очередь — исправления находок, каждое проверенное на копии схемы, с измеренным эффектом ([RECOMMENDATIONS.md](RECOMMENDATIONS.md)); при выключенной настройке пустой план |
 | POST | `/simulate` | `{architecture, scenario}` → `SimResult` |
-| POST | `/diff` | `{from, to, ui?}` → `ArchDiff` (design vs. an imported snapshot, any two architectures; canvas positions are ignored unless `ui: true`; nothing is stored) |
-| POST | `/ops/apply` | `{architecture, ops, preview?, projectId?, lang?}` → `{architecture, cascadedEdges, renamed}`; with `preview: true` also `{diff, before, after, introduced, resolved}` |
+| POST | `/diff` | `{from, to, ui?}` → `ArchDiff` (design vs. an imported snapshot, any two architectures; canvas positions are ignored unless `ui: true`; nothing is stored). Each side is held to `limits.maxNodes` / `maxEdges` / `maxZones` (`400 limits_exceeded`) and no further: a snapshot of an environment may carry a kind the catalog does not know |
+| POST | `/ops/apply` | `{architecture, ops, preview?, projectId?, lang?}` → `{architecture, cascadedEdges, renamed}`; with `preview: true` also `{diff, before, after, introduced, resolved}`. At most `limits.maxOpsPerRequest` operations (`400 ops_too_many`, `details {max, actual}`) |
 | GET | `/templates/{id}` | full `Template` (`{id,name,description,badge,architecture}`) |
 
 `scenario` is one of

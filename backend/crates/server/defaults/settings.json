@@ -928,6 +928,38 @@
   "max": 500
  },
  {
+  "key": "limits.listDescriptionChars",
+  "group": "limits",
+  "type": "number",
+  "default": 280,
+  "label": {
+   "ru": "Длина описания в списке проектов, знаков",
+   "en": "Description length in the project list, chars"
+  },
+  "help": {
+   "ru": "Список проектов несёт столько первых знаков описания: карточка показывает пару строк, а описание в мегабайты делало список мегабайтным для всех. Полное описание — в GET /api/projects/{id}.",
+   "en": "The project list carries this many first characters of the description: a card shows a couple of lines, and a description of megabytes made the list megabytes for everybody. The whole description is in GET /api/projects/{id}."
+  },
+  "min": 0,
+  "max": 20000
+ },
+ {
+  "key": "limits.listPageMax",
+  "group": "limits",
+  "type": "number",
+  "default": 500,
+  "label": {
+   "ru": "Проектов на странице списка (не больше)",
+   "en": "Projects per page of the list (at most)"
+  },
+  "help": {
+   "ru": "GET /api/projects без параметров отдаёт столько проектов, с limit — не больше стольких; остальные — по курсору из поля next. Сколько бы их ни было, до каждого можно дойти.",
+   "en": "GET /api/projects without parameters answers this many projects, with limit no more than this; the rest follow by the cursor in the next field. However many there are, each can be reached."
+  },
+  "min": 10,
+  "max": 5000
+ },
+ {
   "key": "limits.placementCompareMax",
   "group": "limits",
   "type": "number",
@@ -1018,6 +1050,70 @@
   },
   "min": 1,
   "max": 3650
+ },
+ {
+  "key": "limits.maxNameChars",
+  "group": "limits",
+  "type": "number",
+  "default": 200,
+  "label": {
+   "ru": "Максимальная длина имени, знаков",
+   "en": "Max length of a name, chars"
+  },
+  "help": {
+   "ru": "Имя проекта и имя пользователя. Дольше — 400 (invalid_name для проекта, field_too_long для остального) с границей в details.max.",
+   "en": "A project name and a user name. Longer is 400 (invalid_name for a project, field_too_long for the rest) with the bound in details.max."
+  },
+  "min": 10,
+  "max": 2000
+ },
+ {
+  "key": "limits.maxTextChars",
+  "group": "limits",
+  "type": "number",
+  "default": 20000,
+  "label": {
+   "ru": "Максимальная длина длинного текста, знаков",
+   "en": "Max length of a long text, chars"
+  },
+  "help": {
+   "ru": "Описание проекта, сообщение версии, обоснование принятого риска. Дольше — 400 field_too_long с границей в details.max. Запрос ИИ ограничивает llm.maxPromptChars.",
+   "en": "A project description, a version message, the justification of an accepted risk. Longer is 400 field_too_long with the bound in details.max. An AI request is bounded by llm.maxPromptChars."
+  },
+  "min": 100,
+  "max": 1000000
+ },
+ {
+  "key": "limits.maxIdChars",
+  "group": "limits",
+  "type": "number",
+  "default": 512,
+  "label": {
+   "ru": "Максимальная длина идентификатора находки, знаков",
+   "en": "Max length of a finding id, chars"
+  },
+  "help": {
+   "ru": "Отпечаток находки в запросе (принять риск, исправить через ИИ). Настоящий отпечаток — правило и ключ узла или связи, он короче; более длинный не найдёт ничего, и движок не запускается ради такого ответа.",
+   "en": "The fingerprint of a finding in a request (accept a risk, fix through AI). A real one is a rule and the key of a node or an edge and is shorter; a longer one finds nothing, and the engine is not started to say so."
+  },
+  "min": 16,
+  "max": 4096
+ },
+ {
+  "key": "limits.maxOpsPerRequest",
+  "group": "limits",
+  "type": "number",
+  "default": 1000,
+  "label": {
+   "ru": "Операций в одном запросе /ops/apply",
+   "en": "Operations in one /ops/apply request"
+  },
+  "help": {
+   "ru": "Сколько операций над схемой принимает один запрос. Больше — 400 ops_too_many. Применение предложений ИИ ограничивает llm.maxOps.",
+   "en": "How many operations on a design one request takes. More is 400 ops_too_many. Applying AI proposals is bounded by llm.maxOps."
+  },
+  "min": 1,
+  "max": 100000
  },
  {
   "key": "editor.autosaveMs",

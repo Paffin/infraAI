@@ -1,7 +1,7 @@
 //! AI endpoints: jobs, chat history and proposals (preview → explicit apply / reject).
 
 use crate::api::projects::{append_version, engine_waivers, load_draft, lock_project, VersionEntry, REREAD_ATTEMPTS};
-use crate::api_support::{evaluated_summary, lang_of, limits, parse_arch};
+use crate::api_support::{evaluated_summary, lang_of, limits, parse_arch, text, TextField};
 use crate::audit;
 use crate::auth::{client_ip, AuthUser};
 use crate::config_store::Loaded;
@@ -58,11 +58,16 @@ pub async fn create_job(
     if b.kind != "fix" && prompt.is_empty() {
         return Err(ApiError::bad_request("empty_prompt", "the request is empty"));
     }
-    if prompt.chars().count() > max_chars {
-        return Err(ApiError::bad_request("prompt_too_long", format!("the request is longer than {max_chars} characters")));
+    let asked = prompt.chars().count();
+    if asked > max_chars {
+        return Err(ApiError::bad_request("prompt_too_long", format!("the request is longer than {max_chars} characters")).with_details(json!({"field": "prompt", "max": max_chars, "actual": asked})));
     }
     if b.kind == "fix" && b.finding_id.as_deref().unwrap_or("").is_empty() {
         return Err(ApiError::bad_request("missing_finding", "findingId is required"));
+    }
+    // the id is echoed into the chat history and the prompt: bounded like the rest of what a person writes
+    if let Some(f) = &b.finding_id {
+        text(&cfg, TextField::Id, "findingId", f)?;
     }
     let exists: Option<(i32,)> = sqlx::query_as("select 1 from projects where id = $1 and deleted_at is null").bind(project_id).fetch_optional(&state.pool).await?;
     if exists.is_none() {

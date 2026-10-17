@@ -29,6 +29,51 @@ pub fn lenient_limits(cfg: &Loaded) -> ValidationLimits {
     limits(cfg).lenient()
 }
 
+/// Refuse a design that is bigger than the configured size (`400 limits_exceeded`: `limits.maxNodes`, `maxEdges`, `maxZones`), without judging anything else
+/// about it. The paths that only look at a design (`/evaluate`, `/diff`) use this; the ones that write also run the whole of [`validate`].
+pub fn ensure_size(cfg: &Loaded, a: &Architecture) -> ApiResult<()> {
+    let lim = limits(cfg);
+    if a.nodes.len() > lim.max_nodes || a.edges.len() > lim.max_edges || a.zones.len() > lim.max_zones {
+        return Err(ApiError::bad_request("limits_exceeded", "architecture exceeds the configured size limits").with_details(json!({
+            "nodes": a.nodes.len(), "maxNodes": lim.max_nodes, "edges": a.edges.len(), "maxEdges": lim.max_edges, "zones": a.zones.len(), "maxZones": lim.max_zones,
+        })));
+    }
+    Ok(())
+}
+
+/// Which of the caps on text a field answers to: three settings, because a name, a long text and an identifier are three different things to bound.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TextField {
+    /// A project's or a user's name: `limits.maxNameChars`.
+    Name,
+    /// A description, a version message, the reason for an accepted risk: `limits.maxTextChars`.
+    LongText,
+    /// The fingerprint of a finding in a request: `limits.maxIdChars`.
+    Id,
+}
+
+impl TextField {
+    pub fn setting(self) -> &'static str {
+        match self {
+            TextField::Name => "limits.maxNameChars",
+            TextField::LongText => "limits.maxTextChars",
+            TextField::Id => "limits.maxIdChars",
+        }
+    }
+}
+
+/// `value` when it is no longer than the cap of its kind (counted in characters, read from the settings on every call: a change takes effect at once), else
+/// `400 field_too_long` with `details {field, max, actual}`. A text that came in without a bound is stored, listed, echoed to everybody who opens the page
+/// and sent to the model: it is bounded where it comes in.
+pub fn text<'a>(cfg: &Loaded, kind: TextField, field: &'static str, value: &'a str) -> ApiResult<&'a str> {
+    let max = cfg.settings.num(kind.setting()) as usize;
+    let actual = value.chars().count();
+    if actual > max {
+        return Err(ApiError::bad_request("field_too_long", format!("{field} is longer than {max} characters")).with_details(json!({"field": field, "max": max, "actual": actual})));
+    }
+    Ok(value)
+}
+
 pub fn parse_arch(v: Value) -> ApiResult<Architecture> {
     serde_json::from_value(v).map_err(|e| ApiError::bad_request("invalid_architecture", format!("architecture does not match the schema: {e}")))
 }

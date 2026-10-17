@@ -3,7 +3,7 @@
 //! horizontally with the number of replicas.
 
 use crate::api::projects::engine_waivers;
-use crate::api_support::{lang_of, lenient_limits, limits, parse_arch, parse_viewed_arch, run_evaluate, summarize, today, ReportSummary};
+use crate::api_support::{ensure_size, lang_of, lenient_limits, limits, parse_arch, parse_viewed_arch, run_evaluate, summarize, today, ReportSummary};
 use crate::auth::AuthUser;
 use crate::error::{ApiError, ApiResult};
 use crate::json::{Json, Path, Query};
@@ -34,11 +34,7 @@ pub async fn evaluate(State(state): State<AppState>, _user: AuthUser, Json(b): J
     let cfg = state.cfg().await?;
     // structural problems are part of the report (issues), not a request failure
     let arch = parse_arch(b.architecture)?;
-    let n = arch.nodes.len();
-    let lim = limits(&cfg);
-    if n > lim.max_nodes || arch.edges.len() > lim.max_edges || arch.zones.len() > lim.max_zones {
-        return Err(ApiError::bad_request("limits_exceeded", "architecture exceeds the configured size limits"));
-    }
+    ensure_size(&cfg, &arch)?;
     let waivers = match b.project_id {
         Some(id) => engine_waivers(&state, id).await?,
         None => vec![],
@@ -79,11 +75,17 @@ pub struct DiffBody {
 }
 
 /// Structural difference between two architectures given in the request: the design against an imported
-/// snapshot of the real environment (drift), or any two files. Nothing is stored.
-pub async fn diff_architectures(_user: AuthUser, Json(b): Json<DiffBody>) -> ApiResult<Json<Value>> {
+/// snapshot of the real environment (drift), or any two files. Nothing is stored. Both sides are held to the size limits (a snapshot of the
+/// environment may carry a kind the catalog does not know, so they are not validated further) and the comparison runs off the async runtime.
+pub async fn diff_architectures(State(state): State<AppState>, _user: AuthUser, Json(b): Json<DiffBody>) -> ApiResult<Json<Value>> {
+    let cfg = state.cfg().await?;
     let from = parse_arch(b.from)?;
     let to = parse_arch(b.to)?;
-    Ok(Json(serde_json::to_value(diff(&from, &to, b.ui))?))
+    ensure_size(&cfg, &from)?;
+    ensure_size(&cfg, &to)?;
+    let ui = b.ui;
+    let d = tokio::task::spawn_blocking(move || diff(&from, &to, ui)).await.map_err(ApiError::internal)?;
+    Ok(Json(serde_json::to_value(d)?))
 }
 
 #[derive(Deserialize)]
@@ -167,13 +169,21 @@ pub async fn preview_ops(cfg: std::sync::Arc<crate::config_store::Loaded>, base:
 pub async fn apply(State(state): State<AppState>, user: AuthUser, Json(b): Json<ApplyBody>) -> ApiResult<Json<Value>> {
     user.require_editor()?;
     let cfg = state.cfg().await?;
+    let max_ops = cfg.settings.num("limits.maxOpsPerRequest") as usize;
+    if b.ops.len() > max_ops {
+        return Err(ApiError::bad_request("ops_too_many", format!("a request takes at most {max_ops} operations")).with_details(json!({"max": max_ops, "actual": b.ops.len()})));
+    }
     // the base is looked at, so that operations which put right a number stored out of range can be applied; what they make of it is written
     let base = parse_viewed_arch(&cfg, b.architecture)?;
     let lang = lang_of(&cfg, b.lang.as_deref());
     if !b.preview {
         let lim = limits(&cfg);
         let ec = cfg.engine_config(&lang);
-        let outcome = apply_ops(&base, &b.ops, &ec.catalog, &lim).map_err(|e| ApiError::bad_request("ops_invalid", e.to_string()).with_details(json!({"issues": e.issues})))?;
+        let ops = b.ops;
+        let outcome = tokio::task::spawn_blocking(move || apply_ops(&base, &ops, &ec.catalog, &lim))
+            .await
+            .map_err(ApiError::internal)?
+            .map_err(|e| ApiError::bad_request("ops_invalid", e.to_string()).with_details(json!({"issues": e.issues})))?;
         return Ok(Json(serde_json::to_value(outcome)?));
     }
     let waivers = match b.project_id {

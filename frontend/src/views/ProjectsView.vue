@@ -59,7 +59,18 @@ const templates = computed(() => [...(app.boot?.templates ?? [])].sort((a, b) =>
 async function load() {
   loading.value = true
   try {
-    items.value = (await api.projects.list()).projects
+    // the server answers a page and where the next one starts; the cards search and sort over all of them, so the list is read to its end
+    // (the first request has no query string, as before). A cursor that comes back is a server that does not move on: stop, do not loop
+    const all: ProjectListItem[] = []
+    const seen = new Set<string>()
+    let cursor: string | undefined
+    do {
+      const page = await api.projects.list(cursor)
+      all.push(...page.projects)
+      cursor = page.next && !seen.has(page.next) ? page.next : undefined
+      if (cursor) seen.add(cursor)
+    } while (cursor)
+    items.value = all
     error.value = ''
   } catch (e) {
     error.value = errorMessage(e)
@@ -107,8 +118,9 @@ async function duplicate(p: ProjectListItem) {
   const name = await dialogs.prompt({ title: t('projects.duplicate'), label: t('projects.duplicate.prompt'), value: t('projects.duplicate.name', { name: p.name }) })
   if (!name?.trim()) return
   try {
+    // the description of the card is the beginning of it (`limits.listDescriptionChars`): the copy takes the whole one from the project
     const src = await api.projects.get(p.id)
-    await api.projects.create({ name: name.trim(), description: p.description, architecture: src.architecture, lang: lang.value })
+    await api.projects.create({ name: name.trim(), description: src.project.description, architecture: src.architecture, lang: lang.value })
     toasts.ok(t('projects.duplicate.done', { name: name.trim() }))
     await load()
   } catch (e) {

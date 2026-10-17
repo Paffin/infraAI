@@ -19,7 +19,8 @@ export const bootstrap = () => http.get<Bootstrap>('/bootstrap')
 export const versions = () => http.get<VersionsPayload>('/versions')
 
 export const projects = {
-  list: () => http.get<{ projects: ProjectListItem[] }>('/projects'),
+  /** One page of the list; `next` is the cursor of the following page (`null` on the last). Without a cursor: the first page, as the server has always answered. */
+  list: (cursor?: string) => http.get<{ projects: ProjectListItem[]; next?: string | null }>(`/projects${qs({ cursor })}`),
   create: (b: { name: string; description?: string; templateId?: string; architecture?: Architecture; placement?: PlacementRequest; lang?: string }) => http.post<{ id: string }>('/projects', b),
   get: (id: string) => http.get<ProjectDetail>(`/projects/${id}`),
   patch: (id: string, b: { name?: string; description?: string }) => http.patch<{ ok: boolean }>(`/projects/${id}`, b),
