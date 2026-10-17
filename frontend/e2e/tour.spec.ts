@@ -13,7 +13,9 @@ test.describe('the guided tour', () => {
   test('welcomes a newcomer on the project list, points at real elements, and does not come back', async ({ page }) => {
     await login(page)
     await expect(tour(page)).toBeVisible({ timeout: 15_000 })
-    await expect(tour(page).locator('.count')).toContainText('1')
+    // the list of projects arrives after the tour has begun and its step is added then (the tour looks again every 300 ms): wait for all four, or the arrow
+    // below can be pressed before the step that comes second exists and goes past it
+    await expect(tour(page).locator('.count')).toHaveText(/1\D+4/)
     await expect(tour(page).locator('h3')).toHaveText('Новый проект')
     // the hole is around the button the step is about
     const box = await page.locator('[data-tour="new-project"]').boundingBox()

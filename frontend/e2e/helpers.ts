@@ -1,16 +1,37 @@
-import { expect, type Page } from '@playwright/test'
+import { expect, type Cookie, type Page } from '@playwright/test'
 import type { Architecture } from '../src/api/types'
 import { madeByApi } from './fixtures'
 
 export const email = process.env.E2E_EMAIL ?? 'admin@example.com'
 export const password = process.env.E2E_PASSWORD ?? ''
 
+/**
+ * The cookie of the first sign-in of an account in this worker. Nearly every test begins by signing in, and the suite does it faster than a person
+ * ever would, all from one address; the server limits those (`auth.loginsPerMinutePerIp`, 30 a minute), so a quick stretch of the suite was refused
+ * with 429 and stayed on the login page. The form is filled in once per account (and by the tests that are about the form: `loginTo`, login.spec.ts);
+ * the rest borrow that session, which is stateless (a signed token in a cookie), once the server confirms that it still works.
+ */
+const sessions = new Map<string, Cookie[]>()
+
 export async function login(page: Page, as = { email, password }) {
+  const kept = sessions.get(as.email)
+  if (kept) {
+    await page.context().addCookies(kept)
+    if ((await page.request.get('/api/auth/me')).ok()) {
+      await page.goto('/')
+      await expect(page).toHaveURL(/\/$/)
+      return
+    }
+    // over, or not valid for this server any more: the form
+    await page.context().clearCookies()
+    sessions.delete(as.email)
+  }
   await page.goto('/login')
   await page.fill('#email', as.email)
   await page.fill('#password', as.password)
   await page.click('button.btn-primary')
   await expect(page).toHaveURL(/\/$/)
+  sessions.set(as.email, await page.context().cookies())
 }
 
 /** Signs in on the login page that is already open and waits for `where` (`login()` goes to the login page itself and expects the list of projects after it). */
