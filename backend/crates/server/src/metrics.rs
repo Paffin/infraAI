@@ -1,6 +1,6 @@
 //! Prometheus metrics (served on `/metrics`).
 
-use prometheus::{Counter, Encoder, HistogramOpts, HistogramVec, IntCounterVec, IntGauge, Opts, Registry, TextEncoder};
+use prometheus::{Counter, Encoder, HistogramOpts, HistogramVec, IntCounter, IntCounterVec, IntGauge, Opts, Registry, TextEncoder};
 
 pub struct Metrics {
     pub registry: Registry,
@@ -11,6 +11,11 @@ pub struct Metrics {
     pub jobs_running: IntGauge,
     pub jobs_finished: IntCounterVec,
     pub evaluations: IntCounterVec,
+    /// Sign-ins by outcome: `ok`, `failed`, `locked`, `throttled`. **Only** these four: the endpoint can be open (`METRICS_TOKEN` empty), and a label that
+    /// said *why* a sign-in failed (no such account, disabled, wrong password) would tell anyone which accounts exist. The reason is in the audit log.
+    pub auth_logins: IntCounterVec,
+    /// Argon2 verifications. A sign-in that is refused before the password is looked at does not count, one that is looked at counts exactly once.
+    pub auth_password_checks: IntCounter,
 }
 
 impl Metrics {
@@ -27,6 +32,8 @@ impl Metrics {
         let jobs_running = IntGauge::new("ai_jobs_running", "AI jobs running on this instance").unwrap();
         let jobs_finished = IntCounterVec::new(Opts::new("ai_jobs_finished_total", "Finished AI jobs"), &["kind", "status"]).unwrap();
         let evaluations = IntCounterVec::new(Opts::new("engine_evaluations_total", "Engine evaluations"), &["kind"]).unwrap();
+        let auth_logins = IntCounterVec::new(Opts::new("auth_logins_total", "Sign-in attempts by outcome (ok, failed, locked, throttled)"), &["outcome"]).unwrap();
+        let auth_password_checks = IntCounter::new("auth_password_checks_total", "Argon2 password verifications").unwrap();
         for c in [
             Box::new(http_requests.clone()) as Box<dyn prometheus::core::Collector>,
             Box::new(http_duration.clone()),
@@ -35,10 +42,12 @@ impl Metrics {
             Box::new(jobs_running.clone()),
             Box::new(jobs_finished.clone()),
             Box::new(evaluations.clone()),
+            Box::new(auth_logins.clone()),
+            Box::new(auth_password_checks.clone()),
         ] {
             registry.register(c).unwrap();
         }
-        Metrics { registry, http_requests, http_duration, llm_calls, llm_cost_usd, jobs_running, jobs_finished, evaluations }
+        Metrics { registry, http_requests, http_duration, llm_calls, llm_cost_usd, jobs_running, jobs_finished, evaluations, auth_logins, auth_password_checks }
     }
 
     pub fn render(&self) -> String {

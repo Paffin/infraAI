@@ -3,13 +3,16 @@
 //! * Passwords: Argon2id. Sessions: signed stateless tokens in an HttpOnly, SameSite cookie, so
 //!   any replica can serve any request; a per-user `session_version` revokes them.
 //! * Roles: `viewer` < `editor` < `admin`.
-//! * Brute force: per-account lockout (settings) + per-IP throttle on the login endpoint.
+//! * Brute force: a per-IP throttle and a lockout per (account, IP) with a higher ceiling for the account as a whole, both counted in PostgreSQL so that
+//!   every replica sees the same count; a sign-in costs the same work whether or not the account exists and answers the same.
 //! * CSRF: SameSite=Lax cookie + `Origin` check on state-changing requests.
 
 use crate::audit;
-use crate::crypto::{hash_password, verify_password};
+use crate::config::BootConfig;
+use crate::crypto::{dummy_hash, sha256_hex};
 use crate::error::{ApiError, ApiResult};
 use crate::json::Json;
+use crate::ratelimit::{self, Charge, Limit};
 use crate::state::AppState;
 use axum::extract::{ConnectInfo, FromRequestParts, Request, State};
 use axum::http::request::Parts;
@@ -19,7 +22,7 @@ use axum::response::Response;
 use axum_extra::extract::cookie::{Cookie, CookieJar, SameSite};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::net::SocketAddr;
+use std::net::{IpAddr, Ipv6Addr, SocketAddr};
 use std::time::{Duration, Instant};
 use uuid::Uuid;
 
@@ -137,18 +140,36 @@ impl FromRequestParts<AppState> for AuthUser {
     }
 }
 
-pub fn client_ip(headers: &HeaderMap, addr: Option<SocketAddr>, trust_proxy: bool) -> String {
-    if trust_proxy {
-        if let Some(v) = headers.get("x-forwarded-for").and_then(|v| v.to_str().ok()) {
-            if let Some(first) = v.split(',').next() {
-                let ip = first.trim();
-                if !ip.is_empty() {
-                    return ip.to_string();
-                }
-            }
-        }
+/// The address of the client. Without `TRUST_PROXY` that is the peer of the TCP connection, whatever the request says. Behind proxies it is the entry of
+/// `X-Forwarded-For` that the nearest trusted proxy wrote: `TRUST_PROXY_HOPS` entries from the **right**, because every proxy appends the address it saw,
+/// so the entries on the left are whatever the client chose to send and the first one is the easiest to forge. All the header lines count (a proxy such as
+/// HAProxy adds a second line instead of extending the first). A header that does not have that many entries, or whose entry is not an address, was not
+/// written by the proxies that were counted on: the peer it is.
+pub fn client_ip(headers: &HeaderMap, addr: Option<SocketAddr>, boot: &BootConfig) -> String {
+    let peer = addr.map(|a| a.ip().to_canonical().to_string()).unwrap_or_default();
+    if !boot.trust_proxy {
+        return peer;
     }
-    addr.map(|a| a.ip().to_string()).unwrap_or_default()
+    forwarded_client(headers, boot.trust_proxy_hops).unwrap_or(peer)
+}
+
+fn forwarded_client(headers: &HeaderMap, hops: usize) -> Option<String> {
+    let mut entries: Vec<&str> = vec![];
+    for line in headers.get_all("x-forwarded-for") {
+        entries.extend(line.to_str().ok()?.split(',').map(str::trim));
+    }
+    let entry = entries.get(entries.len().checked_sub(hops.max(1))?)?;
+    parse_forwarded_address(entry).map(|ip| ip.to_string())
+}
+
+/// `1.2.3.4`, `1.2.3.4:5678`, `2001:db8::1`, `[2001:db8::1]`, `[2001:db8::1]:443` (an IPv4 address written as IPv6 is the IPv4 address).
+fn parse_forwarded_address(entry: &str) -> Option<IpAddr> {
+    if entry.len() > 64 {
+        return None; // longer than any address with a port: not one, and not worth parsing
+    }
+    let ip =
+        entry.parse::<IpAddr>().ok().or_else(|| entry.parse::<SocketAddr>().ok().map(|a| a.ip())).or_else(|| entry.strip_prefix('[')?.strip_suffix(']')?.parse::<Ipv6Addr>().ok().map(IpAddr::V6))?;
+    Some(ip.to_canonical())
 }
 
 /// Reject cross-origin state-changing requests (CSRF). Requests without an `Origin` header
@@ -180,54 +201,110 @@ fn session_cookie(state: &AppState, token: String, ttl_hours: f64) -> Cookie<'st
     Cookie::build((COOKIE, token)).http_only(true).secure(state.boot.cookie_secure).same_site(SameSite::Lax).path("/").max_age(time::Duration::seconds((ttl_hours * 3600.0) as i64)).build()
 }
 
-/// At most `limit` sign-in attempts per IP and minute (`auth.loginsPerMinutePerIp`).
-fn throttle_ip(state: &AppState, ip: &str, limit: u32) -> ApiResult<()> {
-    let mut m = state.login_attempts.lock().unwrap();
-    let now = Instant::now();
-    m.retain(|_, (_, at)| now.duration_since(*at) < Duration::from_secs(60));
-    let e = m.entry(ip.to_string()).or_insert((0, now));
-    e.0 += 1;
-    if e.0 > limit {
-        return Err(ApiError::too_many("rate_limited", "too many sign-in attempts, try again later"));
-    }
-    Ok(())
+/// The longest e-mail address anything here takes: what `users_create` accepts, and what a sign-in looks at (a longer one is not an account's, and would
+/// otherwise be written to the audit log as the target of the attempt).
+pub const MAX_EMAIL_BYTES: usize = 200;
+
+fn locked(state: &AppState, retry_after_secs: u64) -> ApiError {
+    state.metrics.auth_logins.with_label_values(&["locked"]).inc();
+    ApiError::too_many("locked", "account is temporarily locked after repeated failures").with_retry_after(retry_after_secs)
+}
+
+/// The key under which the wrong current passwords of one signed-in user are counted.
+pub fn pwchange_key(user: Uuid) -> String {
+    format!("login:pwchange:{user}")
+}
+
+/// The key under which the failures of an account are counted: a digest of the address, whether or not there is such an account (so a sign-in for an
+/// address that has none is counted, and locked, the same way, and the lock tells nothing), and short enough not to be the address itself.
+pub fn failure_key(email: &str) -> String {
+    format!("login:fail:{}", &sha256_hex(email.as_bytes())[..32])
 }
 
 pub async fn login(State(state): State<AppState>, ConnectInfo(addr): ConnectInfo<SocketAddr>, headers: HeaderMap, jar: CookieJar, Json(body): Json<LoginBody>) -> ApiResult<(CookieJar, Json<Value>)> {
-    let ip = client_ip(&headers, Some(addr), state.boot.trust_proxy);
-    let cfg = state.cfg().await?;
-    throttle_ip(&state, &ip, cfg.settings.num("auth.loginsPerMinutePerIp") as u32)?;
+    let ip = client_ip(&headers, Some(addr), &state.boot);
     let email = body.email.trim().to_lowercase();
-    let row: Option<(Uuid, String, String, String, bool, bool, i32, i32, Option<chrono::DateTime<chrono::Utc>>)> =
-        sqlx::query_as("select id, password_hash, name, role, disabled, must_change_password, session_version, failed_attempts, locked_until from users where lower(email) = $1")
-            .bind(&email)
-            .fetch_optional(&state.pool)
-            .await?;
+    // before anything is counted or written: an address that long is nobody's
+    if email.is_empty() || email.len() > MAX_EMAIL_BYTES {
+        return Err(ApiError::bad_request("invalid_email", "invalid email"));
+    }
+    let cfg = state.cfg().await?;
+    let s = &cfg.settings;
+    let outcome = &state.metrics.auth_logins;
 
-    let Some((id, hash, name, role, disabled, must_change, ver, failed, locked)) = row else {
-        // equalise timing for unknown accounts
-        let _ = verify_password(&body.password, "$argon2id$v=19$m=19456,t=2,p=1$c29tZXNhbHRzb21lc2FsdA$ZHVtbXlkdW1teWR1bW15ZHVtbXlkdW1teWR1bW15ZHU");
-        audit::log(&state.pool, None, "auth.login_failed", "user", &email, json!({"reason": "unknown"}), &ip).await;
+    // 1. Every attempt from an address counts, whoever it is for and however it ends (`auth.loginsPerMinutePerIp`).
+    let per_ip = Limit { window_secs: 60.0, max: s.num("auth.loginsPerMinutePerIp") as i32, lock_secs: 0.0 };
+    if let Charge::Refused { retry_after_secs } = ratelimit::charge(&state.pool, &format!("login:ip:{ip}"), per_ip).await? {
+        outcome.with_label_values(&["throttled"]).inc();
+        return Err(ApiError::too_many("rate_limited", "too many sign-in attempts, try again later").with_retry_after(retry_after_secs));
+    }
+
+    // 2. The attempt is paid for BEFORE the password is looked at and given back if it was right: that is what makes "at most N guesses per window" true
+    //    when twenty come at the same moment (counting the failures afterwards lets all twenty be checked). A failure of one address against one account
+    //    locks that pair; the account as a whole has a higher ceiling that only guesses from many addresses reach. An address that is locked is refused
+    //    without being charged to the account, or one address could use up the account's ceiling alone.
+    let max_failed = s.num("auth.maxFailedAttempts") as i32;
+    let lock_secs = s.num("auth.lockoutMinutes") * 60.0;
+    let per_account_and_ip = s.str("auth.lockoutScope") != "account";
+    let account_key = failure_key(&email);
+    let pair_key = per_account_and_ip.then(|| format!("{account_key}:{ip}"));
+    let mut tripped = None; // the lock this attempt closed, if it did
+    if let Some(key) = &pair_key {
+        match ratelimit::charge(&state.pool, key, Limit { window_secs: lock_secs, max: max_failed, lock_secs }).await? {
+            Charge::Refused { retry_after_secs } => return Err(locked(&state, retry_after_secs)),
+            Charge::Admitted { tripped: true, .. } => tripped = Some("address"),
+            Charge::Admitted { .. } => {}
+        }
+    }
+    let ceiling = if pair_key.is_some() { (s.num("auth.maxFailedAttemptsPerAccount") as i32).max(max_failed) } else { max_failed };
+    match ratelimit::charge(&state.pool, &account_key, Limit { window_secs: lock_secs, max: ceiling, lock_secs }).await? {
+        Charge::Refused { retry_after_secs } => return Err(locked(&state, retry_after_secs)),
+        Charge::Admitted { tripped: true, .. } => tripped = Some("account"),
+        Charge::Admitted { .. } => {}
+    }
+
+    // 3. One password check, with the same cost for every answer: the hash of the account, or a dummy of the same cost when there is no such account; a
+    //    disabled account is checked too (and refused whatever the password is).
+    type UserRow = (Uuid, String, String, String, bool, bool, i32);
+    let row: Option<UserRow> =
+        sqlx::query_as("select id, password_hash, name, role, disabled, must_change_password, session_version from users where lower(email) = $1").bind(&email).fetch_optional(&state.pool).await?;
+    let hash = row.as_ref().map(|r| r.1.clone()).unwrap_or_else(|| dummy_hash().to_string());
+    let password_ok = state.passwords.verify(body.password, hash).await;
+    let reason = match &row {
+        None => "unknown",
+        Some(r) if r.4 => "disabled",
+        Some(_) => "password",
+    };
+
+    let Some((id, _, name, role, _, must_change, ver)) = row.filter(|_| password_ok && reason == "password") else {
+        outcome.with_label_values(&["failed"]).inc();
+        audit::log(&state.pool, None, "auth.login_failed", "user", &email, json!({"reason": reason}), &ip).await;
+        if let Some(scope) = tripped {
+            // the administrator sees it in the list of users (the lock itself is in `rate_limits`; for an address with no account there is nothing to mirror)
+            let mirrored = sqlx::query("update users set locked_until = greatest(coalesce(locked_until, now()), now() + make_interval(secs => $2::float8)) where lower(email) = $1")
+                .bind(&email)
+                .bind(lock_secs)
+                .execute(&state.pool)
+                .await;
+            if let Err(e) = mirrored {
+                tracing::warn!(error = %e, "could not show the lock in the list of users");
+            }
+            audit::log(&state.pool, None, "auth.locked", "user", &email, json!({"scope": scope, "minutes": lock_secs / 60.0}), &ip).await;
+        }
         return Err(ApiError::unauthorized("invalid email or password"));
     };
-    if let Some(until) = locked {
-        if until > chrono::Utc::now() {
-            return Err(ApiError::too_many("locked", "account is temporarily locked after repeated failures"));
+
+    // 4. Right: the failures of this address are forgotten; the account's ceiling gets this attempt back but is not reset, or every sign-in of the owner
+    //    would wipe the guesses somebody else made (with the account as the scope there is only one counter, and it starts again, as it always did).
+    match &pair_key {
+        Some(key) => {
+            ratelimit::clear(&state.pool, key).await?;
+            ratelimit::refund(&state.pool, &account_key).await?;
         }
+        None => ratelimit::clear(&state.pool, &account_key).await?,
     }
-    if disabled || !verify_password(&body.password, &hash) {
-        let max = cfg.settings.num("auth.maxFailedAttempts") as i32;
-        let lock_min = cfg.settings.num("auth.lockoutMinutes") as i64;
-        let new_failed = failed + 1;
-        if new_failed >= max {
-            sqlx::query("update users set failed_attempts = 0, locked_until = now() + ($2 || ' minutes')::interval where id = $1").bind(id).bind(lock_min.to_string()).execute(&state.pool).await?;
-        } else {
-            sqlx::query("update users set failed_attempts = $2 where id = $1").bind(id).bind(new_failed).execute(&state.pool).await?;
-        }
-        audit::log(&state.pool, None, "auth.login_failed", "user", &email, json!({"reason": if disabled { "disabled" } else { "password" }}), &ip).await;
-        return Err(ApiError::unauthorized("invalid email or password"));
-    }
-    sqlx::query("update users set failed_attempts = 0, locked_until = null, last_login_at = now() where id = $1").bind(id).execute(&state.pool).await?;
+    sqlx::query("update users set last_login_at = now() where id = $1").bind(id).execute(&state.pool).await?;
+    outcome.with_label_values(&["ok"]).inc();
     let ttl = cfg.settings.num("auth.sessionTtlHours").max(1.0);
     let payload = serde_json::to_vec(&SessionPayload { u: id, e: chrono::Utc::now().timestamp() + (ttl * 3600.0) as i64, v: ver }).map_err(ApiError::internal)?;
     let token = state.keys.sign(&payload);
@@ -262,11 +339,19 @@ pub async fn change_password(
 ) -> ApiResult<(CookieJar, Json<Value>)> {
     let cfg = state.cfg().await?;
     check_password_policy(&cfg.settings, &b.new)?;
+    // somebody holding a session (a stolen cookie, a screen left open) must not be able to guess the current password for ever: the wrong ones are counted
+    // like the failures of a sign-in and lock this, not the sign-in itself, for as long
+    let lock_secs = cfg.settings.num("auth.lockoutMinutes") * 60.0;
+    let key = pwchange_key(user.id);
+    if let Charge::Refused { retry_after_secs } = ratelimit::charge(&state.pool, &key, Limit { window_secs: lock_secs, max: cfg.settings.num("auth.maxFailedAttempts") as i32, lock_secs }).await? {
+        return Err(ApiError::too_many("locked", "too many wrong passwords, try again later").with_retry_after(retry_after_secs));
+    }
     let (hash,): (String,) = sqlx::query_as("select password_hash from users where id = $1").bind(user.id).fetch_one(&state.pool).await?;
-    if !verify_password(&b.current, &hash) {
+    if !state.passwords.verify(b.current, hash).await {
         return Err(ApiError::bad_request("wrong_password", "current password is incorrect"));
     }
-    let new_hash = hash_password(&b.new)?;
+    ratelimit::clear(&state.pool, &key).await?;
+    let new_hash = state.passwords.hash(b.new).await?;
     let (ver,): (i32,) = sqlx::query_as("update users set password_hash = $2, must_change_password = false, session_version = session_version + 1 where id = $1 returning session_version")
         .bind(user.id)
         .bind(new_hash)
@@ -276,7 +361,7 @@ pub async fn change_password(
     let ttl = cfg.settings.num("auth.sessionTtlHours").max(1.0);
     let payload = serde_json::to_vec(&SessionPayload { u: user.id, e: chrono::Utc::now().timestamp() + (ttl * 3600.0) as i64, v: ver }).map_err(ApiError::internal)?;
     let token = state.keys.sign(&payload);
-    audit::log(&state.pool, Some(&user), "auth.password_changed", "user", &user.id.to_string(), json!({}), &client_ip(&headers, Some(addr), state.boot.trust_proxy)).await;
+    audit::log(&state.pool, Some(&user), "auth.password_changed", "user", &user.id.to_string(), json!({}), &client_ip(&headers, Some(addr), &state.boot)).await;
     Ok((jar.add(session_cookie(&state, token, ttl)), Json(json!({"ok": true}))))
 }
 
@@ -290,4 +375,75 @@ pub fn check_password_policy(settings: &crate::settings::Settings, pw: &str) -> 
         return Err(ApiError::bad_request("weak_password", "password is too simple"));
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::http::HeaderValue;
+
+    fn boot(trust: bool, hops: usize) -> BootConfig {
+        let vars = [("DATABASE_URL", "postgres://x@localhost/x".to_string()), ("APP_ENV", "test".to_string()), ("TRUST_PROXY", trust.to_string()), ("TRUST_PROXY_HOPS", hops.to_string())];
+        BootConfig::from_lookup(&|k| vars.iter().find(|(name, _)| *name == k).map(|(_, v)| v.clone())).unwrap()
+    }
+
+    fn peer() -> Option<SocketAddr> {
+        Some("10.0.0.7:55555".parse().unwrap())
+    }
+
+    fn forwarded(lines: &[&str]) -> HeaderMap {
+        let mut h = HeaderMap::new();
+        for l in lines {
+            h.append("x-forwarded-for", HeaderValue::from_str(l).unwrap());
+        }
+        h
+    }
+
+    #[test]
+    fn client_ip_is_the_peer_unless_a_proxy_is_trusted() {
+        // a forged header means nothing to a server that is not behind a proxy
+        assert_eq!(client_ip(&forwarded(&["1.1.1.1"]), peer(), &boot(false, 1)), "10.0.0.7");
+        assert_eq!(client_ip(&HeaderMap::new(), peer(), &boot(true, 1)), "10.0.0.7", "no header: the peer");
+        assert_eq!(client_ip(&HeaderMap::new(), None, &boot(false, 1)), "");
+    }
+
+    #[test]
+    fn client_ip_counts_entries_from_the_right_never_from_the_left() {
+        let h = forwarded(&["1.1.1.1, 2.2.2.2"]);
+        assert_eq!(client_ip(&h, peer(), &boot(true, 1)), "2.2.2.2", "one proxy: the address it saw is the last entry");
+        assert_eq!(client_ip(&h, peer(), &boot(true, 2)), "1.1.1.1", "two proxies");
+        // the client writes whatever it likes in front of what the proxy appended
+        assert_eq!(client_ip(&forwarded(&["6.6.6.6, 7.7.7.7, 2.2.2.2"]), peer(), &boot(true, 1)), "2.2.2.2");
+        assert_eq!(client_ip(&forwarded(&["6.6.6.6"]), peer(), &boot(true, 1)), "6.6.6.6", "a proxy that replaces the header leaves one entry");
+    }
+
+    #[test]
+    fn client_ip_joins_the_header_lines() {
+        // HAProxy `option forwardfor` adds a line; the client's own line comes first
+        let h = forwarded(&["6.6.6.6", "2.2.2.2"]);
+        assert_eq!(client_ip(&h, peer(), &boot(true, 1)), "2.2.2.2");
+        assert_eq!(client_ip(&h, peer(), &boot(true, 2)), "6.6.6.6");
+    }
+
+    #[test]
+    fn client_ip_falls_back_to_the_peer_when_the_header_is_not_what_the_proxies_wrote() {
+        let b = boot(true, 2);
+        assert_eq!(client_ip(&forwarded(&["2.2.2.2"]), peer(), &b), "10.0.0.7", "fewer entries than proxies");
+        assert_eq!(client_ip(&forwarded(&["1.1.1.1, not-an-ip"]), peer(), &boot(true, 1)), "10.0.0.7", "not an address");
+        assert_eq!(client_ip(&forwarded(&[&format!("1.1.1.1, {}", "9".repeat(5000))]), peer(), &boot(true, 1)), "10.0.0.7", "a 5000-character entry");
+        assert_eq!(client_ip(&forwarded(&["1.1.1.1, "]), peer(), &boot(true, 1)), "10.0.0.7", "an empty entry");
+        let mut raw = HeaderMap::new();
+        raw.insert("x-forwarded-for", HeaderValue::from_bytes(b"1.1.1.1, \xff\xfe").unwrap());
+        assert_eq!(client_ip(&raw, peer(), &boot(true, 1)), "10.0.0.7", "not text");
+    }
+
+    #[test]
+    fn client_ip_reads_ports_and_brackets_and_writes_one_form_per_address() {
+        let one = boot(true, 1);
+        assert_eq!(client_ip(&forwarded(&["2.2.2.2:443"]), peer(), &one), "2.2.2.2");
+        assert_eq!(client_ip(&forwarded(&["[2001:db8::1]:443"]), peer(), &one), "2001:db8::1");
+        assert_eq!(client_ip(&forwarded(&["[2001:db8::1]"]), peer(), &one), "2001:db8::1");
+        assert_eq!(client_ip(&forwarded(&["2001:DB8:0:0:0:0:0:1"]), peer(), &one), "2001:db8::1", "the same address is the same key however it is written");
+        assert_eq!(client_ip(&forwarded(&["::ffff:2.2.2.2"]), peer(), &one), "2.2.2.2", "an IPv4 address written as IPv6");
+    }
 }

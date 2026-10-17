@@ -156,8 +156,7 @@ pub async fn create(State(state): State<AppState>, user: AuthUser, ConnectInfo(a
         .execute(&mut *tx)
         .await?;
     tx.commit().await?;
-    audit::log(&state.pool, Some(&user), "project.create", "project", &id.to_string(), json!({"name": name, "template": b.template_id}), &client_ip(&headers, Some(addr), state.boot.trust_proxy))
-        .await;
+    audit::log(&state.pool, Some(&user), "project.create", "project", &id.to_string(), json!({"name": name, "template": b.template_id}), &client_ip(&headers, Some(addr), &state.boot)).await;
     Ok(Json(json!({"id": id})))
 }
 
@@ -328,7 +327,7 @@ pub async fn delete(State(state): State<AppState>, user: AuthUser, ConnectInfo(a
     }
     // soft delete: recoverable by an administrator until the retention job purges it
     sqlx::query("update projects set deleted_at = now() where id = $1").bind(id).execute(&state.pool).await?;
-    audit::log(&state.pool, Some(&user), "project.delete", "project", &id.to_string(), json!({}), &client_ip(&headers, Some(addr), state.boot.trust_proxy)).await;
+    audit::log(&state.pool, Some(&user), "project.delete", "project", &id.to_string(), json!({}), &client_ip(&headers, Some(addr), &state.boot)).await;
     Ok(Json(json!({"ok": true})))
 }
 
@@ -485,8 +484,7 @@ pub async fn restore_version(
         let (new_rev,): (i64,) =
             sqlx::query_as("update projects set draft = $2, draft_rev = draft_rev + 1, updated_at = now() where id = $1 returning draft_rev").bind(id).bind(&target).fetch_one(&mut *tx).await?;
         tx.commit().await?;
-        audit::log(&state.pool, Some(&user), "project.restore", "project", &id.to_string(), json!({"version": n, "snapshot": snapshot}), &client_ip(&headers, Some(addr), state.boot.trust_proxy))
-            .await;
+        audit::log(&state.pool, Some(&user), "project.restore", "project", &id.to_string(), json!({"version": n, "snapshot": snapshot}), &client_ip(&headers, Some(addr), &state.boot)).await;
         return Ok(Json(json!({"rev": new_rev, "snapshot": snapshot})));
     }
     Err(ApiError::conflict("conflict", "the project keeps changing; try again"))
@@ -583,7 +581,7 @@ pub async fn create_waiver(
         "project",
         &id.to_string(),
         json!({"fingerprint": b.fingerprint, "rule": rule_id, "days": days}),
-        &client_ip(&headers, Some(addr), state.boot.trust_proxy),
+        &client_ip(&headers, Some(addr), &state.boot),
     )
     .await;
     Ok(Json(json!({"id": wid})))

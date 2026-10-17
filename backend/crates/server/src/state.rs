@@ -4,7 +4,7 @@
 use crate::auth::CachedUser;
 use crate::config::BootConfig;
 use crate::config_store::{ConfigCache, Loaded};
-use crate::crypto::Keys;
+use crate::crypto::{Keys, PasswordGate};
 use crate::error::ApiError;
 use crate::jobs::JobRunner;
 use crate::metrics::Metrics;
@@ -28,7 +28,8 @@ pub struct AppState {
     pub shutting_down: Arc<AtomicBool>,
     pub started_at: Instant,
     pub user_cache: Arc<Mutex<HashMap<Uuid, (CachedUser, Instant)>>>,
-    pub login_attempts: Arc<Mutex<HashMap<String, (u32, Instant)>>>,
+    /// Where passwords are hashed and checked: off the async workers, a bounded number at a time.
+    pub passwords: Arc<PasswordGate>,
     pub models_cache: Arc<tokio::sync::Mutex<Option<(Instant, Value)>>>,
 }
 

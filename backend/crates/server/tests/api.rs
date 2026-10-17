@@ -2297,3 +2297,443 @@ async fn missing_asset_is_404_without_immutable_cache() {
     app.cleanup().await;
     let _ = std::fs::remove_dir_all(web);
 }
+
+// ------------------------------------------------------------------ authentication: what a sign-in answers, who it locks out, what it costs
+
+/// Argon2 verifications done so far (`/metrics`). Every sign-in that reaches a password check costs exactly one, whatever the account is.
+const PASSWORD_CHECKS: &str = "infra_auth_password_checks_total";
+
+/// The key under which the server counts the failures of one account (a digest of the e-mail address, never the address itself).
+fn account_key(email: &str) -> String {
+    format!("login:fail:{}", &server::crypto::sha256_hex(email.trim().to_lowercase().as_bytes())[..32])
+}
+
+/// `n` calls at the same moment, each on its own task (the runtime of the test must be multi-threaded).
+async fn concurrently<T, F, Fut>(app: &std::sync::Arc<TestApp>, n: usize, f: F) -> Vec<T>
+where
+    F: Fn(std::sync::Arc<TestApp>, usize) -> Fut,
+    Fut: std::future::Future<Output = T> + Send + 'static,
+    T: Send + 'static,
+{
+    let tasks: Vec<_> = (0..n).map(|i| tokio::spawn(f(app.clone(), i))).collect();
+    let mut out = vec![];
+    for t in tasks {
+        out.push(t.await.unwrap());
+    }
+    out
+}
+
+async fn user_id(app: &TestApp, admin: &str, email: &str) -> String {
+    let (_, users) = app.get(admin, "/api/admin/users").await;
+    users["users"].as_array().unwrap().iter().find(|u| u["email"] == email).unwrap_or_else(|| panic!("{email} is not in {users}"))["id"].as_str().unwrap().to_string()
+}
+
+async fn locked_until(app: &TestApp, admin: &str, email: &str) -> Value {
+    let (_, users) = app.get(admin, "/api/admin/users").await;
+    users["users"].as_array().unwrap().iter().find(|u| u["email"] == email).unwrap()["lockedUntil"].clone()
+}
+
+#[tokio::test]
+async fn login_answers_are_identical_for_unknown_wrong_password_and_disabled() {
+    let app = TestApp::new().await;
+    let admin = app.login_admin().await;
+    app.create_user(&admin, "active@test.local", "editor").await;
+    app.create_user(&admin, "off@test.local", "editor").await;
+    let off = user_id(&app, &admin, "off@test.local").await;
+    let (s, v) = app.patch(&admin, &format!("/api/admin/users/{off}"), json!({"disabled": true})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+
+    // an unknown address, a wrong password, a disabled account with the wrong and with the right password: one answer, and one password check each
+    let cases = [("nobody@test.local", "wrong password!!"), ("active@test.local", "wrong password!!"), ("off@test.local", "wrong password!!"), ("off@test.local", "another long password 1")];
+    let mut answers = vec![];
+    for (email, password) in cases {
+        let before = app.metric(PASSWORD_CHECKS).await;
+        let (s, cookie, v) = app.login_as(email, password).await;
+        assert!(cookie.is_none(), "{email}: no session for a refused sign-in");
+        assert_eq!(app.metric(PASSWORD_CHECKS).await - before, 1.0, "{email} / {password}: exactly one password check, so every answer costs the same");
+        answers.push((email, s, v));
+    }
+    for (email, s, v) in &answers {
+        assert_eq!(*s, StatusCode::UNAUTHORIZED, "{email}: {v}");
+        assert_eq!(v, &answers[0].2, "{email}: the body tells nothing about the account");
+    }
+    app.cleanup().await;
+}
+
+#[tokio::test]
+async fn refused_sign_ins_do_no_hashing_and_look_the_same_for_unknown_and_known_emails() {
+    let app = TestApp::new().await;
+    // five failures from one address lock the pair (account, address) — for an address nobody has an account for as well
+    for email in ["admin@test.local", "ghost@test.local"] {
+        for _ in 0..5 {
+            let (s, _, _) = app.login_as(email, "wrong password!!").await;
+            assert_eq!(s, StatusCode::UNAUTHORIZED, "{email}");
+        }
+    }
+    let before = app.metric(PASSWORD_CHECKS).await;
+    let (s_known, cookie, known) = app.login_as("admin@test.local", "correct horse battery staple").await;
+    let (s_unknown, _, unknown) = app.login_as("ghost@test.local", "any password at all").await;
+    assert_eq!((s_known, s_unknown), (StatusCode::TOO_MANY_REQUESTS, StatusCode::TOO_MANY_REQUESTS), "{known} / {unknown}");
+    assert!(cookie.is_none());
+    assert_eq!(known["error"]["code"], "locked");
+    assert_eq!(known, unknown, "a locked account and a locked unknown address read the same");
+    assert_eq!(app.metric(PASSWORD_CHECKS).await, before, "a refused sign-in does not hash: the lock is not a way to make the server work");
+
+    // the same for the throttle of the address
+    let app2 = TestApp::new().await;
+    let admin = app2.login_admin().await;
+    let (s, v) = app2.put(&admin, "/api/admin/settings", json!({"changes": {"auth.loginsPerMinutePerIp": 3}})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    for i in 0..2 {
+        let (s, _, _) = app2.login_from("10.1.1.1", &[], &format!("nobody{i}@test.local"), "wrong password!!").await;
+        assert_eq!(s, StatusCode::UNAUTHORIZED);
+    }
+    let before = app2.metric(PASSWORD_CHECKS).await;
+    let (s, _, v) = app2.login_from("10.1.1.1", &[], "nobody9@test.local", "wrong password!!").await;
+    assert_eq!(s, StatusCode::UNAUTHORIZED, "{v}");
+    let (s, _, v) = app2.login_from("10.1.1.1", &[], "nobody9@test.local", "wrong password!!").await;
+    assert_eq!(s, StatusCode::TOO_MANY_REQUESTS, "{v}");
+    assert_eq!(v["error"]["code"], "rate_limited");
+    assert_eq!(app2.metric(PASSWORD_CHECKS).await - before, 1.0, "only the attempt that was let through is hashed");
+    app.cleanup().await;
+    app2.cleanup().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn parallel_wrong_passwords_lock_after_exactly_the_limit() {
+    let app = std::sync::Arc::new(TestApp::new().await);
+    let admin = app.login_admin().await;
+    app.create_user(&admin, "victim@test.local", "editor").await;
+    let before = app.metric(PASSWORD_CHECKS).await;
+
+    let answers = concurrently(&app, 20, |app, _| async move { app.login_as("victim@test.local", "wrong password!!").await }).await;
+    let wrong = answers.iter().filter(|(s, _, _)| *s == StatusCode::UNAUTHORIZED).count();
+    let locked = answers.iter().filter(|(s, _, v)| *s == StatusCode::TOO_MANY_REQUESTS && v["error"]["code"] == "locked").count();
+    assert_eq!(
+        (wrong, locked),
+        (5, 15),
+        "20 attempts at the same moment: exactly auth.maxFailedAttempts are checked, the others are refused: {:?}",
+        answers.iter().map(|a| a.0.as_u16()).collect::<Vec<_>>()
+    );
+    assert_eq!(app.metric(PASSWORD_CHECKS).await - before, 5.0, "so no more than five guesses were ever made, however many came at once");
+    assert_ne!(locked_until(&app, &admin, "victim@test.local").await, Value::Null, "the administrator sees the lock");
+    let (s, _, v) = app.login_as("victim@test.local", "another long password 1").await;
+    assert_eq!(s, StatusCode::TOO_MANY_REQUESTS, "the right password does not open a locked account: {v}");
+
+    let app = std::sync::Arc::try_unwrap(app).ok().expect("the tasks are done");
+    app.cleanup().await;
+}
+
+#[tokio::test]
+async fn one_address_cannot_lock_an_account_for_everybody() {
+    let app = TestApp::new().await;
+    let admin = app.login_admin().await;
+    app.create_user(&admin, "alice@test.local", "editor").await;
+    app.create_user(&admin, "bob@test.local", "editor").await;
+    for _ in 0..5 {
+        let (s, _, _) = app.login_from("10.0.0.1", &[], "alice@test.local", "wrong password!!").await;
+        assert_eq!(s, StatusCode::UNAUTHORIZED);
+    }
+    let (s, _, v) = app.login_from("10.0.0.1", &[], "alice@test.local", "another long password 1").await;
+    assert_eq!((s, v["error"]["code"].as_str()), (StatusCode::TOO_MANY_REQUESTS, Some("locked")), "the attacker's own address is locked out: {v}");
+    let (s, cookie, v) = app.login_from("10.0.0.2", &[], "alice@test.local", "another long password 1").await;
+    assert_eq!(s, StatusCode::OK, "another address still signs in: {v}");
+    assert!(cookie.is_some());
+
+    // the setting that makes the lock the account's: five failures from anywhere lock it for everybody (the behaviour before the scope existed)
+    let (s, v) = app.put(&admin, "/api/admin/settings", json!({"changes": {"auth.lockoutScope": "account"}})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    for _ in 0..5 {
+        let (s, _, _) = app.login_from("10.0.0.1", &[], "bob@test.local", "wrong password!!").await;
+        assert_eq!(s, StatusCode::UNAUTHORIZED);
+    }
+    let (s, _, v) = app.login_from("10.0.0.2", &[], "bob@test.local", "another long password 1").await;
+    assert_eq!((s, v["error"]["code"].as_str()), (StatusCode::TOO_MANY_REQUESTS, Some("locked")), "with the account as the scope the lock is for everybody: {v}");
+    app.cleanup().await;
+}
+
+#[tokio::test]
+async fn a_distributed_guess_hits_the_account_ceiling() {
+    let app = TestApp::new().await;
+    let admin = app.login_admin().await;
+    app.create_user(&admin, "carol@test.local", "editor").await;
+    // two failures lock one address; six failures, from wherever, lock the account
+    let (s, v) = app.put(&admin, "/api/admin/settings", json!({"changes": {"auth.maxFailedAttempts": 2, "auth.maxFailedAttemptsPerAccount": 6}})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+
+    // one address alone never pushes the account counter beyond the limit of an address
+    for i in 0..6 {
+        let (s, _, v) = app.login_from("10.0.1.1", &[], "carol@test.local", "wrong password!!").await;
+        let want = if i < 2 { StatusCode::UNAUTHORIZED } else { StatusCode::TOO_MANY_REQUESTS };
+        assert_eq!(s, want, "attempt {i}: {v}");
+    }
+    let (count,): (i32,) = sqlx::query_as("select count from rate_limits where key = $1").bind(account_key("carol@test.local")).fetch_one(&app.state.pool).await.unwrap();
+    assert_eq!(count, 2, "a locked address is refused without being charged to the account");
+
+    // two more addresses with two failures each reach six
+    for ip in ["10.0.1.2", "10.0.1.3"] {
+        for _ in 0..2 {
+            let (s, _, v) = app.login_from(ip, &[], "carol@test.local", "wrong password!!").await;
+            assert_eq!(s, StatusCode::UNAUTHORIZED, "{v}");
+        }
+    }
+    let (s, _, v) = app.login_from("10.0.1.4", &[], "carol@test.local", "another long password 1").await;
+    assert_eq!((s, v["error"]["code"].as_str()), (StatusCode::TOO_MANY_REQUESTS, Some("locked")), "a guess spread over addresses meets the ceiling of the account: {v}");
+    app.cleanup().await;
+}
+
+#[tokio::test]
+async fn reset_password_clears_the_lock() {
+    let app = TestApp::new().await;
+    let admin = app.login_admin().await;
+    app.create_user(&admin, "dave@test.local", "editor").await;
+    for _ in 0..5 {
+        let (s, _, _) = app.login_from("10.0.2.1", &[], "dave@test.local", "wrong password!!").await;
+        assert_eq!(s, StatusCode::UNAUTHORIZED);
+    }
+    assert_ne!(locked_until(&app, &admin, "dave@test.local").await, Value::Null);
+    let id = user_id(&app, &admin, "dave@test.local").await;
+    let (s, v) = app.post(&admin, &format!("/api/admin/users/{id}/reset-password"), json!({"password": "a brand new password 77"})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    assert_eq!(locked_until(&app, &admin, "dave@test.local").await, Value::Null);
+    let (s, _, v) = app.login_from("10.0.2.1", &[], "dave@test.local", "a brand new password 77").await;
+    assert_eq!(s, StatusCode::OK, "the administrator's reset is the way to unlock an account, at once, for every address: {v}");
+    app.cleanup().await;
+}
+
+#[tokio::test]
+async fn login_throttle_is_shared_between_replicas() {
+    let first = TestApp::new().await;
+    let admin = first.login_admin().await;
+    let (s, v) = first.put(&admin, "/api/admin/settings", json!({"changes": {"auth.loginsPerMinutePerIp": 3}})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    let second = first.second_instance().await; // after the change: it reads the limit when it starts
+                                                // one address, six attempts, thrown at the two replicas in turn: the fourth is refused wherever it lands
+    let mut statuses = vec![];
+    for i in 0..6 {
+        let replica = if i % 2 == 0 { &first } else { &second };
+        let (s, _, _) = replica.login_from("10.0.3.1", &[], &format!("nobody{i}@test.local"), "wrong password!!").await;
+        statuses.push(s.as_u16());
+    }
+    assert_eq!(statuses, vec![401, 401, 401, 429, 429, 429], "the count is in the database, not in the process");
+    second.cleanup().await;
+    first.cleanup().await;
+}
+
+#[tokio::test]
+async fn forged_forwarded_for_does_not_raise_the_limit() {
+    let app = TestApp::with_boot(|b| b.trust_proxy = true).await;
+    let admin = app.login_admin().await;
+    let (s, v) = app.put(&admin, "/api/admin/settings", json!({"changes": {"auth.loginsPerMinutePerIp": 3}})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    // the proxy (the peer) appends the address it saw, 9.9.9.9; whatever the client wrote before it is the client's to forge
+    let mut statuses = vec![];
+    for i in 0..5 {
+        let forged = format!("10.20.30.{i}, 9.9.9.9");
+        let (s, _, _) = app.login_from("172.16.0.5", &[("x-forwarded-for", &forged)], &format!("nobody{i}@test.local"), "wrong password!!").await;
+        statuses.push(s.as_u16());
+    }
+    assert_eq!(statuses, vec![401, 401, 401, 429, 429], "a new first entry on every request is still one client");
+    app.cleanup().await;
+}
+
+#[tokio::test]
+async fn oversized_input_is_rejected_before_it_is_stored() {
+    let app = TestApp::new().await;
+    let long = format!("{}@test.local", "a".repeat(190)); // 201 characters
+    let huge = format!("{}@test.local", "b".repeat(1_000_000));
+    for email in [long.as_str(), huge.as_str(), ""] {
+        let (s, _, v) = app.login_as(email, "wrong password!!").await;
+        assert_eq!((s, v["error"]["code"].as_str()), (StatusCode::BAD_REQUEST, Some("invalid_email")), "{} characters: {v}", email.len());
+    }
+    let (n,): (i64,) = sqlx::query_as("select count(*) from audit_log where length(target_id) > 300").fetch_one(&app.state.pool).await.unwrap();
+    assert_eq!(n, 0, "the audit log does not take what the client sent");
+    let (n,): (i64,) = sqlx::query_as("select count(*) from rate_limits").fetch_one(&app.state.pool).await.unwrap();
+    assert_eq!(n, 0, "and neither do the counters");
+    // an address of exactly the length users_create allows is an address like any other
+    let fits = format!("{}@test.local", "c".repeat(189)); // 200
+    let (s, _, _) = app.login_as(&fits, "wrong password!!").await;
+    assert_eq!(s, StatusCode::UNAUTHORIZED);
+    app.cleanup().await;
+}
+
+#[tokio::test]
+async fn a_wrong_current_password_counts_towards_a_lock() {
+    let app = TestApp::new().await;
+    let admin = app.login_admin().await;
+    let cookie = app.create_user(&admin, "erin@test.local", "editor").await;
+    // somebody holding a session cannot guess the current password for ever
+    for _ in 0..5 {
+        let (s, v) = app.post(&cookie, "/api/auth/password", json!({"current": "wrong password!!", "new": "a brand new password 88"})).await;
+        assert_eq!((s, v["error"]["code"].as_str()), (StatusCode::BAD_REQUEST, Some("wrong_password")), "{v}");
+    }
+    let (s, v) = app.post(&cookie, "/api/auth/password", json!({"current": "another long password 1", "new": "a brand new password 88"})).await;
+    assert_eq!((s, v["error"]["code"].as_str()), (StatusCode::TOO_MANY_REQUESTS, Some("locked")), "{v}");
+    // the administrator's reset opens it again
+    let id = user_id(&app, &admin, "erin@test.local").await;
+    let (s, v) = app.post(&admin, &format!("/api/admin/users/{id}/reset-password"), json!({"password": "temporary password 99"})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    let (s, cookie, v) = app.login_as("erin@test.local", "temporary password 99").await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    let (s, v) = app.post(&cookie.unwrap(), "/api/auth/password", json!({"current": "temporary password 99", "new": "a brand new password 88"})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    app.cleanup().await;
+}
+
+#[tokio::test]
+async fn hops_two_takes_the_second_entry_from_the_right() {
+    // a load balancer in front of an ingress: the ingress appends the address it saw (the balancer's), the balancer appended the client's
+    let app = TestApp::with_boot(|b| {
+        b.trust_proxy = true;
+        b.trust_proxy_hops = 2;
+    })
+    .await;
+    let admin = app.login_admin().await;
+    let (s, v) = app.put(&admin, "/api/admin/settings", json!({"changes": {"auth.loginsPerMinutePerIp": 3}})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    let mut statuses = vec![];
+    for i in 0..5 {
+        // a different forged first entry, and a different last one (the address of the balancer, as its replicas differ): the client is the second from the right
+        let chain = format!("10.20.30.{i}, 8.8.8.8, 172.16.0.{i}");
+        let (s, _, _) = app.login_from("172.16.9.9", &[("x-forwarded-for", &chain)], &format!("nobody{i}@test.local"), "wrong password!!").await;
+        statuses.push(s.as_u16());
+    }
+    assert_eq!(statuses, vec![401, 401, 401, 429, 429]);
+    // and a client that shows up with a chain that is too short for two proxies is the peer, not the one entry it wrote
+    for i in 0..3 {
+        let (s, _, _) = app.login_from("172.16.9.10", &[("x-forwarded-for", &format!("10.20.31.{i}"))], &format!("somebody{i}@test.local"), "wrong password!!").await;
+        assert_eq!(s, StatusCode::UNAUTHORIZED);
+    }
+    let (s, _, v) = app.login_from("172.16.9.10", &[("x-forwarded-for", "10.20.31.99")], "somebody9@test.local", "wrong password!!").await;
+    assert_eq!(s, StatusCode::TOO_MANY_REQUESTS, "four attempts from the same peer with chains of one entry: {v}");
+    app.cleanup().await;
+}
+
+#[tokio::test]
+async fn rate_limit_window_expires_and_locks_last_from_the_trip() {
+    let app = TestApp::new().await;
+    let admin = app.login_admin().await;
+    app.create_user(&admin, "frank@test.local", "editor").await;
+    let pair = format!("{}:10.5.5.5", account_key("frank@test.local"));
+    let from = |pw: &'static str| {
+        let app = &app;
+        async move { app.login_from("10.5.5.5", &[], "frank@test.local", pw).await }
+    };
+
+    // failures are counted in a window that starts at the first one: four, then the window is over, and four more are four, not eight
+    for _ in 0..4 {
+        assert_eq!(from("wrong password!!").await.0, StatusCode::UNAUTHORIZED);
+    }
+    sqlx::query("update rate_limits set window_start = now() - interval '1 hour' where key = $1").bind(&pair).execute(&app.state.pool).await.unwrap();
+    for _ in 0..4 {
+        assert_eq!(from("wrong password!!").await.0, StatusCode::UNAUTHORIZED, "the first four are forgotten");
+    }
+    let (count,): (i32,) = sqlx::query_as("select count from rate_limits where key = $1").bind(&pair).fetch_one(&app.state.pool).await.unwrap();
+    assert_eq!(count, 4);
+
+    // the fifth within the window closes the lock; it lasts from that moment, however old the window is by then
+    assert_eq!(from("wrong password!!").await.0, StatusCode::UNAUTHORIZED);
+    sqlx::query("update rate_limits set window_start = now() - interval '1 hour' where key = $1").bind(&pair).execute(&app.state.pool).await.unwrap();
+    let (s, _, v) = from("another long password 1").await;
+    assert_eq!((s, v["error"]["code"].as_str()), (StatusCode::TOO_MANY_REQUESTS, Some("locked")), "an old window does not open a lock that was closed a moment ago: {v}");
+    // ... and it runs out by itself
+    sqlx::query("update rate_limits set locked_until = now() - interval '1 second' where key = $1").bind(&pair).execute(&app.state.pool).await.unwrap();
+    let (s, cookie, v) = from("another long password 1").await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    assert!(cookie.is_some());
+    let (n,): (i64,) = sqlx::query_as("select count(*) from rate_limits where key = $1").bind(&pair).fetch_one(&app.state.pool).await.unwrap();
+    assert_eq!(n, 0, "a sign-in that succeeds forgets the failures of its address");
+
+    // the limit of an address: a window of a minute that starts with its first attempt
+    let (s, v) = app.put(&admin, "/api/admin/settings", json!({"changes": {"auth.loginsPerMinutePerIp": 3}})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    let mut statuses = vec![];
+    for i in 0..4 {
+        statuses.push(app.login_from("10.5.6.6", &[], &format!("nobody{i}@test.local"), "wrong password!!").await.0.as_u16());
+    }
+    assert_eq!(statuses, vec![401, 401, 401, 429]);
+    sqlx::query("update rate_limits set window_start = now() - interval '2 minutes' where key = 'login:ip:10.5.6.6'").execute(&app.state.pool).await.unwrap();
+    assert_eq!(app.login_from("10.5.6.6", &[], "nobody9@test.local", "wrong password!!").await.0, StatusCode::UNAUTHORIZED, "a minute later the address is let in again");
+    let (count,): (i32,) = sqlx::query_as("select count from rate_limits where key = 'login:ip:10.5.6.6'").fetch_one(&app.state.pool).await.unwrap();
+    assert_eq!(count, 1);
+    app.cleanup().await;
+}
+
+#[tokio::test]
+async fn a_refusal_says_when_to_come_back() {
+    let app = TestApp::new().await;
+    for _ in 0..5 {
+        app.login_as("ghost@test.local", "wrong password!!").await;
+    }
+    let (s, h, v) = app.request(Method::POST, "/api/auth/login", Some(json!({"email": "ghost@test.local", "password": "wrong password!!"})), None, &[]).await;
+    assert_eq!((s, v["error"]["code"].as_str()), (StatusCode::TOO_MANY_REQUESTS, Some("locked")));
+    let wait: u64 = h.get(header::RETRY_AFTER).expect("Retry-After on a lock").to_str().unwrap().parse().unwrap();
+    assert!((1..=15 * 60).contains(&wait), "{wait} seconds, for a lock of fifteen minutes");
+    app.cleanup().await;
+}
+
+#[tokio::test]
+async fn the_sign_in_metrics_name_the_outcome_and_never_the_reason() {
+    let app = TestApp::new().await;
+    let admin = app.login_admin().await;
+    app.create_user(&admin, "gina@test.local", "editor").await;
+    app.login_as("ghost@test.local", "wrong password!!").await; // no such account
+    app.login_as("gina@test.local", "wrong password!!").await; // wrong password
+    for _ in 0..5 {
+        app.login_as("hugo@test.local", "wrong password!!").await; // no such account either; the fifth closes the lock
+    }
+    app.login_as("hugo@test.local", "wrong password!!").await; // locked
+    let (s, v) = app.put(&admin, "/api/admin/settings", json!({"changes": {"auth.loginsPerMinutePerIp": 3}})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    app.login_as("anyone@test.local", "wrong password!!").await; // throttled
+
+    let outcome = |o: &'static str| format!("infra_auth_logins_total{{outcome=\"{o}\"}}");
+    assert_eq!(app.metric(&outcome("ok")).await, 2.0, "the administrator and the new user");
+    assert_eq!(app.metric(&outcome("failed")).await, 1.0 + 1.0 + 5.0, "no such account, wrong password, and the five that closed the lock on hugo (the fifth was checked, the sixth was not)");
+    assert_eq!((app.metric(&outcome("locked")).await, app.metric(&outcome("throttled")).await), (1.0, 1.0));
+    let (_, _, text) = app.request(Method::GET, "/metrics", None, None, &[]).await;
+    let text = text.as_str().unwrap();
+    for line in text.lines().filter(|l| l.starts_with("infra_auth_")) {
+        for reason in ["unknown", "disabled", "password\"", "bad_", "no_such", "ghost", "gina", "hugo"] {
+            assert!(!line.contains(reason), "{line}: the metric says why a sign-in failed, or for whom");
+        }
+    }
+    app.cleanup().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn password_hashing_waits_for_a_slot_in_every_handler() {
+    // a gate of one slot, and the test holds it: whoever hashes a password has to wait for it. That every handler that hashes goes through the gate is
+    // what keeps the hashing off the threads that serve the other requests and the number of hashes (19 MiB each) bounded; the gate's own work is
+    // off the runtime thread (crypto.rs, password_gate_work_runs_off_the_runtime_thread)
+    let app = std::sync::Arc::new(TestApp::with_hash_slots(1).await);
+    let admin = app.login_admin().await;
+    let victim = app.create_user(&admin, "ivan@test.local", "editor").await;
+    let id = user_id(&app, &admin, "ivan@test.local").await;
+    let checks = app.state.metrics.auth_password_checks.get();
+
+    let held = app.state.passwords.reserve().await;
+    let (a, v, c, u) = (app.clone(), app.clone(), app.clone(), app.clone());
+    let (admin_c, victim_c) = (admin.clone(), victim.clone());
+    let login = tokio::spawn(async move { a.login_as("ivan@test.local", "wrong password!!").await.0 });
+    let change = tokio::spawn(async move { c.post(&victim_c, "/api/auth/password", json!({"current": "another long password 1", "new": "a brand new password 88"})).await.0 });
+    let reset = tokio::spawn({
+        let admin = admin.clone();
+        async move { v.post(&admin, &format!("/api/admin/users/{id}/reset-password"), json!({"password": "temporary password 99"})).await.0 }
+    });
+    let create = tokio::spawn(async move { u.post(&admin_c, "/api/admin/users", json!({"email": "jane@test.local", "role": "viewer", "password": "yet another long one 3"})).await.0 });
+
+    tokio::time::sleep(std::time::Duration::from_millis(400)).await;
+    let waiting = [login.is_finished(), change.is_finished(), reset.is_finished(), create.is_finished()];
+    assert_eq!(waiting, [false; 4], "login, change password, reset password and create user (in that order) all wait for the slot");
+    assert_eq!(app.state.metrics.auth_password_checks.get(), checks, "and none of them has started to check");
+    drop(held);
+    let done = [login.await.unwrap(), change.await.unwrap(), reset.await.unwrap(), create.await.unwrap()];
+    // the order they get the slot in is theirs; what each answers depends on it only for the login and the change of password, which both fail or succeed
+    // before or after the reset: the reset and the creation always succeed
+    assert_eq!((done[2], done[3]), (StatusCode::OK, StatusCode::OK));
+    assert!([StatusCode::OK, StatusCode::BAD_REQUEST].contains(&done[1]) && [StatusCode::UNAUTHORIZED, StatusCode::TOO_MANY_REQUESTS].contains(&done[0]), "{done:?}");
+
+    let app = std::sync::Arc::try_unwrap(app).ok().expect("the tasks are done");
+    app.cleanup().await;
+}

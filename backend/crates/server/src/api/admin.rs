@@ -2,12 +2,13 @@
 //! Every mutating call is audited; secrets are never returned.
 
 use crate::audit;
-use crate::auth::{check_password_policy, client_ip, forget_user, AuthUser, Role};
+use crate::auth::{check_password_policy, client_ip, failure_key, forget_user, pwchange_key, AuthUser, Role, MAX_EMAIL_BYTES};
 use crate::config_store::{bump_rev, default_items, is_valid_item_id, range_regressions, single_document_id, validate_item, ALL_KINDS, MSG_INVALID_ITEM_ID, MSG_SINGLE_DOCUMENT};
-use crate::crypto::{hash_password, random_password};
+use crate::crypto::random_password;
 use crate::error::{ApiError, ApiResult};
 use crate::json::{Json, Path, Query};
 use crate::llm::openrouter::{call, fetch_models, CallCtx, LlmRequest, ModelRole, Msg};
+use crate::ratelimit;
 use crate::settings;
 use crate::state::AppState;
 use axum::extract::{ConnectInfo, State};
@@ -20,7 +21,7 @@ use std::net::SocketAddr;
 use uuid::Uuid;
 
 fn ip(state: &AppState, headers: &HeaderMap, addr: SocketAddr) -> String {
-    client_ip(headers, Some(addr), state.boot.trust_proxy)
+    client_ip(headers, Some(addr), &state.boot)
 }
 
 async fn changed(state: &AppState) -> ApiResult<()> {
@@ -537,7 +538,7 @@ pub async fn users_create(State(state): State<AppState>, user: AuthUser, Connect
     user.require_admin()?;
     let cfg = state.cfg().await?;
     let email = b.email.trim().to_lowercase();
-    if !email.contains('@') || email.len() > 200 {
+    if !email.contains('@') || email.len() > MAX_EMAIL_BYTES {
         return Err(ApiError::bad_request("invalid_email", "invalid email"));
     }
     let role = Role::parse(&b.role).ok_or_else(|| ApiError::bad_request("invalid_role", "role must be admin, editor or viewer"))?;
@@ -552,7 +553,7 @@ pub async fn users_create(State(state): State<AppState>, user: AuthUser, Connect
         .bind(&email)
         .bind(b.name.trim())
         .bind(role.as_str())
-        .bind(hash_password(&pw)?)
+        .bind(state.passwords.hash(pw.clone()).await?)
         .bind(generated)
         .fetch_one(&state.pool)
         .await?;
@@ -625,14 +626,20 @@ pub async fn users_reset_password(
         }
         None => (random_password(), true),
     };
-    let r = sqlx::query("update users set password_hash = $2, must_change_password = true, failed_attempts = 0, locked_until = null, session_version = session_version + 1 where id = $1")
-        .bind(id)
-        .bind(hash_password(&pw)?)
-        .execute(&state.pool)
-        .await?;
-    if r.rows_affected() == 0 {
+    let hash = state.passwords.hash(pw.clone()).await?;
+    let email: Option<String> = sqlx::query_scalar(
+        "update users set password_hash = $2, must_change_password = true, failed_attempts = 0, locked_until = null, session_version = session_version + 1 where id = $1 returning lower(email)",
+    )
+    .bind(id)
+    .bind(hash)
+    .fetch_optional(&state.pool)
+    .await?;
+    let Some(email) = email else {
         return Err(ApiError::not_found("user not found"));
-    }
+    };
+    // the reset is how an administrator unlocks an account: for every address it was counted from, and for the wrong current passwords alike
+    ratelimit::clear_prefix(&state.pool, &failure_key(&email)).await?;
+    ratelimit::clear(&state.pool, &pwchange_key(id)).await?;
     forget_user(&state, id);
     audit::log(&state.pool, Some(&user), "user.reset_password", "user", &id.to_string(), json!({}), &ip(&state, &headers, addr)).await;
     Ok(Json(json!({"temporaryPassword": if generated { Some(pw) } else { None }})))
@@ -691,7 +698,7 @@ pub async fn system(State(state): State<AppState>, user: AuthUser) -> ApiResult<
         "llm": {"enabled": cfg.settings.boolean("llm.enabled"), "keyConfigured": state.llm_key(&cfg).is_some(), "keySource": if cfg.settings.is_from_db("llm.apiKey") { "database" } else if state.boot.openrouter_api_key.is_some() { "environment" } else { "none" }},
         "env": {
             "APP_ENV": if state.boot.production { "production" } else { "development" },
-            "COOKIE_SECURE": state.boot.cookie_secure, "TRUST_PROXY": state.boot.trust_proxy, "METRICS_TOKEN": state.boot.metrics_token.is_some(),
+            "COOKIE_SECURE": state.boot.cookie_secure, "TRUST_PROXY": state.boot.trust_proxy, "TRUST_PROXY_HOPS": state.boot.trust_proxy_hops, "METRICS_TOKEN": state.boot.metrics_token.is_some(),
             "OPENROUTER_API_KEY": state.boot.openrouter_api_key.is_some(), "DB_MAX_CONNECTIONS": state.boot.db_max_connections,
         },
     })))

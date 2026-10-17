@@ -11,16 +11,23 @@ pub struct ApiError {
     pub code: &'static str,
     pub message: String,
     pub details: Option<Value>,
+    /// Seconds until the same request can succeed (`Retry-After`), for the refusals that are about time; 0 = no header. A `u32` so that it sits in the
+    /// padding next to the status: the error is returned by value from almost every handler, and a larger one trips `clippy::result_large_err`.
+    pub retry_after: u32,
 }
 
 pub type ApiResult<T> = Result<T, ApiError>;
 
 impl ApiError {
     pub fn new(status: StatusCode, code: &'static str, message: impl Into<String>) -> Self {
-        ApiError { status, code, message: message.into(), details: None }
+        ApiError { status, code, message: message.into(), details: None, retry_after: 0 }
     }
     pub fn with_details(mut self, d: Value) -> Self {
         self.details = Some(d);
+        self
+    }
+    pub fn with_retry_after(mut self, seconds: u64) -> Self {
+        self.retry_after = seconds.clamp(1, u32::MAX as u64) as u32;
         self
     }
     pub fn bad_request(code: &'static str, m: impl Into<String>) -> Self {
@@ -59,7 +66,11 @@ impl IntoResponse for ApiError {
         if let Some(d) = self.details {
             body["error"]["details"] = d;
         }
-        (self.status, Json(body)).into_response()
+        let mut response = (self.status, Json(body)).into_response();
+        if self.retry_after > 0 {
+            response.headers_mut().insert(axum::http::header::RETRY_AFTER, axum::http::HeaderValue::from(self.retry_after));
+        }
+        response
     }
 }
 

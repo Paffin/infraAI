@@ -217,7 +217,11 @@
    "en": "Failed logins before lockout"
   },
   "min": 1,
-  "max": 100
+  "max": 100,
+  "help": {
+   "ru": "Столько неудачных попыток войти в один аккаунт с одного адреса (за время блокировки) блокируют этот аккаунт для этого адреса. Другой адрес этим не блокируется (см. «Область блокировки»). Неверный текущий пароль при смене пароля считается так же. Блокировку снимает сброс пароля администратором.",
+   "en": "This many failed attempts to sign in to one account from one address (within the lockout time) lock the account for that address. Another address is not locked by it (see “Lockout scope”). A wrong current password when changing a password counts the same. An administrator’s password reset lifts the lock."
+  }
  },
  {
   "key": "auth.lockoutMinutes",
@@ -229,7 +233,11 @@
    "en": "Lockout duration, minutes"
   },
   "min": 1,
-  "max": 1440
+  "max": 1440,
+  "help": {
+   "ru": "Блокировка длится столько с последней учтённой попытки, которая её вызвала. Столько же длится окно, внутри которого неудачи складываются.",
+   "en": "A lock lasts this long from the attempt that caused it. The window in which failures add up is as long."
+  }
  },
  {
   "key": "auth.loginsPerMinutePerIp",
@@ -241,11 +249,61 @@
    "en": "Sign-in attempts per IP per minute"
   },
   "help": {
-   "ru": "Сверх лимита вход отвечает 429. Защита от перебора поверх блокировки аккаунта.",
-   "en": "Beyond the limit sign-in answers 429. Brute-force protection on top of the account lockout."
+   "ru": "Сверх лимита вход отвечает 429. Защита от перебора поверх блокировки аккаунта. Считаются все попытки, и удачные тоже. Счётчик хранится в БД, поэтому он общий для всех реплик. За прокси адрес берётся из X-Forwarded-For (переменные TRUST_PROXY и TRUST_PROXY_HOPS).",
+   "en": "Beyond the limit sign-in answers 429. Brute-force protection on top of the account lockout. Every attempt counts, successful ones too. The count is kept in the database, so it is shared by all replicas. Behind a proxy the address comes from X-Forwarded-For (the TRUST_PROXY and TRUST_PROXY_HOPS variables)."
   },
   "min": 3,
   "max": 10000
+ },
+ {
+  "key": "auth.lockoutScope",
+  "group": "auth",
+  "type": "enum",
+  "default": "account_and_ip",
+  "label": {
+   "ru": "Область блокировки аккаунта",
+   "en": "Account lockout scope"
+  },
+  "help": {
+   "ru": "account_and_ip — неудачи считаются отдельно для каждой пары (аккаунт, адрес): чужой адрес не может закрыть владельцу вход со своего. Над парами стоит потолок на весь аккаунт («Неудачных входов на аккаунт со всех адресов»), его достигает только перебор со многих адресов. Оговорка: за общим NAT (офис, провайдер) пара одна на всех, кто выходит с этого адреса. account — один счётчик на аккаунт: столько неудач с любого адреса блокируют его для всех (так было раньше; любой желающий может закрыть вход любому пользователю, зная лишь его адрес почты).",
+   "en": "account_and_ip — failures are counted for each pair (account, address): somebody else’s address cannot shut the owner out from their own. Above the pairs there is a ceiling for the account as a whole (“Failed logins per account, all addresses”), which only guessing from many addresses reaches. A caveat: behind a shared NAT (an office, a provider) the pair is the same for everybody who comes out of that address. account — one counter per account: that many failures from any address lock it for everybody (as it used to be; anybody who knows a user’s e-mail address can shut them out)."
+  },
+  "options": [
+   "account_and_ip",
+   "account"
+  ]
+ },
+ {
+  "key": "auth.maxFailedAttemptsPerAccount",
+  "group": "auth",
+  "type": "number",
+  "default": 50,
+  "label": {
+   "ru": "Неудачных входов на аккаунт со всех адресов",
+   "en": "Failed logins per account, all addresses"
+  },
+  "help": {
+   "ru": "Потолок для области account_and_ip: столько неудачных попыток войти в аккаунт со всех адресов вместе блокируют его для всех. Не меньше «Неудачных входов до блокировки» (меньшее значение приравнивается к ней). Заблокированный адрес в счёт не идёт, поэтому потолок достигается только с многих адресов: с одного нельзя набрать больше, чем «Неудачных входов до блокировки».",
+   "en": "The ceiling for the account_and_ip scope: this many failed attempts to sign in to an account from all addresses together lock it for everybody. Not less than “Failed logins before lockout” (a smaller value is taken to be that). A locked address does not count, so the ceiling is only reached from many addresses: one address cannot score more than “Failed logins before lockout”."
+  },
+  "min": 5,
+  "max": 1000
+ },
+ {
+  "key": "auth.hashConcurrency",
+  "group": "auth",
+  "type": "number",
+  "default": 0,
+  "label": {
+   "ru": "Одновременных проверок пароля",
+   "en": "Concurrent password hashes"
+  },
+  "help": {
+   "ru": "Сколько паролей сервер хэширует одновременно (Argon2id: десятки миллисекунд процессора и 19 МиБ памяти на каждый), остальные ждут очереди — вход не занимает потоки, которые обслуживают остальные запросы, и память под хэши не растёт с числом запросов. 0 — по числу процессоров. Применяется при запуске сервера.",
+   "en": "How many passwords the server hashes at the same moment (Argon2id: tens of milliseconds of processor and 19 MiB of memory each); the others wait their turn, so signing in does not take the threads that serve other requests and the memory for hashes does not grow with the number of requests. 0 — as many as there are processors. Applied when the server starts."
+  },
+  "min": 0,
+  "max": 64
  },
  {
   "key": "auth.userCacheSeconds",

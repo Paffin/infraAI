@@ -42,6 +42,7 @@ pub fn boot(db_url: String) -> BootConfig {
         instance_id: "test".into(),
         metrics_token: None,
         trust_proxy: false,
+        trust_proxy_hops: 1,
         shutdown_grace_secs: 1,
         log_json: false,
         seed_demo_project: None,
@@ -95,6 +96,15 @@ impl TestApp {
         app
     }
 
+    /// The same application whose passwords are hashed through a gate of `slots` (the setting `auth.hashConcurrency` is read at start; this is the
+    /// way to have a gate of one without starting a server).
+    pub async fn with_hash_slots(slots: usize) -> TestApp {
+        let mut app = TestApp::new().await;
+        app.state.passwords = std::sync::Arc::new(server::crypto::PasswordGate::new(slots, app.state.metrics.auth_password_checks.clone()));
+        app.router = server::api::router(app.state.clone()).await;
+        app
+    }
+
     pub async fn request(&self, method: Method, path: &str, body: Option<Value>, cookie: Option<String>, extra: &[(&str, &str)]) -> (StatusCode, axum::http::HeaderMap, Value) {
         let mut b = Request::builder().method(method).uri(path).header(header::HOST, "localhost");
         if let Some(c) = cookie {
@@ -122,8 +132,14 @@ impl TestApp {
     }
 
     async fn send(&self, req: Request<Body>) -> (StatusCode, axum::http::HeaderMap, Value) {
+        self.send_from("127.0.0.1", req).await
+    }
+
+    /// The request as it arrives from the TCP peer `peer` (the client, or the reverse proxy in front of the application).
+    async fn send_from(&self, peer: &str, req: Request<Body>) -> (StatusCode, axum::http::HeaderMap, Value) {
         let mut req = req;
-        req.extensions_mut().insert(ConnectInfo("127.0.0.1:50000".parse::<SocketAddr>().unwrap()));
+        let addr: SocketAddr = format!("{peer}:50000").parse().unwrap_or_else(|_| format!("[{peer}]:50000").parse().expect("a peer address"));
+        req.extensions_mut().insert(ConnectInfo(addr));
         let res = self.router.clone().oneshot(req).await.unwrap();
         let status = res.status();
         let headers = res.headers().clone();
@@ -167,6 +183,47 @@ impl TestApp {
         (s, v)
     }
 
+    /// A sign-in as it arrives from `peer` (an IP address) with extra request headers (`X-Forwarded-For` …): status, session cookie, body.
+    pub async fn login_from(&self, peer: &str, extra: &[(&str, &str)], email: &str, password: &str) -> (StatusCode, Option<String>, Value) {
+        let mut b = Request::builder().method(Method::POST).uri("/api/auth/login").header(header::HOST, "localhost").header(header::CONTENT_TYPE, "application/json");
+        for (k, v) in extra {
+            b = b.header(*k, *v);
+        }
+        let req = b.body(Body::from(json!({"email": email, "password": password}).to_string())).unwrap();
+        let (s, h, v) = self.send_from(peer, req).await;
+        let cookie = h.get(header::SET_COOKIE).and_then(|c| c.to_str().ok()).map(|c| c.split(';').next().unwrap().to_string());
+        (s, cookie, v)
+    }
+
+    /// A second application instance over the same database, as a second replica would be: its own caches, nothing shared but PostgreSQL.
+    /// It does not own the database (`cleanup` of the first one drops it).
+    pub async fn second_instance(&self) -> TestApp {
+        let mut b = (*self.state.boot).clone();
+        b.instance_id = "test-2".into();
+        let state = server::startup::init_state(b).await.expect("the second instance starts");
+        let router = server::api::router(state.clone()).await;
+        TestApp { router, state, db_name: String::new(), cookie: Mutex::new(None) }
+    }
+
+    /// One sample of `/metrics` as written without the `instance` label (`infra_auth_logins_total{outcome="failed"}`); 0 while there is none.
+    pub async fn metric(&self, sample: &str) -> f64 {
+        let (_, _, v) = self.request(Method::GET, "/metrics", None, None, &[]).await;
+        let text = v.as_str().unwrap_or_default().to_string();
+        for line in text.lines().filter(|l| !l.starts_with('#')) {
+            let Some((name, value)) = line.rsplit_once(' ') else { continue };
+            let mut bare = name.to_string();
+            if let Some(start) = bare.find("instance=\"") {
+                let end = start + "instance=\"".len() + bare[start + "instance=\"".len()..].find('"').unwrap() + 1;
+                bare.replace_range(start..end, "");
+                bare = bare.replace("{,", "{").replace(",,", ",").replace(",}", "}").replace("{}", "");
+            }
+            if bare == sample {
+                return value.parse().unwrap_or(0.0);
+            }
+        }
+        0.0
+    }
+
     pub async fn create_user(&self, admin_cookie: &str, email: &str, role: &str) -> String {
         let (s, v) = self.post(admin_cookie, "/api/admin/users", json!({"email": email, "role": role, "password": "another long password 1"})).await;
         assert_eq!(s, StatusCode::OK, "{v}");
@@ -182,6 +239,9 @@ impl TestApp {
 
     pub async fn cleanup(self) {
         self.state.pool.close().await;
+        if self.db_name.is_empty() {
+            return; // a second instance over the database of another TestApp: that one drops it
+        }
         if let Ok(admin) = sqlx::PgPool::connect(&admin_url()).await {
             let _ = sqlx::query(&format!("drop database if exists {} with (force)", self.db_name)).execute(&admin).await;
         }

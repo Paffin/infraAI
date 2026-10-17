@@ -5,6 +5,11 @@ services:
     ports: !reset []
     deploy:
       replicas: 2
+    environment:
+      # the replicas are reachable only through the load balancer, which appends the address it saw to X-Forwarded-For: without this
+      # every client would share the address of the balancer, and so one limit of sign-in attempts
+      TRUST_PROXY: "true"
+      TRUST_PROXY_HOPS: "1"
   lb:
     image: ${REGISTRY:-docker.io/library}/nginx:1.27-alpine
     restart: unless-stopped

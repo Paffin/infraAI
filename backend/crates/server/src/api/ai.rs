@@ -102,7 +102,7 @@ pub async fn create_job(
         .bind(id)
         .execute(&state.pool)
         .await?;
-    audit::log(&state.pool, Some(&user), "ai.job", "project", &project_id.to_string(), json!({"kind": b.kind, "jobId": id}), &client_ip(&headers, Some(addr), state.boot.trust_proxy)).await;
+    audit::log(&state.pool, Some(&user), "ai.job", "project", &project_id.to_string(), json!({"kind": b.kind, "jobId": id}), &client_ip(&headers, Some(addr), &state.boot)).await;
     state.jobs.spawn(state.clone(), id);
     Ok(Json(json!({"jobId": id})))
 }
@@ -261,7 +261,7 @@ pub async fn apply_proposal(
     for _ in 0..REREAD_ATTEMPTS {
         match apply_once(&state, &cfg, &user, id, expected).await? {
             Attempt::Applied { project_id, rev, architecture, version } => {
-                audit::log(&state.pool, Some(&user), "ai.apply", "project", &project_id.to_string(), json!({"proposal": id}), &client_ip(&headers, Some(addr), state.boot.trust_proxy)).await;
+                audit::log(&state.pool, Some(&user), "ai.apply", "project", &project_id.to_string(), json!({"proposal": id}), &client_ip(&headers, Some(addr), &state.boot)).await;
                 return Ok(Json(json!({"rev": rev, "architecture": architecture, "version": version})));
             }
             Attempt::Moved(project_id) => moved = Some(project_id),

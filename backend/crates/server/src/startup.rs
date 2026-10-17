@@ -4,7 +4,7 @@
 use crate::api_support::{run_evaluate, summarize};
 use crate::config::BootConfig;
 use crate::config_store::{seed_defaults, ConfigCache};
-use crate::crypto::{hash_password, random_password, Keys};
+use crate::crypto::{dummy_hash, hash_password, random_password, Keys, PasswordGate};
 use crate::db;
 use crate::jobs::JobRunner;
 use crate::metrics::Metrics;
@@ -109,6 +109,13 @@ pub async fn init_state(boot: BootConfig) -> anyhow::Result<AppState> {
         tracing::error!(kind = %k, id = %id, error = %e, "invalid configuration item (skipped)");
     }
     let max_jobs = loaded.settings.num("jobs.maxConcurrent") as usize;
+    // how many passwords are hashed at the same moment (`auth.hashConcurrency`, 0 = the processors there are); read once, like jobs.maxConcurrent
+    let hash_slots = match loaded.settings.num("auth.hashConcurrency") as usize {
+        0 => std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1),
+        n => n,
+    };
+    dummy_hash(); // made now, not by the first sign-in of an account that does not exist
+    let passwords = Arc::new(PasswordGate::new(hash_slots, metrics.auth_password_checks.clone()));
     let state = AppState {
         pool,
         boot: Arc::new(boot),
@@ -120,7 +127,7 @@ pub async fn init_state(boot: BootConfig) -> anyhow::Result<AppState> {
         shutting_down: Arc::new(AtomicBool::new(false)),
         started_at: Instant::now(),
         user_cache: Arc::new(Mutex::new(HashMap::new())),
-        login_attempts: Arc::new(Mutex::new(HashMap::new())),
+        passwords,
         models_cache: Arc::new(tokio::sync::Mutex::new(None)),
     };
     let st = state.clone();

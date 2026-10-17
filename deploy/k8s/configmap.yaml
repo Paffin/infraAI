@@ -7,6 +7,10 @@ data:
   # the pods sit behind an ingress that terminates TLS
   COOKIE_SECURE: "true"
   TRUST_PROXY: "true"
+  # reverse proxies between the client and the pod: 1 for an ingress controller that sets X-Forwarded-For itself (ingress-nginx does, by default);
+  # 2 when a cloud load balancer stands in front of it and appends its own entry. Too small - everybody shares one address and one limit of
+  # sign-in attempts; too large - the address can be forged.
+  TRUST_PROXY_HOPS: "1"
   # seconds the pod keeps serving after SIGTERM before it stops accepting connections
   DRAIN_SECONDS: "5"
   SHUTDOWN_GRACE_SECONDS: "30"

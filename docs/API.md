@@ -26,12 +26,12 @@ refuses on the merits, never by a bare text. `code` is the stable part (the UI t
 | `invalid_query` | 400 | a query parameter is not of the right form (`download=abc`) |
 | `method_not_allowed` | 405 | the path exists but not for this method; the `Allow` header lists the ones it has |
 | `not_found` | 404 | no such endpoint, project, version, job, proposal or item |
-| `unauthorized` | 401 | no valid session, or the sign-in was wrong |
+| `unauthorized` | 401 | no valid session, or the sign-in was wrong (one answer for a wrong password, an address with no account and a disabled account) |
 | `forbidden` | 403 | the role may not do this, or the request came from another origin |
 | `password_change_required` | 403 | a temporary password is still in force: only `/auth/me`, `/auth/password` and `/auth/logout` answer |
 | `wrong_password`, `weak_password` | 400 | changing a password: the current one is wrong / the new one is too short or too simple |
-| `locked` | 429 | the account is locked after repeated failures |
-| `rate_limited` | 429 | too many sign-in attempts from this address |
+| `locked` | 429 | repeated failures: the account is locked for this address (or for everybody, see `auth.lockoutScope`); also the same for an address that has no account, so the answer tells nothing about who has one. `Retry-After` says when to come back. Also changing a password with a wrong current one too many times |
+| `rate_limited` | 429 | too many sign-in attempts from this address in a minute (`auth.loginsPerMinutePerIp`, counted in the database, so the same on every replica); `Retry-After` |
 | `ai_rate_limited` | 429 | the hourly limit of AI requests of the user is spent |
 | `conflict` | 409 | the project was changed by someone else (`details.currentRev`); also other revision clashes |
 | `duplicate` | 409 | an item with this id already exists |
@@ -67,15 +67,23 @@ Non-API endpoints: `GET /healthz` (liveness), `GET /readyz` (database + not drai
 
 | Method | Path | Body | Response |
 |---|---|---|---|
-| POST | `/auth/login` | `{email, password}` | `{user}` + cookie. `401 unauthorized`, `429 locked` / `rate_limited` |
+| POST | `/auth/login` | `{email, password}` | `{user}` + cookie. `400 invalid_email` (empty, or past 200 bytes: nothing is counted or stored), `401 unauthorized`, `429 locked` / `rate_limited` (both with `Retry-After`) |
 | POST | `/auth/logout` | – | `{ok}` |
 | GET | `/auth/me` | – | `{user}` |
-| POST | `/auth/password` | `{current, new}` | `{ok}` (re-issues the session) |
+| POST | `/auth/password` | `{current, new}` | `{ok}` (re-issues the session). `400 wrong_password`, `weak_password`; `429 locked` after `auth.maxFailedAttempts` wrong current passwords in a row |
 | GET | `/public/config` | – | `{appName, defaultLanguage, languages, theme}` (no auth) |
 
 `user = {id, email, name, role, mustChangePassword}`. While `mustChangePassword` is true (temporary password issued by
 the first start or by an administrator) every endpoint except `/auth/me`, `/auth/password` and `/auth/logout`
 answers `403 password_change_required`.
+
+**What a sign-in tells, and what it costs.** A wrong password, an address with no account and a disabled account (with the right or the wrong password) get the same `401 unauthorized` with the same body, and cost the
+same work: one Argon2 check, against a hash of the same cost when there is no account. After `auth.maxFailedAttempts` failures from one address for one e-mail address the next attempt from that address is `429 locked`
+(with `Retry-After`) *whether or not there is such an account*; it is refused before the password is looked at. The failures of one address lock only that address for that account; failures from many addresses add up to
+`auth.maxFailedAttemptsPerAccount` and then lock the account for everybody (`auth.lockoutScope = account` makes the lock the account's from the first). Every attempt from an address, successful ones too, counts towards
+`auth.loginsPerMinutePerIp` (`429 rate_limited`). The counters are in PostgreSQL, so they are the same on every replica; a password reset by an administrator clears them. Behind a reverse proxy the address is read from
+`X-Forwarded-For` only with `TRUST_PROXY=true`, counting `TRUST_PROXY_HOPS` entries from the right ([CONFIGURATION.md](CONFIGURATION.md)). The reason of a failure (no account, disabled, wrong password) is in the audit log
+(`auth.login_failed`, `details.reason`) and in `auth.locked` when a lock was closed; the metrics carry only the outcome (`infra_auth_logins_total{outcome="ok|failed|locked|throttled"}`).
 
 ## Bootstrap
 

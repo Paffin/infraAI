@@ -22,3 +22,11 @@ minijinja = { version = "=3.0.0", default-features = false, features = ["builtin
 lto = "thin"
 codegen-units = 4
 strip = true
+
+# Argon2 is the cost of a sign-in. Unoptimised it is half a second per password (the debug build of the tests signs in dozens of times); optimised it is
+# what the release build pays. Only these two crates: everything else keeps the fast debug build.
+[profile.dev.package.argon2]
+opt-level = 3
+
+[profile.dev.package.blake2]
+opt-level = 3
