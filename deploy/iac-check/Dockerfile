@@ -8,7 +8,7 @@
 # Nothing is mocked: charts, CRDs and providers are downloaded from their official sources.
 ARG REGISTRY=docker.io
 FROM ${REGISTRY}/alpine/helm:3.16.2 AS helm
-FROM ghcr.io/yannh/kubeconform:v0.7.0 AS kubeconform
+FROM ghcr.io/yannh/kubeconform:v0.8.0 AS kubeconform
 FROM ${REGISTRY}/hashicorp/terraform:1.9 AS terraform
 FROM registry.k8s.io/kubectl:v1.33.0 AS kubectl
 
