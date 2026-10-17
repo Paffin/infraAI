@@ -564,7 +564,6 @@ dependencies = [
  "minijinja",
  "serde",
  "serde_json",
- "thiserror 2.0.21",
 ]
 
 [[package]]
@@ -1984,7 +1983,6 @@ dependencies = [
  "axum",
  "axum-extra",
  "base64 0.22.1",
- "bytes",
  "chrono",
  "engine",
  "futures",

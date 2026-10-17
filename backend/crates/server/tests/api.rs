@@ -2040,7 +2040,9 @@ async fn extreme_numbers_never_500() {
             match rng.next() % 4 {
                 0 | 1 => {
                     let id = rng.pick(&node_ids).clone();
-                    set_node_prop(&mut a, &id, rng.pick(&node_keys), v);
+                    // bound first: handed straight to a `&str` parameter, 1.89 (rust-version) takes the element type for `str`, and clippy of 1.97 calls the `*` an auto-deref
+                    let key = *rng.pick(&node_keys);
+                    set_node_prop(&mut a, &id, key, v);
                 }
                 2 => a["requirements"][*rng.pick(&req_keys)] = v,
                 _ => {
