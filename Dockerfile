@@ -41,7 +41,10 @@ LABEL org.opencontainers.image.title="Infra Architect" \
       org.opencontainers.image.description="A visual designer of infrastructure architecture: the AI proposes, a deterministic engine verifies" \
       org.opencontainers.image.licenses="Apache-2.0" \
       org.opencontainers.image.source="https://github.com/Paffin/infraAI"
-# CA roots for outbound TLS (OpenRouter); taken from the build image so that no package manager is needed here
+# The base image is rebuilt only now and then: the security updates published since are applied here, and the lists are removed again (the scan of the
+# image in CI blocks a CRITICAL finding that has a fix: perl-base was one, and it cannot be removed, it is essential in Debian)
+RUN apt-get update && apt-get -y --no-install-recommends upgrade && rm -rf /var/lib/apt/lists/*
+# CA roots for outbound TLS (OpenRouter); taken from the build image so that no package manager is needed to install them
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 RUN useradd --system --uid 10001 --no-create-home --shell /usr/sbin/nologin app
 WORKDIR /app
