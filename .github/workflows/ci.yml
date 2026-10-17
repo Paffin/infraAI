@@ -157,6 +157,8 @@ jobs:
           IA_IMAGE: infra-architect:ci
           TRY_PULL: never
         run: |
+          # TRY_PULL=never keeps the image that was just built (it exists nowhere else); the database image is the only one that has to come from the registry
+          docker compose pull db
           make try
           ./deploy/smoke.sh http://localhost:8080 "$ADMIN_EMAIL" "$ADMIN_PASSWORD"
       - name: "The gate in the image: every reference design passes, and the SARIF it writes is valid"
