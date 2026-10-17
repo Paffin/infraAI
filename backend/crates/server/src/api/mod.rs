@@ -9,14 +9,16 @@ pub mod public;
 
 use crate::auth;
 use crate::error::ApiError;
+use crate::heavy;
 use crate::state::AppState;
 use axum::extract::{DefaultBodyLimit, MatchedPath, Request, State};
 use axum::http::{header, HeaderValue, Method, StatusCode};
 use axum::middleware::{self, Next};
-use axum::response::Response;
+use axum::response::{IntoResponse, Response};
 use axum::routing::{delete, get, post, put};
 use axum::Router;
-use std::time::Instant;
+use std::time::{Duration, Instant};
+use tower::{Layer, ServiceExt};
 use tower_http::compression::CompressionLayer;
 use tower_http::services::{ServeDir, ServeFile};
 use tower_http::trace::TraceLayer;
@@ -92,10 +94,34 @@ async fn track(State(state): State<AppState>, req: Request, next: Next) -> Respo
     res
 }
 
-pub async fn router(state: AppState) -> Router {
-    let cfg = state.cfg().await.ok();
-    let body_limit = cfg.as_ref().map(|c| c.settings.num("limits.maxBodyMb") as usize).unwrap_or(4).max(1) * 1024 * 1024;
+/// The routes of the API that may run longer than `limits.requestTimeoutSeconds` because what they wait for is another host, whose own timeouts are settings
+/// (`versions.syncTimeoutSeconds` for each of the 277 tables, `llm.timeoutSeconds`, `llm.catalogTimeoutSeconds`). A deadline over them would drop the future
+/// halfway: after some tables were stored and before the other replicas were told, or with the model's answer paid for and thrown away.
+pub const SLOW_ROUTES: &[&str] = &["/api/admin/versions/sync", "/api/admin/llm/test", "/api/admin/llm/models"];
 
+/// A request has `limits.requestTimeoutSeconds` (0 = no deadline) to be answered, whatever it is waiting for - the database, a lock, a client that sends its body
+/// slowly. Past it the answer is `504 request_timeout` in the shape of every error (a bare status with an empty body would be the one answer in the API that is not
+/// JSON), and the handler's future is dropped. The setting is read on every request, not when the router is built. A blocking task is not stopped by dropping
+/// the future that waits for it: the heavy-request slot goes with the work (`heavy`), so the processor is not given away twice.
+async fn deadline(State(state): State<AppState>, req: Request, next: Next) -> Response {
+    let secs = state.cfg().await.map(|c| c.settings.num("limits.requestTimeoutSeconds")).unwrap_or(0.0);
+    let exempt = req.extensions().get::<MatchedPath>().is_some_and(|m| SLOW_ROUTES.contains(&m.as_str()));
+    if secs <= 0.0 || exempt {
+        return next.run(req).await;
+    }
+    match tokio::time::timeout(Duration::from_secs_f64(secs), next.run(req)).await {
+        Ok(res) => res,
+        Err(_) => ApiError::new(StatusCode::GATEWAY_TIMEOUT, "request_timeout", format!("the request took longer than {secs} seconds (limits.requestTimeoutSeconds) and was stopped")).into_response(),
+    }
+}
+
+/// `limits.maxBodyMb`, read on every request: a change of the setting takes effect at once, as the settings promise (it used to be read once, when the router was built).
+async fn body_limit(State(state): State<AppState>, req: Request, next: Next) -> Response {
+    let mb = state.cfg().await.map(|c| c.settings.num("limits.maxBodyMb")).unwrap_or_else(|_| crate::settings::Settings::defaults().num("limits.maxBodyMb"));
+    DefaultBodyLimit::max(mb.max(1.0) as usize * 1024 * 1024).layer(next).oneshot(req).await.unwrap_or_else(|never| match never {})
+}
+
+pub async fn router(state: AppState) -> Router {
     let api = Router::new()
         .route("/public/config", get(public::public_config))
         .route("/auth/login", post(auth::login))
@@ -149,7 +175,10 @@ pub async fn router(state: AppState) -> Router {
         .route("/admin/system", get(admin::system))
         .fallback(api_not_found)
         .method_not_allowed_fallback(api_method_not_allowed)
-        .layer(middleware::from_fn_with_state(state.clone(), auth::csrf_guard));
+        // the layer added last is the outermost: the deadline covers everything, a request from another origin is refused before it costs a slot
+        .layer(middleware::from_fn_with_state(state.clone(), heavy::gate))
+        .layer(middleware::from_fn_with_state(state.clone(), auth::csrf_guard))
+        .layer(middleware::from_fn_with_state(state.clone(), deadline));
 
     let web = state.boot.web_dir.clone();
     let index = web.join("index.html");
@@ -168,7 +197,7 @@ pub async fn router(state: AppState) -> Router {
         .nest("/api", api)
         .nest_service("/assets", assets)
         .fallback_service(static_files)
-        .layer(DefaultBodyLimit::max(body_limit))
+        .layer(middleware::from_fn_with_state(state.clone(), body_limit))
         .layer(middleware::from_fn_with_state(state.clone(), track))
         .layer(middleware::from_fn(security_headers))
         .layer(CompressionLayer::new())
@@ -195,7 +224,8 @@ pub async fn bind_metrics(boot: &crate::config::BootConfig) -> std::io::Result<O
     tokio::net::TcpListener::bind(std::net::SocketAddr::new(boot.bind.ip(), port)).await.map(Some)
 }
 
-/// Serves [`metrics_router`] on `listener` until `shutdown` completes (then the requests in flight finish).
+/// Serves [`metrics_router`] on `listener` until `shutdown` completes (then the requests in flight finish). The same connection loop as the application's.
 pub async fn serve_metrics(listener: tokio::net::TcpListener, state: AppState, shutdown: impl std::future::Future<Output = ()> + Send + 'static) -> std::io::Result<()> {
-    axum::serve(listener, metrics_router(state).into_make_service()).with_graceful_shutdown(shutdown).await
+    let options = crate::serve::ServeOptions::from_settings(&state).await;
+    crate::serve::run(listener, metrics_router(state), options, shutdown).await
 }

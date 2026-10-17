@@ -1,11 +1,12 @@
 //! AI endpoints: jobs, chat history and proposals (preview → explicit apply / reject).
 
 use crate::api::projects::{append_version, engine_waivers, load_draft, lock_project, VersionEntry, REREAD_ATTEMPTS};
-use crate::api_support::{evaluated_summary, lang_of, limits, parse_arch, text, TextField};
+use crate::api_support::{evaluated_summary_held, lang_of, limits, parse_arch, text, TextField};
 use crate::audit;
 use crate::auth::{client_ip, AuthUser};
 use crate::config_store::Loaded;
 use crate::error::{ApiError, ApiResult};
+use crate::heavy::Held;
 use crate::json::{Json, Path, Query};
 use crate::state::AppState;
 use axum::extract::{ConnectInfo, State};
@@ -254,6 +255,7 @@ fn draft_moved(rev: i64) -> ApiError {
 pub async fn apply_proposal(
     State(state): State<AppState>,
     user: AuthUser,
+    held: Held,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     headers: HeaderMap,
     Path(id): Path<Uuid>,
@@ -264,7 +266,7 @@ pub async fn apply_proposal(
     let expected = body.and_then(|b| b.0.expected_rev);
     let mut moved = None;
     for _ in 0..REREAD_ATTEMPTS {
-        match apply_once(&state, &cfg, &user, id, expected).await? {
+        match apply_once(&state, &cfg, &user, id, expected, &held).await? {
             Attempt::Applied { project_id, rev, architecture, version } => {
                 audit::log(&state.pool, Some(&user), "ai.apply", "project", &project_id.to_string(), json!({"proposal": id}), &client_ip(&headers, Some(addr), &state.boot)).await;
                 return Ok(Json(json!({"rev": rev, "architecture": architecture, "version": version})));
@@ -279,7 +281,7 @@ pub async fn apply_proposal(
     Err(ApiError::conflict("conflict", "the project keeps changing; review the proposal again").with_details(json!({"currentRev": rev})))
 }
 
-async fn apply_once(state: &AppState, cfg: &Arc<Loaded>, user: &AuthUser, id: Uuid, expected: Option<i64>) -> ApiResult<Attempt> {
+async fn apply_once(state: &AppState, cfg: &Arc<Loaded>, user: &AuthUser, id: Uuid, expected: Option<i64>, held: &Held) -> ApiResult<Attempt> {
     // 1. read, through the pool, with no transaction open
     let p = sqlx::query("select project_id, change, rationale, status from proposals where id = $1")
         .bind(id)
@@ -331,8 +333,8 @@ async fn apply_once(state: &AppState, cfg: &Arc<Loaded>, user: &AuthUser, id: Uu
     for n in new_arch.nodes.iter_mut() {
         n.proposed = false;
     }
-    let before_summary = if st.unsaved { Some(evaluated_summary(cfg, base, waivers.clone(), lang.clone()).await?) } else { None };
-    let after_summary = evaluated_summary(cfg, new_arch.clone(), waivers, lang).await?;
+    let before_summary = if st.unsaved { Some(evaluated_summary_held(cfg, base, waivers.clone(), lang.clone(), held).await?) } else { None };
+    let after_summary = evaluated_summary_held(cfg, new_arch.clone(), waivers, lang, held).await?;
     let new_json = serde_json::to_value(&new_arch)?;
     let keep = cfg.settings.num("limits.maxVersionsPerProject") as i32;
 

@@ -1170,6 +1170,9 @@ async fn version_messages(app: &TestApp, c: &str, pid: &str) -> Vec<String> {
 async fn a_burst_of_applies_does_not_exhaust_the_pool() {
     let app = TestApp::new().await;
     let c = app.login_admin().await;
+    // the gate of heavy requests would shed most of this burst before it reaches the pool (`a_burst_beyond_the_gate_is_shed_and_not_queued` says how); this test is
+    // about what the handlers do with the pool when they all run at once, so the gate is off for it
+    set(&app, &c, json!({"limits.heavyConcurrentPerUser": 0, "limits.heavyConcurrentPerCore": 0})).await;
     let arch = demo_architecture(&app, &c).await;
     let mut jobs = vec![];
     for i in 0..12 {

@@ -1,10 +1,11 @@
 //! Projects: working copy (draft) with optimistic concurrency, immutable versions, diff,
 //! accepted risks (waivers).
 
-use crate::api_support::{ensure_valid, evaluated_summary, lang_of, limits, parse_arch, parse_valid_arch, run_evaluate, summarize, text, TextField};
+use crate::api_support::{blocking, ensure_valid, evaluated_summary_held, lang_of, limits, parse_arch, parse_valid_arch, run_evaluate_held, summarize, text, TextField};
 use crate::audit;
 use crate::auth::{client_ip, AuthUser, Role};
 use crate::error::{ApiError, ApiResult};
+use crate::heavy::Held;
 use crate::json::{Json, Path, Query};
 use crate::state::AppState;
 use axum::extract::{ConnectInfo, State};
@@ -151,7 +152,7 @@ pub struct CreateProject {
     pub lang: Option<String>,
 }
 
-pub async fn create(State(state): State<AppState>, user: AuthUser, ConnectInfo(addr): ConnectInfo<SocketAddr>, headers: HeaderMap, Json(b): Json<CreateProject>) -> ApiResult<Json<Value>> {
+pub async fn create(State(state): State<AppState>, user: AuthUser, held: Held, ConnectInfo(addr): ConnectInfo<SocketAddr>, headers: HeaderMap, Json(b): Json<CreateProject>) -> ApiResult<Json<Value>> {
     user.require_editor()?;
     let cfg = state.cfg().await?;
     let name = b.name.trim();
@@ -171,9 +172,8 @@ pub async fn create(State(state): State<AppState>, user: AuthUser, ConnectInfo(a
         req.lang = Some(lang.clone());
         req.max_nodes = Some(limits(&cfg).max_nodes);
         let ec = cfg.engine_config(&lang);
-        let a = tokio::task::spawn_blocking(move || engine::placement::generate(&ec, &ec.placement, &req))
-            .await
-            .map_err(ApiError::internal)?
+        let a = blocking(&held, move || engine::placement::generate(&ec, &ec.placement, &req))
+            .await?
             .map_err(|e| ApiError::bad_request("placement_failed", e.message.clone()).with_details(json!({"code": e.code})))?
             .architecture;
         // what the generator makes is held to the same rules as what a person writes: a design stored out of range would fail the next save
@@ -184,7 +184,7 @@ pub async fn create(State(state): State<AppState>, user: AuthUser, ConnectInfo(a
     } else {
         Architecture::default()
     };
-    let report = run_evaluate(cfg.clone(), arch.clone(), vec![], lang).await?;
+    let report = run_evaluate_held(cfg.clone(), arch.clone(), vec![], lang, &held).await?;
     let summary = serde_json::to_value(summarize(&report)).map_err(ApiError::internal)?;
     let mut tx = state.pool.begin().await?;
     let (id,): (Uuid,) = sqlx::query_as("insert into projects (name, description, owner_id, draft, head_version) values ($1, $2, $3, $4, 1) returning id")
@@ -447,14 +447,14 @@ pub struct NewVersion {
     pub lang: Option<String>,
 }
 
-pub async fn create_version(State(state): State<AppState>, user: AuthUser, Path(id): Path<Uuid>, Json(b): Json<NewVersion>) -> ApiResult<Json<Value>> {
+pub async fn create_version(State(state): State<AppState>, user: AuthUser, held: Held, Path(id): Path<Uuid>, Json(b): Json<NewVersion>) -> ApiResult<Json<Value>> {
     user.require_editor()?;
     let cfg = state.cfg().await?;
     let message = text(&cfg, TextField::LongText, "message", b.message.trim())?;
     // everything that takes a connection or CPU happens before the transaction: it only writes
     let st = load_draft(&state.pool, id).await?;
     let waivers = engine_waivers(&state, id).await?;
-    let summary = evaluated_summary(&cfg, parse_arch(st.draft.clone())?, waivers, lang_of(&cfg, b.lang.as_deref())).await?;
+    let summary = evaluated_summary_held(&cfg, parse_arch(st.draft.clone())?, waivers, lang_of(&cfg, b.lang.as_deref()), &held).await?;
     let keep = cfg.settings.num("limits.maxVersionsPerProject") as i32;
     let mut tx = state.pool.begin().await?;
     // lock the project row so concurrent snapshots get consecutive numbers
@@ -495,6 +495,7 @@ pub struct Restore {
 pub async fn restore_version(
     State(state): State<AppState>,
     user: AuthUser,
+    held: Held,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     headers: HeaderMap,
     Path((id, n)): Path<(Uuid, i32)>,
@@ -518,7 +519,7 @@ pub async fn restore_version(
         }
         let snapshot_summary = if st.unsaved {
             let waivers = engine_waivers(&state, id).await?;
-            Some(evaluated_summary(&cfg, parse_arch(st.draft.clone())?, waivers, cfg.settings.str("app.defaultLanguage")).await?)
+            Some(evaluated_summary_held(&cfg, parse_arch(st.draft.clone())?, waivers, cfg.settings.str("app.defaultLanguage"), &held).await?)
         } else {
             None
         };
@@ -597,6 +598,7 @@ pub struct NewWaiver {
 pub async fn create_waiver(
     State(state): State<AppState>,
     user: AuthUser,
+    held: Held,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     headers: HeaderMap,
     Path(id): Path<Uuid>,
@@ -614,7 +616,7 @@ pub async fn create_waiver(
     // only real, currently open critical/risk findings can be accepted
     let arch = arch_of(&state, id, "draft").await?;
     let waivers = engine_waivers(&state, id).await?;
-    let report = run_evaluate(cfg.clone(), arch, waivers, lang_of(&cfg, b.lang.as_deref())).await?;
+    let report = run_evaluate_held(cfg.clone(), arch, waivers, lang_of(&cfg, b.lang.as_deref()), &held).await?;
     let f = report.findings.iter().find(|f| f.id == b.fingerprint).ok_or_else(|| ApiError::bad_request("unknown_finding", "no such finding in the current architecture"))?;
     if !matches!(f.status, engine::evaluate::Status::Critical | engine::evaluate::Status::Risk) {
         return Err(ApiError::bad_request("not_acceptable", "only critical or risk findings can be accepted"));

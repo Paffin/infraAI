@@ -31,7 +31,8 @@ refuses on the merits, never by a bare text. `code` is the stable part (the UI t
 | `password_change_required` | 403 | a temporary password is still in force: only `/auth/me`, `/auth/password` and `/auth/logout` answer |
 | `wrong_password`, `weak_password` | 400 | changing a password: the current one is wrong / the new one is too short or too simple |
 | `locked` | 429 | repeated failures: the account is locked for this address (or for everybody, see `auth.lockoutScope`); also the same for an address that has no account, so the answer tells nothing about who has one. `Retry-After` says when to come back. Also changing a password with a wrong current one too many times |
-| `rate_limited` | 429 | too many sign-in attempts from this address in a minute (`auth.loginsPerMinutePerIp`, counted in the database, so the same on every replica); `Retry-After` |
+| `rate_limited` | 429 | too many sign-in attempts from this address in a minute (`auth.loginsPerMinutePerIp`, counted in the database, so the same on every replica); `Retry-After`. Also a heavy request refused because too many are running (see Heavy requests): `details {scope: user\|replica, limit}`, `Retry-After` is `limits.heavyRetryAfterSeconds` |
+| `request_timeout` | 504 | the request took longer than `limits.requestTimeoutSeconds` (60; 0 = no deadline) and was stopped, whatever it was waiting for: the database, a lock, a client sending its body slowly. Not on the routes that wait for another host (`/admin/versions/sync`, `/admin/llm/test`, `/admin/llm/models`). The setting is read on every request |
 | `ai_rate_limited` | 429 | the hourly limit of AI requests of the user is spent |
 | `conflict` | 409 | the project was changed by someone else (`details.currentRev`); also other revision clashes |
 | `duplicate` | 409 | an item with this id already exists |
@@ -175,6 +176,22 @@ cannot be read, so nothing is evaluated with them. A project id that never exist
 | POST | `/diff` | `{from, to, ui?}` → `ArchDiff` (design vs. an imported snapshot, any two architectures; canvas positions are ignored unless `ui: true`; nothing is stored). Each side is held to `limits.maxNodes` / `maxEdges` / `maxZones` (`400 limits_exceeded`) and no further: a snapshot of an environment may carry a kind the catalog does not know |
 | POST | `/ops/apply` | `{architecture, ops, preview?, projectId?, lang?}` → `{architecture, cascadedEdges, renamed}`; with `preview: true` also `{diff, before, after, introduced, resolved}`. At most `limits.maxOpsPerRequest` operations (`400 ops_too_many`, `details {max, actual}`) |
 | GET | `/templates/{id}` | full `Template` (`{id,name,description,badge,architecture}`) |
+
+### Heavy requests
+
+What costs the processors of the replica for seconds is counted while it **runs**, not by the minute: a person may have `limits.heavyConcurrentPerUser` (3) of these in flight and a replica `limits.heavyConcurrentPerCore` (4) per processor; past either
+the answer is `429 rate_limited` with `Retry-After` (`limits.heavyRetryAfterSeconds`), before the body is read and before the engine starts. The count is in the memory of the replica asked (the processors are its own), and a request that the client aborted
+still counts until its calculation has ended: a blocking task is not stopped by a closed connection. The editor treats the answer as "later" and asks again by itself; a script should wait the `Retry-After` and send the request again.
+The routes that are counted (`heavy::HEAVY_ROUTES`, the one list the gate and its test use):
+
+| Method | Route |
+|---|---|
+| POST | `/evaluate`, `/recommendations`, `/simulate`, `/diff`, `/ops/apply` |
+| POST | `/placement/preview`, `/placement/compare` |
+| GET | `/projects/{id}/export/{format}` |
+| POST | `/projects`, `/projects/{id}/versions`, `/projects/{id}/versions/{n}/restore`, `/projects/{id}/waivers`, `/proposals/{id}/apply` |
+
+The work the AI pipeline does (its own evaluations) and the demo project at start-up are not requests of a person and are not counted here (`jobs.maxConcurrent` bounds the jobs). `limits.maxBodyMb` is read on every request as well.
 
 `scenario` is one of
 `{"type":"none"}`, `{"type":"instance","nodeId":"…","count":1}`, `{"type":"node","nodeId":"…"}`,

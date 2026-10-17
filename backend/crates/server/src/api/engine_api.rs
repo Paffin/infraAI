@@ -3,9 +3,10 @@
 //! horizontally with the number of replicas.
 
 use crate::api::projects::engine_waivers;
-use crate::api_support::{ensure_size, lang_of, lenient_limits, limits, parse_arch, parse_viewed_arch, run_evaluate, summarize, today, ReportSummary};
+use crate::api_support::{blocking, ensure_size, lang_of, lenient_limits, limits, parse_arch, parse_viewed_arch, run_evaluate_held, summarize, today, ReportSummary};
 use crate::auth::AuthUser;
 use crate::error::{ApiError, ApiResult};
+use crate::heavy::Held;
 use crate::json::{Json, Path, Query};
 use crate::state::AppState;
 use axum::body::Body;
@@ -30,7 +31,7 @@ pub struct EvaluateBody {
     pub lang: Option<String>,
 }
 
-pub async fn evaluate(State(state): State<AppState>, _user: AuthUser, Json(b): Json<EvaluateBody>) -> ApiResult<Json<Value>> {
+pub async fn evaluate(State(state): State<AppState>, _user: AuthUser, held: Held, Json(b): Json<EvaluateBody>) -> ApiResult<Json<Value>> {
     let cfg = state.cfg().await?;
     // structural problems are part of the report (issues), not a request failure
     let arch = parse_arch(b.architecture)?;
@@ -40,13 +41,13 @@ pub async fn evaluate(State(state): State<AppState>, _user: AuthUser, Json(b): J
         None => vec![],
     };
     state.metrics.evaluations.with_label_values(&["evaluate"]).inc();
-    let report = run_evaluate(cfg.clone(), arch, waivers, lang_of(&cfg, b.lang.as_deref())).await?;
+    let report = run_evaluate_held(cfg.clone(), arch, waivers, lang_of(&cfg, b.lang.as_deref()), &held).await?;
     Ok(Json(serde_json::to_value(report)?))
 }
 
 /// What to improve first: the engine's fixes for the open findings, each tried on a copy and ranked by the effect measured
 /// (`docs/RECOMMENDATIONS.md`). Stateless like `evaluate`; the project's accepted risks are read for the waivers.
-pub async fn recommendations(State(state): State<AppState>, _user: AuthUser, Json(b): Json<EvaluateBody>) -> ApiResult<Json<Value>> {
+pub async fn recommendations(State(state): State<AppState>, _user: AuthUser, held: Held, Json(b): Json<EvaluateBody>) -> ApiResult<Json<Value>> {
     let cfg = state.cfg().await?;
     let arch = parse_viewed_arch(&cfg, b.architecture)?;
     let waivers = match b.project_id {
@@ -56,12 +57,11 @@ pub async fn recommendations(State(state): State<AppState>, _user: AuthUser, Jso
     let lang = lang_of(&cfg, b.lang.as_deref());
     state.metrics.evaluations.with_label_values(&["recommend"]).inc();
     let lim = lenient_limits(&cfg);
-    let plan = tokio::task::spawn_blocking(move || {
+    let plan = blocking(&held, move || {
         let ec = cfg.engine_config(&lang);
         engine::recommend::recommend(&arch, &ec, &waivers, &lim)
     })
-    .await
-    .map_err(ApiError::internal)?;
+    .await?;
     Ok(Json(serde_json::to_value(plan)?))
 }
 
@@ -77,14 +77,14 @@ pub struct DiffBody {
 /// Structural difference between two architectures given in the request: the design against an imported
 /// snapshot of the real environment (drift), or any two files. Nothing is stored. Both sides are held to the size limits (a snapshot of the
 /// environment may carry a kind the catalog does not know, so they are not validated further) and the comparison runs off the async runtime.
-pub async fn diff_architectures(State(state): State<AppState>, _user: AuthUser, Json(b): Json<DiffBody>) -> ApiResult<Json<Value>> {
+pub async fn diff_architectures(State(state): State<AppState>, _user: AuthUser, held: Held, Json(b): Json<DiffBody>) -> ApiResult<Json<Value>> {
     let cfg = state.cfg().await?;
     let from = parse_arch(b.from)?;
     let to = parse_arch(b.to)?;
     ensure_size(&cfg, &from)?;
     ensure_size(&cfg, &to)?;
     let ui = b.ui;
-    let d = tokio::task::spawn_blocking(move || diff(&from, &to, ui)).await.map_err(ApiError::internal)?;
+    let d = blocking(&held, move || diff(&from, &to, ui)).await?;
     Ok(Json(serde_json::to_value(d)?))
 }
 
@@ -95,19 +95,18 @@ pub struct SimulateBody {
     pub scenario: Scenario,
 }
 
-pub async fn simulate_scenario(State(state): State<AppState>, _user: AuthUser, Json(b): Json<SimulateBody>) -> ApiResult<Json<Value>> {
+pub async fn simulate_scenario(State(state): State<AppState>, _user: AuthUser, held: Held, Json(b): Json<SimulateBody>) -> ApiResult<Json<Value>> {
     let cfg = state.cfg().await?;
     let arch = parse_viewed_arch(&cfg, b.architecture)?;
     state.metrics.evaluations.with_label_values(&["simulate"]).inc();
-    let result = tokio::task::spawn_blocking(move || {
+    let result = blocking(&held, move || {
         let ec = cfg.engine_config("en");
         let ix = engine::graph::Index::build(&arch, &ec.catalog, &ec.settings);
         // a failure of something the design does not have takes nothing away: the simulator would answer "up". For a scenario that a person (or a
         // link, or a stale tab) brings that is a wrong answer, so it is refused, naming what is not there
         check_scenario(&ix, &b.scenario).map(|()| simulate_timeline(&ix, &b.scenario))
     })
-    .await
-    .map_err(ApiError::internal)?
+    .await?
     .map_err(scenario_error)?;
     Ok(Json(serde_json::to_value(result)?))
 }
@@ -148,15 +147,25 @@ pub struct Preview {
 
 /// Apply operations to a copy and evaluate the result (shared by the API and AI proposals).
 pub async fn preview_ops(cfg: std::sync::Arc<crate::config_store::Loaded>, base: engine::model::Architecture, ops: Vec<Op>, waivers: Vec<engine::config::Waiver>, lang: String) -> ApiResult<Preview> {
+    preview_ops_held(cfg, base, ops, waivers, lang, &Held::default()).await
+}
+
+/// [`preview_ops`] for a request that holds a slot of the heavy-request gate: all three steps (the operations, the evaluation before, the one after) carry it.
+pub async fn preview_ops_held(
+    cfg: std::sync::Arc<crate::config_store::Loaded>,
+    base: engine::model::Architecture,
+    ops: Vec<Op>,
+    waivers: Vec<engine::config::Waiver>,
+    lang: String,
+    held: &Held,
+) -> ApiResult<Preview> {
     let lim = limits(&cfg);
     let ec = cfg.engine_config(&lang);
     let (base2, ec2, ops2) = (base.clone(), ec.clone(), ops.clone());
-    let outcome = tokio::task::spawn_blocking(move || apply_ops(&base2, &ops2, &ec2.catalog, &lim))
-        .await
-        .map_err(ApiError::internal)?
-        .map_err(|e| ApiError::bad_request("ops_invalid", e.to_string()).with_details(json!({"issues": e.issues})))?;
-    let before = run_evaluate(cfg.clone(), base.clone(), waivers.clone(), lang.clone()).await?;
-    let after = run_evaluate(cfg.clone(), outcome.architecture.clone(), waivers, lang).await?;
+    let outcome =
+        blocking(held, move || apply_ops(&base2, &ops2, &ec2.catalog, &lim)).await?.map_err(|e| ApiError::bad_request("ops_invalid", e.to_string()).with_details(json!({"issues": e.issues})))?;
+    let before = run_evaluate_held(cfg.clone(), base.clone(), waivers.clone(), lang.clone(), held).await?;
+    let after = run_evaluate_held(cfg.clone(), outcome.architecture.clone(), waivers, lang, held).await?;
     let (sb, sa) = (summarize(&before), summarize(&after));
     let before_open: HashSet<&String> = sb.open.iter().collect();
     let after_open: HashSet<&String> = sa.open.iter().collect();
@@ -166,7 +175,7 @@ pub async fn preview_ops(cfg: std::sync::Arc<crate::config_store::Loaded>, base:
     Ok(Preview { outcome, diff: d, before: sb, after: sa, introduced, resolved, after_report: after })
 }
 
-pub async fn apply(State(state): State<AppState>, user: AuthUser, Json(b): Json<ApplyBody>) -> ApiResult<Json<Value>> {
+pub async fn apply(State(state): State<AppState>, user: AuthUser, held: Held, Json(b): Json<ApplyBody>) -> ApiResult<Json<Value>> {
     user.require_editor()?;
     let cfg = state.cfg().await?;
     let max_ops = cfg.settings.num("limits.maxOpsPerRequest") as usize;
@@ -180,17 +189,15 @@ pub async fn apply(State(state): State<AppState>, user: AuthUser, Json(b): Json<
         let lim = limits(&cfg);
         let ec = cfg.engine_config(&lang);
         let ops = b.ops;
-        let outcome = tokio::task::spawn_blocking(move || apply_ops(&base, &ops, &ec.catalog, &lim))
-            .await
-            .map_err(ApiError::internal)?
-            .map_err(|e| ApiError::bad_request("ops_invalid", e.to_string()).with_details(json!({"issues": e.issues})))?;
+        let outcome =
+            blocking(&held, move || apply_ops(&base, &ops, &ec.catalog, &lim)).await?.map_err(|e| ApiError::bad_request("ops_invalid", e.to_string()).with_details(json!({"issues": e.issues})))?;
         return Ok(Json(serde_json::to_value(outcome)?));
     }
     let waivers = match b.project_id {
         Some(id) => engine_waivers(&state, id).await?,
         None => vec![],
     };
-    let p = preview_ops(cfg, base, b.ops, waivers, lang).await?;
+    let p = preview_ops_held(cfg, base, b.ops, waivers, lang, &held).await?;
     Ok(Json(json!({
         "architecture": p.outcome.architecture, "cascadedEdges": p.outcome.cascaded_edges, "renamed": p.outcome.renamed,
         "diff": p.diff, "before": p.before, "after": p.after, "introduced": p.introduced, "resolved": p.resolved,
@@ -214,7 +221,7 @@ pub struct ExportQuery {
     pub version: Option<String>,
 }
 
-pub async fn export(State(state): State<AppState>, _user: AuthUser, Path((id, format)): Path<(Uuid, String)>, Query(q): Query<ExportQuery>) -> ApiResult<Response> {
+pub async fn export(State(state): State<AppState>, _user: AuthUser, held: Held, Path((id, format)): Path<(Uuid, String)>, Query(q): Query<ExportQuery>) -> ApiResult<Response> {
     let cfg = state.cfg().await?;
     if !engine::export::FORMATS.contains(&format.as_str()) {
         return Err(ApiError::bad_request("unknown_format", format!("format must be one of: {}", engine::export::FORMATS.join(", "))));
@@ -243,13 +250,12 @@ pub async fn export(State(state): State<AppState>, _user: AuthUser, Path((id, fo
     let cfg2 = cfg.clone();
     let l2 = lang.clone();
     let fmt = format.clone();
-    let export = tokio::task::spawn_blocking(move || {
+    let export = blocking(&held, move || {
         let ec = cfg2.engine_config(&l2);
         let report = engine::evaluate::evaluate(&arch, &ec, &waivers);
         engine::export::generate(&fmt, &arch, &ec, &report, &waivers, &l2, &today())
     })
-    .await
-    .map_err(ApiError::internal)?
+    .await?
     .ok_or_else(|| ApiError::bad_request("unknown_format", "unknown format"))?;
     let files = export.files;
 

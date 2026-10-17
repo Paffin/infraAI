@@ -94,13 +94,13 @@ kubectl apply -k deploy/k8s
 | Что | Где |
 |---|---|
 | Логи | JSON в stdout (`LOG_JSON`, `RUST_LOG`); у каждого запроса — реплика (`INSTANCE_ID`) |
-| Метрики | `/metrics` (Prometheus): `http_requests_total{method,route,status}`, `http_request_duration_seconds`, `engine_evaluations_total`, `ai_jobs_running`, `ai_jobs_finished_total{kind,status}`, `llm_calls_total{purpose,status}`, `llm_cost_usd_total`, `infra_auth_logins_total{outcome}` (`ok`, `failed`, `locked`, `throttled`: причина отказа в метку не попадает, она в журнале аудита) и `infra_auth_password_checks_total` (проверки пароля, Argon2); в выводе у всех имён префикс `infra_`; метка `method` — `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS` или `other` (HTTP принимает любое слово как метод, и каждое выдуманное породило бы пятнадцать рядов, которые не освобождаются); отключается настройкой `observability.metricsEnabled`, защищается `METRICS_TOKEN` (сравнивается за постоянное время) и отдельным портом `METRICS_PORT` (ниже) |
+| Метрики | `/metrics` (Prometheus): `http_requests_total{method,route,status}`, `http_request_duration_seconds`, `engine_evaluations_total`, `ai_jobs_running`, `ai_jobs_finished_total{kind,status}`, `llm_calls_total{purpose,status}`, `llm_cost_usd_total`, `infra_auth_logins_total{outcome}` (`ok`, `failed`, `locked`, `throttled`: причина отказа в метку не попадает, она в журнале аудита) и `infra_auth_password_checks_total` (проверки пароля, Argon2), `infra_heavy_in_flight` (тяжёлые запросы, которые считаются на этой реплике сейчас) и `infra_heavy_rejected_total{scope}` (отказы `429`: `user` — у человека уже столько-то, `replica` — реплика занята); в выводе у всех имён префикс `infra_`; метка `method` — `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS` или `other` (HTTP принимает любое слово как метод, и каждое выдуманное породило бы пятнадцать рядов, которые не освобождаются); отключается настройкой `observability.metricsEnabled`, защищается `METRICS_TOKEN` (сравнивается за постоянное время) и отдельным портом `METRICS_PORT` (ниже) |
 | Здоровье | `/healthz`, `/readyz`; Администрирование → Система (версия, БД, миграции, ревизия конфигурации, счётчики задач) |
 | Аудит | Администрирование → Аудит: входы, изменения настроек и конфигурации (какие ключи), пользователи, применения ИИ |
 
 Полезные алерты: доля `5xx` > 1 % за 5 мин; `histogram_quantile(0.95, http_request_duration_seconds) > 2`; `ai_jobs_finished_total{status="failed"}`
 растёт; расход `llm_cost_usd_total` за сутки выше ожидаемого; `up == 0` менее чем у двух реплик; `rate(infra_auth_logins_total{outcome=~"locked|throttled"}[5m])` держится выше нуля — перебор паролей или неверный
-`TRUST_PROXY_HOPS` (все пользователи под одним адресом упираются в один лимит, см. [CONFIGURATION.md](CONFIGURATION.md)).
+`TRUST_PROXY_HOPS` (все пользователи под одним адресом упираются в один лимит, см. [CONFIGURATION.md](CONFIGURATION.md)); `rate(infra_heavy_rejected_total{scope="replica"}[5m])` держится выше нуля — реплике не хватает процессоров: добавьте реплик (счёт ведёт каждая сама) или поднимите `limits.heavyConcurrentPerCore`.
 
 ### Метрики на своём порту
 
@@ -115,6 +115,16 @@ kubectl apply -k deploy/k8s
 * **Compose**: порт не публикуется, пока вы не попросите: `docker compose -f docker-compose.yml -f docker-compose.metrics.yml up -d` задаёт `METRICS_PORT=9090` и публикует его на `127.0.0.1:9090` (для Prometheus на том же хосте; другой порт хоста — `METRICS_HOST_PORT`). `deploy/smoke.sh` с `SMOKE_METRICS_URL=http://127.0.0.1:9090` проверяет оба
   конца: `404` на порту приложения и ряды на порту метрик; CI гоняет его так на только что собранном образе.
 * Если `METRICS_PORT` не задан, всё как раньше: `/metrics` на порту приложения, открыт, пока не задан `METRICS_TOKEN`. Установка, где это так, увидит запись `metrics_open` в отчёте о безопасности (ниже).
+
+### Медленные клиенты, срок запроса и тяжёлые запросы
+
+* **Заголовки запроса.** Клиент, который прислал полстроки заголовка и замолчал, держал соединение, пока его не закрывал он сам (измерено: больше 95 с). Теперь сервер сам закрывает такое соединение через `limits.headerReadTimeoutSeconds` (30 с; 0 — не закрывать; HTTP/1.1; так же закрывается
+  соединение, простоявшее без запроса дольше этого срока). Значение читается при старте. За обратным прокси (nginx `client_header_timeout`, Ingress) это делает он, и сервер видит только его соединения; на порту, открытом прямо в сеть (быстрый старт), — сервер.
+* **Срок ответа.** Запрос, не ответивший за `limits.requestTimeoutSeconds` (60 с), получает `504 request_timeout` (JSON, как любая ошибка); значение читается на каждый запрос. Исключены обновление таблиц версий и проверка ИИ в админке: они ждут чужой хост со своими сроками
+  (`versions.syncTimeoutSeconds`, `llm.timeoutSeconds`). Вычисление, которое уже пошло, срок не останавливает: поток не прервать, поэтому место в счёте тяжёлых запросов (ниже) освобождается, когда оно закончилось, а не когда обработчик отпущен.
+* **Тяжёлые запросы.** Расчёт схемы, симуляция, план улучшений, размещение, экспорт и записи, которые считают то, что пишут, считаются, пока идут: `limits.heavyConcurrentPerUser` (3) у человека и `limits.heavyConcurrentPerCore` (4) на процессор реплики; сверх — `429 rate_limited`
+  с `Retry-After`, редактор повторяет сам ([API.md](API.md#heavy-requests)). Счёт — в памяти реплики (ADR-0004: кэш, который не жалко потерять), потому что считается процессор этой реплики; в PostgreSQL его писать — значит платить записью за каждую правку редактора. Запросов в минуту никто не считает:
+  170 расчётов в минуту — один редактор с паузой 350 мс, а не злоупотребление, ограничивать надо то, что считается одновременно.
 
 ### Отчёт о безопасности установки
 

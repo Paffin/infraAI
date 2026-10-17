@@ -16,6 +16,10 @@ pub struct Metrics {
     pub auth_logins: IntCounterVec,
     /// Argon2 verifications. A sign-in that is refused before the password is looked at does not count, one that is looked at counts exactly once.
     pub auth_password_checks: IntCounter,
+    /// Heavy requests (the engine's seconds of CPU: `heavy::HEAVY_ROUTES`) running on this replica now, until the work ends and not the request.
+    pub heavy_in_flight: IntGauge,
+    /// Heavy requests refused with `429`, by the limit that said no: `user` or `replica`.
+    pub heavy_rejected: IntCounterVec,
 }
 
 impl Metrics {
@@ -34,6 +38,8 @@ impl Metrics {
         let evaluations = IntCounterVec::new(Opts::new("engine_evaluations_total", "Engine evaluations"), &["kind"]).unwrap();
         let auth_logins = IntCounterVec::new(Opts::new("auth_logins_total", "Sign-in attempts by outcome (ok, failed, locked, throttled)"), &["outcome"]).unwrap();
         let auth_password_checks = IntCounter::new("auth_password_checks_total", "Argon2 password verifications").unwrap();
+        let heavy_in_flight = IntGauge::new("heavy_in_flight", "Heavy requests (engine work) running on this instance").unwrap();
+        let heavy_rejected = IntCounterVec::new(Opts::new("heavy_rejected_total", "Heavy requests refused with 429, by the limit that said no (user, replica)"), &["scope"]).unwrap();
         for c in [
             Box::new(http_requests.clone()) as Box<dyn prometheus::core::Collector>,
             Box::new(http_duration.clone()),
@@ -44,10 +50,12 @@ impl Metrics {
             Box::new(evaluations.clone()),
             Box::new(auth_logins.clone()),
             Box::new(auth_password_checks.clone()),
+            Box::new(heavy_in_flight.clone()),
+            Box::new(heavy_rejected.clone()),
         ] {
             registry.register(c).unwrap();
         }
-        Metrics { registry, http_requests, http_duration, llm_calls, llm_cost_usd, jobs_running, jobs_finished, evaluations, auth_logins, auth_password_checks }
+        Metrics { registry, http_requests, http_duration, llm_calls, llm_cost_usd, jobs_running, jobs_finished, evaluations, auth_logins, auth_password_checks, heavy_in_flight, heavy_rejected }
     }
 
     pub fn render(&self) -> String {

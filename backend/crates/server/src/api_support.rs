@@ -2,6 +2,7 @@
 
 use crate::config_store::Loaded;
 use crate::error::{ApiError, ApiResult};
+use crate::heavy::Held;
 use engine::config::Waiver;
 use engine::evaluate::{evaluate, Report, Status};
 use engine::model::{validate, Architecture, IssueLevel, ValidationLimits};
@@ -108,14 +109,31 @@ pub fn parse_viewed_arch(cfg: &Loaded, v: Value) -> ApiResult<Architecture> {
     parse_checked(cfg, v, &lenient_limits(cfg))
 }
 
+/// Run CPU-bound work on the blocking pool, off the async runtime, **with the slot of the request moved in** (`heavy`): the slot is given back when the work
+/// ends, not when the request does. A client that aborts drops the future that waits here; the closure on its blocking thread does not stop, and until it
+/// has finished the processor is not free, so the slot is not either.
+pub async fn blocking<T: Send + 'static>(hold: &Held, work: impl FnOnce() -> T + Send + 'static) -> ApiResult<T> {
+    let hold = hold.clone();
+    tokio::task::spawn_blocking(move || {
+        let _slot = hold;
+        work()
+    })
+    .await
+    .map_err(ApiError::internal)
+}
+
 /// Run the (CPU-bound) evaluation off the async runtime.
 pub async fn run_evaluate(cfg: Arc<Loaded>, arch: Architecture, waivers: Vec<Waiver>, lang: String) -> ApiResult<Report> {
-    tokio::task::spawn_blocking(move || {
+    run_evaluate_held(cfg, arch, waivers, lang, &Held::default()).await
+}
+
+/// [`run_evaluate`] for a request that holds a slot of the heavy-request gate: the slot goes with the work.
+pub async fn run_evaluate_held(cfg: Arc<Loaded>, arch: Architecture, waivers: Vec<Waiver>, lang: String, hold: &Held) -> ApiResult<Report> {
+    blocking(hold, move || {
         let ec = cfg.engine_config(&lang);
         evaluate(&arch, &ec, &waivers)
     })
     .await
-    .map_err(ApiError::internal)
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -143,7 +161,12 @@ pub fn summarize(r: &Report) -> ReportSummary {
 
 /// The summary kept with a version: the architecture evaluated with the project's accepted risks.
 pub async fn evaluated_summary(cfg: &Arc<Loaded>, arch: Architecture, waivers: Vec<Waiver>, lang: String) -> ApiResult<Value> {
-    let report = run_evaluate(cfg.clone(), arch, waivers, lang).await?;
+    evaluated_summary_held(cfg, arch, waivers, lang, &Held::default()).await
+}
+
+/// [`evaluated_summary`] for a request that holds a slot of the heavy-request gate.
+pub async fn evaluated_summary_held(cfg: &Arc<Loaded>, arch: Architecture, waivers: Vec<Waiver>, lang: String, hold: &Held) -> ApiResult<Value> {
+    let report = run_evaluate_held(cfg.clone(), arch, waivers, lang, hold).await?;
     Ok(serde_json::to_value(summarize(&report))?)
 }
 

@@ -12,7 +12,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::TcpListener;
+use tokio::net::{TcpListener, TcpStream};
 
 /// A listener on 127.0.0.1 that counts the requests it gets and answers each from `answer(path)`; `None` = answer for ever, chunked, without a length.
 struct Hostile {
@@ -22,6 +22,11 @@ struct Hostile {
 
 impl Hostile {
     async fn listen(answer: impl Fn(&str) -> Option<String> + Send + Sync + 'static) -> Hostile {
+        Hostile::listen_after(Duration::ZERO, answer).await
+    }
+
+    /// The same, but each answer is given `delay` after the request has been read: a source that is slow.
+    async fn listen_after(delay: Duration, answer: impl Fn(&str) -> Option<String> + Send + Sync + 'static) -> Hostile {
         let listener = TcpListener::bind("127.0.0.1:0").await.expect("a free port");
         let port = listener.local_addr().unwrap().port();
         let hits = Arc::new(AtomicUsize::new(0));
@@ -40,6 +45,7 @@ impl Hostile {
                     }
                     counted.fetch_add(1, Ordering::SeqCst);
                     let path = String::from_utf8_lossy(&head).lines().next().and_then(|l| l.split_whitespace().nth(1).map(String::from)).unwrap_or_default();
+                    tokio::time::sleep(delay).await;
                     match answer(&path) {
                         Some(text) => {
                             let _ = sock.write_all(text.as_bytes()).await;
@@ -478,5 +484,325 @@ async fn ops_apply_takes_a_bounded_number_of_operations() {
     set(&app, &c, json!({"limits.maxOpsPerRequest": 10})).await;
     let (s, v) = app.post(&c, "/api/ops/apply", json!({"architecture": design, "ops": [op(3), op(4)]})).await;
     assert_eq!(s, StatusCode::OK, "raised, the next request is judged by the new bound: {v}");
+    app.cleanup().await;
+}
+
+// ------------------------------------------------------------------------------------------------------------------------------------------
+// Runtime budgets: how much engine work one user (and one replica) may have running, how long a request may take, how a slow client is treated
+// ------------------------------------------------------------------------------------------------------------------------------------------
+
+use server::heavy::HEAVY_ROUTES;
+
+async fn user_id_of(app: &TestApp, cookie: &str) -> uuid::Uuid {
+    let (_, me) = app.get(cookie, "/api/auth/me").await;
+    me["user"]["id"].as_str().unwrap().parse().unwrap()
+}
+
+/// What a request for each route of `HEAVY_ROUTES` looks like. A route in the list without a request here fails the test: the list and the test are one thing.
+struct Heavy {
+    project: String,
+    design: Value,
+    fingerprint: String,
+}
+
+impl Heavy {
+    async fn new(app: &TestApp, c: &str) -> Heavy {
+        let design = crate::demo_architecture(app, c).await;
+        let project = crate::new_project(app, c, "heavy", &design).await;
+        let (s, report) = app.post(c, "/api/evaluate", json!({"architecture": design})).await;
+        assert_eq!(s, StatusCode::OK, "{report}");
+        let fingerprint = report["findings"].as_array().unwrap().iter().find(|f| f["ruleId"] == "DR-KFK-01").unwrap()["id"].as_str().unwrap().to_string();
+        Heavy { project, design, fingerprint }
+    }
+
+    /// The request for `route`, valid at this moment (a restore needs the revision as it is now, an applied proposal the draft it was made for).
+    async fn request(&self, app: &TestApp, c: &str, method: &str, route: &str) -> (axum::http::Method, String, Option<Value>) {
+        let (id, d) = (&self.project, &self.design);
+        let (rev, _) = crate::project_rev(app, c, id).await;
+        let post = axum::http::Method::POST;
+        match (method, route) {
+            ("POST", "/api/evaluate") | ("POST", "/api/recommendations") => (post, route.into(), Some(json!({"architecture": d}))),
+            ("POST", "/api/simulate") => (post, route.into(), Some(json!({"architecture": d, "scenario": {"type": "zone", "zoneId": "dc1"}}))),
+            ("POST", "/api/diff") => (post, route.into(), Some(json!({"from": d, "to": d}))),
+            ("POST", "/api/ops/apply") => (post, route.into(), Some(json!({"architecture": d, "ops": [{"op": "update_node", "id": "app-dc1", "set": {"props.replicas": 3}}], "preview": true}))),
+            ("POST", "/api/placement/preview") => (post, route.into(), Some(json!({"pattern": "n-sites", "sites": 3}))),
+            ("POST", "/api/placement/compare") => (post, route.into(), Some(json!({"base": {"pattern": "n-sites", "sites": 3}, "variants": [{"sites": 2}, {"sites": 3}]}))),
+            ("GET", "/api/projects/{id}/export/{format}") => (axum::http::Method::GET, format!("/api/projects/{id}/export/terraform"), None),
+            ("POST", "/api/projects") => (post, route.into(), Some(json!({"name": "created by the gate test", "architecture": d}))),
+            ("POST", "/api/projects/{id}/versions") => (post, format!("/api/projects/{id}/versions"), Some(json!({"message": "by the gate test"}))),
+            ("POST", "/api/projects/{id}/versions/{n}/restore") => (post, format!("/api/projects/{id}/versions/1/restore"), Some(json!({"expectedRev": rev}))),
+            ("POST", "/api/projects/{id}/waivers") => {
+                (post, format!("/api/projects/{id}/waivers"), Some(json!({"fingerprint": self.fingerprint, "reason": "accepted by the gate test, which has a reason"})))
+            }
+            ("POST", "/api/proposals/{id}/apply") => {
+                let proposal = crate::pending_proposal(app, id, vec![crate::replicas_of("app-dc1", 4)]).await;
+                (post, format!("/api/proposals/{proposal}/apply"), Some(json!({})))
+            }
+            _ => panic!("{method} {route} is a heavy route and this test has no request for it: add one"),
+        }
+    }
+}
+
+async fn send(app: &TestApp, c: &str, (method, path, body): (axum::http::Method, String, Option<Value>)) -> (StatusCode, axum::http::HeaderMap, Value) {
+    app.request(method, &path, body, Some(c.to_string()), &[]).await
+}
+
+/// Engine work that one user has running is limited, and so is the replica's: past the limit a heavy request is `429 rate_limited` with `Retry-After`, before the
+/// body is read and before the engine starts; when a slot is free the same request is answered. The slots are the real gate's (`app.state.heavy`), taken the way a
+/// request takes one, so the test does not depend on how long an evaluation takes: it holds the slots instead of racing two requests.
+#[tokio::test]
+async fn heavy_endpoints_are_rate_limited() {
+    let app = TestApp::new().await;
+    let c = app.login_admin().await;
+    let me = user_id_of(&app, &c).await;
+    let heavy = Heavy::new(&app, &c).await;
+    assert!(HEAVY_ROUTES.len() >= 9, "{} routes are gated; before there were 2 limits (sign-in, AI requests) on 59 routes", HEAVY_ROUTES.len());
+    set(&app, &c, json!({"limits.heavyRetryAfterSeconds": 3})).await;
+    let (per_user, gate) = (3, app.state.heavy.clone());
+
+    // all of a user's slots are taken: every heavy route says so
+    let taken: Vec<_> = (0..per_user).map(|_| gate.try_acquire(me, per_user, 0).expect("the slots are free")).collect();
+    let refused_before = app.metric("infra_heavy_rejected_total{scope=\"user\"}").await;
+    for (method, route) in HEAVY_ROUTES {
+        let (s, h, v) = send(&app, &c, heavy.request(&app, &c, method, route).await).await;
+        assert_eq!((s, v["error"]["code"].as_str()), (StatusCode::TOO_MANY_REQUESTS, Some("rate_limited")), "{method} {route}: {v}");
+        assert_eq!(h.get("retry-after").and_then(|x| x.to_str().ok()), Some("3"), "{method} {route}: Retry-After is the setting");
+        assert_eq!((v["error"]["details"]["scope"].as_str(), v["error"]["details"]["limit"].as_i64()), (Some("user"), Some(3)), "{v}");
+    }
+    assert_eq!(app.metric("infra_heavy_rejected_total{scope=\"user\"}").await - refused_before, HEAVY_ROUTES.len() as f64, "each refusal is counted, by the limit that said no");
+    // a HEAD is answered by the handler of the GET, with its body thrown away: it must not be a way round
+    let (s, _, _) = app.request(axum::http::Method::HEAD, &format!("/api/projects/{}/export/terraform", heavy.project), None, Some(c.clone()), &[]).await;
+    assert_eq!(s, StatusCode::TOO_MANY_REQUESTS, "HEAD of an export while the slots are taken");
+    assert_eq!(gate.in_flight_of(me), per_user, "a refused request takes no slot");
+
+    // not everything is gated: the list of projects is a query, not engine work; somebody else's slots are their own; a request with no session is still 401
+    let (s, _) = app.get(&c, "/api/projects").await;
+    assert_eq!(s, StatusCode::OK);
+    let other = app.create_user(&c, "other@test.local", "editor").await;
+    let (s, _, v) = send(&app, &other, heavy.request(&app, &c, "POST", "/api/evaluate").await).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    let (s, _, v) = app.request(axum::http::Method::POST, "/api/evaluate", Some(json!({"architecture": heavy.design})), None, &[]).await;
+    assert_eq!((s, v["error"]["code"].as_str()), (StatusCode::UNAUTHORIZED, Some("unauthorized")), "{v}");
+
+    // one slot free: each of the same requests is let in, answered, and gives its slot back
+    let mut taken = taken;
+    taken.pop();
+    for (method, route) in HEAVY_ROUTES {
+        let (s, _, v) = send(&app, &c, heavy.request(&app, &c, method, route).await).await;
+        assert_eq!(s, StatusCode::OK, "{method} {route} with a slot free: {v}");
+        assert_eq!(gate.in_flight_of(me), per_user - 1, "{method} {route}: the slot of the request is given back when it is answered");
+    }
+    drop(taken);
+    assert_eq!(gate.in_flight(), 0);
+    assert_eq!(app.metric("infra_heavy_in_flight").await, 0.0);
+
+    // the replica has a limit of its own, per processor, whoever's the requests are; the user's limit off
+    let cores = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1);
+    set(&app, &c, json!({"limits.heavyConcurrentPerUser": 0, "limits.heavyConcurrentPerCore": 1})).await;
+    let strangers: Vec<_> = (0..cores).map(|_| gate.try_acquire(uuid::Uuid::new_v4(), 0, 0).unwrap()).collect();
+    let (s, _, v) = send(&app, &c, heavy.request(&app, &c, "POST", "/api/evaluate").await).await;
+    assert_eq!((s, v["error"]["details"]["scope"].as_str(), v["error"]["details"]["limit"].as_u64()), (StatusCode::TOO_MANY_REQUESTS, Some("replica"), Some(cores as u64)), "{v}");
+    drop(strangers);
+    let (s, _, _) = send(&app, &c, heavy.request(&app, &c, "POST", "/api/evaluate").await).await;
+    assert_eq!(s, StatusCode::OK);
+    // 0 is no limit at all
+    set(&app, &c, json!({"limits.heavyConcurrentPerCore": 0})).await;
+    let many: Vec<_> = (0..20).map(|_| gate.try_acquire(me, 0, 0).unwrap()).collect();
+    let (s, _, _) = send(&app, &c, heavy.request(&app, &c, "POST", "/api/evaluate").await).await;
+    assert_eq!(s, StatusCode::OK);
+    drop(many);
+    app.cleanup().await;
+}
+
+/// A deadline over the whole API, read on every request, answered in JSON. The request here is a real one that waits for a real lock: the test holds the row
+/// of the project in a transaction of its own, so the update of the name has to wait for it.
+#[tokio::test]
+async fn a_request_that_takes_too_long_is_answered_in_json_after_the_deadline() {
+    let app = TestApp::new().await;
+    let c = app.login_admin().await;
+    let pid = app.first_project(&c).await;
+    set(&app, &c, json!({"limits.requestTimeoutSeconds": 1})).await;
+    let mut lock = app.state.pool.begin().await.unwrap();
+    sqlx::query("select 1 from projects where id = $1::uuid for update").bind(&pid).fetch_one(&mut *lock).await.unwrap();
+
+    let started = Instant::now();
+    let (s, h, v) = app.request(axum::http::Method::PATCH, &format!("/api/projects/{pid}"), Some(json!({"name": "waits for the lock"})), Some(c.clone()), &[]).await;
+    assert_eq!((s, v["error"]["code"].as_str()), (StatusCode::GATEWAY_TIMEOUT, Some("request_timeout")), "{v}");
+    assert!(h.get("content-type").and_then(|x| x.to_str().ok()).is_some_and(|t| t.starts_with("application/json")), "the one JSON shape: {h:?}");
+    assert!(v["error"]["message"].as_str().unwrap().contains("limits.requestTimeoutSeconds"), "{v}");
+    assert!(started.elapsed() >= Duration::from_millis(900) && started.elapsed() < Duration::from_secs(3), "after the deadline, not before or long after: {:?}", started.elapsed());
+    assert_eq!(app.metric("infra_http_requests_total{method=\"PATCH\",route=\"/api/projects/{id}\",status=\"504\"}").await, 1.0, "the metrics see the 504");
+
+    // the lock goes: the same request is answered at once, and the new value of the setting is what the next request is judged by
+    lock.rollback().await.unwrap();
+    let (s, _, v) = app.request(axum::http::Method::PATCH, &format!("/api/projects/{pid}"), Some(json!({"name": "no longer waits"})), Some(c.clone()), &[]).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+
+    // the routes that wait for another host are not cut by a deadline they cannot know: a source that takes two seconds to answer, under a deadline of one
+    let (_, list) = app.get(&c, "/api/admin/config/catalog.versions").await;
+    let mut table = list["items"].as_array().unwrap().iter().find(|i| i["id"] == "kafka").unwrap()["data"].clone();
+    let rows = include_str!("../fixtures/endoflife/postgresql.json").to_string();
+    let slow = Hostile::listen_after(Duration::from_secs(2), move |_| reply("200 OK", "Content-Type: application/json\r\n", &rows)).await;
+    set(&app, &c, json!({"versions.sourceBases": [slow.url("/api/")]})).await;
+    table["id"] = json!("slow");
+    table["source"] = json!(slow.url("/api/slow.json"));
+    let (s, v) = app.post(&c, "/api/admin/config/catalog.versions", json!({"id": "slow", "data": table})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    let started = Instant::now();
+    let (s, v) = app.post(&c, "/api/admin/versions/sync", json!({"ids": ["slow"]})).await;
+    assert!(started.elapsed() > Duration::from_millis(1900), "the source was slow: {:?}", started.elapsed());
+    assert_eq!((s, v["results"][0]["ok"].as_bool()), (StatusCode::OK, Some(true)), "the sync was not stopped at the deadline: {v}");
+
+    // and 0 is no deadline
+    set(&app, &c, json!({"limits.requestTimeoutSeconds": 0})).await;
+    let mut lock = app.state.pool.begin().await.unwrap();
+    sqlx::query("select 1 from projects where id = $1::uuid for update").bind(&pid).fetch_one(&mut *lock).await.unwrap();
+    let waiting = {
+        let (app, c, pid) = (&app, c.clone(), pid.clone());
+        async move { app.request(axum::http::Method::PATCH, &format!("/api/projects/{pid}"), Some(json!({"name": "waits"})), Some(c), &[]).await }
+    };
+    let release = async {
+        tokio::time::sleep(Duration::from_millis(1500)).await;
+        lock.rollback().await.unwrap();
+    };
+    let ((s, _, v), ()) = tokio::join!(waiting, release);
+    assert_eq!(s, StatusCode::OK, "waited longer than the former deadline, as there is none now: {v}");
+    app.cleanup().await;
+}
+
+/// `limits.maxBodyMb` was read once, when the router was built, although the settings promise a change without a restart.
+#[tokio::test]
+async fn the_body_limit_follows_the_setting_without_a_restart() {
+    let app = TestApp::new().await;
+    let c = app.login_admin().await;
+    let body = format!("{{\"architecture\": \"{}\"}}", "x".repeat(1_500_000));
+    set(&app, &c, json!({"limits.maxBodyMb": 1})).await;
+    let (s, _, v) = app.raw(axum::http::Method::POST, "/api/evaluate", Some(&body), Some("application/json"), Some(&c)).await;
+    assert_eq!((s, v["error"]["code"].as_str()), (StatusCode::PAYLOAD_TOO_LARGE, Some("payload_too_large")), "{v}");
+    set(&app, &c, json!({"limits.maxBodyMb": 2})).await;
+    let (s, _, v) = app.raw(axum::http::Method::POST, "/api/evaluate", Some(&body), Some("application/json"), Some(&c)).await;
+    assert_eq!((s, v["error"]["code"].as_str()), (StatusCode::BAD_REQUEST, Some("invalid_architecture")), "past the size check, refused for what it is: {v}");
+    app.cleanup().await;
+}
+
+/// A client that sends half a header and stops. Serving is `server::serve::run`, the loop `main.rs` uses, on a real listener; the router is the application's.
+#[tokio::test]
+async fn slow_header_connection_is_closed() {
+    use server::serve::{run, ServeOptions};
+    let app = TestApp::new().await;
+    let c = app.login_admin().await;
+    set(&app, &c, json!({"limits.headerReadTimeoutSeconds": 2})).await;
+    let options = ServeOptions::from_settings(&app.state).await;
+    assert_eq!(options.header_read_timeout, Some(Duration::from_secs(2)), "the setting is what the listener is given");
+    set(&app, &c, json!({"limits.headerReadTimeoutSeconds": 0})).await;
+    assert_eq!(ServeOptions::from_settings(&app.state).await.header_read_timeout, None, "0 is no timeout");
+
+    let half = b"GET /api/public/config HTTP/1.1\r\nHost: localhost\r\nX-A: b";
+    let start = |options: ServeOptions| {
+        let router = app.router.clone();
+        async move {
+            let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let addr = listener.local_addr().unwrap();
+            let (stop, stopped) = tokio::sync::oneshot::channel::<()>();
+            let serving = tokio::spawn(run(listener, router, options, async move {
+                let _ = stopped.await;
+            }));
+            (addr, stop, serving)
+        }
+    };
+
+    // with the timeout: closed after it, while the same listener goes on answering everybody else
+    let (addr, stop, serving) = start(options).await;
+    let mut slow = TcpStream::connect(addr).await.unwrap();
+    slow.write_all(half).await.unwrap();
+    let started = Instant::now();
+    let http = reqwest::Client::new();
+    let ok = http.get(format!("http://{addr}/api/public/config")).send().await.unwrap();
+    assert_eq!(ok.status(), 200, "a normal request on the same listener, while the slow one is open");
+    let login = http.post(format!("http://{addr}/api/auth/login")).json(&json!({"email": "admin@test.local", "password": "wrong password!!"})).send().await.unwrap();
+    assert_eq!(login.status(), 401, "the handlers that read the peer address (ConnectInfo) get it from this loop");
+    let (counted,): (i64,) = sqlx::query_as("select count(*) from rate_limits where key = 'login:ip:127.0.0.1'").fetch_one(&app.state.pool).await.unwrap();
+    assert_eq!(counted, 1, "and it is the address of the peer");
+    let mut buf = [0u8; 64];
+    let closed = tokio::time::timeout(Duration::from_secs(6), slow.read(&mut buf)).await.expect("the server closed the connection");
+    assert!(matches!(closed, Ok(0) | Err(_)), "closed without an answer: {closed:?}");
+    let waited = started.elapsed();
+    assert!(waited >= Duration::from_millis(1800) && waited < Duration::from_secs(3), "closed by the 2 s timeout, not before and not long after: {waited:?}");
+    stop.send(()).unwrap();
+    tokio::time::timeout(Duration::from_secs(5), serving).await.expect("the loop ends when told to").unwrap().unwrap();
+
+    // a connection kept open between two requests is closed by the same timeout when nothing comes: it is the time to the next request's headers, as hyper counts it
+    let (addr, stop, serving) = start(ServeOptions { header_read_timeout: Some(Duration::from_secs(1)) }).await;
+    let mut kept = TcpStream::connect(addr).await.unwrap();
+    kept.write_all(b"GET /api/public/config HTTP/1.1\r\nHost: localhost\r\n\r\n").await.unwrap();
+    let mut answer = vec![0u8; 4096];
+    let n = tokio::time::timeout(Duration::from_secs(3), kept.read(&mut answer)).await.expect("an answer").unwrap();
+    assert!(String::from_utf8_lossy(&answer[..n]).starts_with("HTTP/1.1 200"), "{}", String::from_utf8_lossy(&answer[..n]));
+    let idle = Instant::now();
+    let closed = tokio::time::timeout(Duration::from_secs(5), kept.read(&mut answer)).await.expect("closed once idle for the timeout");
+    assert!(matches!(closed, Ok(0) | Err(_)), "{closed:?}");
+    assert!(idle.elapsed() < Duration::from_secs(3), "{:?}", idle.elapsed());
+    stop.send(()).unwrap();
+    tokio::time::timeout(Duration::from_secs(5), serving).await.expect("the loop ends when told to").unwrap().unwrap();
+
+    // the control: without a timeout the same half-open connection is still open when the other one was closed long ago
+    let (addr, stop, serving) = start(ServeOptions { header_read_timeout: None }).await;
+    let mut open = TcpStream::connect(addr).await.unwrap();
+    open.write_all(half).await.unwrap();
+    let still = tokio::time::timeout(Duration::from_millis(3500), open.read(&mut buf)).await;
+    assert!(still.is_err(), "nothing closed it in 3.5 s: {still:?}");
+    drop(open);
+    stop.send(()).unwrap();
+    tokio::time::timeout(Duration::from_secs(5), serving).await.expect("the loop ends when told to").unwrap().unwrap();
+    app.cleanup().await;
+}
+
+/// The list of gated routes is in the code once (`HEAVY_ROUTES`), and the reader of the API finds it in docs/API.md: a route added to the one and not the other fails here.
+#[tokio::test]
+async fn the_gated_routes_are_documented() {
+    let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../../docs/API.md")).expect("docs/API.md");
+    let section = text.split("### Heavy requests").nth(1).and_then(|t| t.split("\n### ").next().or(Some(t))).expect("the section on heavy requests").split("\n`scenario` is one of").next().unwrap();
+    for (method, route) in HEAVY_ROUTES {
+        let short = route.strip_prefix("/api").unwrap();
+        let listed = section.lines().filter(|l| l.starts_with(&format!("| {method} |"))).any(|l| l.contains(&format!("`{short}`")));
+        assert!(listed, "{method} {short} is gated and docs/API.md (Heavy requests) does not list it");
+    }
+    let listed_routes = section.lines().filter(|l| l.starts_with("| POST |") || l.starts_with("| GET |")).map(|l| l.matches('`').count() / 2).sum::<usize>();
+    assert_eq!(listed_routes, HEAVY_ROUTES.len(), "and it lists nothing that is not gated");
+}
+
+/// What happens to a burst of one user's heavy requests that is bigger than the gate: the first ones are admitted and finish, the rest are sent away at once with
+/// `Retry-After` - not queued behind them (the pool and the processors would be held by what nobody is waiting for any more) and not failed with a 5xx.
+#[tokio::test]
+async fn a_burst_beyond_the_gate_is_shed_and_not_queued() {
+    let app = TestApp::new().await;
+    let c = app.login_admin().await;
+    let arch = crate::demo_architecture(&app, &c).await;
+    let mut jobs = vec![];
+    for i in 0..12 {
+        let pid = crate::new_project(&app, &c, &format!("shed {i}"), &arch).await;
+        let proposal = crate::pending_proposal(&app, &pid, vec![crate::replicas_of("app-dc1", 40 + i)]).await;
+        jobs.push((pid, proposal));
+    }
+    let paths: Vec<String> = jobs.iter().map(|(_, p)| format!("/api/proposals/{p}/apply")).collect();
+    let answers = futures::future::join_all(paths.iter().map(|path| app.request(axum::http::Method::POST, path, Some(json!({})), Some(c.clone()), &[]))).await;
+    let statuses: Vec<u16> = answers.iter().map(|(s, _, _)| s.as_u16()).collect();
+    assert!(statuses.iter().all(|s| matches!(s, 200 | 429)), "admitted or sent away, nothing else: {statuses:?}");
+    let admitted = statuses.iter().filter(|s| **s == 200).count();
+    assert!((3..12).contains(&admitted), "the user's three slots are used and the rest is shed: {statuses:?}");
+    for (s, h, v) in answers.iter().filter(|(s, _, _)| *s == StatusCode::TOO_MANY_REQUESTS) {
+        assert!(h.get("retry-after").is_some_and(|x| x.to_str().unwrap().parse::<u64>().is_ok()), "{s}: {v}");
+    }
+    // what was sent away is untouched and can be sent again; what was admitted is applied exactly once
+    for ((pid, proposal), (s, _, _)) in jobs.iter().zip(&answers) {
+        let (_, now) = crate::project_rev(&app, &c, pid).await;
+        let applied = crate::node_field(&now, "app-dc1", "props")["replicas"] != arch["nodes"].as_array().unwrap().iter().find(|n| n["id"] == "app-dc1").unwrap()["props"]["replicas"];
+        assert_eq!(applied, *s == StatusCode::OK, "{pid}");
+        if *s == StatusCode::TOO_MANY_REQUESTS {
+            let (s, v) = app.post(&c, &format!("/api/proposals/{proposal}/apply"), json!({})).await;
+            assert_eq!(s, StatusCode::OK, "sent again, it is let in: {v}");
+        }
+    }
+    assert_eq!(app.state.heavy.in_flight(), 0);
     app.cleanup().await;
 }

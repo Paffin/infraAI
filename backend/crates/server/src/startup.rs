@@ -6,6 +6,7 @@ use crate::config::BootConfig;
 use crate::config_store::{seed_defaults, ConfigCache};
 use crate::crypto::{dummy_hash, hash_password, random_password, Keys, PasswordGate};
 use crate::db;
+use crate::heavy::HeavyGate;
 use crate::jobs::JobRunner;
 use crate::metrics::Metrics;
 use crate::state::{AppState, CONFIG_CACHE_TTL};
@@ -116,6 +117,7 @@ pub async fn init_state(boot: BootConfig) -> anyhow::Result<AppState> {
     };
     dummy_hash(); // made now, not by the first sign-in of an account that does not exist
     let passwords = Arc::new(PasswordGate::new(hash_slots, metrics.auth_password_checks.clone()));
+    let heavy = HeavyGate::new(metrics.clone());
     let state = AppState {
         pool,
         boot: Arc::new(boot),
@@ -130,6 +132,7 @@ pub async fn init_state(boot: BootConfig) -> anyhow::Result<AppState> {
         user_cache: Arc::new(Mutex::new(HashMap::new())),
         passwords,
         models_cache: Arc::new(tokio::sync::Mutex::new(None)),
+        heavy,
     };
     let st = state.clone();
     db::with_startup_lock(&state.pool, || async move { seed_demo(&st).await }).await?;

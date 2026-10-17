@@ -2,10 +2,11 @@
 //! rule engine, and a comparison of the same design for several numbers of sites. Nothing is stored here; a project
 //! is created from a request through `POST /projects`.
 
-use crate::api_support::{lang_of, limits};
+use crate::api_support::{blocking, lang_of, limits};
 use crate::auth::AuthUser;
 use crate::config_store::Loaded;
 use crate::error::{ApiError, ApiResult};
+use crate::heavy::Held;
 use crate::json::Json;
 use crate::state::AppState;
 use axum::extract::State;
@@ -84,11 +85,11 @@ fn build(cfg: &Loaded, mut req: PlacementRequest, lang: &str) -> Result<(engine:
 }
 
 /// Generate a design and judge it.
-pub async fn preview(State(state): State<AppState>, _user: AuthUser, Json(req): Json<PlacementRequest>) -> ApiResult<Json<Value>> {
+pub async fn preview(State(state): State<AppState>, _user: AuthUser, held: Held, Json(req): Json<PlacementRequest>) -> ApiResult<Json<Value>> {
     let cfg = state.cfg().await?;
     let lang = lang_of(&cfg, req.lang.as_deref());
     state.metrics.evaluations.with_label_values(&["placement"]).inc();
-    let (res, report) = tokio::task::spawn_blocking(move || build(&cfg, req, &lang)).await.map_err(ApiError::internal)?.map_err(to_api)?;
+    let (res, report) = blocking(&held, move || build(&cfg, req, &lang)).await?.map_err(to_api)?;
     Ok(Json(json!({
         "architecture": res.architecture,
         "sites": res.sites,
@@ -133,7 +134,7 @@ fn overlay(base: &PlacementRequest, v: &PlacementRequest) -> PlacementRequest {
 }
 
 /// The same design for several numbers of sites (or patterns): what each costs and survives.
-pub async fn compare(State(state): State<AppState>, _user: AuthUser, Json(b): Json<CompareBody>) -> ApiResult<Json<Value>> {
+pub async fn compare(State(state): State<AppState>, _user: AuthUser, held: Held, Json(b): Json<CompareBody>) -> ApiResult<Json<Value>> {
     let cfg = state.cfg().await?;
     let max = cfg.settings.num("limits.placementCompareMax") as usize;
     if b.variants.is_empty() || b.variants.len() > max.max(1) {
@@ -145,7 +146,9 @@ pub async fn compare(State(state): State<AppState>, _user: AuthUser, Json(b): Js
     for v in &b.variants {
         let req = overlay(&b.base, v);
         let (cfg, lang) = (Arc::clone(&cfg), lang.clone());
+        let held = held.clone();
         tasks.push(tokio::task::spawn_blocking(move || {
+            let _slot = held; // the slot goes with the work: it is given back when the last of the variants has been computed
             let sites = req.sites;
             let pattern = req.pattern.clone();
             match build(&cfg, req, &lang) {

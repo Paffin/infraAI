@@ -1009,7 +1009,43 @@
    "en": "Max request body, MB"
   },
   "min": 1,
-  "max": 64
+  "max": 64,
+  "help": {
+   "ru": "Читается на каждый запрос: новое значение действует сразу, без перезапуска.",
+   "en": "Read on every request: a new value takes effect at once, with no restart."
+  }
+ },
+ {
+  "key": "limits.requestTimeoutSeconds",
+  "group": "limits",
+  "type": "number",
+  "default": 60,
+  "label": {
+   "ru": "Срок ответа на запрос API, секунд",
+   "en": "Time to answer an API request, seconds"
+  },
+  "help": {
+   "ru": "Дольше — 504 request_timeout (JSON, как любая ошибка), обработчик останавливается. Охватывает всё, чего запрос ждёт: базу, блокировку, клиента, который медленно шлёт тело. Не действует на обновление таблиц версий и проверку ИИ в админке: там ждут чужой хост, у которого свои сроки. Читается на каждый запрос. 0 — без срока.",
+   "en": "Longer is 504 request_timeout (JSON, like any error) and the handler is stopped. It covers whatever the request waits for: the database, a lock, a client that sends its body slowly. It does not apply to the release-table refresh and the AI check in the admin panel: they wait for another host that has its own timeouts. Read on every request. 0 means no deadline."
+  },
+  "min": 0,
+  "max": 3600
+ },
+ {
+  "key": "limits.headerReadTimeoutSeconds",
+  "group": "limits",
+  "type": "number",
+  "default": 30,
+  "label": {
+   "ru": "Срок на заголовки запроса (медленные клиенты), секунд",
+   "en": "Time to receive a request's headers (slow clients), seconds"
+  },
+  "help": {
+   "ru": "Клиент, который не дослал заголовки за этот срок, отключается (HTTP/1.1; так же закрывается соединение, простоявшее без запроса). Защита порта, открытого прямо в сеть, от «медленных» соединений; за обратным прокси это делает он. Читается при старте: после изменения нужен перезапуск. 0 — без срока.",
+   "en": "A client that has not sent the headers within this time is disconnected (HTTP/1.1; a connection that stood idle without a request is closed the same way). Protects a port that is open straight to the network from slow connections; behind a reverse proxy the proxy does it. Read at start: restart after changing it. 0 means no deadline."
+  },
+  "min": 0,
+  "max": 3600
  },
  {
   "key": "outbound.maxAnswerKb",
@@ -1114,6 +1150,54 @@
   },
   "min": 1,
   "max": 100000
+ },
+ {
+  "key": "limits.heavyConcurrentPerUser",
+  "group": "limits",
+  "type": "number",
+  "default": 3,
+  "label": {
+   "ru": "Тяжёлых запросов одновременно у одного пользователя",
+   "en": "Heavy requests at once per user"
+  },
+  "help": {
+   "ru": "Расчёт схемы, симуляция отказа, план улучшений, размещение, экспорт и записи, которые считают то, что пишут. Считаются те, что ещё считаются на этой реплике: запрос, отменённый редактором на следующей правке, считается, пока процессор не освободится. Сверх лимита — 429 rate_limited с Retry-After; редактор повторит сам. 3 хватает правке с перекрытием «отменённый ещё считается + следующий». 0 — без ограничения.",
+   "en": "Evaluating a design, simulating a failure, the improvement plan, placement, export and the writes that evaluate what they write. What counts is what is still being computed on this replica: a request the editor cancelled on the next edit counts until the processor is free. Past the limit it is 429 rate_limited with Retry-After; the editor retries by itself. 3 fits an edit that overlaps 'the cancelled one is still computing + the next one'. 0 means no limit."
+  },
+  "min": 0,
+  "max": 100
+ },
+ {
+  "key": "limits.heavyConcurrentPerCore",
+  "group": "limits",
+  "type": "number",
+  "default": 4,
+  "label": {
+   "ru": "Тяжёлых запросов одновременно на процессор реплики",
+   "en": "Heavy requests at once per processor of the replica"
+  },
+  "help": {
+   "ru": "Предел для всех пользователей реплики вместе: это число, умноженное на число процессоров (4 ядра — 16 запросов). Сверх этого толку нет: лишние запросы лишь делят то же процессорное время. Реплики не знают друг о друге (процессор свой у каждой). 0 — без ограничения.",
+   "en": "The limit for all users of a replica together: this number times the number of processors (4 cores — 16 requests). Beyond that there is no gain: the extra requests only share the same processor time. Replicas do not know of each other (each has its own processors). 0 means no limit."
+  },
+  "min": 0,
+  "max": 100
+ },
+ {
+  "key": "limits.heavyRetryAfterSeconds",
+  "group": "limits",
+  "type": "number",
+  "default": 2,
+  "label": {
+   "ru": "Через сколько секунд повторять отказанный тяжёлый запрос",
+   "en": "Seconds after which a refused heavy request is retried"
+  },
+  "help": {
+   "ru": "Значение Retry-After в ответе 429 на тяжёлый запрос.",
+   "en": "The value of Retry-After in the 429 answer to a heavy request."
+  },
+  "min": 1,
+  "max": 60
  },
  {
   "key": "editor.autosaveMs",

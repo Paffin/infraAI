@@ -6,6 +6,7 @@ use crate::config::BootConfig;
 use crate::config_store::{ConfigCache, Loaded};
 use crate::crypto::{Keys, PasswordGate};
 use crate::error::ApiError;
+use crate::heavy::HeavyGate;
 use crate::jobs::JobRunner;
 use crate::metrics::Metrics;
 use serde_json::Value;
@@ -34,6 +35,8 @@ pub struct AppState {
     /// Where passwords are hashed and checked: off the async workers, a bounded number at a time.
     pub passwords: Arc<PasswordGate>,
     pub models_cache: Arc<tokio::sync::Mutex<Option<(Instant, Value)>>>,
+    /// What heavy requests are running on this replica (a count in memory: it is about the processors of this one).
+    pub heavy: HeavyGate,
 }
 
 impl AppState {

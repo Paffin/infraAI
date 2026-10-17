@@ -1991,6 +1991,8 @@ dependencies = [
  "hkdf 0.13.0",
  "hmac 0.13.0",
  "http-body-util",
+ "hyper",
+ "hyper-util",
  "prometheus",
  "rand 0.8.8",
  "reqwest",
