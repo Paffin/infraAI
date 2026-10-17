@@ -61,7 +61,7 @@ async function leave() {
 
 <template>
   <header class="eh">
-    <router-link to="/" class="brand" @click.prevent="leave"><BrandLogo /><span class="bn">{{ app.appName }}</span></router-link>
+    <router-link to="/" class="brand" :aria-label="app.appName" @click.prevent="leave"><BrandLogo /><span class="bn">{{ app.appName }}</span></router-link>
     <div class="crumbs">
       <a href="/" class="muted" @click.prevent="leave">{{ t('editor.crumb.projects') }}</a>
       <span class="sl">/</span>

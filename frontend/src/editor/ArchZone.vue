@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, inject, ref } from 'vue'
 import { useVueFlow, type NodeProps } from '@vue-flow/core'
 import { lt, t } from '@/i18n'
 import { statusColor, statusLabel } from '@/lib/findings'
 import { iconFor } from '@/lib/icons'
+import { LOD_KEY, type Lod } from '@/lib/lod'
 import { useApp } from '@/stores/app'
 import { useEditor } from '@/stores/editor'
 import { DEFAULT_ZONE_H, DEFAULT_ZONE_W } from './layout'
@@ -12,6 +13,8 @@ const props = defineProps<NodeProps>()
 const app = useApp()
 const editor = useEditor()
 const { viewport } = useVueFlow()
+/** How far the diagram is zoomed out: the pills and the count are not written on the head then, and the name of the head has to contain what is (see LOD_KEY). */
+const lod = inject(LOD_KEY, ref<Lod>('full'))
 
 const id = computed(() => props.data.id as string)
 const zone = computed(() => editor.zoneById.get(id.value))
@@ -49,14 +52,18 @@ const tags = computed(() => {
 })
 
 /**
- * What a screen reader and a voice control call the head of the zone: the words written on it in the order they are written (the name, the pills, how many cards
- * stand in it, that it has failed), then after a comma what is not written: the type of the zone and the finding its dot stands for.
+ * What a screen reader and a voice control call the head of the zone: it begins with the words written on it, in the order they are written (WCAG 2.5.3): the name,
+ * the pills, how many cards stand in it, that it has failed. Zoomed out (lib/lod.ts) the pills and the count are not written, and then they come after a comma with what
+ * is not written at all: the type of the zone and the finding its dot stands for.
  */
 const label = computed(() => {
   const z = zone.value
   if (!z) return undefined
-  const written = [z.name, ...tags.value.map((g) => g.text), count.value ? t('projects.nodes', { n: count.value }) : '', simDown.value ? t('node.state.down') : ''].filter(Boolean).join(' ')
+  const full = lod.value === 'full'
+  const pills = [...tags.value.map((g) => g.text), count.value ? t('projects.nodes', { n: count.value }) : '']
+  const written = [z.name, ...(full ? pills : []), simDown.value ? t('node.state.down') : ''].filter(Boolean).join(' ')
   const extras = [
+    ...(full ? [] : pills),
     def.value ? lt(def.value.name) : z.type,
     status.value ? statusLabel(status.value).toLowerCase() : '',
     added.value ? t('inspector.proposed.short') : '',

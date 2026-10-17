@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, markRaw, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, markRaw, nextTick, onBeforeUnmount, onMounted, provide, ref, watch } from 'vue'
 import { ConnectionMode, VueFlow, useVueFlow, type GraphNode, type NodeDragEvent } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { MiniMap } from '@vue-flow/minimap'
@@ -21,7 +21,7 @@ import { byKeyboard, edgeItem, ensureStop, ITEM, keyOf, neighbour, setStop, succ
 import { createFlowBuilder, nodeFlowId, zoneFlowId } from './flowModel'
 import { moveIntoArea, toggleId, type Dir } from '@/lib/canvasNav'
 import { tabbables } from '@/lib/useFocusScope'
-import { lodOf } from '@/lib/lod'
+import { LOD_KEY, lodOf } from '@/lib/lod'
 import { DURATIONS } from '@/lib/motion'
 import { MIN_ZONE_H, MIN_ZONE_W } from './layout'
 
@@ -196,6 +196,8 @@ watch(() => editor.multi.length, (n) => { if (!n && getSelectedNodes.value.lengt
 
 const zoomPct = computed(() => Math.round((viewport.value.zoom || 1) * 100))
 const lod = computed(() => lodOf(viewport.value.zoom || 1, app.editorCfg))
+// the cards and the heads of zones name themselves by what is written on them at this level (see LOD_KEY)
+provide(LOD_KEY, lod)
 
 // -------------------------------------------------------------------------------------- keyboard
 // The diagram is ONE stop of the Tab key: a card (or the head of a zone) with tabindex="0" while all the others have -1; the arrow keys walk to the next card

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, inject, ref } from 'vue'
 import { Handle, Position, type NodeProps } from '@vue-flow/core'
 import { Cloud } from 'lucide-vue-next'
 import KindChip from '@/components/KindChip.vue'
@@ -8,6 +8,7 @@ import { nodeSubtitle, variantOf } from '@/lib/catalog'
 import { isManaged } from '@/lib/product'
 import { statusColor, statusLabel } from '@/lib/findings'
 import { fmtNumber } from '@/lib/format'
+import { LOD_KEY, type Lod } from '@/lib/lod'
 import { longestWordEm } from '@/lib/textFit'
 import { amountText, FLOW_EPS } from '@/lib/traffic'
 import { useApp } from '@/stores/app'
@@ -19,6 +20,8 @@ const props = defineProps<NodeProps>()
 const app = useApp()
 const editor = useEditor()
 const playback = usePlayback()
+/** How far the diagram is zoomed out: what the card writes on itself, and so what its name has to contain, depends on it (see LOD_KEY). */
+const lod = inject(LOD_KEY, ref<Lod>('full'))
 
 const id = computed(() => props.data.id as string)
 const node = computed(() => editor.nodeById.get(id.value))
@@ -86,16 +89,22 @@ const sides = { t: Position.Top, b: Position.Bottom, l: Position.Left, r: Positi
 /** The second line of the card: what it is made of (the sub-line of the product), or the kind of it when that is empty, or that it is a proposal. */
 const subLine = computed(() => (proposed.value && !subtitle.value ? t('inspector.proposed.short') : subtitle.value || (kind.value ? lt(kind.value.name) : t('kind.unknown', { kind: node.value?.kind ?? '' }))))
 /**
- * What a screen reader and a voice control call the card. It begins with the words that are written on the card, in the order they are written (the name, the
- * sub-line, the state and the load tags of a failure on screen): a voice control says "click Kafka", and a label that does not contain what is on the card makes
- * that fail (WCAG 2.5.3; axe checks it as `label-content-name-mismatch`). After a comma: what the picture says without words (the finding it carries, the instances, a
- * proposal) and what the tags mean.
+ * What a screen reader and a voice control call the card. It contains the words that are written on the card, in the order they are written (WCAG 2.5.3; axe
+ * checks it as `label-content-name-mismatch`): a voice control says "click Kafka", and a name that does not contain what is on the card makes that fail. What is
+ * written depends on how far the diagram is zoomed out (lib/lod.ts): the name, the sub-line, the state and the load tags of a failure on screen; at `compact` the
+ * sub-line is gone; at `mini` the name is gone too and only the abbreviation of the kind stays (then the name comes first, so that a name is what a screen reader
+ * hears first, and the written words follow it as one run). What this level leaves off follows after a comma, then what the picture says without words (the finding it
+ * carries, the instances, a proposal) and what the tags mean.
  */
 const label = computed(() => {
   const n = node.value
   if (!n) return undefined
-  const written = [n.name, subLine.value, stateLabel.value, loadText.value].filter(Boolean).join(' ')
+  const mini = lod.value === 'mini'
+  const full = lod.value === 'full'
+  const tags = [stateLabel.value, loadText.value]
+  const written = (mini ? [kind.value?.abbr ?? '?', ...tags] : full ? [n.name, subLine.value, ...tags] : [n.name, ...tags]).filter(Boolean).join(' ')
   const extras = [
+    full ? '' : subLine.value,
     status.value && !proposed.value ? statusLabel(status.value).toLowerCase() : '',
     instances.value > 1 ? t('card.instances', { n: instances.value }) : '',
     stateLabel.value ? t('card.sim') : '',
@@ -104,7 +113,7 @@ const label = computed(() => {
     ghost.value ? t('card.removed') : '',
     connecting.value ? t('card.connecting') : '',
   ].filter(Boolean)
-  return extras.length ? `${written}, ${extras.join(', ')}` : written
+  return [mini ? n.name : '', written, ...extras].filter(Boolean).join(', ')
 })
 
 // the click must reach the flow's node wrapper: that is what selects a card (Shift+click extends the selection); the keys of the card are the canvas's (Canvas.vue)

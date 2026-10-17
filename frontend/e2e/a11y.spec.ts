@@ -128,6 +128,45 @@ test.describe('accessibility (axe-core)', () => {
     await clean(page, 'recommendations')
   })
 
+  test.describe('a big design, zoomed out', () => {
+    // at this size the whole design of ten sites fits at about 25 %: the cards are drawn as the abbreviation of their kind (the `mini` level of detail; see lib/lod.ts)
+    test.use({ viewport: { width: 1440, height: 900 } })
+
+    test('a card keeps the words written on it in its name at every level of detail (WCAG 2.5.3), with a failure on screen too', async ({ page }) => {
+      await login(page)
+      expect((await page.request.put('/api/admin/settings', { data: { changes: { 'editor.failureLeadMs': 0 } } })).ok()).toBeTruthy()
+      try {
+        await createProject(page, uniqueName('a11y-lod'), '10 площадок')
+        await expect(page.locator('.arch-node').first()).toBeVisible()
+        const canvas = page.locator('.canvas')
+        const level = async (lod: 'mini' | 'compact' | 'full') => {
+          // '+' zooms in a step at a time; the key is the editor's, so the focus must not be in a field or on a button
+          for (let i = 0; i < 12 && (await canvas.getAttribute('data-lod')) !== lod; i++) {
+            await page.locator('.zoom').getByRole('button', { name: 'Приблизить' }).click()
+            await settled(page)
+          }
+          await expect(canvas).toHaveAttribute('data-lod', lod)
+        }
+        // the default fit of this design at this size is the overview (the abbreviation is all a card writes), and the same holds for any design that is zoomed out far enough
+        await expect(canvas).toHaveAttribute('data-lod', 'mini')
+        for (const lod of ['mini', 'compact', 'full'] as const) {
+          await level(lod)
+          await clean(page, `editor at the ${lod} level of detail`)
+          // the loss of the first site: its cards and its zone say so on themselves
+          await page.locator('.whatif button', { hasText: 'Площадки' }).click()
+          await page.locator('.whatif .menu .items button').first().click()
+          await expect(page.getByTestId('simcard')).toBeVisible({ timeout: 15_000 })
+          await expect(page.locator('.arch-node .state-tag').first()).toBeVisible()
+          await expect(page.locator('.zone-head .zfail').first()).toBeVisible()
+          await clean(page, `editor at the ${lod} level of detail, a failure on screen`)
+          await page.locator('.whatif .x').click()
+        }
+      } finally {
+        await page.request.put('/api/admin/settings', { data: { changes: { 'editor.failureLeadMs': 2400 } } })
+      }
+    })
+  })
+
   test('the admin panel', async ({ page }) => {
     await login(page)
     for (const path of ['settings', 'catalog/kind', 'catalog/versions', 'placement/pattern']) {
