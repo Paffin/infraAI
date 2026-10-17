@@ -517,8 +517,10 @@ export interface EditorSettings {
   simulateMs: number
   recommendMs: number
   historySteps: number
+  coalesceMs: number
   saveRetryMs: number
   saveRetryMaxMs: number
+  unsavedKeepHours: number
   jobPollMs: number
   lodCompactBelow: number
   lodMiniBelow: number

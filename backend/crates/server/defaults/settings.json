@@ -1054,6 +1054,22 @@
   "max": 1000
  },
  {
+  "key": "editor.coalesceMs",
+  "group": "editor",
+  "type": "number",
+  "default": 1200,
+  "label": {
+   "ru": "Склейка однотипных правок в один шаг отмены, мс",
+   "en": "Merge repeated edits into one undo step, ms"
+  },
+  "help": {
+   "ru": "Пока вы правите одно и то же (набираете имя, тянете ползунок), правки, между которыми пауза короче этой, считаются одним шагом «Отменить». Окно скользящее: каждая правка продлевает его.",
+   "en": "While you keep editing the same thing (typing a name, dragging a slider), edits with a pause shorter than this between them are one \"Undo\" step. The window slides: every edit extends it."
+  },
+  "min": 100,
+  "max": 10000
+ },
+ {
   "key": "editor.saveRetryMs",
   "group": "editor",
   "type": "number",
@@ -1080,6 +1096,22 @@
   },
   "min": 1000,
   "max": 300000
+ },
+ {
+  "key": "editor.unsavedKeepHours",
+  "group": "editor",
+  "type": "number",
+  "default": 168,
+  "label": {
+   "ru": "Хранить в браузере несохранённые правки, часов",
+   "en": "Keep unsaved edits in the browser, hours"
+  },
+  "help": {
+   "ru": "Когда сессия закончилась или связи нет, а правки не ушли на сервер, редактор оставляет их копию в этом браузере (localStorage) и предлагает восстановить при следующем открытии проекта. Копия старше этого срока удаляется; выход из системы удаляет её сразу.",
+   "en": "When the session ended or the connection is gone and the edits did not reach the server, the editor keeps a copy of them in this browser (localStorage) and offers to restore it the next time the project opens. A copy older than this is deleted; signing out deletes it at once."
+  },
+  "min": 1,
+  "max": 720
  },
  {
   "key": "editor.jobPollMs",
