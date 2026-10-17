@@ -90,16 +90,12 @@ describe('the strip of the editor', () => {
     editor.setMeta('typed')
     await editor.flushSave()
     await nextTick()
-    let attempts = 0
-    const real = globalThis.fetch
-    globalThis.fetch = ((...a: Parameters<typeof fetch>) => { attempts++; return real(...a) }) as typeof fetch
-    try {
-      await w.find('[data-failure="offline"] button').trigger('click')
-      await flushPromises()
-      expect(attempts).toBe(1)
-    } finally {
-      globalThis.fetch = real
-    }
+    expect(editor.saveState).toBe('error')
+    // the click starts the request in the same breath (the state is `saving` before anything has been awaited); with no server it fails again
+    ;(w.find('[data-failure="offline"] button').element as HTMLButtonElement).click()
+    expect(editor.saveState).toBe('saving')
+    await flushPromises()
+    expect(editor.saveState).toBe('error')
   })
 
   it('has nothing to say about a document that is waiting to be saved and has not failed to be', async () => {

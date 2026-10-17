@@ -63,7 +63,7 @@ describe('a 401 under an open editor', () => {
     expect(copy.architecture.nodes).toEqual(arch.nodes)
   })
 
-  it('a save in flight, a failed save and a conflict are unsaved too', async () => {
+  it('a save in flight and a failed save are unsaved too (a conflict, which needs a real 409, is in e2e/session.spec.ts)', async () => {
     for (const how of ['saving', 'error'] as const) {
       localStorage.clear()
       setActivePinia(createPinia())

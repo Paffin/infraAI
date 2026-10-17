@@ -1,6 +1,5 @@
 import { defineStore } from 'pinia'
 import { computed, ref, shallowRef, watch } from 'vue'
-import { ApiError } from '@/api/client'
 import * as api from '@/api/endpoints'
 import type {
   ArchDiff, ArchNode, Architecture, Edge, Finding, Op, ProjectDetail, Props, Report, Requirements, Scalar, Scenario, SimResult, Status, Waiver, Zone,
@@ -11,7 +10,8 @@ import { effectiveProps, kindPropDefs } from '@/lib/catalog'
 import { errorMessage, newId } from '@/lib/format'
 import { statusRank } from '@/lib/findings'
 import * as hist from '@/lib/history'
-import { initialQueue, step as stepQueue, type SaveEffect, type SaveEvent, type SaveQueue, type SaveStatus } from '@/lib/saveQueue'
+import type { SaveStatus } from '@/lib/saveQueue'
+import { createSaveRunner } from '@/lib/saveRunner'
 import { useApp } from './app'
 import { useToasts } from './toasts'
 
@@ -55,10 +55,15 @@ export const useEditor = defineStore('editor', () => {
   const waivers = ref<Waiver[]>([])
   const loading = ref(false)
   const loadError = ref('')
-  /** The save path (`lib/saveQueue.ts`): a reducer; this store runs its effects (the one timer, the request) and feeds what happens back to it as events. */
-  const queue = shallowRef<SaveQueue>(initialQueue())
-  /** What the last failed save threw. The text is made when it is shown, so that a language switch changes it. */
-  const lastSaveError = shallowRef<unknown>(null)
+  /** The save path: the rules are `lib/saveQueue.ts`, the one timer and the one request that carry them out are `lib/saveRunner.ts`; the store hands over the document and takes the revision back. */
+  const saver = createSaveRunner({
+    canEdit: () => app.canEdit,
+    config: () => ({ autosaveMs: app.editorCfg.autosaveMs, retryMs: app.editorCfg.saveRetryMs, retryMaxMs: app.editorCfg.saveRetryMaxMs }),
+    projectId: () => projectId.value,
+    document: () => ({ arch: arch.value, rev: rev.value }),
+    stored: (r) => { rev.value = r },
+  })
+  const queue = saver.queue
 
   const report = shallowRef<Report | null>(null)
   /**
@@ -102,7 +107,7 @@ export const useEditor = defineStore('editor', () => {
   const saveState = computed<SaveState>(() => (app.canEdit ? queue.value.status : 'readonly'))
   /** Why the last save failed (`offline`: no answer, `server`: 5xx, `rejected`: a refusal), until a save succeeds; null when nothing failed. */
   const saveFailure = computed(() => queue.value.failure)
-  const saveError = computed(() => (lastSaveError.value === null ? '' : errorMessage(lastSaveError.value)))
+  const saveError = computed(() => (saver.failure.value === null ? '' : errorMessage(saver.failure.value)))
   const serverRev = computed(() => queue.value.serverRev)
   const isEmpty = computed(() => arch.value.nodes.length === 0 && arch.value.zones.length === 0)
   /** Some card lies outside the zone it belongs to, or a zone outside its parent: the picture says something other than the model. */
@@ -207,9 +212,7 @@ export const useEditor = defineStore('editor', () => {
   }
 
   function reset() {
-    dispatch({ type: 'reset' })
-    inflight = null // a request of the project that was open answers into nothing: its epoch is gone
-    lastSaveError.value = null
+    saver.reset()
     history.value = hist.clear()
     clearTimeout(evalTimer)
     clearTimeout(simTimer)
@@ -237,74 +240,8 @@ export const useEditor = defineStore('editor', () => {
   }
 
   // -------------------------------------------------------------------------------------- saving
-  // The rules are in `lib/saveQueue.ts` (and tested there). Here are the only timer and the only request of the save path: `dispatch` runs the effects of a
-  // transition, and what happens to them (the timer fires, the answer comes) goes back in as an event.
-  let saveTimer: ReturnType<typeof setTimeout> | undefined
-  let inflight: Promise<boolean> | null = null
-
-  function dispatch(ev: SaveEvent) {
-    const c = app.editorCfg
-    const r = stepQueue(queue.value, ev, { autosaveMs: c.autosaveMs, retryMs: c.saveRetryMs, retryMaxMs: c.saveRetryMaxMs })
-    queue.value = r.state
-    for (const fx of r.effects) run(fx)
-  }
-
-  function run(fx: SaveEffect) {
-    if (fx.type === 'cancel') clearTimeout(saveTimer)
-    else if (fx.type === 'schedule') {
-      clearTimeout(saveTimer)
-      saveTimer = setTimeout(() => { if (app.canEdit) dispatch({ type: fx.kind === 'autosave' ? 'autosaveDue' : 'retryDue' }) }, fx.ms)
-    } else {
-      const p = persist(fx.epoch)
-      inflight = p
-      void p.finally(() => { if (inflight === p) inflight = null })
-    }
-  }
-
-  function touchSave() {
-    if (app.canEdit) dispatch({ type: 'edit' })
-  }
-
-  /** The network is back (the browser's `online`): a save that was waiting for it goes out now instead of after its pause. */
-  function retryNow() {
-    if (app.canEdit) dispatch({ type: 'online' })
-  }
-
-  /** Store the working copy now; resolves when everything that was edited so far is on the server. A refusal, a conflict or a lost connection: false. */
-  async function flushSave(): Promise<boolean> {
-    if (!projectId.value) return true
-    if (!app.canEdit) return queue.value.status === 'saved'
-    for (let round = 0; round < 3; round++) {
-      const status = queue.value.status
-      if (status === 'conflict') return false
-      if (inflight) {
-        if (!(await inflight)) return false
-        continue
-      }
-      if (status === 'saved') return true
-      dispatch({ type: 'flush' })
-      if (!inflight) return queue.value.status === 'saved'
-      if (!(await inflight)) return false
-    }
-    return queue.value.status === 'saved'
-  }
-
-  async function persist(epoch: number): Promise<boolean> {
-    const snapshot = arch.value
-    const answer = await api.projects.saveDraft(projectId.value, snapshot, rev.value).then((r) => ({ r }), (e: unknown) => ({ e }))
-    if (epoch !== queue.value.epoch) return false // another project was opened meanwhile: this answer is not about the document on the screen
-    if ('r' in answer) {
-      rev.value = answer.r.rev
-      lastSaveError.value = null
-      dispatch({ type: 'persistOk', epoch })
-      return true
-    }
-    const e = answer.e
-    lastSaveError.value = e
-    const currentRev = e instanceof ApiError ? e.details?.currentRev : undefined
-    dispatch({ type: 'persistFail', epoch, status: e instanceof ApiError ? e.status : null, currentRev: typeof currentRev === 'number' ? currentRev : null })
-    return false
-  }
+  // `touchSave` marks the document changed, `retryNow` is the browser's `online`, `flushSave` stores now and says whether everything is on the server (`lib/saveRunner.ts`).
+  const { touch: touchSave, online: retryNow, flush: flushSave } = saver
 
   /** Discard local changes and take the server's version (after a conflict). */
   async function reloadFromServer() {
@@ -810,7 +747,7 @@ export const useEditor = defineStore('editor', () => {
     // the server stored this very document itself (an applied proposal): it is saved, unless laying it out changed it
     if (o.keepRev !== undefined) {
       rev.value = o.keepRev
-      if (placed === next) dispatch({ type: 'synced' })
+      if (placed === next) saver.dispatch({ type: 'synced' })
     }
   }
 
