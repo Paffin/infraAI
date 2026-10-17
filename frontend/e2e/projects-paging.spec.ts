@@ -17,12 +17,11 @@ test.describe('the list of projects past one page', () => {
       // the limit of projects per user is lifted for this test only
       expect((await page.request.put('/api/admin/settings', { data: { changes: { 'limits.maxProjectsPerUser': 2000 } } })).ok()).toBe(true)
       const description = 'long description '.repeat(60) // 960 characters: past what a card carries (limits.listDescriptionChars)
-      for (let from = 0; from < total; from += 30) {
-        await Promise.all(Array.from({ length: Math.min(30, total - from) }, async (_, k) => {
-          const r = await page.request.post('/api/projects', { data: { name: `${mark}-${from + k}`, description } })
-          expect(r.ok(), await r.text()).toBe(true)
-          madeByApi.push((await r.json()).id)
-        }))
+      // one after another: creating a project evaluates it, which is a heavy request, and a person may have a few of those at once (`limits.heavyConcurrentPerUser`)
+      for (let i = 0; i < total; i++) {
+        const r = await page.request.post('/api/projects', { data: { name: `${mark}-${i}`, description } })
+        expect(r.ok(), await r.text()).toBe(true)
+        madeByApi.push((await r.json()).id)
       }
 
       const pages: string[] = []
