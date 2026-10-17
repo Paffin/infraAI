@@ -17,11 +17,14 @@ COPY --from=helm /usr/bin/helm /usr/local/bin/helm
 COPY --from=kubeconform /kubeconform /usr/local/bin/kubeconform
 COPY --from=terraform /bin/terraform /usr/local/bin/terraform
 COPY --from=kubectl /bin/kubectl /usr/local/bin/kubectl
+COPY requirements.txt /opt/iac-check/requirements.txt
 # optional build secret `ca`: a PEM bundle for builds behind a TLS-intercepting proxy
 RUN --mount=type=secret,id=ca,required=false \
     if [ -f /run/secrets/ca ]; then export PIP_CERT=/run/secrets/ca; fi; \
-    pip install --no-cache-dir pyyaml==6.0.2
+    pip install --no-cache-dir --require-hashes -r /opt/iac-check/requirements.txt
 COPY check.py /opt/iac-check/check.py
-ENV TF_PLUGIN_CACHE_DIR=/cache/terraform-plugins HELM_CACHE_HOME=/cache/helm
+# everything the check downloads or learns is under /cache and meant to outlive the container (CI restores the directory): charts pulled once (/cache/charts),
+# Terraform providers, Kubernetes schemas for kubeconform, Helm's own cache
+ENV TF_PLUGIN_CACHE_DIR=/cache/terraform-plugins HELM_CACHE_HOME=/cache/helm IAC_CACHE=/cache
 WORKDIR /work
 ENTRYPOINT ["python3", "/opt/iac-check/check.py"]
