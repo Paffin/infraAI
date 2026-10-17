@@ -41,7 +41,7 @@ KEEPS_CREDENTIALS = {("versions.yml", "commit")}
 WRITER_ACTIONS = ("actions/checkout", "actions/download-artifact")
 WRITER_FORBIDDEN = re.compile(r"(?<![\w-])(cargo|rustup|rustc|npm|npx|pnpm|yarn|node|pip3?|pipx|make|docker|go|ruby|gem|bundle|curl|wget|sudo|bash\s+-c|sh\s+-c)(?![\w-])|python3?\s+(?!deploy/release-patch\.py\b)\S")
 # job -> jobs it must not wait for
-INDEPENDENT_OF = {"build": {"iac"}, "image-checks": {"iac"}, "e2e": {"iac"}}
+INDEPENDENT_OF = {"build": {"iac"}, "image": {"iac"}, "image-checks": {"iac"}, "e2e": {"iac"}}
 PINNED = re.compile(r"^[\w.-]+/[\w./-]+@[0-9a-f]{40}$")
 VERSION_COMMENT = re.compile(r"#\s*v\d+\.\d+\.\d+\s*$")
 UNTRUSTED = re.compile(r"\$\{\{[^}]*(github\.event\.|github\.head_ref|inputs\.)[^}]*\}\}")

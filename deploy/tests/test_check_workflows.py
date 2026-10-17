@@ -239,6 +239,13 @@ class TheGraph(unittest.TestCase):
                 t.edit(".github/workflows/ci.yml", head, head.replace("needs: scope", "needs: [scope, iac]").replace("needs: build", "needs: [build, iac]"))
                 only_one(self, t.problems(), f"[{job}]", "waits for iac")
 
+    def test_a_job_called_image_does_not_wait_for_it_either(self):
+        # the job that used to be called `image` (build, scan, smoke and browser tests in one) waited for `iac`; the name is guarded in case it comes back
+        with Spoiled() as t:
+            t.edit(".github/workflows/ci.yml", "  e2e:\n    needs: build\n", "  image:\n    needs: [build, iac]\n    runs-on: ubuntu-latest\n    timeout-minutes: 5\n    steps:\n      - run: echo image\n\n  e2e:\n    needs: build\n")
+            found = t.problems()
+            self.assertTrue(any("[image]" in p and "waits for iac" in p for p in found), found)
+
     def test_ci_ok_waits_for_every_job(self):
         with Spoiled() as t:
             t.edit(".github/workflows/ci.yml", "needs: [scope, iac, build, image-checks, e2e, security]", "needs: [scope, iac, build, image-checks, security]")
