@@ -20,6 +20,8 @@ import SimWindow from '@/editor/SimWindow.vue'
 import StoryCaption from '@/editor/StoryCaption.vue'
 import VersionsModal from '@/editor/VersionsModal.vue'
 import WhatIfBar from '@/editor/WhatIfBar.vue'
+import { byUrgency } from '@/lib/findings'
+import { blocked, matchShortcut, repeats, type WindowShortcutId } from '@/lib/shortcuts'
 import { decodeScenario, scenarioFits, SIM_PARAM } from '@/lib/simLink'
 import { useAi } from '@/stores/ai'
 import { useApp } from '@/stores/app'
@@ -90,48 +92,73 @@ function control(el: EventTarget | null): boolean {
   return !!n && (n.tagName === 'BUTTON' || n.tagName === 'A' || ['slider', 'tab', 'separator', 'menuitem', 'option'].includes(n.getAttribute?.('role') ?? ''))
 }
 
-function onKey(e: KeyboardEvent) {
-  const mod = e.ctrlKey || e.metaKey
-  if (mod && e.key.toLowerCase() === 'k') { e.preventDefault(); ui.palette = !ui.palette; return }
-  if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); void editor.flushSave(); return }
-  if (ui.palette || typing(e.target) || ui.modal) return
-  if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? editor.redo() : editor.undo(); return }
-  if (mod && e.key.toLowerCase() === 'y') { e.preventDefault(); editor.redo(); return }
-  if (mod && e.key.toLowerCase() === 'a') { e.preventDefault(); editor.selectNodes(editor.shown.nodes.map((n) => n.id)); return }
-  if (mod && e.key.toLowerCase() === 'd') {
-    e.preventDefault()
-    if (editor.multi.length) editor.duplicateNodes(editor.multi)
-    else if (editor.selection?.type === 'node') editor.duplicateNode(editor.selection.id)
-    return
-  }
-  if (mod || e.altKey) return
-  if (e.key === 'Delete' || e.key === 'Backspace') {
-    if (editor.multi.length) { e.preventDefault(); editor.removeNodes(editor.multi) }
-    else if (editor.selection) { e.preventDefault(); editor.removeSelection() }
-    return
-  }
-  if (e.key === '?') { e.preventDefault(); ui.modal = 'shortcuts'; return }
-  // the panels fold with the keys that look like their edges (by the position of the key, so that the Russian layout has them too)
-  if (e.code === 'BracketLeft') { e.preventDefault(); ui.libraryOpen = !ui.libraryOpen; return }
-  if (e.code === 'BracketRight') { e.preventDefault(); ui.rightOpen = !ui.rightOpen; return }
-  // a failure on screen plays and steps from the keyboard
-  if (editor.sim?.result && playback.available && !control(e.target)) {
-    if (e.code === 'Space') { e.preventDefault(); playback.toggle(); return }
-    if (e.key === 'ArrowRight') { e.preventDefault(); playback.step(1); return }
-    if (e.key === 'ArrowLeft') { e.preventDefault(); playback.step(-1); return }
-  }
-  if (e.key === 'Escape') {
+/** The project is there to export, to run a matrix on, to look through the findings of. */
+const ready = () => !editor.loading && !editor.loadError && !!editor.projectId
+
+/** The next (or previous) open finding in the order the list of checks has it: the checks tab opens on it and the diagram shows what it is about. */
+function stepFinding(dir: 1 | -1): boolean {
+  const list = byUrgency(editor.openFindings)
+  if (!ready() || !list.length) return false
+  const at = list.findIndex((f) => f.id === ui.findingCursor)
+  const next = list[at < 0 ? (dir > 0 ? 0 : list.length - 1) : (at + dir + list.length) % list.length]
+  ui.findingCursor = next.id
+  ui.tab = 'checks'
+  editor.showSubjects(next)
+  return true
+}
+
+/** What each shortcut of the table does here (`lib/shortcuts.ts`): an action that has nothing to do right now answers `false`, and the key goes on to the browser. */
+const actions: Record<WindowShortcutId, (e: KeyboardEvent) => boolean | void> = {
+  palette: () => { ui.palette = !ui.palette },
+  shortcuts: () => { ui.modal = 'shortcuts' },
+  save: () => { void editor.flushSave() },
+  escape: () => {
     if (editor.pickingNode || editor.connectFrom || editor.tool !== 'select') editor.setTool('select')
     else if (editor.highlight) editor.highlight = null
     else if (editor.sim) editor.exitSim()
     else if (editor.multi.length) editor.setMulti([])
     else editor.select(null)
-    return
-  }
-  if (e.key === '/') { e.preventDefault(); library.value?.focus(); return }
-  if (e.key === 'v') editor.setTool('select')
-  else if (e.key === 'c' && app.canEdit) editor.setTool('connect')
-  else if (e.key === 'z' && app.canEdit) editor.setTool('zone')
+  },
+  library: () => library.value?.focus(),
+  // the panels fold with the keys that look like their edges
+  foldLibrary: () => { ui.libraryOpen = !ui.libraryOpen },
+  foldRight: () => { ui.rightOpen = !ui.rightOpen },
+  export: () => { if (!ready()) return false; ui.modal = 'export' },
+  matrix: () => { if (!ready()) return false; ui.modal = 'matrix' },
+  findingNext: () => stepFinding(1),
+  findingPrev: () => stepFinding(-1),
+  undo: () => editor.undo(),
+  redo: () => editor.redo(),
+  duplicate: () => {
+    if (editor.multi.length) editor.duplicateNodes(editor.multi)
+    else if (editor.selection?.type === 'node') editor.duplicateNode(editor.selection.id)
+  },
+  delete: () => {
+    if (editor.multi.length) editor.removeNodes(editor.multi)
+    else if (editor.selection) editor.removeSelection()
+    else return false
+  },
+  selectAll: () => editor.selectNodes(editor.shown.nodes.map((n) => n.id)),
+  layout: () => { if (!app.canEdit || editor.readonly || editor.isEmpty) return false; editor.autoLayout() },
+  'tool.select': () => editor.setTool('select'),
+  'tool.connect': () => { if (!app.canEdit) return false; editor.setTool('connect') },
+  'tool.zone': () => { if (!app.canEdit) return false; editor.setTool('zone') },
+  zoomIn: () => ui.requestZoom(1),
+  zoomOut: () => ui.requestZoom(-1),
+  fit: () => { editor.fitToken++ },
+  focus: () => editor.setFocusOn(!editor.focusOn),
+  // a failure on screen plays and steps from the keyboard
+  play: () => { if (!editor.sim?.result || !playback.available) return false; playback.toggle() },
+  step: (e) => { if (!editor.sim?.result || !playback.available) return false; playback.step(e.key === 'ArrowRight' ? 1 : -1) },
+}
+
+function onKey(e: KeyboardEvent) {
+  if (e.isComposing) return
+  const id = matchShortcut(e)
+  if (!id || blocked(id, { typing: typing(e.target), control: control(e.target), dialog: ui.palette || !!ui.modal })) return
+  // a key held down does the thing once, unless repeating is what it is for (zoom, undo)
+  if (e.repeat && !repeats(id)) { e.preventDefault(); return }
+  if (actions[id](e) !== false) e.preventDefault()
 }
 
 const conflict = computed(() => editor.saveState === 'conflict')

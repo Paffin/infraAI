@@ -24,6 +24,13 @@ export const useUi = defineStore('ui', () => {
   const analysis = ref<AnalysisView>(ANALYSIS_VIEWS.includes(storedView as AnalysisView) ? (storedView as AnalysisView) : 'capacity')
   const modal = ref<ModalKind>(null)
   const palette = ref(false)
+  /** The finding the keys N and P are on (its fingerprint): the next one is counted from it. */
+  const findingCursor = ref<string | null>(null)
+  /** Ask the canvas to zoom a step (the keys + and -); the canvas owns the viewport. */
+  const zoomRequest = ref<{ dir: 1 | -1; token: number } | null>(null)
+  function requestZoom(dir: 1 | -1) {
+    zoomRequest.value = { dir, token: (zoomRequest.value?.token ?? 0) + 1 }
+  }
   /** Bumped to ask the prompt bar for the keyboard focus (the empty canvas offers "describe it"). */
   const promptFocus = ref(0)
   /** A field the user was sent to ("fill in the RTO"): the inspector / requirements form opens, focuses and flashes it once. */
@@ -71,5 +78,5 @@ export const useUi = defineStore('ui', () => {
   /** AI features are usable: the server has a key, the user did not switch to manual mode. */
   const aiOn = computed(() => chrome.value.on)
 
-  return { aiMode, tab, analysis, showAnalysis, modal, palette, promptFocus, focusRequest, libraryOpen, chrome, aiOn, rightOpen, rightWidth, setRightWidth, whatIfFolded, simMode, simFolded }
+  return { aiMode, tab, analysis, showAnalysis, modal, palette, findingCursor, zoomRequest, requestZoom, promptFocus, focusRequest, libraryOpen, chrome, aiOn, rightOpen, rightWidth, setRightWidth, whatIfFolded, simMode, simFolded }
 })

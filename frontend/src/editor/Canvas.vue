@@ -160,6 +160,8 @@ onMounted(() => {
 })
 onBeforeUnmount(() => { resized.disconnect(); clearTimeout(settle); stopWatch?.disconnect(); cancelAnimationFrame(stopFrame) })
 watch(() => editor.fitToken, () => { void fit(); watchOverlays(); placeBars() })
+// the keys + and - (and the palette) zoom a step, as the buttons of the zoom bar do
+watch(() => ui.zoomRequest, (r) => { if (r) zoomBy(r.dir) })
 
 watch(() => editor.highlight, (h) => {
   if (!h) return

@@ -328,3 +328,117 @@ test.describe('links have no stop on the diagram, and are reached another way', 
     await expect(page.locator('.arch-node:focus')).toHaveCount(1)
   })
 })
+
+test.describe('the table of shortcuts is the dispatcher', () => {
+  /** The keyboard is on the page and on nothing in particular (the keys of the page do not work over a control that takes them itself). */
+  const free = (page: Page) => page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
+  /** A key press as the Russian layout makes it: the letter is Cyrillic, the place of the key is the same. */
+  const russian = (page: Page, key: string, code: string, mod = false) =>
+    page.evaluate(([k, c, m]) => document.body.dispatchEvent(new KeyboardEvent('keydown', { key: k, code: c, ctrlKey: m, bubbles: true, cancelable: true })), [key, code, mod] as const)
+  const pct = (page: Page) => page.locator('.zoom .pct').innerText().then((x) => parseInt(x, 10))
+  const dialog = (page: Page) => page.getByRole('dialog')
+
+  test('+ and - zoom, 0 fits, F is the focus button, L lays the cards out (Undo wakes), E exports, M opens the matrix', async ({ page }) => {
+    await createProject(page, uniqueName('kbd-keys'), '2 ЦОД + witness')
+    await expect(page.locator('.arch-node').first()).toBeVisible()
+    await settled(page)
+    await free(page)
+    const fitted = await pct(page)
+
+    await page.keyboard.press('+')
+    await expect.poll(() => pct(page)).toBeGreaterThan(fitted)
+    const bigger = await pct(page)
+    await page.keyboard.press('-')
+    await page.keyboard.press('-')
+    await expect.poll(() => pct(page)).toBeLessThan(bigger)
+    await page.keyboard.press('0')
+    await expect.poll(() => pct(page)).toBe(fitted)
+
+    const focus = page.getByTestId('focus-toggle')
+    const was = await focus.getAttribute('aria-pressed')
+    await page.keyboard.press('f')
+    await expect(focus).not.toHaveAttribute('aria-pressed', was!)
+    await page.keyboard.press('f')
+    await expect(focus).toHaveAttribute('aria-pressed', was!)
+
+    const undo = page.locator('.zoom').getByRole('button', { name: 'Отменить' })
+    await expect(undo).toBeDisabled()
+    await page.keyboard.press('l')
+    await expect(undo).toBeEnabled()
+
+    await page.keyboard.press('e')
+    await expect(dialog(page)).toContainText('Экспорт')
+    // over a dialog the keys of the page wait: M does not open a second one, F does not flip the button
+    await page.keyboard.press('m')
+    await page.keyboard.press('f')
+    await expect(dialog(page)).toHaveCount(1)
+    await expect(dialog(page)).toContainText('Экспорт')
+    await expect(focus).toHaveAttribute('aria-pressed', was!)
+    await page.keyboard.press('Escape')
+    await expect(dialog(page)).toHaveCount(0)
+
+    await free(page)
+    await page.keyboard.press('m')
+    await expect(dialog(page)).toContainText('Матрица отказов')
+  })
+
+  test('the keys of the page are the keys of the place: they are not typed into a field and do not act over a button that takes them', async ({ page }) => {
+    await createProject(page, uniqueName('kbd-typing'), '2 ЦОД + witness')
+    await expect(page.locator('.arch-node').first()).toBeVisible()
+    const search = page.locator('.library input')
+    await search.focus()
+    await page.keyboard.type('fem')
+    await expect(search).toHaveValue('fem')
+    await expect(dialog(page)).toHaveCount(0)
+    const was = await page.getByTestId('focus-toggle').getAttribute('aria-pressed')
+    await page.keyboard.type('f')
+    await expect(page.getByTestId('focus-toggle')).toHaveAttribute('aria-pressed', was!)
+    // a button has Space and Enter, and the single letters wait for it too
+    await page.locator('.zoom').getByRole('button', { name: 'Приблизить' }).focus()
+    await page.keyboard.press('e')
+    await expect(dialog(page)).toHaveCount(0)
+    // but the keys with a modifier are for every place
+    await page.keyboard.press('Control+k')
+    await expect(page.locator('.palette input')).toBeVisible()
+    await page.keyboard.press('Escape')
+  })
+
+  test('on the Russian layout the letters are the same keys: С connects, М selects, Ctrl+Л opens the palette, Ctrl+Я undoes', async ({ page }) => {
+    await createProject(page, uniqueName('kbd-ru'), '2 ЦОД + witness')
+    await expect(page.locator('.arch-node').first()).toBeVisible()
+    await settled(page)
+    await free(page)
+    await russian(page, 'с', 'KeyC')
+    await expect(tool(page, 'Связь')).toHaveClass(/\bon\b/)
+    await russian(page, 'м', 'KeyV')
+    await expect(tool(page, 'Выбор')).toHaveClass(/\bon\b/)
+    await russian(page, 'л', 'KeyK', true)
+    await expect(page.locator('.palette input')).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(page.locator('.palette input')).toHaveCount(0)
+    // an edit, and its undo by the key that is Ctrl+Z on that layout
+    const undo = page.locator('.zoom').getByRole('button', { name: 'Отменить' })
+    await russian(page, 'д', 'KeyL')
+    await expect(undo).toBeEnabled()
+    await russian(page, 'я', 'KeyZ', true)
+    await expect(undo).toBeDisabled()
+  })
+
+  test('N and P go through the open findings, the worst first, and open the checks', async ({ page }) => {
+    await createProject(page, uniqueName('kbd-findings'), '2 ЦОД + witness')
+    await expect(page.locator('.arch-node').first()).toBeVisible()
+    // an edit that makes findings: no replica of the database
+    await card(page, 'PostgreSQL replica').click()
+    await page.keyboard.press('Delete')
+    await expect(page.locator('.arch-node.st-risk, .arch-node.st-critical').first()).toBeVisible({ timeout: 15_000 })
+    await page.locator('.right .tab', { hasText: 'Требования' }).click()
+    await free(page)
+    await page.keyboard.press('n')
+    await expect(page.locator('.right .tab.active')).toContainText('Проверки')
+    await expect(page.locator('.arch-node.lit, .vue-flow__edge.lit, .arch-zone.lit').first()).toBeVisible()
+    const first = await page.locator('.arch-node.lit').evaluateAll((els) => els.map((e) => e.getAttribute('data-id')))
+    await page.keyboard.press('n')
+    await page.keyboard.press('p')
+    await expect.poll(() => page.locator('.arch-node.lit').evaluateAll((els) => els.map((e) => e.getAttribute('data-id')))).toEqual(first)
+  })
+})

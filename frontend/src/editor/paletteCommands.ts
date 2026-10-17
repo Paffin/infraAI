@@ -1,12 +1,12 @@
 import { computed, type Component, type ComputedRef } from 'vue'
 import { useRouter } from 'vue-router'
 import {
-  Activity, Boxes, Coins, Copy, Download, Gauge, History, Keyboard, Languages, Layers, LayoutDashboard, ListChecks, Maximize, MousePointer2, PanelLeft, PanelRight, Play, Plus, Redo2, Save, ShieldCheck,
-  MapPinned, Network, Sparkles, Spline, Square, Trash2, Undo2, Zap, Folder, Users,
+  Activity, Boxes, Coins, Copy, Download, Focus, Gauge, History, Keyboard, Languages, Layers, LayoutDashboard, ListChecks, Maximize, MousePointer2, PanelLeft, PanelRight, Play, Plus, Redo2, Save, ShieldCheck,
+  MapPinned, Network, Sparkles, Spline, Square, Trash2, Undo2, Zap, Folder, Users, ZoomIn, ZoomOut,
 } from 'lucide-vue-next'
 import type { KindDef, Status } from '@/api/types'
 import { lang, lt, setLang, t } from '@/i18n'
-import { findingText, findingTitle, statusColor, statusLabel } from '@/lib/findings'
+import { byUrgency, findingText, findingTitle, statusColor, statusLabel } from '@/lib/findings'
 import { shortcutText } from '@/lib/shortcuts'
 import { scenarioLabel } from '@/lib/sim'
 import { useApp } from '@/stores/app'
@@ -105,8 +105,21 @@ export function usePaletteCommands(): ComputedRef<Command[]> {
       out.push({
         id: 'finding:' + f.id, group: 'finding', title: findingTitle(rule, f), hint: findingText(rule, f),
         keywords: [f.ruleId, statusLabel(f.status)], dot: statusColor(f.status),
-        run: () => { ui.tab = 'checks'; editor.showSubjects(f) },
+        run: () => { ui.tab = 'checks'; ui.findingCursor = f.id; editor.showSubjects(f) },
       })
+    }
+    // the findings one after another, as the keys N and P go through them: the first of them is the worst
+    const worst = byUrgency(editor.openFindings)
+    if (worst.length > 1) {
+      const step = (dir: 1 | -1) => () => {
+        const at = worst.findIndex((f) => f.id === ui.findingCursor)
+        const next = worst[at < 0 ? (dir > 0 ? 0 : worst.length - 1) : (at + dir + worst.length) % worst.length]
+        ui.tab = 'checks'
+        ui.findingCursor = next.id
+        editor.showSubjects(next)
+      }
+      out.push({ id: 'finding:next', group: 'finding', title: t('cmd.finding.next'), shortcut: shortcutText('findingNext'), icon: Play, keywords: ['next', 'finding', 'находка', 'дальше'], run: step(1) })
+      out.push({ id: 'finding:prev', group: 'finding', title: t('cmd.finding.prev'), shortcut: shortcutText('findingPrev'), icon: Play, keywords: ['previous', 'finding', 'находка', 'назад'], run: step(-1) })
     }
 
     // ---------------------------------------------------------------- failure scenarios
@@ -148,7 +161,7 @@ export function usePaletteCommands(): ComputedRef<Command[]> {
     if (canEdit) {
       out.push({ id: 'edit:undo', group: 'edit', title: t('tool.undo'), icon: Undo2, shortcut: shortcutText('undo'), suggest: editor.canUndo, run: () => editor.undo() })
       out.push({ id: 'edit:redo', group: 'edit', title: t('tool.redo'), icon: Redo2, shortcut: shortcutText('redo'), suggest: editor.canRedo, run: () => editor.redo() })
-      out.push({ id: 'edit:layout', group: 'edit', title: t('tool.layout'), icon: LayoutDashboard, keywords: ['layout', 'раскладка'], suggest: true, run: () => editor.autoLayout() })
+      out.push({ id: 'edit:layout', group: 'edit', title: t('tool.layout'), icon: LayoutDashboard, shortcut: shortcutText('layout'), keywords: ['layout', 'раскладка'], suggest: true, run: () => editor.autoLayout() })
       out.push({ id: 'edit:placement', group: 'edit', title: t('placement.open'), icon: Network, keywords: ['placement', 'sites', 'racks', 'размещение', 'площадки', 'цод', 'стойки', 'регионы'], suggest: true, run: () => { ui.modal = 'placement' } })
       out.push({ id: 'edit:tool.select', group: 'edit', title: t('cmd.tool.select'), icon: MousePointer2, shortcut: shortcutText('tool.select'), run: () => editor.setTool('select') })
       out.push({ id: 'edit:tool.connect', group: 'edit', title: t('cmd.tool.connect'), icon: Spline, shortcut: shortcutText('tool.connect'), keywords: ['connect', 'edge', 'связь'], run: () => editor.setTool('connect') })
@@ -171,7 +184,10 @@ export function usePaletteCommands(): ComputedRef<Command[]> {
     out.push({ id: 'edit:save', group: 'edit', title: t('cmd.save'), icon: Save, shortcut: shortcutText('save'), keywords: ['save', 'сохранить'], run: () => void editor.flushSave() })
 
     // ---------------------------------------------------------------- view
-    out.push({ id: 'view:fit', group: 'view', title: t('canvas.fit'), icon: Maximize, keywords: ['fit', 'zoom', 'масштаб', 'вид'], suggest: true, run: () => { editor.fitToken++ } })
+    out.push({ id: 'view:fit', group: 'view', title: t('canvas.fit'), icon: Maximize, shortcut: shortcutText('fit'), keywords: ['fit', 'zoom', 'масштаб', 'вид'], suggest: true, run: () => { editor.fitToken++ } })
+    out.push({ id: 'view:zoomIn', group: 'view', title: t('canvas.zoomIn'), icon: ZoomIn, shortcut: shortcutText('zoomIn'), keywords: ['zoom', 'масштаб', 'увеличить'], run: () => ui.requestZoom(1) })
+    out.push({ id: 'view:zoomOut', group: 'view', title: t('canvas.zoomOut'), icon: ZoomOut, shortcut: shortcutText('zoomOut'), keywords: ['zoom', 'масштаб', 'уменьшить'], run: () => ui.requestZoom(-1) })
+    out.push({ id: 'view:focus', group: 'view', title: t('cmd.focus'), icon: Focus, shortcut: shortcutText('focus'), keywords: ['focus', 'фокус', 'соседи'], run: () => editor.setFocusOn(!editor.focusOn) })
     out.push({ id: 'view:library', group: 'view', title: ui.libraryOpen ? t('library.collapse') : t('library.expand'), icon: PanelLeft, shortcut: shortcutText('foldLibrary'), run: () => { ui.libraryOpen = !ui.libraryOpen } })
     out.push({ id: 'view:right', group: 'view', title: ui.rightOpen ? t('right.fold') : t('right.unfold'), icon: PanelRight, shortcut: shortcutText('foldRight'), keywords: ['sidebar', 'панель', 'сайдбар'], run: () => { ui.rightOpen = !ui.rightOpen } })
     if (ui.chrome.modeSwitch) out.push({ id: 'view:mode', group: 'view', title: ui.aiMode === 'ai' ? t('cmd.mode.manual') : t('cmd.mode.ai'), icon: Sparkles, keywords: ['ai', 'ии', 'manual', 'вручную'], run: () => { ui.aiMode = ui.aiMode === 'ai' ? 'manual' : 'ai' } })
@@ -190,9 +206,9 @@ export function usePaletteCommands(): ComputedRef<Command[]> {
     for (const view of ANALYSIS_VIEWS) {
       out.push({ id: 'panel:' + view, group: 'panel', title: t('cmd.open', { name: t('tab.' + view) }), icon: ANALYSIS_ICON[view], suggest: true, run: () => ui.showAnalysis(view) })
     }
-    out.push({ id: 'panel:matrix', group: 'panel', title: t('editor.sim'), icon: Zap, keywords: ['matrix', 'матрица'], suggest: true, run: () => { ui.modal = 'matrix' } })
+    out.push({ id: 'panel:matrix', group: 'panel', title: t('editor.sim'), icon: Zap, shortcut: shortcutText('matrix'), keywords: ['matrix', 'матрица'], suggest: true, run: () => { ui.modal = 'matrix' } })
     out.push({ id: 'panel:versions', group: 'panel', title: t('editor.versions'), icon: History, keywords: ['versions', 'diff', 'история'], suggest: true, run: () => { ui.modal = 'versions' } })
-    out.push({ id: 'panel:export', group: 'panel', title: t('editor.export'), icon: Download, keywords: ['export', 'terraform', 'helm', 'kubernetes', 'iac'], suggest: true, run: () => { ui.modal = 'export' } })
+    out.push({ id: 'panel:export', group: 'panel', title: t('editor.export'), icon: Download, shortcut: shortcutText('export'), keywords: ['export', 'terraform', 'helm', 'kubernetes', 'iac'], suggest: true, run: () => { ui.modal = 'export' } })
     out.push({ id: 'panel:score', group: 'panel', title: t('editor.score.title'), icon: ShieldCheck, keywords: ['score', 'оценка'], run: () => { ui.modal = 'score' } })
     out.push({ id: 'panel:shortcuts', group: 'panel', title: t('cmd.shortcuts'), icon: Keyboard, shortcut: shortcutText('shortcuts'), suggest: true, run: () => { ui.modal = 'shortcuts' } })
     out.push({ id: 'panel:projects', group: 'panel', title: t('cmd.projects'), icon: Folder, keywords: ['projects', 'проекты'], run: () => { void editor.flushSave().then(() => router.push({ name: 'projects' })) } })

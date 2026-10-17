@@ -53,3 +53,8 @@ export function statusColor(s: Status): string {
 
 /** Worst status first; used to sort findings and to colour node dots. */
 export const statusRank: Record<Status, number> = { critical: 0, risk: 1, no_data: 2, ok: 3, na: 4 }
+
+/** The open findings in the order the list of checks shows them: the worst level first, the order of the report inside a level. */
+export function byUrgency<T extends { status: Status }>(findings: readonly T[]): T[] {
+  return [...findings].sort((a, b) => statusRank[a.status] - statusRank[b.status])
+}
