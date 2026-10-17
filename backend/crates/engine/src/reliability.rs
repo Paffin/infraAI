@@ -250,7 +250,7 @@ fn failures(ctx: &Ctx<'_>) -> (Vec<Failure>, bool) {
     for unit in &ix.units {
         let members: Vec<usize> = unit.members.iter().copied().filter(|&m| !ix.has_trait(m, "external") && !provider_managed(ctx, m)).collect();
         // one instance is the instance scenario already; the whole service goes down at once only when there are more
-        let instances: u32 = members.iter().filter(|&&m| !ix.is_witness(m)).map(|&m| ix.replicas(m)).sum();
+        let instances = ix.instances(members.iter().copied().filter(|&m| !ix.is_witness(m)));
         if instances >= 2 {
             let per_year = members.iter().map(|&m| ix.cat.reliability_of(&ix.arch.nodes[m].kind, ix.variant[m]).common_mode_per_year.unwrap_or(cfg.failures.unit)).fold(0.0_f64, f64::max);
             out.extend(Failure::new(Scenario::Unit { unit: unit.key.clone() }, Cause::Unit, per_year, cfg.repair.unit));

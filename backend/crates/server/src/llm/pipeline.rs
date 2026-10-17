@@ -123,7 +123,7 @@ pub fn parse_generate(cfg: &Loaded, text: &str, base: &Architecture) -> Result<C
     if let Some(t) = arch.requirements.failure_tolerance.take() {
         arch.requirements.failure_tolerance = normalize_tolerance(cfg, &t);
     }
-    sanitize(&mut arch, &cfg.catalog);
+    sanitize(&mut arch, &cfg.catalog, &cfg.engine.limits);
     if arch.nodes.is_empty() {
         return Err(vec!["the architecture has no nodes".into()]);
     }
@@ -175,17 +175,17 @@ fn sanitize_ops(ops: &mut [Op], cfg: &Loaded) {
         match op {
             Op::AddNode { node } => {
                 let mut tmp = Architecture { nodes: vec![node.clone()], ..Default::default() };
-                sanitize(&mut tmp, &cfg.catalog);
+                sanitize(&mut tmp, &cfg.catalog, &cfg.engine.limits);
                 *node = tmp.nodes.remove(0);
             }
             Op::AddZone { zone } => {
                 let mut tmp = Architecture { zones: vec![zone.clone()], ..Default::default() };
-                sanitize(&mut tmp, &cfg.catalog);
+                sanitize(&mut tmp, &cfg.catalog, &cfg.engine.limits);
                 *zone = tmp.zones.remove(0);
             }
             Op::AddEdge { edge } => {
                 let mut tmp = Architecture { edges: vec![edge.clone()], ..Default::default() };
-                sanitize(&mut tmp, &cfg.catalog);
+                sanitize(&mut tmp, &cfg.catalog, &cfg.engine.limits);
                 *edge = tmp.edges.remove(0);
             }
             Op::UpdateNode { set, .. } | Op::UpdateEdge { set, .. } | Op::UpdateZone { set, .. } => {

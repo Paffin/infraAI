@@ -452,6 +452,16 @@ impl Catalog {
         self.kind(kind).and_then(|k| k.props.iter().find(|p| p.key == key)).or_else(|| self.common_props.iter().find(|p| p.key == key))
     }
 
+    /// The range a numeric prop of `kind` may take, field by field: the kind's own minimum and maximum where it declares them, the
+    /// common prop's of the same key where it does not. A product that describes its own `replicas` (most do: the default, the help) and
+    /// says nothing of a maximum still has the maximum every other product has; without this a bound written once for all kinds would
+    /// hold for the 294 kinds that inherit the whole definition and not for the 662 that restate it.
+    pub fn prop_bounds(&self, kind: &str, key: &str) -> (Option<f64>, Option<f64>) {
+        let own = self.kind(kind).and_then(|k| k.props.iter().find(|p| p.key == key));
+        let common = self.common_props.iter().find(|p| p.key == key);
+        (own.and_then(|p| p.min).or_else(|| common.and_then(|p| p.min)), own.and_then(|p| p.max).or_else(|| common.and_then(|p| p.max)))
+    }
+
     pub fn kind_has_trait(&self, kind: &str, tr: &str) -> bool {
         self.kind(kind).map(|k| k.traits.iter().any(|t| t == tr)).unwrap_or(false)
     }
@@ -512,8 +522,62 @@ impl Catalog {
                 errs.push(format!("duplicate zone type id '{}'", t.id));
             }
         }
+        // ranges: a minimum above the maximum allows nothing, a default outside the range is a value the catalog itself would refuse
+        let mut defs: Vec<(String, &PropDef, (Option<f64>, Option<f64>))> = Vec::new();
+        for p in &self.common_props {
+            defs.push((format!("common prop '{}'", p.key), p, (p.min, p.max)));
+        }
+        for k in &self.kinds {
+            for p in &k.props {
+                defs.push((format!("kind '{}' prop '{}'", k.id, p.key), p, self.prop_bounds(&k.id, &p.key)));
+            }
+        }
+        for t in &self.edge_types {
+            for p in &t.props {
+                defs.push((format!("edge type '{}' prop '{}'", t.id, p.key), p, (p.min, p.max)));
+            }
+        }
+        for t in &self.zone_types {
+            for p in &t.props {
+                defs.push((format!("zone type '{}' prop '{}'", t.id, p.key), p, (p.min, p.max)));
+            }
+        }
+        for (what, p, (min, max)) in &defs {
+            if let (Some(lo), Some(hi)) = (min, max) {
+                if lo > hi {
+                    errs.push(format!("{what} has min {lo} above max {hi}"));
+                }
+            }
+            if p.prop_type == PropType::Number {
+                if let Some(d) = p.default.as_ref().and_then(crate::model::as_f64) {
+                    if out_of(d, *min, *max) {
+                        errs.push(format!("{what} has default {d} outside its range"));
+                    }
+                }
+            }
+        }
+        for k in &self.kinds {
+            for v in &k.variants {
+                for (key, val) in &v.defaults {
+                    let Some(def) = self.prop_def(&k.id, key) else { continue };
+                    if def.prop_type != PropType::Number {
+                        continue;
+                    }
+                    let (min, max) = self.prop_bounds(&k.id, key);
+                    if let Some(d) = crate::model::as_f64(val) {
+                        if out_of(d, min, max) {
+                            errs.push(format!("kind '{}' variant '{}' default {} = {} is outside its range", k.id, v.id, key, d));
+                        }
+                    }
+                }
+            }
+        }
         errs
     }
+}
+
+fn out_of(v: f64, min: Option<f64>, max: Option<f64>) -> bool {
+    min.is_some_and(|m| v < m) || max.is_some_and(|m| v > m)
 }
 
 /// Effective props of a node/edge: catalog defaults overlaid with declared values, remembering

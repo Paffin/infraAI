@@ -411,11 +411,11 @@ impl<'a, 'b> Sim<'a, 'b> {
             let mut base = ix.replicas(i);
             // pilot light / warm standby: surviving nodes scale out when another site is lost
             if site_failure && !zone_down {
-                if let Some(fr) = ix.eff[i].num("failoverReplicas") {
-                    if fr as u32 > base {
+                if let Some(fr) = ix.failover_replicas(i) {
+                    if fr > base {
                         let secs = ix.eff[i].num("scaleUpSeconds").unwrap_or(ix.settings.assumptions.default_scale_up_seconds);
                         if !pending(horizon, secs) {
-                            base = fr as u32;
+                            base = fr;
                         }
                         scale_out.push((i, secs));
                     }
@@ -478,7 +478,7 @@ impl<'a, 'b> Sim<'a, 'b> {
                 "scale_out",
                 Some(&ix.units[ix.unit_of[*i]].key),
                 Some(&ix.arch.nodes[*i].id),
-                json!({"node": ix.arch.nodes[*i].name, "seconds": secs, "to": ix.eff[*i].num("failoverReplicas")}),
+                json!({"node": ix.arch.nodes[*i].name, "seconds": secs, "to": ix.failover_replicas(*i)}),
                 *secs,
             ));
         }
@@ -610,7 +610,7 @@ impl<'a, 'b> Sim<'a, 'b> {
     fn eval_quorum_log(&mut self, u: usize) {
         let ix = self.ix;
         let members = ix.units[u].members.clone();
-        let total_inst: u32 = members.iter().map(|&m| ix.replicas(m)).sum();
+        let total_inst = ix.instances(members.iter().copied());
         let min_insync = members.iter().filter_map(|&m| ix.eff[m].num("minInsync")).fold(1.0_f64, f64::max);
         let need = min_insync.max((total_inst / 2 + 1) as f64);
         let alive_w = |k: usize| if self.eff_ok[k] { self.alive[k] as f64 } else { 0.0 };

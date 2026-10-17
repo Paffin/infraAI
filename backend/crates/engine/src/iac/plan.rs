@@ -418,7 +418,7 @@ pub fn build_plan(arch: &Architecture, cfg: &EngineConfig, lang: &str) -> Plan {
             let mut sites: Vec<Site> = by_cluster
                 .into_iter()
                 .map(|(c, ms)| {
-                    let instances: u32 = ms.iter().filter(|&&m| !ix.is_witness(m)).map(|&m| ix.replicas(m)).sum();
+                    let instances = ix.instances(ms.iter().copied().filter(|&m| !ix.is_witness(m)));
                     let primary = ms.iter().any(|&m| arch.nodes[m].role.as_deref() == Some("primary"));
                     Site { cluster: c, members: ms, instances, primary }
                 })

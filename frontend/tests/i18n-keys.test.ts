@@ -56,7 +56,7 @@ describe('translations', () => {
       'req.failureTolerance.': ['instance', 'rack', 'site', 'geo'],
       'problem.': ['down', 'rto', 'rpo', 'data_lost', 'capacity'],
       'placement.error.': ['sites_out_of_range', 'unknown_pattern', 'unknown_stack', 'bad_kind', 'unknown_kind', 'unknown_variant', 'too_many_nodes', 'unknown_tolerance', 'unknown_zone_type'],
-      'placement.note.': ['witness_sites', 'site_failures_clamped', 'copies_limited', 'single_copy', 'no_authority', 'arbiters_share_locations', 'voters_share_locations', 'cluster_per_domain'],
+      'placement.note.': ['witness_sites', 'site_failures_clamped', 'copies_limited', 'single_copy', 'no_authority', 'arbiters_share_locations', 'voters_share_locations', 'cluster_per_domain', 'replicas_capped'],
       'node.state.': ['up', 'partial', 'down', 'stalled', 'fenced', 'promoted', 'isolated'],
       'legend.sem.': ['dependency', 'replication', 'membership', 'backup', 'control'],
       'job.': ['preparing', 'calling_model', 'repairing', 'evaluating', 'refining', 'autofix', 'previewing'],

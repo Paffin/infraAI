@@ -1751,3 +1751,231 @@ async fn config_export_then_import_round_trips() {
     assert!(rep["rules"].as_array().unwrap().iter().all(|r| r["ruleId"] != "HA-CACHE-01"), "the disabled rule stays disabled");
     app.cleanup().await;
 }
+
+// ---------------------------------------------------------------------------------------------
+// One validation gate: a number outside its range is refused when it is written, reported when it is read, and never a 500.
+// ---------------------------------------------------------------------------------------------
+
+fn set_node_prop(arch: &mut Value, id: &str, key: &str, v: Value) {
+    arch["nodes"].as_array_mut().unwrap().iter_mut().find(|n| n["id"] == id).unwrap_or_else(|| panic!("node {id}"))["props"][key] = v;
+}
+
+#[tokio::test]
+async fn out_of_range_props_are_rejected_not_stored() {
+    let app = TestApp::new().await;
+    let c = app.login_admin().await;
+    let arch = demo_architecture(&app, &c).await;
+    let pid = new_project(&app, &c, "range", &arch).await;
+    let (rev, _) = project_rev(&app, &c, &pid).await;
+
+    // a million million instances of a service: the catalog allows a hundred thousand
+    let mut bad = arch.clone();
+    set_node_prop(&mut bad, "app-dc1", "replicas", json!(1_000_000_000_000u64));
+    let (s, v) = app.put(&c, &format!("/api/projects/{pid}/draft"), json!({"architecture": bad, "expectedRev": rev})).await;
+    assert_eq!(s, StatusCode::BAD_REQUEST, "{v}");
+    assert_eq!(v["error"]["code"], "invalid_architecture");
+    let first = &v["error"]["details"]["issues"][0];
+    assert_eq!((first["code"].as_str(), first["subject"].as_str()), (Some("prop_out_of_range"), Some("app-dc1")), "{v}");
+    let said = v["error"]["message"].as_str().unwrap();
+    assert!(said.contains("app-dc1") && said.contains("replicas") && said.contains("1 to 100000"), "the message names the node, the prop and the range: {said}");
+    // nothing was stored: the revision is the one it was, and the project still evaluates
+    let (rev_after, stored) = project_rev(&app, &c, &pid).await;
+    assert_eq!(rev_after, rev);
+    assert_eq!(stored, arch);
+    let (s, rep) = app.post(&c, "/api/evaluate", json!({"architecture": stored, "projectId": pid})).await;
+    assert_eq!(s, StatusCode::OK, "{rep}");
+
+    // the same refusal for a number that is not one, a requirement outside its domain, and the other ways in
+    let mut text = arch.clone();
+    set_node_prop(&mut text, "app-dc1", "replicas", json!("many"));
+    let (s, v) = app.put(&c, &format!("/api/projects/{pid}/draft"), json!({"architecture": text, "expectedRev": rev})).await;
+    assert_eq!((s, v["error"]["details"]["issues"][0]["code"].as_str()), (StatusCode::BAD_REQUEST, Some("prop_type")), "{v}");
+    let mut slo = arch.clone();
+    slo["requirements"]["availabilitySlo"] = json!(150);
+    let (s, v) = app.put(&c, &format!("/api/projects/{pid}/draft"), json!({"architecture": slo, "expectedRev": rev})).await;
+    assert_eq!((s, v["error"]["details"]["issues"][0]["code"].as_str()), (StatusCode::BAD_REQUEST, Some("requirement_out_of_range")), "{v}");
+    let (s, v) = app.post(&c, "/api/projects", json!({"name": "born wrong", "architecture": bad})).await;
+    assert_eq!((s, v["error"]["code"].as_str()), (StatusCode::BAD_REQUEST, Some("invalid_architecture")), "{v}");
+    let ops = json!([{"op": "update_node", "id": "app-dc1", "set": {"props.replicas": 1e12}}]);
+    let (s, v) = app.post(&c, "/api/ops/apply", json!({"architecture": arch, "ops": ops})).await;
+    assert_eq!((s, v["error"]["code"].as_str()), (StatusCode::BAD_REQUEST, Some("ops_invalid")), "{v}");
+    assert_eq!(v["error"]["details"]["issues"][0]["code"], "prop_out_of_range");
+    let (s, v) = app.post(&c, "/api/ops/apply", json!({"architecture": arch, "ops": ops, "preview": true})).await;
+    assert_eq!((s, v["error"]["code"].as_str()), (StatusCode::BAD_REQUEST, Some("ops_invalid")), "{v}");
+
+    // a number inside the range is saved, at its edge too
+    let mut edge = arch.clone();
+    set_node_prop(&mut edge, "app-dc1", "replicas", json!(100_000));
+    let (s, v) = app.put(&c, &format!("/api/projects/{pid}/draft"), json!({"architecture": edge, "expectedRev": rev})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+
+    // what the generator makes is held to the same rules, and a design for a big load fits them
+    let (s, v) = app.post(&c, "/api/projects", json!({"name": "wizard", "placement": {"pattern": "n-sites", "sites": 3, "requirements": {"rpsPeak": 1_000_000}}})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    app.cleanup().await;
+}
+
+#[tokio::test]
+async fn stored_out_of_range_draft_still_opens() {
+    // projects saved before the ranges were enforced: a draft with a million million instances used to answer every evaluation, version,
+    // export and accepted risk of its project with a 500 ("attempt to add with overflow"); now it opens and says what is wrong with it
+    let app = TestApp::new().await;
+    let c = app.login_admin().await;
+    let arch = demo_architecture(&app, &c).await;
+    let pid = new_project(&app, &c, "legacy", &arch).await;
+    let mut legacy = arch.clone();
+    set_node_prop(&mut legacy, "app-dc1", "replicas", json!(1_000_000_000_000u64));
+    sqlx::query("update projects set draft = $1 where id = $2").bind(&legacy).bind(uuid::Uuid::parse_str(&pid).unwrap()).execute(&app.state.pool).await.unwrap();
+
+    let (s, p) = app.get(&c, &format!("/api/projects/{pid}")).await;
+    assert_eq!(s, StatusCode::OK, "{p}");
+    let (s, rep) = app.post(&c, "/api/evaluate", json!({"architecture": p["architecture"], "projectId": pid})).await;
+    assert_eq!(s, StatusCode::OK, "{rep}");
+    let issue = rep["issues"].as_array().unwrap().iter().find(|i| i["code"] == "prop_out_of_range").unwrap_or_else(|| panic!("the report says it: {}", rep["issues"]));
+    assert_eq!((issue["level"].as_str(), issue["subject"].as_str()), (Some("warning"), Some("app-dc1")));
+    // the engine counts the instances at the most a service may have, it does not wrap them
+    let cap = rep["capacity"].as_array().unwrap().iter().find(|r| r["nodes"].as_array().is_some_and(|n| n.iter().any(|x| x == "app-dc1"))).expect("a capacity row for the service");
+    assert!(cap["instances"].as_u64().unwrap() <= 200_000, "{cap}");
+    let (s, v) = app.post(&c, &format!("/api/projects/{pid}/versions"), json!({"message": "as it is"})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    for format in ["kubernetes", "json", "adr", "terraform"] {
+        let (s, v) = app.get(&c, &format!("/api/projects/{pid}/export/{format}")).await;
+        assert_eq!(s, StatusCode::OK, "{format}: {v}");
+    }
+    let finding = rep["findings"].as_array().unwrap().iter().find(|f| f["ruleId"] == "DR-KFK-01").expect("the demo's known defect");
+    let (s, v) = app.post(&c, &format!("/api/projects/{pid}/waivers"), json!({"fingerprint": finding["id"], "reason": "accepted for the test of a legacy project"})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    let (s, v) = app.post(&c, "/api/recommendations", json!({"architecture": p["architecture"], "projectId": pid})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    let (s, v) = app.get(&c, &format!("/api/projects/{pid}/diff?from=1&to=2")).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+
+    // saving is where it is refused, and putting it right is saved
+    let (rev, _) = project_rev(&app, &c, &pid).await;
+    let (s, v) = app.put(&c, &format!("/api/projects/{pid}/draft"), json!({"architecture": p["architecture"], "expectedRev": rev})).await;
+    assert_eq!((s, v["error"]["code"].as_str()), (StatusCode::BAD_REQUEST, Some("invalid_architecture")), "{v}");
+    let (s, v) = app.put(&c, &format!("/api/projects/{pid}/draft"), json!({"architecture": arch, "expectedRev": rev})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    app.cleanup().await;
+}
+
+#[tokio::test]
+async fn compute_endpoints_stay_lenient() {
+    // the editor sends what is typed to /evaluate, /simulate and /recommendations on every pause: a half-typed number is a warning
+    // in the report, not a banner of errors and not a 500
+    let app = TestApp::new().await;
+    let c = app.login_admin().await;
+    let arch = demo_architecture(&app, &c).await;
+    for typed in [json!(0), json!(-3), json!(5_000_000), json!(0.5)] {
+        let mut a = arch.clone();
+        set_node_prop(&mut a, "app-dc1", "replicas", typed.clone());
+        let (s, rep) = app.post(&c, "/api/evaluate", json!({"architecture": a})).await;
+        assert_eq!(s, StatusCode::OK, "{typed}: {rep}");
+        let warned = rep["issues"].as_array().unwrap().iter().any(|i| i["code"] == "prop_out_of_range" && i["level"] == "warning");
+        assert!(warned, "{typed}: {}", rep["issues"]);
+        let (s, v) = app.post(&c, "/api/simulate", json!({"architecture": a, "scenario": {"type": "zone", "zoneId": "dc1"}})).await;
+        assert_eq!(s, StatusCode::OK, "{typed}: {v}");
+        let (s, v) = app.post(&c, "/api/recommendations", json!({"architecture": a})).await;
+        assert_eq!(s, StatusCode::OK, "{typed}: {v}");
+        let ops = json!([{"op": "update_node", "id": "kafka-dc1", "set": {"props.replicas": 4}}]);
+        let (s, v) = app.post(&c, "/api/ops/apply", json!({"architecture": a, "ops": ops, "preview": true})).await;
+        assert!(s == StatusCode::OK || s == StatusCode::BAD_REQUEST, "{typed}: {s} {v}");
+    }
+    // a requirement outside its domain is the same: said, not refused
+    let mut slo = arch.clone();
+    slo["requirements"]["availabilitySlo"] = json!(150);
+    let (s, rep) = app.post(&c, "/api/evaluate", json!({"architecture": slo})).await;
+    assert_eq!(s, StatusCode::OK, "{rep}");
+    assert!(rep["issues"].as_array().unwrap().iter().any(|i| i["code"] == "requirement_out_of_range" && i["level"] == "warning"), "{}", rep["issues"]);
+    // while the structure of the design is not negotiable on the endpoints that need one
+    let mut dangling = arch.clone();
+    dangling["edges"][0]["target"] = json!("nowhere");
+    let (s, v) = app.post(&c, "/api/simulate", json!({"architecture": dangling, "scenario": {"type": "none"}})).await;
+    assert_eq!((s, v["error"]["code"].as_str()), (StatusCode::BAD_REQUEST, Some("invalid_architecture")), "{v}");
+    app.cleanup().await;
+}
+
+/// A small deterministic generator (a linear congruential one): the same requests every run, and no new dependency.
+struct Lcg(u64);
+impl Lcg {
+    fn next(&mut self) -> u64 {
+        self.0 = self.0.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        self.0 >> 33
+    }
+    fn pick<'a, T>(&mut self, of: &'a [T]) -> &'a T {
+        &of[(self.next() % of.len() as u64) as usize]
+    }
+}
+
+#[tokio::test]
+async fn extreme_numbers_never_500() {
+    let app = TestApp::new().await;
+    let c = app.login_admin().await;
+    let arch = demo_architecture(&app, &c).await;
+    let hostile: Vec<Value> = vec![
+        json!(-1),
+        json!(0),
+        json!(0.5),
+        json!(4e9),
+        json!(4294967295u64),
+        json!(4294967296u64),
+        json!(1e12),
+        json!(1e18),
+        json!(1e308),
+        json!(1.7e308),
+        json!("abc"),
+        json!("NaN"),
+        json!(true),
+        Value::Null,
+        json!([1]),
+    ];
+    let node_keys = ["replicas", "failoverReplicas", "vcpu", "ramGb", "diskGb", "rpsPerReplica", "hpaMin", "hpaMax", "votes", "scaleUpSeconds", "healthCheckSeconds", "failThreshold"];
+    let req_keys = ["rpsPeak", "growthPercent", "availabilitySlo", "rtoSeconds", "rpoSeconds", "budgetMonthly", "siteFailures"];
+    let scenarios = [
+        json!({"type": "none"}),
+        json!({"type": "zone", "zoneId": "dc1"}),
+        json!({"type": "instance", "nodeId": "app-dc1", "count": 4294967295u64}),
+        json!({"type": "node", "nodeId": "app-dc2"}),
+        json!({"type": "sites", "zoneIds": ["dc1", "dc2"]}),
+        json!({"type": "link", "a": "dc1", "b": "dc2"}),
+    ];
+    let node_ids: Vec<String> = arch["nodes"].as_array().unwrap().iter().map(|n| n["id"].as_str().unwrap().to_string()).collect();
+    let mut rng = Lcg(0x1B03);
+    let (mut ok, mut refused, mut failed) = (0, 0, vec![]);
+    for i in 0..240 {
+        // one to three hostile values in a copy of the design
+        let mut a = arch.clone();
+        for _ in 0..=(rng.next() % 3) {
+            let v = rng.pick(&hostile).clone();
+            match rng.next() % 4 {
+                0 | 1 => {
+                    let id = rng.pick(&node_ids).clone();
+                    set_node_prop(&mut a, &id, rng.pick(&node_keys), v);
+                }
+                2 => a["requirements"][*rng.pick(&req_keys)] = v,
+                _ => {
+                    let n = a["edges"].as_array().unwrap().len();
+                    a["edges"][(rng.next() % n as u64) as usize]["props"]["fanout"] = v;
+                }
+            }
+        }
+        let (s, body) = match i % 8 {
+            0..=2 => app.post(&c, "/api/evaluate", json!({"architecture": a})).await,
+            3 | 4 => app.post(&c, "/api/simulate", json!({"architecture": a, "scenario": rng.pick(&scenarios)})).await,
+            5 => app.post(&c, "/api/recommendations", json!({"architecture": a})).await,
+            _ => {
+                let ops = json!([{"op": "update_node", "id": rng.pick(&node_ids), "set": {format!("props.{}", rng.pick(&node_keys)): rng.pick(&hostile)}}]);
+                app.post(&c, "/api/ops/apply", json!({"architecture": a, "ops": ops, "preview": i % 16 == 6})).await
+            }
+        };
+        match s {
+            StatusCode::OK => ok += 1,
+            StatusCode::BAD_REQUEST | StatusCode::UNPROCESSABLE_ENTITY => refused += 1,
+            other => failed.push(format!("#{i} {other}: {} {}", body["error"]["code"], a["requirements"])),
+        }
+    }
+    eprintln!("extreme numbers: {ok} answered, {refused} refused, {} failed", failed.len());
+    assert!(failed.is_empty(), "requests the server could not answer:\n{}", failed.join("\n"));
+    assert!(ok > 120 && refused > 0, "the run is neither all accepted nor all refused: {ok} / {refused}");
+    app.cleanup().await;
+}

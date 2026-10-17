@@ -76,6 +76,7 @@ export default {
   'placement.note.arbiters_share_locations': 'Слой «{layer}»: арбитров {got} из {wanted} — не хватает независимых мест.',
   'placement.note.voters_share_locations': 'Слой «{layer}»: {voters} голосов на {locations} местах — часть голосов делит место.',
   'placement.note.cluster_per_domain': 'Слой «{layer}»: {clusters} независимых кластера по регионам, между ними асинхронная репликация.',
+  'placement.note.replicas_capped': 'Слой «{layer}»: по нагрузке нужно больше {max} экземпляров на площадку — поставлено {max}, больше узел иметь не может. Проверьте пиковую нагрузку или разбейте сервис.',
   'placement.error.sites_out_of_range': 'Для этой схемы число площадок вне допустимого диапазона.',
   'placement.error.unknown_pattern': 'Схема размещения не найдена.',
   'placement.error.unknown_stack': 'Состав платформы не найден.',

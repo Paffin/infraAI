@@ -650,7 +650,7 @@
     "en": "Instances"
    },
    "min": 1,
-   "max": 1000,
+   "max": 100000,
    "default": 1,
    "group": "capacity"
   },

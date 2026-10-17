@@ -58,7 +58,7 @@ answers `403 password_change_required`.
 
 A catalog **kind is a product**. `kind.function` names the job it does (`rdbms`, `cache`, …; functions are declared in `categories[].functions`), `kind.variants[]` are the ways to deploy it
 (`{id, name, description, default?, behavior?, roles?, addTraits?, removeTraits?, defaults?, capacity?, cost?, versions?}`), `kind.versions` is the id of its release table (`""` = none). A node picks a variant
-and a version with `props.variant` / `props.version`; an unknown variant is rejected by validation (`unknown_variant`). See [CATALOG.md](CATALOG.md).
+and a version with `props.variant` / `props.version`; an unknown variant is reported by validation as a warning (`unknown_variant`), and the node is judged as if it ran the kind's default one. See [CATALOG.md](CATALOG.md).
 
 `GET /versions` → `{today, tables: VersionSet[]}`, `VersionSet = {id, name?, source, asOf, cycles:[{cycle, releaseDate?, support?, eol?, latest?, latestReleaseDate?, lts}]}`
 (`support`/`eol` are `"YYYY-MM-DD"`, `true` or `false`). Supports `If-None-Match` → `304`. The editor judges versions from it with the same rules as the engine's `VER-01`.
@@ -118,6 +118,38 @@ cannot be read, so nothing is evaluated with them. A project id that never exist
 `{"type":"link","a":"<zoneId>","b":"<zoneId>"}`, `{"type":"isolate","zoneIds":["…","…"]}` (sites cut off from the rest but alive),
 `{"type":"sites","zoneIds":["…","…"]}`, `{"type":"geo","geo":"<label>"}`,
 `{"type":"combo","items":[<scenario>, …]}` (several failures at the same time: what each item takes away is taken away together; one item equals that item, items nest).
+
+### Validation: what is refused and what is only said
+
+One validator (`engine::model::validate`) judges every design, and it says the same things everywhere: `Issue = {level: error|warning, code, message, subject?}`. **Structure** (ids, references, kinds,
+limits) is always an error. **Numbers** are held to the range the catalog gives their property (`min` / `max`, a kind that restates a property inherits what it leaves out from the common one; a property
+the catalog does not describe is left alone) and to the ceilings of the engine settings (`limits` of `engine`: `maxReplicas` 100000 instances of a node, `maxNumber` 10¹² for any number without a maximum of its own, `maxRpsPeak`,
+`maxGrowthPercent`), and the requirements to their domains (an availability above 0 and at most 100, times and money not negative, `rpsPeak` from 0, `growthPercent` above −100).
+A number as text (`"3,5"`) is a number; `null` and an empty text are "not set".
+
+| Code | Level | Said when |
+|---|---|---|
+| `bad_id` | error | an id is empty, longer than 80, or has a character other than letters, digits, `_ - . :` |
+| `duplicate_id` | error | two zones, nodes or links share an id (operations rename a colliding id instead: `renamed`) |
+| `dangling_edge` | error | a link names a node that does not exist |
+| `dangling_parent` | error | a zone's parent does not exist |
+| `dangling_zone` | error | a node's zone does not exist |
+| `self_loop` | error | a link joins a node to itself |
+| `zone_cycle` | error | a zone is its own ancestor |
+| `unknown_kind`, `unknown_edge_type`, `unknown_zone_type` | error | the catalog has no such product, link type or zone type |
+| `unknown_unit_ref` | error | a property that names another service (`dcs`) names one that is not there |
+| `unknown_variant`, `unknown_role` | warning | the product has no such way to deploy / role: the default one is assumed |
+| `limit_nodes`, `limit_edges`, `limit_zones` | error | more than `limits.maxNodes` / `maxEdges` / `maxZones` |
+| `prop_out_of_range` | error, warning when only looked at | a number is outside the range of its property (`replicas = 10¹²`: allowed 1 to 100000); the message names the node, the property and the range |
+| `prop_type` | error | a property that is a number or a flag holds something else (`"abc"`, a list, `NaN`) |
+| `requirement_out_of_range` | error, warning when only looked at | a requirement is outside its domain (`availabilitySlo = 150`) |
+
+Where each is a refusal. What is **written** is refused with `400 invalid_architecture` (`details.issues` lists them): `PUT /projects/{id}/draft`, `POST /projects` (an `architecture`, a `templateId` and a generated `placement` alike),
+the result of `/ops/apply` (`400 ops_invalid`) and of an AI proposal, and the model's answer (it is sent back for repair). What is **looked at** is not refused for a number: `/evaluate`, `/simulate`, `/recommendations`,
+the base of `/ops/apply`, an export and the report of a version answer `200` and say it as a warning in `issues`; the engine counts the instances of a node as a whole number from 1 to the most the node may have
+(`limits.maxReplicas`, a lower `max` of the product), so a project stored out of range still opens, evaluates, exports and versions instead of answering `500`, and it can be saved again once the number is put right.
+Structure that cannot be judged stays `400 invalid_architecture` on `/simulate`, `/recommendations` and `/ops/apply`; `/evaluate` returns it in `issues` (and `400 limits_exceeded` past the size limits).
+`infra-architect check` ([CLI.md](CLI.md)) refuses a file the way a write does: exit code 2 and the reason.
 
 ### Report
 
@@ -209,7 +241,7 @@ The wizard that builds a complete design for any number of sites ([PLACEMENT.md]
 | Method | Path | Body → Response |
 |---|---|---|
 | GET | `/placement/options` | `{patterns, defaultPattern, stacks:[{id,name,layers:[{id,name,kind,alternatives,function,scope,optional,default,dcs,products:[{kind,variants:[{id,default,managed}]}]}]}], siteTypes, maxSiteFailures, maxNodes}` |
-| POST | `/placement/preview` | `PlacementRequest` → `{architecture, sites:[{id,name,role,geo,racks}], siteFailures, notes:[{code,level,vars}], report, nodes, edges}`; `report` = `{score, coverage, counts, objectives, cost, scenarioStats, worstCapacity, findings}` |
+| POST | `/placement/preview` | `PlacementRequest` → `{architecture, sites:[{id,name,role,geo,racks}], siteFailures, notes:[{code,level,vars}], issues, report, nodes, edges}`; `report` = `{score, coverage, counts, objectives, cost, scenarioStats, worstCapacity, findings}`; `issues` = what validation says of the design (a requirement outside its domain is a warning there and a refusal when the project is created). A load no node can carry is sized for the most a node may have (`limits.maxReplicas`) and the note `replicas_capped` says so |
 | POST | `/placement/compare` | `{base, variants:[…]}` → `{variants:[{ok:true, pattern, sites, siteFailures, nodes, zones, workingSites, arbiterSites, notes, report} \| {ok:false, pattern, sites, error:{code,message}}]}`; `400 invalid_variants` beyond `limits.placementCompareMax` |
 
 `PlacementRequest = {pattern, sites?, regions?, racks?, siteFailures?, stack?, layers?, kinds?, variants?, requirements?, siteType?, lang?, name?, maxNodes?}`: `kinds` maps a layer id to a product of the layer's function,

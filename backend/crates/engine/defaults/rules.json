@@ -186,6 +186,10 @@
    "down": {
     "ru": "Сервис не работает даже без отказов (недоступно: {unit}) — оценка доступности {estimate|avail}. Сначала нужно, чтобы путь от пользователей до данных заработал.",
     "en": "The service does not work even while nothing has failed (unavailable: {unit}) — the availability estimate is {estimate|avail}. The path from the users to the data has to work first."
+   },
+   "zero": {
+    "ru": "Цель {target|avail} не оставляет времени на простои, а по оценке они ≈ {downtime|dur} в год (доступность {estimate|avail}). Такая цель недостижима ни для какой схемы: задайте число ниже 100 %.",
+    "en": "A target of {target|avail} leaves no time for downtime, and the estimate is ≈ {downtime|dur} a year (availability {estimate|avail}). No design can meet that: set a number below 100 %."
    }
   },
   "noDataMessage": {

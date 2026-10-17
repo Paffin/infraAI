@@ -4,6 +4,8 @@
 //! one typed graph. Every change – manual or proposed by an LLM – goes through the same
 //! validation (`validate`) and the same rule engine.
 
+use crate::catalog::{PropDef, PropType};
+use crate::config::LimitSettings;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -161,7 +163,8 @@ pub struct Edge {
 pub fn as_f64(v: &Value) -> Option<f64> {
     match v {
         Value::Number(n) => n.as_f64(),
-        Value::String(s) => s.trim().replace(',', ".").parse::<f64>().ok(),
+        // "inf" and "NaN" parse as numbers in Rust and are not numbers anywhere in an architecture
+        Value::String(s) => s.trim().replace(',', ".").parse::<f64>().ok().filter(|f| f.is_finite()),
         Value::Bool(b) => Some(if *b { 1.0 } else { 0.0 }),
         _ => None,
     }
@@ -245,11 +248,139 @@ pub struct ValidationLimits {
     pub max_nodes: usize,
     pub max_edges: usize,
     pub max_zones: usize,
+    /// Ceilings of the numbers (`limits` of the engine settings).
+    pub numbers: LimitSettings,
+    /// A number outside its range is an error (the default: whatever is saved, imported or applied must be in range) or, when a design
+    /// that is already stored is only being looked at, a warning: an old project still opens, and says what is wrong with it.
+    pub lenient_ranges: bool,
 }
 
 impl Default for ValidationLimits {
     fn default() -> Self {
-        Self { max_nodes: 500, max_edges: 2000, max_zones: 100 }
+        Self { max_nodes: 500, max_edges: 2000, max_zones: 100, numbers: LimitSettings::default(), lenient_ranges: false }
+    }
+}
+
+impl ValidationLimits {
+    /// The same limits for a design that is only looked at: a number out of range is reported as a warning, not an error.
+    pub fn lenient(mut self) -> Self {
+        self.lenient_ranges = true;
+        self
+    }
+    /// The same limits with the numbers' ceilings of `numbers`.
+    pub fn with_numbers(mut self, numbers: LimitSettings) -> Self {
+        self.numbers = numbers;
+        self
+    }
+}
+
+/// A number the way a person reads it: `100000`, not `100000.0`, and not `1e12` for a million million.
+fn show_num(n: f64) -> String {
+    if n.fract() == 0.0 && n.abs() < 1e15 {
+        format!("{}", n as i64)
+    } else {
+        format!("{n}")
+    }
+}
+
+/// A value for a message: short, whatever it is.
+fn show_value(v: &Value) -> String {
+    let s = v.to_string();
+    if s.chars().count() > 40 {
+        format!("{}…", s.chars().take(40).collect::<String>())
+    } else {
+        s
+    }
+}
+
+/// What is wrong with `v` as the value of the prop `def`, if anything: its code (`prop_type`, `prop_out_of_range`) and what to tell. `bounds` is the
+/// range the catalog gives the prop (see `Catalog::prop_bounds`), narrowed by the ceilings of `numbers`.
+/// A prop that is not set (`null`, or an empty string, which the editor never sends but a form may) has no value to be wrong.
+pub fn prop_problem(def: &PropDef, bounds: (Option<f64>, Option<f64>), numbers: &LimitSettings, v: &Value) -> Option<(&'static str, String)> {
+    let (min, max) = bounds;
+    let ceiling = ceiling_of(&def.key, numbers);
+    match def.prop_type {
+        PropType::Number => {
+            if matches!(v, Value::Null) || matches!(v, Value::String(s) if s.trim().is_empty()) {
+                return None;
+            }
+            // numbers sent as text are numbers (forms and models do it); a flag, a list or a word is not
+            let n = if matches!(v, Value::Bool(_)) { None } else { as_f64(v) };
+            let Some(n) = n else {
+                return Some(("prop_type", format!("{} is not a number", show_value(v))));
+            };
+            let hi = max.map_or(ceiling, |m| m.min(ceiling));
+            let lo = min.unwrap_or(-ceiling);
+            if n < lo || n > hi {
+                let range = match min {
+                    Some(lo) => format!("{} to {}", show_num(lo), show_num(hi)),
+                    None => format!("up to {}", show_num(hi)),
+                };
+                return Some(("prop_out_of_range", format!("{} is out of range (allowed: {})", show_num(n), range)));
+            }
+            None
+        }
+        PropType::Boolean => {
+            if matches!(v, Value::Null) || as_bool(v).is_some() {
+                None
+            } else {
+                Some(("prop_type", format!("{} is not true or false", show_value(v))))
+            }
+        }
+        _ => None,
+    }
+}
+
+/// The largest the prop `key` may be for anything: the instance counts have a ceiling of their own.
+fn ceiling_of(key: &str, numbers: &LimitSettings) -> f64 {
+    match key {
+        "replicas" | "failoverReplicas" => numbers.max_replicas as f64,
+        _ => numbers.max_number,
+    }
+}
+
+/// Check every prop of an entity that the catalog describes. Props the catalog does not describe are left alone (a model may carry notes of its
+/// own, and a product may be older than a prop). `bounds` says the range of a key: the catalog's, field by field.
+fn check_props(out: &mut Vec<Issue>, what: &str, id: &str, props: &Props, defs: &[&PropDef], bounds: &dyn Fn(&str) -> (Option<f64>, Option<f64>), limits: &ValidationLimits) {
+    for (key, v) in props {
+        let Some(def) = defs.iter().find(|d| &d.key == key) else { continue };
+        if let Some((code, why)) = prop_problem(def, bounds(key), &limits.numbers, v) {
+            let msg = format!("{what} '{id}' prop '{key}': {why}");
+            if code == "prop_out_of_range" && limits.lenient_ranges {
+                out.push(Issue::warn(code, Some(id), msg));
+            } else {
+                out.push(Issue::err(code, Some(id), msg));
+            }
+        }
+    }
+}
+
+/// The numeric targets of the requirements. The domains are mathematical (an availability above 0 and at most 100 percent, a time or a sum that is
+/// not negative); only the ceilings are settings.
+fn check_requirements(out: &mut Vec<Issue>, r: &Requirements, limits: &ValidationLimits) {
+    let n = &limits.numbers;
+    // (field, value, lowest allowed, whether the lowest itself is allowed, highest allowed)
+    let fields: [(&str, Option<f64>, f64, bool, f64); 6] = [
+        ("availabilitySlo", r.availability_slo, 0.0, false, 100.0),
+        ("rtoSeconds", r.rto_seconds, 0.0, true, n.max_number),
+        ("rpoSeconds", r.rpo_seconds, 0.0, true, n.max_number),
+        ("budgetMonthly", r.budget_monthly, 0.0, true, n.max_number),
+        ("rpsPeak", r.rps_peak, 0.0, true, n.max_rps_peak),
+        ("growthPercent", r.growth_percent, -100.0, false, n.max_growth_percent),
+    ];
+    for (field, value, lo, lo_ok, hi) in fields {
+        let Some(v) = value else { continue };
+        let ok = v.is_finite() && (v > lo || (lo_ok && v == lo)) && v <= hi;
+        if !ok {
+            let allowed = format!("{}{} to {}", if lo_ok { "" } else { "above " }, show_num(lo), show_num(hi));
+            let msg = format!("requirement '{field}': {} is out of range (allowed: {allowed})", if v.is_finite() { show_num(v) } else { "a number that is not finite".to_string() });
+            let subject = format!("requirements.{field}");
+            if limits.lenient_ranges {
+                out.push(Issue::warn("requirement_out_of_range", Some(&subject), msg));
+            } else {
+                out.push(Issue::err("requirement_out_of_range", Some(&subject), msg));
+            }
+        }
     }
 }
 
@@ -278,8 +409,12 @@ pub fn validate(arch: &Architecture, cat: &crate::catalog::Catalog, limits: &Val
             out.push(Issue::err("duplicate_id", Some(&z.id), format!("duplicate id '{}'", z.id)));
         }
         zone_ids.insert(&z.id, z);
-        if cat.zone_type(&z.zone_type).is_none() {
-            out.push(Issue::err("unknown_zone_type", Some(&z.id), format!("zone '{}' has unknown type '{}'", z.id, z.zone_type)));
+        match cat.zone_type(&z.zone_type) {
+            None => out.push(Issue::err("unknown_zone_type", Some(&z.id), format!("zone '{}' has unknown type '{}'", z.id, z.zone_type))),
+            Some(t) => {
+                let defs: Vec<&PropDef> = t.props.iter().collect();
+                check_props(&mut out, "zone", &z.id, &z.props, &defs, &|k| defs.iter().find(|d| d.key == k).map_or((None, None), |d| (d.min, d.max)), limits);
+            }
         }
     }
     for z in &arch.zones {
@@ -345,6 +480,11 @@ pub fn validate(arch: &Architecture, cat: &crate::catalog::Catalog, limits: &Val
                 out.push(Issue::err("dangling_zone", Some(&n.id), format!("node '{}' zone '{}' does not exist", n.id, z)));
             }
         }
+        if let Some(k) = cat.kind(&n.kind) {
+            // the kind's own definition of a prop wins, the common one fills in what it leaves out
+            let defs: Vec<&PropDef> = k.props.iter().chain(cat.common_props.iter().filter(|c| !k.props.iter().any(|p| p.key == c.key))).collect();
+            check_props(&mut out, "node", &n.id, &n.props, &defs, &|key| cat.prop_bounds(&n.kind, key), limits);
+        }
     }
 
     // references to other units (e.g. the DCS of a database) must resolve
@@ -383,14 +523,19 @@ pub fn validate(arch: &Architecture, cat: &crate::catalog::Catalog, limits: &Val
         if e.source == e.target {
             out.push(Issue::err("self_loop", Some(&e.id), format!("edge '{}' connects a node to itself", e.id)));
         }
-        if cat.edge_type(&e.edge_type).is_none() {
-            out.push(Issue::err(
+        match cat.edge_type(&e.edge_type) {
+            None => out.push(Issue::err(
                 "unknown_edge_type",
                 Some(&e.id),
                 format!("edge '{}' has unknown type '{}' (allowed: {})", e.id, e.edge_type, cat.edge_types.iter().map(|t| t.id.as_str()).collect::<Vec<_>>().join(", ")),
-            ));
+            )),
+            Some(t) => {
+                let defs: Vec<&PropDef> = t.props.iter().collect();
+                check_props(&mut out, "edge", &e.id, &e.props, &defs, &|k| defs.iter().find(|d| d.key == k).map_or((None, None), |d| (d.min, d.max)), limits);
+            }
         }
     }
+    check_requirements(&mut out, &arch.requirements, limits);
     out
 }
 

@@ -398,12 +398,13 @@ pub fn patch_schema() -> Value {
 }
 
 /// Normalise what a model produced into something the engine's types accept: keep only known
-/// property keys, coerce numeric/boolean strings, drop non-scalar values. Returns a list of
-/// human-readable notes about what was dropped.
-pub fn sanitize(arch: &mut Architecture, cat: &Catalog) -> Vec<String> {
-    use engine::model::{as_bool, as_f64, as_string};
+/// property keys, coerce numeric/boolean strings, drop non-scalar values and numbers outside the range the catalog gives the property (dropped,
+/// never clamped: a clamped number is a plausible figure the model did not write, and the property falls back to the catalog's default, which is
+/// what "no value" means). Returns a list of human-readable notes about what was dropped.
+pub fn sanitize(arch: &mut Architecture, cat: &Catalog, numbers: &engine::config::LimitSettings) -> Vec<String> {
+    use engine::model::{as_bool, as_f64, as_string, prop_problem};
     let mut notes = vec![];
-    let coerce = |defs: &[&engine::catalog::PropDef], props: &mut engine::model::Props, owner: &str, notes: &mut Vec<String>| {
+    let coerce = |defs: &[&engine::catalog::PropDef], bounds: &dyn Fn(&str) -> (Option<f64>, Option<f64>), props: &mut engine::model::Props, owner: &str, notes: &mut Vec<String>| {
         let keys: Vec<String> = props.keys().cloned().collect();
         for k in keys {
             let v = props.get(&k).cloned().unwrap_or(Value::Null);
@@ -419,10 +420,16 @@ pub fn sanitize(arch: &mut Architecture, cat: &Catalog) -> Vec<String> {
                 }
                 Some(d) => match d.prop_type {
                     PropType::Number => match as_f64(&v) {
-                        Some(n) if !v.is_boolean() => {
+                        Some(n) if !v.is_boolean() => match prop_problem(d, bounds(&k), numbers, &v) {
+                            Some((_, why)) => {
+                                props.remove(&k);
+                                notes.push(format!("{owner}: prop '{k}' dropped, {why}"));
+                            }
                             // keep integers integral (`3`, not `3.0`)
-                            props.insert(k, if n.fract() == 0.0 && n.abs() < 1e15 { json!(n as i64) } else { json!(n) });
-                        }
+                            None => {
+                                props.insert(k, if n.fract() == 0.0 && n.abs() < 1e15 { json!(n as i64) } else { json!(n) });
+                            }
+                        },
                         _ => {
                             props.remove(&k);
                             notes.push(format!("{owner}: prop '{k}' is not a number, dropped"));
@@ -443,19 +450,18 @@ pub fn sanitize(arch: &mut Architecture, cat: &Catalog) -> Vec<String> {
     };
     for z in arch.zones.iter_mut() {
         let defs: Vec<&engine::catalog::PropDef> = cat.zone_type(&z.zone_type).map(|t| t.props.iter().collect()).unwrap_or_default();
-        coerce(&defs, &mut z.props, &z.id.clone(), &mut notes);
+        coerce(&defs, &|k| defs.iter().find(|d| d.key == k).map_or((None, None), |d| (d.min, d.max)), &mut z.props, &z.id.clone(), &mut notes);
         z.ui = None;
     }
     for n in arch.nodes.iter_mut() {
-        let mut defs: Vec<&engine::catalog::PropDef> = cat.common_props.iter().collect();
+        // the kind's own definition of a property wins over the common one, the same as everywhere else (`Catalog::prop_def`)
         let kind = cat.kind(&n.kind);
-        if let Some(k) = kind {
-            defs.extend(k.props.iter());
-        }
+        let mut defs: Vec<&engine::catalog::PropDef> = kind.map(|k| k.props.iter().collect()).unwrap_or_default();
+        defs.extend(cat.common_props.iter().filter(|c| !defs.iter().any(|d| d.key == c.key)).collect::<Vec<_>>());
         // The way a product is deployed is not one of the kind's properties but a choice among its variants (`props.variant`):
         // it is kept when the kind has that variant, whatever the case the model wrote it in.
         let variant = n.props.remove("variant");
-        coerce(&defs, &mut n.props, &n.id.clone(), &mut notes);
+        coerce(&defs, &|k| cat.prop_bounds(&n.kind, k), &mut n.props, &n.id.clone(), &mut notes);
         if let Some(wanted) = variant.as_ref().and_then(as_string).map(|s| s.trim().to_string()).filter(|s| !s.is_empty()) {
             let known = kind.map(|k| k.variants.as_slice()).unwrap_or_default();
             match known.iter().find(|x| x.id == wanted).or_else(|| known.iter().find(|x| x.id.eq_ignore_ascii_case(&wanted))) {
@@ -470,7 +476,7 @@ pub fn sanitize(arch: &mut Architecture, cat: &Catalog) -> Vec<String> {
     }
     for e in arch.edges.iter_mut() {
         let defs: Vec<&engine::catalog::PropDef> = cat.edge_type(&e.edge_type).map(|t| t.props.iter().collect()).unwrap_or_default();
-        coerce(&defs, &mut e.props, &e.id.clone(), &mut notes);
+        coerce(&defs, &|k| defs.iter().find(|d| d.key == k).map_or((None, None), |d| (d.min, d.max)), &mut e.props, &e.id.clone(), &mut notes);
     }
     notes
 }
@@ -527,7 +533,7 @@ mod sanitize_tests {
             {"id": "cache", "kind": "redis", "name": "C", "props": {"variant": ""}},
             {"id": "lb", "kind": "l7", "name": "LB", "props": {"variant": 7}}
         ]));
-        let notes = sanitize(&mut a, &cat);
+        let notes = sanitize(&mut a, &cat, &engine::config::LimitSettings::default());
         let variant = |id: &str| a.node(id).unwrap().props.get("variant").cloned();
         assert_eq!(variant("db"), Some(json!("rds")));
         assert_eq!(variant("db2"), Some(json!("rds")), "case and padding are forgiven, the id kept is the catalog's");

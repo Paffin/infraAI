@@ -94,6 +94,7 @@ pub async fn preview(State(state): State<AppState>, _user: AuthUser, Json(req): 
         "sites": res.sites,
         "siteFailures": res.site_failures,
         "notes": res.notes,
+        "issues": report.issues,
         "report": verdict(&report),
         "nodes": res.architecture.nodes.len(),
         "edges": res.architecture.edges.len(),

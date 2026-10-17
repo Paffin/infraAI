@@ -45,6 +45,10 @@ pub struct Index<'a> {
     pub behavior: Vec<Behavior>,
     pub eff: Vec<Eff>,
     pub traits: Vec<BTreeSet<String>>,
+    /// Instances of every node, as the engine counts them: the declared `replicas` (else the catalog's) truncated to a whole number and held
+    /// between 1 and the most the node may have (the kind's maximum, the engine's `limits.maxReplicas`). A count that came out of a form, a
+    /// model or an old project can be anything; counting it as written would wrap a sum or invent a service of a million instances.
+    replicas: Vec<u32>,
 
     pub unit_of: Vec<usize>,
     pub units: Vec<Unit>,
@@ -85,6 +89,7 @@ impl<'a> Index<'a> {
         let behavior: Vec<Behavior> = arch.nodes.iter().zip(&variant).map(|(n, v)| cat.behavior_of(&n.kind, *v).unwrap_or_default()).collect();
         let eff: Vec<Eff> = arch.nodes.iter().zip(&variant).map(|(n, v)| Eff::build(cat.default_props_for(&n.kind, *v), &n.props)).collect();
         let traits: Vec<BTreeSet<String>> = arch.nodes.iter().zip(&variant).map(|(n, v)| cat.traits_of(&n.kind, *v)).collect();
+        let replicas: Vec<u32> = arch.nodes.iter().zip(&eff).map(|(n, e)| clamp_count(e.num("replicas"), most_instances(cat, settings, &n.kind)).unwrap_or(1)).collect();
 
         // Units
         let mut units: Vec<Unit> = Vec::new();
@@ -185,6 +190,7 @@ impl<'a> Index<'a> {
             behavior,
             eff,
             traits,
+            replicas,
             unit_of,
             units,
             unit_ix,
@@ -358,7 +364,19 @@ impl<'a> Index<'a> {
         !self.units[u].members.is_empty() && self.units[u].members.iter().all(|&m| self.is_elastic(m))
     }
     pub fn replicas(&self, ni: usize) -> u32 {
-        self.eff[ni].num("replicas").map(|r| r.max(1.0) as u32).unwrap_or(1)
+        self.replicas[ni]
+    }
+    /// The most instances node `ni` may have: no fix and no generator offers more.
+    pub fn most_instances(&self, ni: usize) -> u32 {
+        most_instances(self.cat, self.settings, &self.arch.nodes[ni].kind)
+    }
+    /// Instances the node scales out to when another site is lost (`failoverReplicas`), counted like [`Index::replicas`].
+    pub fn failover_replicas(&self, ni: usize) -> Option<u32> {
+        clamp_count(self.eff[ni].num("failoverReplicas"), self.most_instances(ni))
+    }
+    /// Instances of all the nodes `members`: the sum can never wrap, it stops at `u32::MAX`.
+    pub fn instances(&self, members: impl IntoIterator<Item = usize>) -> u32 {
+        members.into_iter().fold(0u32, |sum, m| sum.saturating_add(self.replicas[m]))
     }
     pub fn is_witness(&self, ni: usize) -> bool {
         self.arch.nodes[ni].role.as_deref() == Some("witness")
@@ -467,6 +485,21 @@ impl<'a> Index<'a> {
         }
         out
     }
+}
+
+/// The most instances a node of `kind` may have: the maximum the catalog gives its `replicas` (field by field, see
+/// [`Catalog::prop_bounds`]), or the engine's `limits.maxReplicas` when that is lower.
+pub fn most_instances(cat: &Catalog, settings: &EngineSettings, kind: &str) -> u32 {
+    let cap = settings.limits.max_replicas.max(1);
+    match cat.prop_bounds(kind, "replicas").1 {
+        Some(m) if m >= 1.0 => cap.min(m.min(u32::MAX as f64) as u32),
+        _ => cap,
+    }
+}
+
+/// A count read from a prop as a whole number from 1 to `most`; `None` when nothing (readable) is declared.
+fn clamp_count(v: Option<f64>, most: u32) -> Option<u32> {
+    v.map(|r| if r.is_finite() { r.clamp(1.0, most as f64) as u32 } else { 1 })
 }
 
 fn same_cycle(a: &[usize], b: &[usize]) -> bool {

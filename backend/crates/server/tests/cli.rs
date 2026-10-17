@@ -145,6 +145,19 @@ fn input_that_cannot_be_checked_is_exit_2_with_the_reason_and_never_a_failed_gat
     assert!(out(&o).is_empty(), "a design that was not judged has no report");
     // the others of the same run are not reported either: one run, one verdict
     assert_eq!(code(&check(&["--lang", "en", &good, &broken])), 2);
+    // a number outside its range is such an error too: a design of a million million instances has no verdict, and the reason names the node,
+    // the property and the range
+    let mut huge = template("two-dc-witness");
+    huge.nodes.iter_mut().find(|n| n.id == "app-dc1").unwrap().props.insert("replicas".into(), json!(1_000_000_000_000u64));
+    let o = check(&["--lang", "en", &d.design("huge.json", &huge)]);
+    assert_eq!(code(&o), 2, "{}", out(&o));
+    assert!(err(&o).contains("cannot be checked") && err(&o).contains("app-dc1") && err(&o).contains("replicas") && err(&o).contains("1 to 100000"), "{}", err(&o));
+    assert!(out(&o).is_empty());
+    let mut slo = template("two-dc-witness");
+    slo.requirements.availability_slo = Some(150.0);
+    let o = check(&["--lang", "en", &d.design("slo.json", &slo)]);
+    assert_eq!(code(&o), 2);
+    assert!(err(&o).contains("availabilitySlo"), "{}", err(&o));
 
     for (args, needle) in [
         (vec!["--lang", "en"], "No architecture file"),

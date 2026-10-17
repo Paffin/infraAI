@@ -612,9 +612,34 @@ impl Default for RecommendSettings {
     }
 }
 
+/// Ceilings of the numbers an architecture may carry (`limits` of `engine.json`). Mathematical domains (an availability target above 0 and at most
+/// 100, a time that is not negative) are not settings; these are: how many instances one node may have, how much traffic a design may be sized
+/// for, and a sanity ceiling for any other number a property has no maximum of its own for. What lies beyond is refused when it is saved
+/// (`prop_out_of_range`, `requirement_out_of_range`), a warning when it is only evaluated, and never taken at face value: the instance count is
+/// clamped where it is read.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase", default)]
+pub struct LimitSettings {
+    /// Most instances one node may run (`replicas`, `failoverReplicas`); a kind's own maximum applies when it is lower.
+    pub max_replicas: u32,
+    /// Ceiling of every numeric property that declares no maximum of its own, and of the money and time targets of the requirements.
+    pub max_number: f64,
+    /// Largest `rpsPeak` a design may be sized for.
+    pub max_rps_peak: f64,
+    /// Largest `growthPercent` a design may be sized for.
+    pub max_growth_percent: f64,
+}
+
+impl Default for LimitSettings {
+    fn default() -> Self {
+        Self { max_replicas: 100_000, max_number: 1e12, max_rps_peak: 1e9, max_growth_percent: 10_000.0 }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase", default)]
 pub struct EngineSettings {
+    pub limits: LimitSettings,
     pub assumptions: Assumptions,
     pub scoring: Scoring,
     pub scenarios: ScenarioSettings,

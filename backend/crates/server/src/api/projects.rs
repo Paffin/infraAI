@@ -1,7 +1,7 @@
 //! Projects: working copy (draft) with optimistic concurrency, immutable versions, diff,
 //! accepted risks (waivers).
 
-use crate::api_support::{evaluated_summary, lang_of, parse_arch, parse_valid_arch, run_evaluate, summarize};
+use crate::api_support::{ensure_valid, evaluated_summary, lang_of, limits, parse_arch, parse_valid_arch, run_evaluate, summarize};
 use crate::audit;
 use crate::auth::{client_ip, AuthUser, Role};
 use crate::error::{ApiError, ApiResult};
@@ -109,16 +109,21 @@ pub async fn create(State(state): State<AppState>, user: AuthUser, ConnectInfo(a
     let lang = lang_of(&cfg, b.lang.as_deref());
     let from_placement = b.placement.is_some();
     let arch: Architecture = if let Some(t) = &b.template_id {
-        cfg.templates.iter().find(|x| &x.id == t).ok_or_else(|| ApiError::not_found("template not found"))?.architecture.clone()
+        let a = cfg.templates.iter().find(|x| &x.id == t).ok_or_else(|| ApiError::not_found("template not found"))?.architecture.clone();
+        ensure_valid(&cfg, &a, &limits(&cfg))?;
+        a
     } else if let Some(mut req) = b.placement {
         req.lang = Some(lang.clone());
-        req.max_nodes = Some(crate::api_support::limits(&cfg).max_nodes);
+        req.max_nodes = Some(limits(&cfg).max_nodes);
         let ec = cfg.engine_config(&lang);
-        tokio::task::spawn_blocking(move || engine::placement::generate(&ec, &ec.placement, &req))
+        let a = tokio::task::spawn_blocking(move || engine::placement::generate(&ec, &ec.placement, &req))
             .await
             .map_err(ApiError::internal)?
             .map_err(|e| ApiError::bad_request("placement_failed", e.message.clone()).with_details(json!({"code": e.code})))?
-            .architecture
+            .architecture;
+        // what the generator makes is held to the same rules as what a person writes: a design stored out of range would fail the next save
+        ensure_valid(&cfg, &a, &limits(&cfg))?;
+        a
     } else if let Some(a) = b.architecture {
         parse_valid_arch(&cfg, a)?
     } else {

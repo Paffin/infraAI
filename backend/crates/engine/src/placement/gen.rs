@@ -552,7 +552,7 @@ impl<'a> Gen<'a> {
     }
 
     /// Instances per slot so that the surviving slots carry the declared load with the configured headroom.
-    fn replicas_for_load(&self, layer: &Layer, kind: &str, props: &Props, slots: usize) -> Option<u32> {
+    fn replicas_for_load(&mut self, layer: &Layer, kind: &str, props: &Props, slots: usize) -> Option<u32> {
         if layer.sizing.mode != "load" {
             return None;
         }
@@ -575,7 +575,14 @@ impl<'a> Gen<'a> {
         let n = slots.max(1);
         let after = n.saturating_sub(lost).max(1);
         let per_slot = (need / n as f64).max(floor / after as f64);
-        Some(((per_slot / per).ceil() as u32).max(layer.sizing.min_replicas.max(1)))
+        let want = (per_slot / per).ceil().max(layer.sizing.min_replicas.max(1) as f64);
+        // a load no node can carry is not a number of instances: the design gets the most a node may have, and says so
+        let most = crate::graph::most_instances(&self.cfg.catalog, &self.cfg.settings, kind);
+        if want.is_nan() || want > most as f64 {
+            self.notes.push(note("replicas_capped", "warn", json!({"layer": layer.id, "max": most})));
+            return Some(most);
+        }
+        Some(want as u32)
     }
 
     fn layer_props(&self, layer: &Layer, kind: &str) -> Props {
@@ -902,11 +909,11 @@ impl<'a> Gen<'a> {
                 members.push(self.add_node(&id, kind, nm, Some(s), Some(group.clone()), None, p, false));
             }
             // an even number of brokers can split into two halves without a majority: one more in the first location
-            let total: u32 = members.iter().map(|m| self.nodes[m.node].props.num("replicas").map(|r| r as u32).unwrap_or(1).max(1)).sum();
+            let total = members.iter().fold(0u32, |sum, m| sum.saturating_add(self.nodes[m.node].props.num("replicas").map(|r| r as u32).unwrap_or(1).max(1)));
             if total % 2 == 0 {
                 if let Some(first) = members.first() {
                     let cur = self.nodes[first.node].props.num("replicas").map(|r| r as u32).unwrap_or(1).max(1);
-                    self.nodes[first.node].props.insert("replicas".into(), json!(cur + 1));
+                    self.nodes[first.node].props.insert("replicas".into(), json!(cur.saturating_add(1)));
                 }
             }
             self.ring(&members, "quorum", None);

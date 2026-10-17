@@ -293,7 +293,9 @@ impl<'a> Ctx<'a> {
 /// Evaluate an architecture. Pure and deterministic: identical input → identical output.
 pub fn evaluate(arch: &Architecture, cfg: &EngineConfig, waivers: &[Waiver]) -> Report {
     let ctx = Ctx::new(arch, cfg);
-    let issues = validate(arch, &cfg.catalog, &ValidationLimits::default());
+    // a design that is already stored is looked at, not refused: a number out of range is a warning here (and counted at its limit), an error
+    // where it is saved
+    let issues = validate(arch, &cfg.catalog, &ValidationLimits::default().with_numbers(cfg.settings.limits).lenient());
 
     let mut findings: Vec<Finding> = Vec::new();
     let mut rules: Vec<RuleResult> = Vec::new();
@@ -407,7 +409,7 @@ fn capacity_rows(ctx: &Ctx<'_>, set: &ScenarioSet) -> Vec<CapacityRow> {
             continue;
         }
         let serving: Vec<usize> = unit.members.iter().copied().filter(|&m| !ix.is_witness(m)).collect();
-        let instances: u32 = serving.iter().map(|&m| ix.replicas(m)).sum();
+        let instances = ix.instances(serving.iter().copied());
         let per = serving.iter().find_map(|&m| ix.per_replica_rps(m));
         let avg = match l.capacity_rps {
             Some(c) if instances > 0 => Some(c / instances as f64),

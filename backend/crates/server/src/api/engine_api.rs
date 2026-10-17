@@ -3,7 +3,7 @@
 //! horizontally with the number of replicas.
 
 use crate::api::projects::engine_waivers;
-use crate::api_support::{lang_of, limits, parse_arch, parse_valid_arch, run_evaluate, summarize, today, ReportSummary};
+use crate::api_support::{lang_of, lenient_limits, limits, parse_arch, parse_viewed_arch, run_evaluate, summarize, today, ReportSummary};
 use crate::auth::AuthUser;
 use crate::error::{ApiError, ApiResult};
 use crate::state::AppState;
@@ -52,14 +52,14 @@ pub async fn evaluate(State(state): State<AppState>, _user: AuthUser, Json(b): J
 /// (`docs/RECOMMENDATIONS.md`). Stateless like `evaluate`; the project's accepted risks are read for the waivers.
 pub async fn recommendations(State(state): State<AppState>, _user: AuthUser, Json(b): Json<EvaluateBody>) -> ApiResult<Json<Value>> {
     let cfg = state.cfg().await?;
-    let arch = parse_valid_arch(&cfg, b.architecture)?;
+    let arch = parse_viewed_arch(&cfg, b.architecture)?;
     let waivers = match b.project_id {
         Some(id) => engine_waivers(&state, id).await?,
         None => vec![],
     };
     let lang = lang_of(&cfg, b.lang.as_deref());
     state.metrics.evaluations.with_label_values(&["recommend"]).inc();
-    let lim = limits(&cfg);
+    let lim = lenient_limits(&cfg);
     let plan = tokio::task::spawn_blocking(move || {
         let ec = cfg.engine_config(&lang);
         engine::recommend::recommend(&arch, &ec, &waivers, &lim)
@@ -95,7 +95,7 @@ pub struct SimulateBody {
 
 pub async fn simulate_scenario(State(state): State<AppState>, _user: AuthUser, Json(b): Json<SimulateBody>) -> ApiResult<Json<Value>> {
     let cfg = state.cfg().await?;
-    let arch = parse_valid_arch(&cfg, b.architecture)?;
+    let arch = parse_viewed_arch(&cfg, b.architecture)?;
     state.metrics.evaluations.with_label_values(&["simulate"]).inc();
     let result = tokio::task::spawn_blocking(move || {
         let ec = cfg.engine_config("en");
@@ -154,7 +154,8 @@ pub async fn preview_ops(cfg: std::sync::Arc<crate::config_store::Loaded>, base:
 pub async fn apply(State(state): State<AppState>, user: AuthUser, Json(b): Json<ApplyBody>) -> ApiResult<Json<Value>> {
     user.require_editor()?;
     let cfg = state.cfg().await?;
-    let base = parse_valid_arch(&cfg, b.architecture)?;
+    // the base is looked at, so that operations which put right a number stored out of range can be applied; what they make of it is written
+    let base = parse_viewed_arch(&cfg, b.architecture)?;
     let lang = lang_of(&cfg, b.lang.as_deref());
     if !b.preview {
         let lim = limits(&cfg);

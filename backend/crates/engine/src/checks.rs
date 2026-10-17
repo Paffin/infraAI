@@ -547,8 +547,9 @@ fn spof(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
         if r.state == ServiceState::Down && r.recovery.kind != RecoveryKind::Manual {
             let u = ix.unit_of[ni];
             let fixf = if ix.units[u].members.len() == 1 && ix.units[u].behavior == Behavior::Stateless {
-                let cur = ix.replicas(ni);
-                Some(set_prop_fix(ctx, ni, "replicas", json!(cur.max(1) + 1), "set_replicas", json!({"replicas": cur.max(1) + 1})))
+                // one more instance, unless that is more than the node may have: the fix would be refused when applied
+                let more = ix.replicas(ni).saturating_add(1);
+                (more <= ix.most_instances(ni)).then(|| set_prop_fix(ctx, ni, "replicas", json!(more), "set_replicas", json!({"replicas": more})))
             } else {
                 add_member_fix(ctx, u)
             };
@@ -924,7 +925,7 @@ fn instance_count(ctx: &Ctx<'_>, u: usize, mode: &str) -> u32 {
     match mode {
         "members" => ix.units[u].members.len() as u32,
         "dataMembers" => data_members(ctx, u).len() as u32,
-        _ => ix.units[u].members.iter().filter(|&&m| !ix.is_witness(m)).map(|&m| ix.replicas(m)).sum(),
+        _ => ix.instances(ix.units[u].members.iter().copied().filter(|&m| !ix.is_witness(m))),
     }
 }
 
@@ -947,8 +948,8 @@ fn min_instances(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
             }
             let f = if mode == "instances" && unit.members.len() == 1 && unit.behavior == Behavior::Stateless {
                 let m = unit.members[0];
-                let new = ctx.ix.replicas(m) + (min - n);
-                Some(set_prop_fix(ctx, m, "replicas", json!(new), "set_replicas", json!({"replicas": new})))
+                let new = ctx.ix.replicas(m).saturating_add(min - n);
+                (new <= ctx.ix.most_instances(m)).then(|| set_prop_fix(ctx, m, "replicas", json!(new), "set_replicas", json!({"replicas": new})))
             } else {
                 add_member_fix(ctx, u)
             };
@@ -1658,7 +1659,12 @@ fn capacity_fix(ctx: &Ctx<'_>, u: usize, need: f64, headroom: f64) -> Option<Fix
         return None;
     }
     let total = (need / ((1.0 - headroom) * per)).ceil();
-    let each = (total / members.len() as f64).ceil().max(1.0) as u64;
+    let each = (total / members.len() as f64).ceil().max(1.0);
+    // a load nothing can carry is not a number of instances: no fix, rather than a fix the engine itself would refuse
+    if !each.is_finite() || members.iter().any(|&m| each > ix.most_instances(m) as f64) {
+        return None;
+    }
+    let each = each as u64;
     let ops: Vec<Op> = members.iter().map(|&m| update_node(&ix.arch.nodes[m].id, vec![("props.replicas", json!(each))])).collect();
     Some(fix("scale", &unit.key, json!({"unit": unit.name, "replicas": each}), ops))
 }
@@ -1695,16 +1701,12 @@ fn capacity_under_failure(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
                 if let Some(&u) = r.bottleneck.as_ref().and_then(|k| ix.unit_ix.get(k)) {
                     if ix.units[u].behavior == Behavior::Stateless && ratio > 0.0 {
                         let factor = (min / ratio).max(1.0);
-                        let ops: Vec<Op> = ix.units[u]
-                            .members
-                            .iter()
-                            .filter(|&&m| !ix.is_witness(m))
-                            .map(|&m| {
-                                let cur = ix.replicas(m) as f64;
-                                update_node(&ix.arch.nodes[m].id, vec![("props.replicas", json!((cur * factor).ceil() as u64))])
-                            })
-                            .collect();
-                        raw = raw.fix(Some(fix("scale", &format!("{}@{}", ix.units[u].key, zone_id), json!({"unit": ix.units[u].name, "factor": (factor * 100.0).round() / 100.0}), ops)));
+                        let counts: Vec<(usize, f64)> = ix.units[u].members.iter().copied().filter(|&m| !ix.is_witness(m)).map(|m| (m, (ix.replicas(m) as f64 * factor).ceil())).collect();
+                        // a factor no node can have that many instances for is not a fix
+                        if counts.iter().all(|&(m, n)| n.is_finite() && n <= ix.most_instances(m) as f64) {
+                            let ops: Vec<Op> = counts.iter().map(|&(m, n)| update_node(&ix.arch.nodes[m].id, vec![("props.replicas", json!(n as u64))])).collect();
+                            raw = raw.fix(Some(fix("scale", &format!("{}@{}", ix.units[u].key, zone_id), json!({"unit": ix.units[u].name, "factor": (factor * 100.0).round() / 100.0}), ops)));
+                        }
                     }
                 }
                 out.push(raw);
@@ -1751,8 +1753,13 @@ fn availability_slo(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
     };
     let raw = |key: &str, st: Status| {
         let mut r = Raw::new(key, st).var("estimate", av.estimate).var("downtime", av.downtime_seconds_per_year).var("scenarios", av.scenarios as u64).var("truncated", av.truncated);
+        // a target that allows no downtime at all (100 %) has no budget to take a share of: "infinity percent" is not a figure to print
+        let no_budget = av.budget_seconds_per_year.is_some_and(|b| b <= 0.0);
         if let Some(t) = av.target {
-            r = r.var("target", t).var("budget", av.budget_seconds_per_year.unwrap_or(0.0)).var("percent", (av.budget_used().unwrap_or(0.0) * 100.0).round());
+            r = r.var("target", t).var("budget", av.budget_seconds_per_year.unwrap_or(0.0));
+            if !no_budget {
+                r = r.var("percent", (av.budget_used().unwrap_or(0.0) * 100.0).round());
+            }
         }
         // what costs most: the service, and the failure that makes it
         if let Some(u) = av.units.first() {
@@ -1763,6 +1770,11 @@ fn availability_slo(ctx: &Ctx<'_>, rule: &Rule) -> CheckOut {
         }
         if av.service_down {
             r = r.var("variant", "down");
+            if av.units.is_empty() {
+                r = r.var("unit", "—");
+            }
+        } else if no_budget {
+            r = r.var("variant", "zero");
             if av.units.is_empty() {
                 r = r.var("unit", "—");
             }

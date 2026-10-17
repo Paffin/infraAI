@@ -200,7 +200,7 @@ pub fn adr(arch: &Architecture, cfg: &EngineConfig, report: &Report, waivers: &[
             continue;
         }
         let sites: Vec<String> = ix.unit_sites(u).iter().map(|&s| ix.zone_name(s).to_string()).collect();
-        let inst: u32 = unit.members.iter().map(|&m| ix.replicas(m)).sum();
+        let inst = ix.instances(unit.members.iter().copied());
         out.push_str(&format!("| {} | {} | {} |\n", unit.name, if sites.is_empty() { "—".into() } else { sites.join(", ") }, inst));
     }
 

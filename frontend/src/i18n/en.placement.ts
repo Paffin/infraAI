@@ -76,6 +76,7 @@ export default {
   'placement.note.arbiters_share_locations': 'Layer “{layer}”: {got} of {wanted} arbiters – not enough independent places.',
   'placement.note.voters_share_locations': 'Layer “{layer}”: {voters} votes on {locations} places – some votes share a place.',
   'placement.note.cluster_per_domain': 'Layer “{layer}”: {clusters} independent clusters per region with asynchronous replication between them.',
+  'placement.note.replicas_capped': 'Layer “{layer}”: the load needs more than {max} instances per site — {max} are placed, a node may not have more. Check the peak load or split the service.',
   'placement.error.sites_out_of_range': 'The number of sites is outside the range of this pattern.',
   'placement.error.unknown_pattern': 'The placement pattern was not found.',
   'placement.error.unknown_stack': 'The platform stack was not found.',

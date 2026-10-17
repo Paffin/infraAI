@@ -1,4 +1,10 @@
 {
+ "limits": {
+  "maxReplicas": 100000,
+  "maxNumber": 1000000000000,
+  "maxRpsPeak": 1000000000,
+  "maxGrowthPercent": 10000
+ },
  "assumptions": {
   "asyncLagSeconds": 5,
   "manualFailoverSeconds": 1800,
