@@ -3,7 +3,7 @@
 
 use crate::audit;
 use crate::auth::{check_password_policy, client_ip, forget_user, AuthUser, Role};
-use crate::config_store::{bump_rev, default_items, is_valid_item_id, single_document_id, validate_item, ALL_KINDS, MSG_INVALID_ITEM_ID, MSG_SINGLE_DOCUMENT};
+use crate::config_store::{bump_rev, default_items, is_valid_item_id, range_regressions, single_document_id, validate_item, ALL_KINDS, MSG_INVALID_ITEM_ID, MSG_SINGLE_DOCUMENT};
 use crate::crypto::{hash_password, random_password};
 use crate::error::{ApiError, ApiResult};
 use crate::json::{Json, Path, Query};
@@ -234,6 +234,17 @@ pub async fn config_list(State(state): State<AppState>, user: AuthUser, Path(kin
     }).collect::<Vec<_>>()})))
 }
 
+/// A catalog item whose ranges allow no value (a minimum above the maximum, a default outside the range) is refused: the design check reads these
+/// ranges (`Catalog::prop_bounds`), so one such item would make every write of a node of that kind fail.
+async fn refuse_ranges_that_allow_nothing(state: &AppState, kind: &str, id: &str, data: &Value) -> ApiResult<()> {
+    let cfg = state.cfg().await?;
+    let worse = range_regressions(&cfg.catalog, kind, id, data);
+    if worse.is_empty() {
+        return Ok(());
+    }
+    Err(ApiError::bad_request("invalid_config", worse.join("; ")))
+}
+
 #[derive(Deserialize)]
 pub struct PutItem {
     pub data: Value,
@@ -252,6 +263,7 @@ pub async fn config_put(
         return Err(ApiError::not_found("unknown config kind"));
     }
     validate_item(&kind, &id, &b.data).map_err(|e| ApiError::bad_request("invalid_config", e))?;
+    refuse_ranges_that_allow_nothing(&state, &kind, &id, &b.data).await?;
     let old: Option<Value> = sqlx::query_scalar("select data from config_items where kind = $1 and id = $2").bind(&kind).bind(&id).fetch_optional(&state.pool).await?;
     let r = sqlx::query("update config_items set data = $3, modified = (origin = 'default'), updated_at = now(), updated_by = $4 where kind = $1 and id = $2")
         .bind(&kind)
@@ -294,6 +306,7 @@ pub async fn config_create(
         return Err(ApiError::bad_request("invalid_id", MSG_INVALID_ITEM_ID));
     }
     validate_item(&kind, &b.id, &b.data).map_err(|e| ApiError::bad_request("invalid_config", e))?;
+    refuse_ranges_that_allow_nothing(&state, &kind, &b.id, &b.data).await?;
     let sort: i32 = sqlx::query_scalar("select coalesce(max(sort), 0) + 1 from config_items where kind = $1").bind(&kind).fetch_one(&state.pool).await?;
     sqlx::query("insert into config_items (kind, id, data, origin, modified, sort, updated_by) values ($1, $2, $3, 'custom', true, $4, $5)")
         .bind(&kind)

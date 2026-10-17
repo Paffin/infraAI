@@ -21,9 +21,10 @@ pub fn limits(cfg: &Loaded) -> ValidationLimits {
     }
 }
 
-/// The limits for a design that is only looked at (evaluated, simulated, the base of a set of operations): a number out of its range is
-/// a warning in the report, and the engine counts it at its limit. A half-typed value in the editor is not an error banner, and a project
-/// stored before the ranges were enforced still opens.
+/// The limits for a design that is only looked at (evaluated, simulated, recommended, exported, versioned, the base of a set of operations): a
+/// number out of its range is a warning in the report. The engine holds an instance count at its limit; any other number it reads as it is, so a
+/// figure computed from one may come out without a value (`null`). A project stored before the ranges were enforced still opens, and a value
+/// that is still being typed is no reason to refuse the request that asks what it would do.
 pub fn lenient_limits(cfg: &Loaded) -> ValidationLimits {
     limits(cfg).lenient()
 }

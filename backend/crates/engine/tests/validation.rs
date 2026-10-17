@@ -130,12 +130,90 @@ fn a_number_out_of_range_is_a_warning_when_a_stored_design_is_only_looked_at() {
         assert!(strict.iter().any(|i| i.code == code && i.level == Error), "{code} is an error where it is written: {strict:?}");
         assert!(lenient.iter().any(|i| i.code == code && i.level == Warning), "{code} is a warning where it is looked at: {lenient:?}");
     }
-    // the edge's prop is checked like the node's, and so is a zone's
+    // the edge's prop is checked like the node's (a zone's is checked too: `a_zone_prop_is_held_to_its_range_like_a_node_prop`)
     assert!(lenient.iter().any(|i| i.code == "prop_out_of_range" && i.subject.as_deref() == Some(a.edges[4].id.as_str())), "{lenient:?}");
     assert!(errors(&lenient).is_empty(), "nothing else is wrong: {lenient:?}");
     // a flag that is not a flag is a type error, never softened: there is no value to count at
     node_mut(&mut a, "kafka-dc1").props.insert("encryptionAtRest".into(), json!("maybe"));
     assert!(validate(&a, &c.catalog, &ValidationLimits::default().lenient()).iter().any(|i| i.code == "prop_type" && i.level == Error));
+}
+
+/// No zone type that ships has a number among its props, so the branch of `validate` that holds a zone's props to their ranges is reached only
+/// through a catalog that has one (an administrator can add it): this one gives the type of the zone a bounded number and a flag.
+#[test]
+fn a_zone_prop_is_held_to_its_range_like_a_node_prop() {
+    use engine::catalog::{PropDef, PropType};
+    let mut cat = defaults::catalog();
+    let healthy = base();
+    let zone = healthy.zones.iter().find(|z| z.zone_type == "dc").expect("the reference architecture has a data center").id.clone();
+    assert!(
+        cat.zone_types.iter().all(|t| t.props.iter().all(|p| p.prop_type != PropType::Number)),
+        "the premise: no shipped zone type has a number prop (when one does, this test needs no catalog of its own)"
+    );
+    cat.zone_types.iter_mut().find(|t| t.id == "dc").unwrap().props.extend([
+        PropDef { key: "powerFeeds".into(), prop_type: PropType::Number, min: Some(1.0), max: Some(4.0), ..Default::default() },
+        PropDef { key: "hasGenerator".into(), prop_type: PropType::Boolean, ..Default::default() },
+    ]);
+    let with = |key: &str, v: Value| {
+        let mut a = healthy.clone();
+        a.zones.iter_mut().find(|z| z.id == zone).unwrap().props.insert(key.into(), v);
+        a
+    };
+    let said = |a: &Architecture, lim: ValidationLimits, code: &str| validate(a, &cat, &lim).into_iter().filter(|i| i.code == code).collect::<Vec<Issue>>();
+
+    // inside its range, and as text, a zone's number is fine
+    for ok in [json!(1), json!(4), json!("2"), json!("2,5")] {
+        let issues = validate(&with("powerFeeds", ok.clone()), &cat, &ValidationLimits::default());
+        assert!(issues.is_empty(), "{ok}: {issues:?}");
+    }
+    // outside it: an error where it is written, a warning where it is looked at; the issue names the zone, the prop and the range
+    for bad in [json!(99), json!(0), json!(-1), json!(1e308)] {
+        let a = with("powerFeeds", bad.clone());
+        let strict = said(&a, ValidationLimits::default(), "prop_out_of_range");
+        assert_eq!(strict.len(), 1, "{bad}: {strict:?}");
+        assert_eq!((strict[0].level.clone(), strict[0].subject.as_deref()), (Error, Some(zone.as_str())), "{bad}");
+        for part in ["zone", zone.as_str(), "powerFeeds", "1 to 4"] {
+            assert!(strict[0].message.contains(part), "'{part}' is missing in: {}", strict[0].message);
+        }
+        let lenient = said(&a, ValidationLimits::default().lenient(), "prop_out_of_range");
+        assert_eq!(lenient.len(), 1, "{bad}: {lenient:?}");
+        assert_eq!(lenient[0].level, Warning, "{bad}");
+    }
+    // a word where a number goes, and a word where a flag goes, are type errors on a zone too, whatever the limits
+    for (key, v, code) in [("powerFeeds", json!("many"), "prop_type"), ("hasGenerator", json!("maybe"), "prop_type")] {
+        let a = with(key, v.clone());
+        for lim in [ValidationLimits::default(), ValidationLimits::default().lenient()] {
+            let s = said(&a, lim, code);
+            assert!(s.len() == 1 && s[0].level == Error && s[0].subject.as_deref() == Some(zone.as_str()), "{key} = {v}: {s:?}");
+        }
+    }
+    // a prop the zone type does not describe is left alone (a model may carry notes of its own)
+    assert!(validate(&with("notDescribed", json!(1e308)), &cat, &ValidationLimits::default()).is_empty());
+    // and the corruption is the zone's: the same value on the shipped catalog (which has no such prop) says nothing
+    assert!(validate(&with("powerFeeds", json!(99)), &defaults::catalog(), &ValidationLimits::default()).is_empty());
+}
+
+/// The sizes are the limits of whoever accepts a design (the server's settings, which an administrator may raise to 5000 nodes): the report of a
+/// design that is already stored does not hold it to a size of the engine's own (it used to: 500 nodes, 2000 links, 100 zones).
+#[test]
+fn the_report_of_a_stored_design_is_not_held_to_a_size_of_the_engines_own() {
+    let c = cfg();
+    let mut a = base();
+    let template = a.nodes.iter().find(|n| n.kind == "monitoring").cloned().expect("the reference architecture has a monitoring node");
+    for i in 0..520 {
+        let mut n = template.clone();
+        n.id = format!("extra-{i}");
+        a.nodes.push(n);
+    }
+    let defaults = ValidationLimits::default();
+    assert!(a.nodes.len() > defaults.max_nodes);
+    // where a design is accepted, the limits are the acceptor's: refused with them, as before
+    assert!(validate(&a, &c.catalog, &defaults).iter().any(|i| i.code == "limit_nodes"));
+    assert!(validate(&a, &c.catalog, &ValidationLimits { max_nodes: 5000, ..Default::default() }).is_empty());
+    // where it is evaluated, no size is judged: the report says nothing of it
+    let report = evaluate(&a, &c, &[]);
+    assert!(!report.issues.iter().any(|i| i.code.starts_with("limit_")), "{:?}", report.issues);
+    assert!(report.issues.is_empty(), "{:?}", report.issues);
 }
 
 #[test]
@@ -153,6 +231,37 @@ fn the_issue_names_the_node_the_prop_and_the_range() {
     let i = validate(&r, &c.catalog, &ValidationLimits::default()).into_iter().find(|i| i.code == "requirement_out_of_range").expect("said");
     assert_eq!(i.subject.as_deref(), Some("requirements.growthPercent"));
     assert!(i.message.contains("growthPercent") && i.message.contains("-500") && i.message.contains("above -100"), "{}", i.message);
+}
+
+#[test]
+fn a_number_too_big_to_read_digit_by_digit_is_written_with_an_exponent() {
+    // 1e308 in plain notation is 309 digits: it would go whole into the 400 body, the issue, and the note for the model
+    let c = cfg();
+    let long = |s: &str| s.chars().count() > 160;
+    let mut a = base();
+    node_mut(&mut a, "app-dc1").props.insert("replicas".into(), json!(1e308));
+    node_mut(&mut a, "app-dc1").props.insert("vcpu".into(), json!(1.7e308));
+    a.requirements.rps_peak = Some(1e308);
+    a.requirements.growth_percent = Some(-1e308);
+    a.edges[4].props.insert("fanout".into(), json!(1e300));
+    let issues = validate(&a, &c.catalog, &ValidationLimits::default());
+    for code in ["prop_out_of_range", "requirement_out_of_range"] {
+        assert!(issues.iter().any(|i| i.code == code), "{code}: {issues:?}");
+    }
+    assert!(issues.len() >= 5, "{issues:?}");
+    for i in &issues {
+        assert!(!long(&i.message), "{} characters: {}", i.message.chars().count(), i.message);
+    }
+    let said = |part: &str| issues.iter().any(|i| i.message.contains(part));
+    assert!(said("1e308 is out of range") && said("1.7e308 is out of range") && said("1e300 is out of range"), "{issues:?}");
+    // what a person reads digit by digit is still written that way, and so is what is small
+    assert!(issues.iter().any(|i| i.message.contains("1 to 100000")), "{issues:?}");
+    let mut b = base();
+    node_mut(&mut b, "app-dc1").props.insert("replicas".into(), json!(1_000_000_000_000u64));
+    node_mut(&mut b, "app-dc1").props.insert("vcpu".into(), json!(-0.5));
+    let said = validate(&b, &c.catalog, &ValidationLimits::default());
+    assert!(said.iter().any(|i| i.message.contains("1000000000000 is out of range")), "{said:?}");
+    assert!(said.iter().any(|i| i.message.contains("-0.5 is out of range")), "{said:?}");
 }
 
 #[test]
@@ -802,7 +911,9 @@ fn hostile_numbers_never_panic() {
         // the recommender tries the engine's fixes one by one: it is run on the cases that decide what the fixes are
         let heavy = label.contains("replicas") || label.contains("rpsPeak") || label.contains("growth") || label.contains("fanout") || label.contains("rpsPerReplica") || label.contains("vcpu");
         let p = probe(a, heavy);
-        // a number the gate reports is the person's to put right; one it does not report must not bring a hole the healthy design has not
+        // a number the gate reports is the person's to put right: the engine does not panic on it, but it holds only the instance counts at a
+        // limit, so a figure computed from another number out of range (`rpsPeak = 1e308`) may come out as `null`, with the warning saying why.
+        // A number the gate does not report must not bring a hole the healthy design has not
         if !declared(&p) && !structural(&p) {
             if let Some(at) = &p.not_finite {
                 holes.push(format!("{label}: {at}"));

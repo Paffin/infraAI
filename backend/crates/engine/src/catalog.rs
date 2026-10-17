@@ -522,7 +522,15 @@ impl Catalog {
                 errs.push(format!("duplicate zone type id '{}'", t.id));
             }
         }
-        // ranges: a minimum above the maximum allows nothing, a default outside the range is a value the catalog itself would refuse
+        errs.extend(self.validate_ranges());
+        errs
+    }
+
+    /// What is wrong with the ranges of the catalog: a minimum above the maximum allows nothing, a default outside the range is a value the catalog
+    /// itself would refuse. Every message names the item, so the one an edit has just caused can be told from the ones that were already there
+    /// (`validate` says these too).
+    pub fn validate_ranges(&self) -> Vec<String> {
+        let mut errs = Vec::new();
         let mut defs: Vec<(String, &PropDef, (Option<f64>, Option<f64>))> = Vec::new();
         for p in &self.common_props {
             defs.push((format!("common prop '{}'", p.key), p, (p.min, p.max)));

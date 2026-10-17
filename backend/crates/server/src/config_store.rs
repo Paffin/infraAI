@@ -414,6 +414,44 @@ pub fn validate_item(kind: &str, id: &str, data: &Value) -> Result<(), String> {
     r.map_err(|e| e.to_string())
 }
 
+/// What saving `data` as the item `kind`/`id` would add to what is wrong with the ranges of the catalog (`Catalog::validate_ranges`): a minimum
+/// above the maximum, a default outside the range. Such a catalog allows no value, so every design written after it would be refused. Only what the
+/// edit itself causes is counted, so a catalog that was already wrong can still be mended one item at a time.
+pub fn range_regressions(current: &Catalog, kind: &str, id: &str, data: &Value) -> Vec<String> {
+    fn put<T>(list: &mut Vec<T>, same: impl Fn(&T) -> bool, item: T) {
+        match list.iter().position(same) {
+            Some(i) => list[i] = item,
+            None => list.push(item),
+        }
+    }
+    let mut next = current.clone();
+    match kind {
+        K_ZONE => {
+            if let Ok(v) = serde_json::from_value::<ZoneTypeDef>(data.clone()) {
+                put(&mut next.zone_types, |z| z.id == id, v);
+            }
+        }
+        K_EDGE => {
+            if let Ok(v) = serde_json::from_value::<EdgeTypeDef>(data.clone()) {
+                put(&mut next.edge_types, |t| t.id == id, v);
+            }
+        }
+        K_KIND => {
+            if let Ok(v) = serde_json::from_value::<KindDef>(data.clone()) {
+                put(&mut next.kinds, |k| k.id == id, v);
+            }
+        }
+        K_COMMON => {
+            if let Ok(v) = serde_json::from_value::<Vec<PropDef>>(data.clone()) {
+                next.common_props = v;
+            }
+        }
+        _ => return vec![],
+    }
+    let known: std::collections::HashSet<String> = current.validate_ranges().into_iter().collect();
+    next.validate_ranges().into_iter().filter(|m| !known.contains(m)).collect()
+}
+
 /// A release table must be readable by the engine and make sense: dates parse, lines are unique, newest-first order is not
 /// required (the engine sorts), an empty table says nothing and is refused.
 fn validate_versions(data: &Value) -> Result<(), String> {
@@ -493,6 +531,50 @@ mod tests {
         for it in &items {
             assert!(seen.insert((it.kind, it.id.clone())), "duplicate default {}:{}", it.kind, it.id);
         }
+    }
+
+    #[test]
+    fn an_edit_that_leaves_the_catalog_with_a_range_that_allows_nothing_is_told_from_one_that_does_not() {
+        let items = default_items();
+        let cat = engine::defaults::catalog();
+        assert!(cat.validate_ranges().is_empty(), "the catalog that ships is consistent");
+        let item = |kind: &str, id: &str| items.iter().find(|i| i.kind == kind && i.id == id).unwrap_or_else(|| panic!("{kind}:{id}")).data.clone();
+        let common = items.iter().find(|i| i.kind == K_COMMON).expect("the common props are an item");
+        let set_common = |key: &str, field: &str, v: Value| {
+            let mut d = common.data.clone();
+            d.as_array_mut().unwrap().iter_mut().find(|p| p["key"] == key).unwrap()[field] = v;
+            d
+        };
+        // what ships, saved as it is, and a change that keeps every range sensible: nothing to say
+        assert!(range_regressions(&cat, K_COMMON, &common.id, &common.data).is_empty());
+        assert!(range_regressions(&cat, K_KIND, "kubernetes", &item(K_KIND, "kubernetes")).is_empty());
+        assert!(range_regressions(&cat, K_COMMON, &common.id, &set_common("replicas", "max", json!(5000))).is_empty());
+        // a maximum below the minimum allows nothing
+        let said = range_regressions(&cat, K_COMMON, &common.id, &set_common("replicas", "max", json!(0)));
+        assert!(said.iter().any(|m| m.contains("common prop 'replicas'") && m.contains("min 1 above max 0")), "{said:?}");
+        // and the kinds that inherit it find their own defaults outside it (kubernetes: 3 pods)
+        let said = range_regressions(&cat, K_COMMON, &common.id, &set_common("replicas", "max", json!(2)));
+        assert!(said.iter().any(|m| m.contains("kind 'kubernetes' prop 'replicas'") && m.contains("outside its range")), "{said:?}");
+        // a kind that states a range of its own is held to it, whether the item exists or is new
+        let mut kind = item(K_KIND, "kubernetes");
+        kind["props"].as_array_mut().unwrap().iter_mut().find(|p| p["key"] == "replicas").unwrap()["max"] = json!(0);
+        let said = range_regressions(&cat, K_KIND, "kubernetes", &kind);
+        assert!(said.iter().any(|m| m.contains("kind 'kubernetes' prop 'replicas'") && m.contains("min 1 above max 0")), "{said:?}");
+        kind["id"] = json!("my-kubernetes");
+        let said = range_regressions(&cat, K_KIND, "my-kubernetes", &kind);
+        assert!(said.iter().any(|m| m.contains("kind 'my-kubernetes' prop 'replicas'")), "a new kind is checked as well: {said:?}");
+        // the other kinds of item have no ranges
+        assert!(range_regressions(&cat, K_RULE, "HA-SPOF-01", &item(K_RULE, "HA-SPOF-01")).is_empty());
+
+        // a catalog that is already wrong is not locked: an edit is judged by what it adds
+        let mut wrong = cat.clone();
+        wrong.common_props.iter_mut().find(|p| p.key == "vcpu").unwrap().max = Some(-1.0);
+        assert!(!wrong.validate_ranges().is_empty());
+        assert!(range_regressions(&wrong, K_KIND, "kubernetes", &item(K_KIND, "kubernetes")).is_empty(), "an unrelated item can still be saved");
+        let mended = set_common("vcpu", "max", json!(512));
+        assert!(range_regressions(&wrong, K_COMMON, &common.id, &mended).is_empty(), "and the mistake can be put right");
+        let said = range_regressions(&wrong, K_COMMON, &common.id, &set_common("replicas", "max", json!(0)));
+        assert!(said.iter().any(|m| m.contains("common prop 'replicas'")) && !said.iter().any(|m| m.contains("'vcpu'")), "only what the edit causes: {said:?}");
     }
 
     /// A backup of a changed built-in item must be importable: importing holds items to the id rule of creating them, and a kind with one document to its id.
