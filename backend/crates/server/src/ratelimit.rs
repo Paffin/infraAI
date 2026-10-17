@@ -60,9 +60,19 @@ pub async fn charge(pool: &PgPool, key: &str, limit: Limit) -> Result<Charge, sq
     Ok(Charge::Refused { retry_after_secs: wait.unwrap_or(1).max(1) as u64 })
 }
 
-/// Give back one attempt on `key` (a success is not a failure; an attempt that was charged and then not made).
-pub async fn refund(pool: &PgPool, key: &str) -> Result<(), sqlx::Error> {
-    sqlx::query("update rate_limits set count = greatest(count - 1, 0) where key = $1").bind(key).execute(pool).await?;
+/// Give back one attempt on `key` (a success is not a failure; an attempt that was charged and then not made). `max` is the limit the attempt was charged
+/// against: a count that falls below it no longer justifies a lock, so the lock goes too. Without that, the attempt that reached `max` and then turned out
+/// to be the owner's right password would sign in and leave the account locked for everybody, itself included, with `max - 1` failures on record.
+pub async fn refund(pool: &PgPool, key: &str, max: i32) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        "update rate_limits set count = greatest(count - 1, 0),
+           locked_until = case when greatest(count - 1, 0) < $2::int4 then null else locked_until end
+         where key = $1",
+    )
+    .bind(key)
+    .bind(max)
+    .execute(pool)
+    .await?;
     Ok(())
 }
 

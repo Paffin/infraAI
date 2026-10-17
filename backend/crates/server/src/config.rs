@@ -69,7 +69,8 @@ impl BootConfig {
         let app_secret = match env(get, "APP_SECRET") {
             Some(s) if production && is_placeholder_secret(&s) => anyhow::bail!(
                 "APP_SECRET is the placeholder from .env.example (or deploy/k8s/secret.example.yaml): a published string is not a secret, anyone could sign a session with it. \
-                 Generate one with `openssl rand -hex 32`, or let `make .env` (deploy/init-env.sh) write a new .env. Note that changing APP_SECRET signs everybody out \
+                 Generate one with `openssl rand -hex 32` and put it in .env, or move the old .env aside and run `make .env` (deploy/init-env.sh), which writes a new one \
+                 with generated secrets (it never overwrites a .env that exists). Note that changing APP_SECRET signs everybody out \
                  and makes the secrets already stored in the database (the OpenRouter key) unreadable: enter them again in Administration."
             ),
             Some(s) if s.len() >= 32 => s,
@@ -168,6 +169,8 @@ mod tests {
             // APP_ENV unset is production
             let e = boot(&[DB, ("APP_SECRET", placeholder)]).expect_err(placeholder).to_string();
             assert!(e.contains(".env.example") && e.contains("signs everybody out") && e.contains("OpenRouter"), "the message says where the value is from and what changing it costs: {e}");
+            // `make .env` leaves an existing file alone (deploy/init-env.sh), so the way out it names must start with moving the old one away
+            assert!(e.contains("move the old .env aside"), "the message does not send the operator to a command that would do nothing: {e}");
             assert!(boot(&[DB, ("APP_ENV", "production"), ("APP_SECRET", placeholder)]).is_err(), "{placeholder}");
             // development and tests may keep it: there is nothing to protect
             for env in ["development", "dev", "test"] {

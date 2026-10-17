@@ -53,7 +53,7 @@ refuses on the merits, never by a bare text. `code` is the stable part (the UI t
 | `reason_too_short`, `unknown_finding`, `not_acceptable` | 400 | accepting a risk: the reason is too short / the finding does not exist / only critical and risk findings can be accepted |
 | `bad_kind`, `empty_prompt`, `missing_finding`, `prompt_too_long` | 400 | an AI request that cannot be made: unknown kind / empty / `fix` without `findingId` / longer than `llm.maxPromptChars` |
 | `invalid_setting`, `invalid_config`, `invalid_kind`, `invalid_id` | 400 | the administrator's input: a setting value (`details.key`, `reason`), a configuration item that does not parse or whose ranges allow no value (a `min` above the `max`, a default outside the range: the message names the property), the wrong kind, a malformed id |
-| `invalid_email`, `invalid_role` | 400 | a user: not an email / not one of admin, editor, viewer |
+| `invalid_email`, `invalid_role` | 400 | a user: not an email (empty, past 200 bytes, a control character) / not one of admin, editor, viewer |
 | `llm_unreachable` | 503 | the model catalog of OpenRouter cannot be reached |
 | `internal` | 500 | a bug or a failure of the database; the message never says more, the log does |
 
@@ -67,7 +67,7 @@ Non-API endpoints: `GET /healthz` (liveness), `GET /readyz` (database + not drai
 
 | Method | Path | Body | Response |
 |---|---|---|---|
-| POST | `/auth/login` | `{email, password}` | `{user}` + cookie. `400 invalid_email` (empty, or past 200 bytes: nothing is counted or stored), `401 unauthorized`, `429 locked` / `rate_limited` (both with `Retry-After`) |
+| POST | `/auth/login` | `{email, password}` | `{user}` + cookie. `400 invalid_email` (empty, past 200 bytes, or with a control character such as NUL: nothing is counted or stored), `401 unauthorized`, `429 locked` / `rate_limited` (both with `Retry-After`) |
 | POST | `/auth/logout` | – | `{ok}` |
 | GET | `/auth/me` | – | `{user}` |
 | POST | `/auth/password` | `{current, new}` | `{ok}` (re-issues the session). `400 wrong_password`, `weak_password`; `429 locked` after `auth.maxFailedAttempts` wrong current passwords in a row |
@@ -80,7 +80,7 @@ answers `403 password_change_required`.
 **What a sign-in tells, and what it costs.** A wrong password, an address with no account and a disabled account (with the right or the wrong password) get the same `401 unauthorized` with the same body, and cost the
 same work: one Argon2 check, against a hash of the same cost when there is no account. After `auth.maxFailedAttempts` failures from one address for one e-mail address the next attempt from that address is `429 locked`
 (with `Retry-After`) *whether or not there is such an account*; it is refused before the password is looked at. The failures of one address lock only that address for that account; failures from many addresses add up to
-`auth.maxFailedAttemptsPerAccount` and then lock the account for everybody (`auth.lockoutScope = account` makes the lock the account's from the first). Every attempt from an address, successful ones too, counts towards
+`auth.maxFailedAttemptsPerAccount` and then lock the account for everybody (`auth.lockoutScope = account` makes the lock the account's from the first); a correct password is never a failure, so the sign-in that happens to be the one reaching that ceiling is given back together with the lock it closed and signs in. Every attempt from an address, successful ones too, counts towards
 `auth.loginsPerMinutePerIp` (`429 rate_limited`). The counters are in PostgreSQL, so they are the same on every replica; a password reset by an administrator clears them. Behind a reverse proxy the address is read from
 `X-Forwarded-For` only with `TRUST_PROXY=true`, counting `TRUST_PROXY_HOPS` entries from the right ([CONFIGURATION.md](CONFIGURATION.md)). The reason of a failure (no account, disabled, wrong password) is in the audit log
 (`auth.login_failed`, `details.reason`) and in `auth.locked` when a lock was closed; the metrics carry only the outcome (`infra_auth_logins_total{outcome="ok|failed|locked|throttled"}`).

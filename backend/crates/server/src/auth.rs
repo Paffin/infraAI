@@ -205,6 +205,13 @@ fn session_cookie(state: &AppState, token: String, ttl_hours: f64) -> Cookie<'st
 /// otherwise be written to the audit log as the target of the attempt).
 pub const MAX_EMAIL_BYTES: usize = 200;
 
+/// Whether `email` (already trimmed) is something to look an account up by: not empty, not longer than [`MAX_EMAIL_BYTES`], no control characters. A NUL
+/// byte is the one that matters: PostgreSQL cannot store it in text, so it would be counted, then fail in the lookup as a 500 instead of the 400 that the
+/// rest of the bad input gets.
+pub fn is_acceptable_email(email: &str) -> bool {
+    !email.is_empty() && email.len() <= MAX_EMAIL_BYTES && !email.chars().any(char::is_control)
+}
+
 fn locked(state: &AppState, retry_after_secs: u64) -> ApiError {
     state.metrics.auth_logins.with_label_values(&["locked"]).inc();
     ApiError::too_many("locked", "account is temporarily locked after repeated failures").with_retry_after(retry_after_secs)
@@ -224,8 +231,8 @@ pub fn failure_key(email: &str) -> String {
 pub async fn login(State(state): State<AppState>, ConnectInfo(addr): ConnectInfo<SocketAddr>, headers: HeaderMap, jar: CookieJar, Json(body): Json<LoginBody>) -> ApiResult<(CookieJar, Json<Value>)> {
     let ip = client_ip(&headers, Some(addr), &state.boot);
     let email = body.email.trim().to_lowercase();
-    // before anything is counted or written: an address that long is nobody's
-    if email.is_empty() || email.len() > MAX_EMAIL_BYTES {
+    // before anything is counted or written: an address that long, or with a control character in it, is nobody's
+    if !is_acceptable_email(&email) {
         return Err(ApiError::bad_request("invalid_email", "invalid email"));
     }
     let cfg = state.cfg().await?;
@@ -299,7 +306,7 @@ pub async fn login(State(state): State<AppState>, ConnectInfo(addr): ConnectInfo
     match &pair_key {
         Some(key) => {
             ratelimit::clear(&state.pool, key).await?;
-            ratelimit::refund(&state.pool, &account_key).await?;
+            ratelimit::refund(&state.pool, &account_key, ceiling).await?;
         }
         None => ratelimit::clear(&state.pool, &account_key).await?,
     }

@@ -2,7 +2,7 @@
 //! Every mutating call is audited; secrets are never returned.
 
 use crate::audit;
-use crate::auth::{check_password_policy, client_ip, failure_key, forget_user, pwchange_key, AuthUser, Role, MAX_EMAIL_BYTES};
+use crate::auth::{check_password_policy, client_ip, failure_key, forget_user, is_acceptable_email, pwchange_key, AuthUser, Role};
 use crate::config_store::{bump_rev, default_items, is_valid_item_id, range_regressions, single_document_id, validate_item, ALL_KINDS, MSG_INVALID_ITEM_ID, MSG_SINGLE_DOCUMENT};
 use crate::crypto::random_password;
 use crate::error::{ApiError, ApiResult};
@@ -538,7 +538,7 @@ pub async fn users_create(State(state): State<AppState>, user: AuthUser, Connect
     user.require_admin()?;
     let cfg = state.cfg().await?;
     let email = b.email.trim().to_lowercase();
-    if !email.contains('@') || email.len() > MAX_EMAIL_BYTES {
+    if !email.contains('@') || !is_acceptable_email(&email) {
         return Err(ApiError::bad_request("invalid_email", "invalid email"));
     }
     let role = Role::parse(&b.role).ok_or_else(|| ApiError::bad_request("invalid_role", "role must be admin, editor or viewer"))?;

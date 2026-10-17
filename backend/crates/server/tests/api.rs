@@ -2483,6 +2483,70 @@ async fn a_distributed_guess_hits_the_account_ceiling() {
 }
 
 #[tokio::test]
+async fn the_right_password_that_reaches_the_account_ceiling_signs_in_and_locks_nobody() {
+    let app = TestApp::new().await;
+    let admin = app.login_admin().await;
+    app.create_user(&admin, "gwen@test.local", "editor").await;
+    // two failures lock one address; five, from wherever, lock the account
+    let (s, v) = app.put(&admin, "/api/admin/settings", json!({"changes": {"auth.maxFailedAttempts": 2, "auth.maxFailedAttemptsPerAccount": 5}})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    // a guess spread over two addresses leaves the account one failure short of its ceiling
+    for ip in ["10.0.5.1", "10.0.5.2"] {
+        for _ in 0..2 {
+            let (s, _, v) = app.login_from(ip, &[], "gwen@test.local", "wrong password!!").await;
+            assert_eq!(s, StatusCode::UNAUTHORIZED, "{v}");
+        }
+    }
+    // the attempt that would be the fifth is the owner's: it is charged to the account (that is what keeps a flood from being checked), trips the
+    // ceiling, is the right password, and signs in
+    let (s, cookie, v) = app.login_from("10.0.5.3", &[], "gwen@test.local", "another long password 1").await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    assert!(cookie.is_some());
+    // ... and the sign-in is given back whole: the account is not locked, for nobody (itself, another address). (The list of users still shows the locks that
+    // the two guessing addresses closed on themselves; that is a record of what happened, not what refuses a sign-in.)
+    let (count, locked): (i32, Option<chrono::DateTime<chrono::Utc>>) =
+        sqlx::query_as("select count, locked_until from rate_limits where key = $1").bind(account_key("gwen@test.local")).fetch_one(&app.state.pool).await.unwrap();
+    assert_eq!((count, locked), (4, None), "four failures on record, and no lock for a count below the ceiling");
+    for ip in ["10.0.5.3", "10.0.5.4"] {
+        let (s, _, v) = app.login_from(ip, &[], "gwen@test.local", "another long password 1").await;
+        assert_eq!(s, StatusCode::OK, "{ip}: a successful sign-in locked the account it signed in to: {v}");
+    }
+    // the ceiling still means something: the next failure is the fifth, and it does lock
+    let (s, _, v) = app.login_from("10.0.5.5", &[], "gwen@test.local", "wrong password!!").await;
+    assert_eq!(s, StatusCode::UNAUTHORIZED, "{v}");
+    let (s, _, v) = app.login_from("10.0.5.6", &[], "gwen@test.local", "another long password 1").await;
+    assert_eq!((s, v["error"]["code"].as_str()), (StatusCode::TOO_MANY_REQUESTS, Some("locked")), "{v}");
+    app.cleanup().await;
+}
+
+#[tokio::test]
+async fn the_sweep_removes_counters_whose_window_is_over_and_keeps_locks() {
+    use server::ratelimit::{charge, sweep, Limit};
+    let app = TestApp::new().await;
+    let pool = &app.state.pool;
+    let counted = Limit { window_secs: 900.0, max: 5, lock_secs: 900.0 };
+    let locks_at_once = Limit { max: 1, ..counted };
+    for (key, limit) in [("sweep:old", counted), ("sweep:old-lock-over", locks_at_once), ("sweep:old-lock-active", locks_at_once), ("sweep:fresh", counted), ("sweep:fresh-lock", locks_at_once)] {
+        charge(pool, key, limit).await.unwrap();
+    }
+    // the windows of three began an hour ago; the lock of one has run out, the lock of another has not
+    sqlx::query("update rate_limits set window_start = now() - interval '1 hour' where key in ('sweep:old', 'sweep:old-lock-over', 'sweep:old-lock-active')").execute(pool).await.unwrap();
+    sqlx::query("update rate_limits set locked_until = now() - interval '1 minute' where key = 'sweep:old-lock-over'").execute(pool).await.unwrap();
+    sqlx::query("update rate_limits set locked_until = now() + interval '5 minutes' where key = 'sweep:old-lock-active'").execute(pool).await.unwrap();
+
+    let removed = sweep(pool, 960.0).await.unwrap();
+    let mut left: Vec<String> = sqlx::query_scalar("select key from rate_limits order by key").fetch_all(pool).await.unwrap();
+    left.retain(|k| k.starts_with("sweep:")); // the administrator's sign-in made rows of its own
+    assert_eq!(left, ["sweep:fresh", "sweep:fresh-lock", "sweep:old-lock-active"], "a window that is over goes, a lock that is running does not, nothing recent goes");
+    assert_eq!(removed, 2, "the old counter and the old lock that has run out");
+    assert_eq!(sweep(pool, 960.0).await.unwrap(), 0, "and a second round has nothing to do");
+    // a window of an hour is not over for a sweep that only forgets what is older than two
+    sqlx::query("update rate_limits set window_start = now() - interval '1 hour' where key = 'sweep:fresh'").execute(pool).await.unwrap();
+    assert_eq!(sweep(pool, 7200.0).await.unwrap(), 0);
+    app.cleanup().await;
+}
+
+#[tokio::test]
 async fn reset_password_clears_the_lock() {
     let app = TestApp::new().await;
     let admin = app.login_admin().await;
@@ -2546,6 +2610,11 @@ async fn oversized_input_is_rejected_before_it_is_stored() {
         let (s, _, v) = app.login_as(email, "wrong password!!").await;
         assert_eq!((s, v["error"]["code"].as_str()), (StatusCode::BAD_REQUEST, Some("invalid_email")), "{} characters: {v}", email.len());
     }
+    // a control character is not part of an address, and a NUL byte cannot even be stored: it must not get as far as the lookup (a 500, after three counters)
+    for email in ["a\u{0}b@test.local", "a\tb@test.local", "a\u{7f}b@test.local", "a\nb@test.local"] {
+        let (s, _, v) = app.login_as(email, "wrong password!!").await;
+        assert_eq!((s, v["error"]["code"].as_str()), (StatusCode::BAD_REQUEST, Some("invalid_email")), "{email:?}: {v}");
+    }
     let (n,): (i64,) = sqlx::query_as("select count(*) from audit_log where length(target_id) > 300").fetch_one(&app.state.pool).await.unwrap();
     assert_eq!(n, 0, "the audit log does not take what the client sent");
     let (n,): (i64,) = sqlx::query_as("select count(*) from rate_limits").fetch_one(&app.state.pool).await.unwrap();
@@ -2554,6 +2623,12 @@ async fn oversized_input_is_rejected_before_it_is_stored() {
     let fits = format!("{}@test.local", "c".repeat(189)); // 200
     let (s, _, _) = app.login_as(&fits, "wrong password!!").await;
     assert_eq!(s, StatusCode::UNAUTHORIZED);
+    // the administrator who makes an account is held to the same: no address that the sign-in would refuse to look up
+    let admin = app.login_admin().await;
+    for email in ["a\u{0}b@test.local", "a\u{1b}b@test.local"] {
+        let (s, v) = app.post(&admin, "/api/admin/users", json!({"email": email, "role": "editor"})).await;
+        assert_eq!((s, v["error"]["code"].as_str()), (StatusCode::BAD_REQUEST, Some("invalid_email")), "creating {email:?}: {v}");
+    }
     app.cleanup().await;
 }
 

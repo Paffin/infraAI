@@ -91,12 +91,13 @@ kubectl apply -k deploy/k8s
 | Что | Где |
 |---|---|
 | Логи | JSON в stdout (`LOG_JSON`, `RUST_LOG`); у каждого запроса — реплика (`INSTANCE_ID`) |
-| Метрики | `/metrics` (Prometheus): `http_requests_total{method,route,status}`, `http_request_duration_seconds`, `engine_evaluations_total`, `ai_jobs_running`, `ai_jobs_finished_total{kind,status}`, `llm_calls_total{purpose,status}`, `llm_cost_usd_total`; отключается настройкой `observability.metricsEnabled`, защищается `METRICS_TOKEN` |
+| Метрики | `/metrics` (Prometheus): `http_requests_total{method,route,status}`, `http_request_duration_seconds`, `engine_evaluations_total`, `ai_jobs_running`, `ai_jobs_finished_total{kind,status}`, `llm_calls_total{purpose,status}`, `llm_cost_usd_total`, `infra_auth_logins_total{outcome}` (`ok`, `failed`, `locked`, `throttled`: причина отказа в метку не попадает, она в журнале аудита) и `infra_auth_password_checks_total` (проверки пароля, Argon2); в выводе у всех имён префикс `infra_`; отключается настройкой `observability.metricsEnabled`, защищается `METRICS_TOKEN` |
 | Здоровье | `/healthz`, `/readyz`; Администрирование → Система (версия, БД, миграции, ревизия конфигурации, счётчики задач) |
 | Аудит | Администрирование → Аудит: входы, изменения настроек и конфигурации (какие ключи), пользователи, применения ИИ |
 
 Полезные алерты: доля `5xx` > 1 % за 5 мин; `histogram_quantile(0.95, http_request_duration_seconds) > 2`; `ai_jobs_finished_total{status="failed"}`
-растёт; расход `llm_cost_usd_total` за сутки выше ожидаемого; `up == 0` менее чем у двух реплик.
+растёт; расход `llm_cost_usd_total` за сутки выше ожидаемого; `up == 0` менее чем у двух реплик; `rate(infra_auth_logins_total{outcome=~"locked|throttled"}[5m])` держится выше нуля — перебор паролей или неверный
+`TRUST_PROXY_HOPS` (все пользователи под одним адресом упираются в один лимит, см. [CONFIGURATION.md](CONFIGURATION.md)).
 
 ## Исходящие соединения сервера
 

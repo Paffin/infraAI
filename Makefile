@@ -13,6 +13,10 @@ export IA_IMAGE
 # what to say once the stack is up: the address and who signs in (read from .env without sourcing it: a value with a space would break a shell)
 ANNOUNCE = port=$${APP_PORT:-$$(sed -n 's/^APP_PORT=//p' .env | head -n 1)}; email=$${ADMIN_EMAIL:-$$(sed -n 's/^ADMIN_EMAIL=//p' .env | head -n 1)}; echo "Infra Architect: http://localhost:$${port:-8080}  (sign in as $${email:-admin@example.com} with the ADMIN_PASSWORD from .env)"
 
+# a .env kept from before the secrets were generated (the old .env.example shipped `change-me...`) holds the published APP_SECRET, which the server refuses to start with
+# in production; compose then only shows an unhealthy or exited container, so say it here, where the operator is looking (not fatal: APP_ENV=development may keep it)
+WARN_PLACEHOLDER = if grep -qiE '^APP_SECRET=change[-_]?me' .env; then echo "warning: APP_SECRET in .env is the placeholder from .env.example and the application will refuse to start with it (see: docker compose logs app). Move this .env aside and run 'make .env' for a new one with generated secrets, or put your own APP_SECRET in it (openssl rand -hex 32)." >&2; fi
+
 help: ## show this help
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  %-14s %s\n", $$1, $$2}'
 
@@ -21,14 +25,17 @@ help: ## show this help
 	@sh deploy/init-env.sh
 
 try: .env ## start from the published image, nothing is built (needs only Docker)
+	@$(WARN_PLACEHOLDER)
 	@$(COMPOSE) -f docker-compose.yml -f deploy/compose.try.yml up -d --pull $(TRY_PULL) --wait --wait-timeout 180 || { echo "could not start from $(IA_IMAGE) - is it published yet? 'make up' builds the image from the source instead" >&2; exit 1; }
 	@$(ANNOUNCE)
 
 up: .env ## build the image and start the application and PostgreSQL
+	@$(WARN_PLACEHOLDER)
 	$(COMPOSE) up -d --build --wait --wait-timeout 180
 	@$(ANNOUNCE)
 
 ha: .env ## start two replicas behind a load balancer
+	@$(WARN_PLACEHOLDER)
 	$(COMPOSE) -f docker-compose.yml -f docker-compose.ha.yml up -d --build
 
 down: ## stop everything (data volume is kept)

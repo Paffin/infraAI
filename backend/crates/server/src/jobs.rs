@@ -161,7 +161,7 @@ pub async fn sweeper(state: AppState) {
     }
 }
 
-/// Retention: audit log, LLM call log, finished jobs, purged projects.
+/// Retention: audit log, LLM call log, finished jobs, purged projects, and the counters of the sign-in limits whose window is over.
 pub async fn retention(state: AppState) {
     loop {
         if state.shutting_down.load(std::sync::atomic::Ordering::SeqCst) {
@@ -183,7 +183,10 @@ pub async fn retention(state: AppState) {
         q("delete from ai_jobs where finished_at is not null and finished_at < now() - ($1 || ' days')::interval", s.num("retention.jobsDays")).await;
         q("delete from projects where deleted_at is not null and deleted_at < now() - ($1 || ' days')::interval", s.num("retention.deletedProjectsDays")).await;
         // the counters of the sign-in limits whose window is over (a lock keeps its row until it runs out); `auth.lockoutMinutes` is the longest window there is
-        let _ = crate::ratelimit::sweep(&state.pool, (s.num("auth.lockoutMinutes") + 1.0) * 60.0).await;
+        // (rows are made per address and account, so a flood of attempts adds rows: a statement that stopped working must be heard, not just leave the table growing)
+        if let Err(e) = crate::ratelimit::sweep(&state.pool, (s.num("auth.lockoutMinutes") + 1.0) * 60.0).await {
+            tracing::warn!(error = %e, "could not remove the expired sign-in counters");
+        }
         // cleans once at start, then every `retention.sweepMinutes`
         tokio::time::sleep(Duration::from_secs_f64(s.num("retention.sweepMinutes").max(1.0) * 60.0)).await;
     }
