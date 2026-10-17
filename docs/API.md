@@ -52,7 +52,7 @@ refuses on the merits, never by a bare text. `code` is the stable part (the UI t
 | `invalid_ref`, `invalid_version`, `unknown_format` | 400 | a version reference that is not `draft` or a number / an export format that does not exist |
 | `reason_too_short`, `unknown_finding`, `not_acceptable` | 400 | accepting a risk: the reason is too short / the finding does not exist / only critical and risk findings can be accepted |
 | `bad_kind`, `empty_prompt`, `missing_finding`, `prompt_too_long` | 400 | an AI request that cannot be made: unknown kind / empty / `fix` without `findingId` / longer than `llm.maxPromptChars` |
-| `invalid_setting`, `invalid_config`, `invalid_kind`, `invalid_id` | 400 | the administrator's input: a setting value (`details.key`, `reason`), a configuration item that does not parse, the wrong kind, a malformed id |
+| `invalid_setting`, `invalid_config`, `invalid_kind`, `invalid_id` | 400 | the administrator's input: a setting value (`details.key`, `reason`), a configuration item that does not parse or whose ranges allow no value (a `min` above the `max`, a default outside the range: the message names the property), the wrong kind, a malformed id |
 | `invalid_email`, `invalid_role` | 400 | a user: not an email / not one of admin, editor, viewer |
 | `llm_unreachable` | 503 | the model catalog of OpenRouter cannot be reached |
 | `internal` | 500 | a bug or a failure of the database; the message never says more, the log does |
@@ -198,9 +198,12 @@ A number as text (`"3,5"`) is a number; `null` and an empty text are "not set".
 | `requirement_out_of_range` | error, warning when only looked at | a requirement is outside its domain (`availabilitySlo = 150`) |
 
 Where each is a refusal. What is **written** is refused with `400 invalid_architecture` (`details.issues` lists them): `PUT /projects/{id}/draft`, `POST /projects` (an `architecture`, a `templateId` and a generated `placement` alike),
-the result of `/ops/apply` (`400 ops_invalid`) and of an AI proposal, and the model's answer (it is sent back for repair). What is **looked at** is not refused for a number: `/evaluate`, `/simulate`, `/recommendations`,
-the base of `/ops/apply`, an export and the report of a version answer `200` and say it as a warning in `issues`; the engine counts the instances of a node as a whole number from 1 to the most the node may have
-(`limits.maxReplicas`, a lower `max` of the product), so a project stored out of range still opens, evaluates, exports and versions instead of answering `500`, and it can be saved again once the number is put right.
+the result of `/ops/apply` (`400 ops_invalid`) and of an AI proposal, and the model's answer (a node it adds has the number out of range dropped, never clamped; any other number out of range goes back to it for repair, naming the node, the property and the range).
+What is **looked at** is not refused for a number: `/evaluate`, `/simulate`, `/recommendations`, an export and the report of a version answer `200` and say it as a warning in `issues`, so a project stored out of range still opens, evaluates, exports and
+versions instead of answering `500`, and it can be saved again once the number is put right. The engine holds the instances of a node to a whole number from 1 to the most the node may have (`limits.maxReplicas`, a lower `max` of the product); every other number it
+reads as it is, so a figure computed from one that is out of range (a load from `rpsPeak = 10³⁰⁸`) may come out without a value (`null`) in the report: the warning says why. The numbers in a message are written with an exponent from 10¹⁵ up.
+The base of `/ops/apply` is read the same way, but what the operations make of it is written: an operation that leaves a number out of range where it was is refused (`400 ops_invalid`, with `prop_out_of_range` in `details.issues`), and one that puts it right
+is applied. A fix proposed for some other finding therefore cannot be previewed on such a design until the number is put right.
 Structure that cannot be judged stays `400 invalid_architecture` on `/simulate`, `/recommendations` and `/ops/apply`; `/evaluate` returns it in `issues` (and `400 limits_exceeded` past the size limits).
 `infra-architect check` ([CLI.md](CLI.md)) refuses a file the way a write does: exit code 2 and the reason.
 
