@@ -521,6 +521,7 @@ export interface EditorSettings {
   saveRetryMs: number
   saveRetryMaxMs: number
   unsavedKeepHours: number
+  unsavedOfferLines: number
   jobPollMs: number
   lodCompactBelow: number
   lodMiniBelow: number

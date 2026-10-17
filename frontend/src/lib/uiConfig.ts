@@ -15,6 +15,7 @@ export const FALLBACK_EDITOR_SETTINGS: EditorSettings = {
   saveRetryMs: 3000,
   saveRetryMaxMs: 30000,
   unsavedKeepHours: 168,
+  unsavedOfferLines: 4,
   jobPollMs: 1000,
   lodCompactBelow: 0.62,
   lodMiniBelow: 0.3,

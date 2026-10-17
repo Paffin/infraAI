@@ -41,7 +41,7 @@
 <td align="center"><b>578</b><br><sub>deployment variants</sub></td>
 <td align="center"><b>60</b><br><sub>verification rules</sub></td>
 <td align="center"><b>20</b><br><sub>reference architectures</sub></td>
-<td align="center"><b>117</b><br><sub>settings, no rebuild</sub></td>
+<td align="center"><b>118</b><br><sub>settings, no rebuild</sub></td>
 <td align="center"><b>1100+</b><br><sub>tests, no mocks</sub></td>
 </tr>
 </table>

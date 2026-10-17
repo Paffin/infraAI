@@ -99,6 +99,7 @@ pub async fn bootstrap(State(state): State<AppState>, user: AuthUser, headers: H
         "saveRetryMs",
         "saveRetryMaxMs",
         "unsavedKeepHours",
+        "unsavedOfferLines",
         "jobPollMs",
         "lodCompactBelow",
         "lodMiniBelow",

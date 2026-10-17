@@ -1148,6 +1148,22 @@
   "max": 720
  },
  {
+  "key": "editor.unsavedOfferLines",
+  "group": "editor",
+  "type": "number",
+  "default": 4,
+  "label": {
+   "ru": "Несохранённые правки: сколько изменений перечислить в предложении восстановить",
+   "en": "Unsaved edits: how many changes the restore offer lists"
+  },
+  "help": {
+   "ru": "Когда в браузере найдены несохранённые правки, предложение восстановить перечисляет первые изменения («изменён узел…»), остальные считает числом. Все они видны на схеме по кнопке «Показать на схеме».",
+   "en": "When unsaved edits are found in the browser, the offer to restore lists the first changes (\"node changed…\") and counts the rest. All of them are on the diagram behind \"Show on the diagram\"."
+  },
+  "min": 1,
+  "max": 50
+ },
+ {
   "key": "editor.jobPollMs",
   "group": "editor",
   "type": "number",

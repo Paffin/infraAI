@@ -41,7 +41,7 @@
 <td align="center"><b>578</b><br><sub>вариантов развёртывания</sub></td>
 <td align="center"><b>60</b><br><sub>правил проверки</sub></td>
 <td align="center"><b>20</b><br><sub>эталонных архитектур</sub></td>
-<td align="center"><b>117</b><br><sub>настроек без пересборки</sub></td>
+<td align="center"><b>118</b><br><sub>настроек без пересборки</sub></td>
 <td align="center"><b>1100+</b><br><sub>автотестов без моков</sub></td>
 </tr>
 </table>
