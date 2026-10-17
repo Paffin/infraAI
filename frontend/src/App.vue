@@ -33,13 +33,15 @@ router.afterEach((to, from) => {
 })
 // the page is not there before its transition ends: the router has long finished by then
 const onPageEntered = () => { entered.value = true }
+// flush 'post': the effect runs when `editor.loading` turns false, which is BEFORE the editor's heading is drawn with the project's name (the default 'pre' runs ahead of the
+// DOM patch, saw an empty h1 and sent the focus to the main area whenever the project took longer than the page transition)
 watchEffect(() => {
   if (focusFor.value === null || !entered.value) return
   if (focusFor.value !== String(route.name)) { focusFor.value = null; return }
   if (route.name === 'editor' && editor.loading) return // the heading of the editor is the project's name: it is there when the project is
   focusFor.value = null
   if (focusIsFree()) focusPage()
-})
+}, { flush: 'post' })
 </script>
 
 <template>

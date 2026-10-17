@@ -200,6 +200,32 @@ test.describe('a new page takes the keyboard', () => {
     await expect(page.locator('main h1')).toBeFocused()
   })
 
+  // The heading of the editor is the project's name, and it has no words until the project arrives. Measured before the fix: with the project delayed by 150, 600 or 1200 ms
+  // the focus ended on `main.center` (the effect ran before the DOM was patched, saw an empty heading and fell back to the main area); only an instant load reached the h1.
+  // With motion off the page transition ends before the project loads, which is the other order of the same two events. (A table: one test in the count of gen-docs.)
+  for (const { motion, delay } of [{ motion: 'full', delay: 150 }, { motion: 'full', delay: 600 }, { motion: 'full', delay: 1200 }, { motion: 'off', delay: 600 }]) {
+    test(`a project that arrives late (${delay} ms, motion ${motion}) still gets the focus on its heading, not on the main area`, async ({ page }) => {
+      if (motion === 'off') await page.addInitScript(() => { try { localStorage.setItem('ia_motion', 'off') } catch { /* the default motion applies */ } })
+      await login(page)
+      const name = uniqueName('late')
+      const id = await makeProject(page, name)
+      await page.reload()
+      await page.route(`**/api/projects/${id}`, async (route) => {
+        if (route.request().method() === 'GET') await new Promise((done) => setTimeout(done, delay))
+        await route.continue()
+      })
+      await page.locator('article.project', { hasText: name }).locator('a[href]').first().click()
+      await expect(page).toHaveURL(new RegExp(`/p/${id}$`))
+      const heading = page.locator('header.eh h1')
+      await expect(heading).toContainText(name)
+      await expect(heading).toBeFocused()
+      // and it stays there: nothing moves the focus a second time
+      await settled(page)
+      await expect(heading).toBeFocused()
+      expect(await page.evaluate(() => document.activeElement?.tagName)).toBe('H1')
+    })
+  }
+
   test('a move inside the admin panel leaves the focus on the link that was pressed', async ({ page }) => {
     await login(page)
     await page.goto('/admin/settings')
