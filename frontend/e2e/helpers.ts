@@ -13,6 +13,14 @@ export async function login(page: Page, as = { email, password }) {
   await expect(page).toHaveURL(/\/$/)
 }
 
+/** Signs in on the login page that is already open and waits for `where` (`login()` goes to the login page itself and expects the list of projects after it). */
+export async function loginTo(page: Page, where: RegExp, as = { email, password }) {
+  await page.fill('#email', as.email)
+  await page.fill('#password', as.password)
+  await page.click('button.btn-primary')
+  await expect(page).toHaveURL(where)
+}
+
 /** Creates a project through the UI (optionally from a reference architecture) and opens its editor. */
 export async function createProject(page: Page, name: string, template?: string) {
   await page.getByRole('button', { name: 'Новый проект' }).first().click()

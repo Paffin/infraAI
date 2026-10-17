@@ -167,6 +167,33 @@ test.describe('accessibility (axe-core)', () => {
     })
   })
 
+  test('what the page says about the edits: the session that ended, the lost connection, the edits waiting in this browser', async ({ page, context }) => {
+    await page.goto('/login?expired=kept')
+    await expect(page.getByTestId('login-expired')).toBeVisible()
+    await clean(page, 'login, the session ended')
+
+    await login(page)
+    await createProject(page, uniqueName('a11y-edits'), '2 ЦОД + witness')
+    await expect(page.locator('.arch-node').first()).toBeVisible()
+    const id = page.url().split('/p/')[1]
+    await page.locator('.arch-node').first().click()
+    await context.setOffline(true)
+    await page.locator('.inspector .prop input').first().fill('Edited without a connection')
+    await expect(page.locator('[data-failure="offline"]')).toBeVisible({ timeout: 10_000 })
+    await clean(page, 'editor, no connection')
+
+    // leaving keeps the edits in this browser, and the project offers them back
+    await page.locator('header.eh .crumbs a').click()
+    await expect(page).toHaveURL(/\/$/)
+    await context.setOffline(false)
+    await page.locator(`article.project a[href="/p/${id}"]`).first().click()
+    await expect(page.getByTestId('unsaved-offer')).toBeVisible()
+    await clean(page, 'editor, edits waiting to be restored')
+    await page.getByTestId('unsaved-show').click()
+    await expect(page.locator('.previewbar')).toBeVisible()
+    await clean(page, 'editor, the waiting edits drawn on the diagram')
+  })
+
   test('the admin panel', async ({ page }) => {
     await login(page)
     for (const path of ['settings', 'catalog/kind', 'catalog/versions', 'placement/pattern']) {

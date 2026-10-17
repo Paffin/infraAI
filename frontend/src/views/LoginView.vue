@@ -21,6 +21,11 @@ const busy = ref(false)
 const error = ref('')
 
 const changing = computed(() => !!app.user?.mustChangePassword)
+/** Why the page was opened by itself: the session ended (`?expired=`), and whether the unsaved edits were kept in this browser (`kept`) or could not be (`lost`). */
+const expired = computed(() => {
+  const e = route.query.expired
+  return e === 'kept' || e === 'lost' || e === '1' ? e : ''
+})
 
 function target(): string {
   const n = route.query.next
@@ -63,6 +68,12 @@ async function change() {
       <h1 class="brand"><BrandLogo :size="34" /><span>{{ app.appName }}</span></h1>
       <p class="sub muted">{{ t('login.subtitle') }}</p>
 
+      <div v-if="expired && !changing" class="banner banner-warn" role="status" data-testid="login-expired">
+        <b>{{ t('login.expired') }}</b>
+        <template v-if="expired === 'kept'"> {{ t('login.expired.kept') }}</template>
+        <template v-else-if="expired === 'lost'"> {{ t('login.expired.lost') }}</template>
+      </div>
+
       <form v-if="!changing" class="col" style="gap: 14px" @submit.prevent="submit">
         <div class="field">
           <label for="email">{{ t('login.email') }}</label>
@@ -100,5 +111,7 @@ async function change() {
 .login-card { width: min(400px, 100%); padding: 28px; }
 .brand { display: flex; align-items: center; gap: 12px; font-size: 20px; font-weight: 650; letter-spacing: -0.01em; }
 .sub { margin: 6px 0 22px; }
+.login-card > .banner { margin: -8px 0 16px; }
+.login-card > .banner b { display: block; }
 h2 { font-size: 17px; }
 </style>

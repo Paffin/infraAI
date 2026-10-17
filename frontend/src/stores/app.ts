@@ -6,6 +6,7 @@ import type { Bootstrap, Rule, User } from '@/api/types'
 import { setLang, supportedLangs } from '@/i18n'
 import { indexCatalog, type CatalogIndex } from '@/lib/catalog'
 import { indexVersions, type VersionIndex } from '@/lib/lifecycle'
+import { browserStorage, dropUser } from '@/lib/unsavedBackup'
 import { editorSettings } from '@/lib/uiConfig'
 import { useMotion } from './motion'
 
@@ -123,6 +124,8 @@ export const useApp = defineStore('app', () => {
   }
 
   async function logout() {
+    // signing out is the person saying "this browser is not mine any more": the copies of unsaved edits (plain text) go with the session
+    if (user.value) dropUser(browserStorage(), user.value.id)
     try { await api.auth.logout() } catch { /* already gone */ }
     user.value = null
     boot.value = null

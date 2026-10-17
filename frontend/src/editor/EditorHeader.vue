@@ -30,6 +30,8 @@ const tone = computed(() => scoreTone(score.value))
 const confidence = computed(() => (editor.isEmpty || !editor.report ? null : Math.round(editor.report.score.coverage * 100)))
 const lowConfidence = computed(() => confidence.value !== null && confidence.value < 70)
 const saveText = computed(() => {
+  // no connection is said first: an edit made while it is gone is "dirty" too, and "есть изменения" would not say why nothing is being saved
+  if (editor.saveFailure === 'offline' && (editor.saveState === 'dirty' || editor.saveState === 'error')) return t('editor.save.offline.short')
   switch (editor.saveState) {
     case 'saved': return t('editor.save.saved')
     case 'saving': return t('editor.save.saving')
@@ -39,6 +41,8 @@ const saveText = computed(() => {
     default: return t('editor.save.readonly')
   }
 })
+/** What the tooltip says: the cause when the save is failing (in full: the text here is cut off on a narrow window), else the state. */
+const saveTitle = computed(() => (editor.saveFailure === 'offline' ? t('editor.save.offline') : editor.saveFailure === 'server' ? t('editor.save.server') : editor.saveError || saveText.value))
 const name = computed(() => editor.project?.name ?? '')
 
 async function rename() {
@@ -66,7 +70,7 @@ async function leave() {
       <a href="/" class="muted" @click.prevent="leave">{{ t('editor.crumb.projects') }}</a>
       <span class="sl">/</span>
       <h1 class="pn"><button class="pname" :disabled="!app.canEdit" :title="t('projects.rename')" @click="rename">{{ name }}</button></h1>
-      <span class="meta"><span class="vn">· v{{ editor.project?.headVersion ?? 0 }} · </span><span class="st" :class="'st-' + editor.saveState" :title="editor.saveError || saveText"><i class="sd" /><span class="stt">{{ saveText }}</span></span></span>
+      <span class="meta"><span class="vn">· v{{ editor.project?.headVersion ?? 0 }} · </span><span class="st" :class="['st-' + editor.saveState, editor.saveFailure && 'st-' + editor.saveFailure]" :title="saveTitle"><i class="sd" /><span class="stt">{{ saveText }}</span></span></span>
     </div>
     <div v-if="ui.chrome.modeSwitch" class="mode" role="group">
       <button :class="{ on: ui.aiMode === 'ai' }" @click="ui.aiMode = 'ai'">{{ t('editor.mode.ai') }}</button>
@@ -109,6 +113,8 @@ async function leave() {
 .st-saved .sd { background: var(--ok-dot); animation: pop-in var(--dur-base) var(--ease-spring) both; }
 @keyframes save-pulse { 50% { opacity: .25; transform: scale(.7); } }
 .st-saved { color: var(--on-dark-muted); } .st-dirty, .st-saving { color: #c4cbe0; } .st-conflict, .st-error { color: #ff8a8f; font-weight: 600; } .st-readonly { color: var(--on-dark-muted); }
+/* no connection is not the same as a refusal: the colour of a wait, not of a fault (the edits are kept on the screen and sent when the connection is back) */
+.st-offline, .st-server { color: #ffc266; font-weight: 600; }
 .mode { display: inline-flex; padding: 3px; background: var(--ink-2); border: 1px solid #262c3d; border-radius: 9px; }
 .mode button { border: 0; background: transparent; color: var(--on-dark-muted); height: 28px; padding: 0 14px; border-radius: 7px; font-size: 13.5px; font-weight: 500; white-space: nowrap; }
 .mode button.on { background: var(--accent); color: #fff; }

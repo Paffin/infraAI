@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router'
 import { t } from '@/i18n'
 import BulkCard from '@/editor/BulkCard.vue'
 import { focusDiagram } from '@/editor/canvasFocus'
@@ -15,6 +15,7 @@ import Library from '@/editor/Library.vue'
 import PlacementWizard from '@/editor/PlacementWizard.vue'
 import PromptBar from '@/editor/PromptBar.vue'
 import RightPanel from '@/editor/RightPanel.vue'
+import SaveStatusBar from '@/editor/SaveStatusBar.vue'
 import ScoreModal from '@/editor/ScoreModal.vue'
 import ShortcutsModal from '@/editor/ShortcutsModal.vue'
 import SimWindow from '@/editor/SimWindow.vue'
@@ -33,6 +34,7 @@ import { useEditor } from '@/stores/editor'
 import { usePlayback } from '@/stores/playback'
 import { useToasts } from '@/stores/toasts'
 import { useUi } from '@/stores/ui'
+import { useUnsaved } from '@/stores/unsaved'
 
 const props = defineProps<{ id: string }>()
 const app = useApp()
@@ -41,6 +43,7 @@ const ai = useAi()
 const ui = useUi()
 const playback = usePlayback()
 const toasts = useToasts()
+const unsaved = useUnsaved()
 const route = useRoute()
 const router = useRouter()
 const library = ref<InstanceType<typeof Library> | null>(null)
@@ -52,7 +55,10 @@ async function open(id: string) {
   await editor.load(id)
   // no AI on the server: there is no chat to read, and the request could only answer "nothing"
   if (ai.enabled) void ai.loadChat()
-  if (!editor.loadError) openLinkedFailure()
+  if (!editor.loadError) {
+    void unsaved.check(id) // edits of an earlier visit that never reached the server are offered back
+    openLinkedFailure()
+  }
 }
 
 /** A link made by "copy a link to this scenario" (`?sim=`) opens the diagram with that failure on screen; the parameter is spent, so a reload does not repeat it. */
@@ -69,6 +75,7 @@ onMounted(() => {
   void open(props.id)
   window.addEventListener('keydown', onKey)
   window.addEventListener('beforeunload', onUnload)
+  window.addEventListener('online', onOnline)
 })
 watch(() => props.id, (id) => void open(id))
 
@@ -83,9 +90,18 @@ onBeforeUnmount(() => {
   clearAnnouncement()
   window.removeEventListener('keydown', onKey)
   window.removeEventListener('beforeunload', onUnload)
+  window.removeEventListener('online', onOnline)
+  unsaved.clear()
   void editor.flushSave().finally(() => { editor.reset(); ai.reset() })
 })
-onBeforeRouteLeave(async () => { await editor.flushSave() })
+// Leaving the project (the list, the admin panel, another project) stores what is edited; what cannot be stored is kept in this browser and the person is told
+onBeforeRouteLeave(async () => { await unsaved.settle() })
+onBeforeRouteUpdate(async () => { await unsaved.settle() })
+
+/** The network is back: a save that was waiting for its pause goes out now. */
+function onOnline() {
+  editor.retryNow()
+}
 
 function onUnload(e: BeforeUnloadEvent) {
   if (editor.saveState === 'dirty' || editor.saveState === 'saving' || editor.saveState === 'error') {
@@ -177,8 +193,6 @@ function onKey(e: KeyboardEvent) {
   if (actions[id](e) !== false) e.preventDefault()
 }
 
-const conflict = computed(() => editor.saveState === 'conflict')
-
 /**
  * The skip links, the first stops of the page: the diagram, the checks, the library. Without them the keyboard walks the header, the library and the whole right
  * panel's toolbar to get anywhere. The link is a real link to the element (it works without the script), the click does better: the diagram takes the focus on
@@ -204,6 +218,7 @@ function skipTo(where: 'canvas' | 'checks' | 'library') {
     <EditorHeader />
     <AiOffHint />
     <PromptBar v-if="ui.chrome.promptBar" />
+    <SaveStatusBar />
     <div class="body">
       <Library ref="library" />
       <main class="center">
@@ -220,12 +235,6 @@ function skipTo(where: 'canvas' | 'checks' | 'library') {
           <StoryCaption />
           <SimWindow v-if="editor.sim && ui.simMode === 'float'" />
           <WhatIfBar />
-          <div v-if="conflict" class="conflict banner banner-err" role="alert">
-            <b>{{ t('editor.conflict.title') }}</b>
-            <p>{{ t('editor.conflict.text') }}</p>
-            <button class="btn btn-primary btn-sm" @click="editor.reloadFromServer()">{{ t('editor.conflict.reload') }}</button>
-          </div>
-          <div v-else-if="editor.saveState === 'error'" class="conflict banner banner-warn" role="alert">{{ t('editor.save.error') }}: {{ editor.saveError }}</div>
           <div v-if="editor.preview" class="previewbar">
             {{ editor.preview.kind === 'compare' ? t('compare.banner', { label: editor.preview.label ?? '' }) : t('proposal.previewing') }}
             <button v-if="editor.preview.kind === 'compare'" class="exit" @click="editor.setPreview(null)">{{ t('compare.exit') }}</button>
@@ -258,8 +267,6 @@ function skipTo(where: 'canvas' | 'checks' | 'library') {
 .skel-canvas { display: block; background: var(--bg); }
 .sk-zone { position: absolute; border-radius: var(--radius-lg); opacity: .6; }
 .sk-node { position: absolute; width: 212px; height: 64px; max-width: 30%; border-radius: var(--radius); }
-.conflict { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 80; max-width: 520px; box-shadow: var(--shadow-2); }
-.conflict p { margin: 4px 0 8px; }
 .previewbar { position: absolute; top: var(--bars-top, 56px); left: 50%; transform: translateX(-50%); z-index: 58; background: var(--accent); color: #fff; font-size: 12.5px; font-weight: 600; padding: 5px 14px; border-radius: 14px; box-shadow: var(--shadow-2); display: flex; align-items: center; gap: 10px; }
 .previewbar .exit { border: 1px solid rgba(255, 255, 255, .6); background: transparent; color: #fff; border-radius: 10px; padding: 1px 10px; font-size: 12px; }
 .previewbar .exit:hover { background: rgba(255, 255, 255, .15); }
