@@ -72,6 +72,17 @@ jobs:
         run: python3 deploy/licenses.py --check
       - name: The quick start holds together (generated .env, the example is refused as it is, the published-image override keeps the hardening)
         run: sh deploy/check-env.sh
+      - name: The scripts under deploy/ that decide something are tested (they have a failing case of their own)
+        run: python3 -m unittest discover -s deploy/tests -v
+
+  # cargo-deny on the locked crates, npm audit on the web application's packages, and the proof that cargo-deny is awake (.github/workflows/security.yml, which
+  # also runs every day). It is a job here and not a workflow of its own because `publish` can only wait for a job of this file. The permission is the one
+  # job `report` of that file asks for (it opens an issue when the daily run is red and never runs from here); a called workflow may not hold more than its caller grants.
+  security:
+    permissions:
+      contents: read
+      issues: write
+    uses: ./.github/workflows/security.yml
 
   manifests:
     runs-on: ubuntu-latest
@@ -152,6 +163,33 @@ jobs:
           tags: infra-architect:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      # Trivy sees the operating-system packages of the image (Debian bookworm-slim), nothing else: the binary is stripped and carries no list of its crates,
+      # and the image has no lock file. The crates are cargo-deny's (security.yml). A fixable CRITICAL package blocks main and so the publishing; on a pull
+      # request, and for HIGH everywhere, it is only shown, because a CVE that Debian fixed this morning is not the pull request's doing (docs/PITFALLS.md,
+      # the row about Dependabot's pull requests). .trivyignore: every entry has an `exp:` date, after which Trivy ignores the ignore.
+      - name: "Operating-system packages of the image: what is HIGH or CRITICAL and fixed upstream (shown)"
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: infra-architect:ci
+          scanners: vuln
+          vuln-type: os
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          trivyignores: .trivyignore
+          exit-code: "0"
+          hide-progress: true
+      - name: "Operating-system packages of the image: no CRITICAL one that is fixed upstream (blocks main, not a pull request)"
+        if: github.event_name != 'pull_request'
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: infra-architect:ci
+          scanners: vuln
+          vuln-type: os
+          severity: CRITICAL
+          ignore-unfixed: true
+          trivyignores: .trivyignore
+          exit-code: "1"
+          hide-progress: true
       - name: "Smoke test the stack (`make try`: the image just built, started the way a user starts the published one)"
         env:
           IA_IMAGE: infra-architect:ci
@@ -193,7 +231,7 @@ jobs:
 
   publish:
     runs-on: ubuntu-latest
-    needs: [image, manifests]
+    needs: [image, manifests, security]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     permissions:
       contents: read

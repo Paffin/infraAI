@@ -1,0 +1,41 @@
+# cargo-deny: what the locked dependency graph must not contain. Run it by hand with
+#
+#     cargo install --locked cargo-deny@0.20.2
+#     cargo deny --manifest-path backend/Cargo.toml --config backend/deny.toml --locked check advisories bans sources
+#
+# CI runs the same line (.github/workflows/security.yml): `bans` and `sources` always block; `advisories` blocks on main and in the daily run and only
+# reports on a pull request, because the advisory database moves without the change (docs/PITFALLS.md, the row about Dependabot's pull requests).
+#
+# Not here, on purpose:
+#   * [licenses]: deploy/licenses.py and deploy/licenses.json are the one authority on which licenses the project accepts. Two lists would drift.
+#   * an advisory that is ignored without a reason. A fix is a `cargo update -p <crate> --precise <version>`; an ignore is for an advisory that
+#     cannot be reached from this code, and it carries a `reason` that says why and a `review-by YYYY-MM-DD` date (deploy/check-deny.py fails CI on
+#     an entry without a reason or past its date). The list is empty because there is nothing to ignore: `rsa` (RUSTSEC-2023-0071) is named in
+#     Cargo.lock only through sqlx-mysql, which is never compiled, so it is not in the graph this checks (`cargo tree --locked -i rsa` prints
+#     "nothing to print"); an ignore for it would be a dead entry that cargo-deny reports as unused. SECURITY.md has the triage rules.
+
+[graph]
+# the platform the image is built for (the same as `cargoTarget` in deploy/licenses.json): a crate used only on Windows or macOS is not shipped
+targets = ["x86_64-unknown-linux-gnu"]
+
+[advisories]
+# the database is fetched from https://github.com/rustsec/advisory-db at each run
+ignore = []
+# a yanked release is a version its author withdrew: replace it
+yanked = "deny"
+# "unmaintained" and "unsound" notices are judged for what this workspace depends on directly. A transitive crate that nobody maintains any more is
+# something to know about (the report shows it), not a reason to stop every pull request and the publishing of the image
+unmaintained = "workspace"
+unsound = "workspace"
+
+[bans]
+# two versions of one crate are a cost in build time and binary size, not a defect: reported, not refused (a dozen or so today, all of them chosen
+# by our dependencies, not by us)
+multiple-versions = "warn"
+
+[sources]
+# crates come from crates.io and nowhere else: a git or alternative-registry dependency bypasses the checksums in Cargo.lock
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []

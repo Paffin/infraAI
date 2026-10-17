@@ -1,0 +1,145 @@
+name: Security
+
+# What would make a release unsafe to publish, checked where the project can act on it. The image's operating-system packages are Trivy's
+# (the `image` job of ci.yml); the crates and npm packages that go into the binary and the web application are checked here:
+#
+#   deny       cargo-deny on the locked crates (backend/deny.toml): known vulnerabilities (RustSec), withdrawn releases, crates from anywhere but crates.io
+#   npm-audit  npm's advisory database on the packages the web application bundles (production only, high and above)
+#   selftest   proves that `deny` is awake: a lock that pins a release with a known vulnerability must fail it
+#   report     the daily run only: opens one issue when the run is red, so that a vulnerability published at night is seen by a person
+#
+# Three ways in. ci.yml calls this file (`security`), and its `publish` waits for it: a release with a known vulnerability in its crates is not published.
+# The daily run (and "Run workflow") catches an advisory that appeared after the last push. A GitHub Actions workflow cannot `needs` a job of another
+# file, which is why this one is `workflow_call`.
+#
+# Who is blocked by what: `bans`, `sources` and the self-test always block. The two advisory checks block on main and in the daily run, and only *report*
+# on a pull request: the advisory databases move without the change, and a pull request that did not add the vulnerable crate must not be red for it
+# (docs/PITFALLS.md, the row about Dependabot's pull requests). The report is an annotation and the job summary, so that a failure that did not fail the job is
+# still seen.
+#
+# Third-party actions are pinned by the commit they were at when this was written (a tag can be moved; in March 2026 the tags of a security scanner's
+# action were), with the version in the comment: Dependabot moves both.
+on:
+  workflow_call:
+  workflow_dispatch:
+  schedule:
+    - cron: "37 4 * * *"
+
+concurrency:
+  group: security-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deny:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
+        with:
+          tool: cargo-deny@0.20.2
+      - name: Crates come from crates.io only (duplicate versions are listed, not refused)
+        run: cargo deny --manifest-path backend/Cargo.toml --config backend/deny.toml --locked check --hide-inclusion-graph --show-stats bans sources
+      - name: No known vulnerability and no withdrawn release in the locked crates; an ignored advisory has a reason and a date that has not passed
+        id: advisories
+        shell: bash
+        continue-on-error: ${{ github.event_name == 'pull_request' }}
+        run: |
+          python3 deploy/check-deny.py
+          cargo deny --manifest-path backend/Cargo.toml --config backend/deny.toml --locked check --hide-inclusion-graph --show-stats advisories 2>&1 | tee "$RUNNER_TEMP/advisories.txt"
+      - name: Say it where it is seen (a pull request is not blocked by it, and then the log is the only trace)
+        if: ${{ !cancelled() && steps.advisories.outcome == 'failure' }}
+        shell: bash
+        run: |
+          echo "::warning title=cargo-deny::A locked crate has a known vulnerability or was yanked, or an ignored advisory is past its review date. Not a reason to block this pull request (the database and the calendar move without it); it blocks main and the publishing of the image. See the job summary."
+          {
+            echo "### cargo-deny: advisories"
+            echo
+            echo "Fix: \`cd backend && cargo update -p <crate> --precise <fixed version>\`. Cannot be reached from this code: SECURITY.md, \"Dependencies\"."
+            echo
+            echo '```'
+            head -n 150 "$RUNNER_TEMP/advisories.txt"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  npm-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      - name: No high or critical advisory in what the web application bundles (development tools are not shipped)
+        id: audit
+        shell: bash
+        working-directory: frontend
+        continue-on-error: ${{ github.event_name == 'pull_request' }}
+        run: npm audit --omit=dev --audit-level=high 2>&1 | tee "$RUNNER_TEMP/npm-audit.txt"
+      - name: Say it where it is seen
+        if: ${{ !cancelled() && steps.audit.outcome == 'failure' }}
+        shell: bash
+        run: |
+          echo "::warning title=npm audit::A package the web application bundles has a high or critical advisory. Not a reason to block this pull request; it blocks main and the publishing of the image. See the job summary."
+          {
+            echo "### npm audit"
+            echo
+            echo '```'
+            head -n 150 "$RUNNER_TEMP/npm-audit.txt"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  selftest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
+        with:
+          tool: cargo-deny@0.20.2
+      # The crate is made here and not kept in the repository: a committed lock that pins a vulnerable release would be flagged by every scanner
+      # that reads the repository (Dependabot, OSV, Trivy), for ever. rustls 0.23.45 is named by RUSTSEC-2026-0346..0349 (fixed in 0.23.46).
+      - name: cargo-deny fails on a crate with a known vulnerability, and says which advisory
+        shell: bash
+        run: |
+          dir="$RUNNER_TEMP/selftest"
+          cargo init --quiet --vcs none --name deny-selftest "$dir"
+          cargo add --quiet --manifest-path "$dir/Cargo.toml" rustls@=0.23.45 --no-default-features --features ring,std
+          cargo generate-lockfile --manifest-path "$dir/Cargo.toml"
+          grep -A1 'name = "rustls"' "$dir/Cargo.lock" | grep -q 'version = "0.23.45"' || { echo "::error::the throw-away crate does not pin rustls 0.23.45"; cat "$dir/Cargo.lock"; exit 1; }
+          if cargo deny --manifest-path "$dir/Cargo.toml" --config backend/deny.toml --locked check --hide-inclusion-graph advisories > "$RUNNER_TEMP/selftest.txt" 2>&1; then
+            echo "::error title=The gate is asleep::cargo-deny passed a lock that pins rustls 0.23.45, which RUSTSEC-2026-0346 names. Something in backend/deny.toml (an ignore? a graph filter?) hides it."
+            cat "$RUNNER_TEMP/selftest.txt"
+            exit 1
+          fi
+          # it failed; for the right reason? (a broken deny.toml or an unreachable advisory database would fail too, and then this test would prove nothing)
+          if ! grep -q 'RUSTSEC-2026-0346' "$RUNNER_TEMP/selftest.txt"; then
+            echo "::error title=Failed, but not for the advisory::cargo-deny failed on the throw-away crate without naming RUSTSEC-2026-0346 (a broken backend/deny.toml, or the advisory database was not reachable)."
+            cat "$RUNNER_TEMP/selftest.txt"
+            exit 1
+          fi
+          echo "cargo-deny refused the vulnerable lock and named RUSTSEC-2026-0346: the gate sees what it must."
+
+  report:
+    needs: [deny, npm-audit, selftest]
+    if: ${{ failure() && github.event_name == 'schedule' }}
+    runs-on: ubuntu-latest
+    # the only job with write access to anything; ci.yml, which calls this file, allows it so that the file passes validation, and the job never runs there
+    permissions:
+      issues: write
+    steps:
+      - name: One open issue; a comment on it on every day the run is still red
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: |
+          title="Security gate failed (daily run)"
+          body="The daily security run is red: $RUN_URL. Read the failed job: a vulnerability in the locked crates or in the web application's packages (SECURITY.md, \"Dependencies\", says how to judge it and what to do), or the gate's own test."
+          number=$(gh issue list --state open --author "app/github-actions" --search "\"$title\" in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$number" ]; then
+            gh issue comment "$number" --body "$body"
+          else
+            gh issue create --title "$title" --body "$body"
+          fi

@@ -54,6 +54,9 @@ python3 deploy/catalog/build.py --check && python3 deploy/gen-docs.py --check &&
 
 * Добавили или убрали зависимость, или у неё сменилась лицензия — выполните `python3 deploy/licenses.py`: он перепишет `THIRD_PARTY_LICENSES.md` и откажет в лицензии, которую проект не принимает
   (`deploy/licenses.json`). Обычное обновление версии список не меняет: в нём нет версий (они в `Cargo.lock` и `package-lock.json`; `python3 deploy/licenses.py --versions` их печатает).
+* Зависимости проверяются на известные уязвимости (`cargo deny` по замку Rust, `npm audit` по веб-приложению, Trivy по образу): в CI это `.github/workflows/security.yml`, локально — `cargo install --locked cargo-deny@0.20.2` и
+  `cargo deny --manifest-path backend/Cargo.toml --config backend/deny.toml --locked check advisories bans sources`. Находку **сначала исправляют обновлением** (`cargo update -p <крейт> --precise <версия>`). Игнорировать можно только то, что нельзя исправить и нельзя достичь отсюда,
+  записью с причиной и датой пересмотра (`reason = "… review-by ГГГГ-ММ-ДД"`; просроченную проваливает `deploy/check-deny.py`): [SECURITY.md](SECURITY.md), «Зависимости».
 * Новая логика — с тестом на реальных данных; ошибка, которую вы исправили, — с тестом, который на ней падал.
 * Один pull request — одна мысль. В описании — зачем (какую проблему архитектора решает), а не только что.
 * Сообщения коммитов — по-английски или по-русски, в повелительном или описательном стиле, главное — ясно, *почему*.
@@ -71,5 +74,5 @@ Infra Architect is open source under the [Apache License 2.0](LICENSE); contribu
 * **Run:** `make up` (app + PostgreSQL on :8080), `make test`, `make lint`, `make iac-check`; without Docker you need Rust 1.89+ (stable), Node 22 and PostgreSQL 14+ — see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) (in Russian).
 * **House rules:** no hard-coded numbers or texts (timings, thresholds, rules, catalog, templates are data and settings); no mocks or stubs in tests (real PostgreSQL, real engine, recorded live responses); the Rust engine is deterministic and the LLM only proposes;
   the product catalog is built from `deploy/catalog/` sources (never edit `catalog.json` by hand, and only state what you are sure of about a product's failure behaviour); every visible text has `ru` and `en`; docs change in the same commit.
-* **Before a pull request:** `cargo fmt/clippy/test`, `npm run typecheck && npm test && npm run build`, `python3 deploy/catalog/build.py --check`, `python3 deploy/gen-docs.py --check`, `python3 deploy/licenses.py --check` (run it without `--check` after changing dependencies).
+* **Before a pull request:** `cargo fmt/clippy/test`, `npm run typecheck && npm test && npm run build`, `python3 deploy/catalog/build.py --check`, `python3 deploy/gen-docs.py --check`, `python3 deploy/licenses.py --check` (run it without `--check` after changing dependencies), `python3 -m unittest discover -s deploy/tests`; dependencies are also checked for known vulnerabilities (`cargo deny`, `npm audit`, Trivy on the image; CI: `.github/workflows/security.yml`): fix a finding by updating first, ignore only what cannot be fixed and cannot be reached, with a reason and a `review-by` date (see [SECURITY.md](SECURITY.md)).
 * **Security issues:** please do not open a public issue — see [SECURITY.md](SECURITY.md).

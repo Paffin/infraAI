@@ -1,0 +1,6 @@
+# Vulnerabilities in the operating-system packages of the image that Trivy is told to leave alone (.github/workflows/ci.yml, `image`).
+#
+# One per line:  CVE-YYYY-NNNNN exp:YYYY-MM-DD   # why it cannot be reached from this image
+# `exp:` is the date after which Trivy stops honouring the line (the CVE is reported again and the gate blocks main again): an ignore is a loan, not a
+# decision. The image runs one unprivileged process from a stripped binary (no shell scripts, no package manager at run time); say which package is
+# unused or why the flaw needs what the image does not have. SECURITY.md, "Dependencies", has the rules. Empty on purpose: nothing is ignored today.
