@@ -9,18 +9,20 @@ import enPlacement from '../src/i18n/en.placement'
 import ruPlacement from '../src/i18n/ru.placement'
 import enCatalog from '../src/i18n/en.catalog'
 import ruCatalog from '../src/i18n/ru.catalog'
+import enErrors from '../src/i18n/en.errors'
+import ruErrors from '../src/i18n/ru.errors'
 import { GROUP_ORDER } from '../src/editor/paletteCommands'
 import { GROUPS, SHORTCUTS } from '../src/lib/shortcuts'
 
 function sources(dir: string): string[] {
   return readdirSync(dir).flatMap((f) => {
     const p = join(dir, f)
-    return statSync(p).isDirectory() ? sources(p) : /\.(vue|ts)$/.test(f) && !/\.(admin|placement|catalog)\./.test(f) && !/\/i18n\/(ru|en)\.ts$/.test(p) ? [p] : []
+    return statSync(p).isDirectory() ? sources(p) : /\.(vue|ts)$/.test(f) && !/\.(admin|placement|catalog|errors)\./.test(f) && !/\/i18n\/(ru|en)\.ts$/.test(p) ? [p] : []
   })
 }
 
-const RU = { ...ru, ...ruAdmin, ...ruPlacement, ...ruCatalog }
-const EN = { ...en, ...enAdmin, ...enPlacement, ...enCatalog }
+const RU = { ...ru, ...ruAdmin, ...ruPlacement, ...ruCatalog, ...ruErrors }
+const EN = { ...en, ...enAdmin, ...enPlacement, ...enCatalog, ...enErrors }
 
 describe('translations', () => {
   it('have the same keys in Russian and English', () => {

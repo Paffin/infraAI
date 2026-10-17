@@ -7,6 +7,7 @@ import { ApiError } from '@/api/client'
 import type { SettingDef } from '@/api/types'
 import { t } from '@/i18n'
 import { errorMessage } from '@/lib/format'
+import { settingRefusal } from '@/lib/serverErrors'
 import { useApp } from '@/stores/app'
 import { useToasts } from '@/stores/toasts'
 import { jsonErrorText } from './jsonMessage'
@@ -105,7 +106,9 @@ export function useSettingsEditor() {
     } catch (e) {
       const msg = errorMessage(e)
       if (e instanceof ApiError && e.code === 'invalid_setting') {
-        const p = parseServerSettingError(msg, defs.value.map((d) => d.key))
+        // the key and the reason come from the answer's `details` and are said in the language of the page; an answer without them is read from its sentence
+        const refused = settingRefusal(e)
+        const p = refused && byKey.value.has(refused.key) ? refused : parseServerSettingError(msg, defs.value.map((d) => d.key))
         if (p.key) errors[p.key] = p.message
         status.value = { kind: 'error', text: p.key ? t('admin.settings.rejected', { key: p.key }) : msg }
       } else {

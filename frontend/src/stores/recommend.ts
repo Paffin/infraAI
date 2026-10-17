@@ -3,6 +3,7 @@ import { computed, ref, shallowRef } from 'vue'
 import * as api from '@/api/endpoints'
 import type { RecommendPlan } from '@/api/types'
 import { lang } from '@/i18n'
+import { busyRetryMs } from '@/lib/busy'
 import { errorMessage } from '@/lib/format'
 import { archFingerprint } from '@/lib/recommend'
 import { useApp } from './app'
@@ -60,6 +61,7 @@ export const useRecommend = defineStore('recommend', () => {
     const id = ++seq
     const forKey = key.value
     loading.value = true
+    let later = false
     try {
       const p = await api.engine.recommendations(editor.arch, editor.projectId || undefined, lang.value, mine.signal)
       if (id !== seq) return
@@ -68,9 +70,18 @@ export const useRecommend = defineStore('recommend', () => {
       error.value = ''
     } catch (e: any) {
       if (e?.name === 'AbortError' || id !== seq) return
+      // the server is busy with this person's other calculations (429 + Retry-After): the plan is asked for again when the server says to, and no error is shown meanwhile.
+      // The request is the editor's own, after every settled edit; an edit or a clear in the meantime replaces the retry (`ensure`, `clear`)
+      const wait = busyRetryMs(e)
+      if (wait !== null) {
+        later = true
+        clearTimeout(timer)
+        timer = setTimeout(() => { if (id === seq) void load() }, wait)
+        return
+      }
       error.value = errorMessage(e)
     } finally {
-      if (id === seq) loading.value = false
+      if (id === seq && !later) loading.value = false
     }
   }
 

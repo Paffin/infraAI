@@ -1,5 +1,6 @@
 import { ApiError } from '@/api/client'
 import { lang, t } from '@/i18n'
+import { serverRefusal } from '@/lib/serverErrors'
 
 export { durationText as fmtDuration } from '@/i18n'
 
@@ -83,10 +84,13 @@ export function copyName(name: string): string {
 /**
  * What a failure says on the screen. A request that got no answer (no connection, a server that is down) throws the browser's own sentence ("Failed to fetch",
  * "NetworkError when attempting to fetch resource"): English, different in each browser, and no help to anybody. The client marks such a failure with the code
- * `network`, and it is said in the words of the page.
+ * `network`, and it is said in the words of the page. The same for the refusals the page knows by their `code` (a text past its limit, too many changes, a request
+ * that took too long, a busy server, a setting value that was not accepted: `lib/serverErrors.ts`): the server's sentence is English, the person may not read it.
  */
 export function errorMessage(e: unknown): string {
   if (e instanceof ApiError && e.code === 'network') return t('error.network')
+  const refusal = serverRefusal(e)
+  if (refusal !== null) return refusal
   if (e && typeof e === 'object' && 'message' in e) return String((e as { message: unknown }).message)
   return String(e)
 }
