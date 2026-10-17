@@ -2,7 +2,7 @@ import { mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick, reactive } from 'vue'
 import Modal from '../src/components/Modal.vue'
-import { createFocusScope, isTopScope, openScopes, tabbables, type FocusScope } from '../src/lib/useFocusScope'
+import { createFocusScope, openScopes, tabbables, type FocusScope } from '../src/lib/useFocusScope'
 
 // Real DOM (jsdom), no stand-ins. jsdom has no layout and no `inert`, so what is asserted here is the logic: where the focus goes, what Tab does at the ends,
 // who hears Escape, what is returned. That the browser really keeps Tab and clicks out of an inert page is proven in e2e/dialog-focus.spec.ts.
@@ -220,8 +220,6 @@ describe('the page behind', () => {
     const s2 = open(second.backdrop)
     expect(first.backdrop.hasAttribute('inert')).toBe(true)
     expect(app.hasAttribute('inert')).toBe(true)
-    expect(isTopScope(s2)).toBe(true)
-    expect(isTopScope(s1)).toBe(false)
     s2.release()
     expect(first.backdrop.hasAttribute('inert')).toBe(false)
     expect(app.hasAttribute('inert')).toBe(true)
@@ -390,6 +388,28 @@ describe('Modal.vue on the scope', () => {
   afterEach(() => { state.a = false; state.b = false; closed.length = 0 })
 
   const settle = async () => { await nextTick(); await new Promise((r) => setTimeout(r, 30)); await nextTick() }
+
+  // Escape ownership on its own, with no assertion about the focus ahead of it: the old Modal.vue (a window listener of its own in every instance) fails HERE, on the
+  // second dialog closing at the same press, and not on a focus line that comes before
+  it('a question over a dialog: one Escape closes the question only, the next one the dialog under it', async () => {
+    const wrapper = mount(Host, { attachTo: document.body })
+    state.a = true
+    await settle()
+    state.b = true
+    await settle()
+    expect(document.querySelectorAll('[role="dialog"][aria-modal="true"]').length).toBe(2)
+
+    key('Escape')
+    await settle()
+    expect(closed, 'one Escape, one dialog').toEqual(['B'])
+    expect(document.querySelectorAll('[role="dialog"][aria-modal="true"]').length).toBe(1)
+
+    key('Escape')
+    await settle()
+    expect(closed).toEqual(['B', 'A'])
+    expect(document.querySelectorAll('[role="dialog"]').length).toBe(0)
+    wrapper.unmount()
+  })
 
   it('takes the focus, holds it, and one Escape closes one dialog and returns the focus to the control that opened it', async () => {
     const wrapper = mount(Host, { attachTo: document.body })

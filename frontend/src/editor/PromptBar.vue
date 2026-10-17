@@ -33,7 +33,8 @@ watch(() => ai.busy, (b) => {
   clock = setInterval(() => { elapsed.value = Math.floor((Date.now() - from) / 1000) }, 500)
 }, { immediate: true })
 onBeforeUnmount(() => clearInterval(clock))
-const placeholder = computed(() => (!ui.aiOn ? (ui.aiMode === 'manual' ? t('prompt.hint.manual') : t('editor.mode.ai.off')) : empty.value ? t('prompt.placeholder.empty') : t('prompt.placeholder.edit')))
+// the bar is drawn only when the server has AI (lib/aiChrome.ts), so "not on" here is always the user's own choice of manual mode
+const placeholder = computed(() => (!ui.aiOn ? t('prompt.hint.manual') : empty.value ? t('prompt.placeholder.empty') : t('prompt.placeholder.edit')))
 
 async function run(kind: 'generate' | 'patch') {
   const v = text.value.trim()

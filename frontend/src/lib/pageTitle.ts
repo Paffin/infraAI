@@ -1,4 +1,4 @@
-import { normalizeSection, SECTION_SUBS } from '@/admin/lib/configKinds'
+import { normalizeSection, SECTION_SUBS } from '@/admin/lib/sections'
 import { t } from '@/i18n'
 
 /**

@@ -88,7 +88,7 @@ function activeElement(): HTMLElement | null {
 }
 
 // ---------------------------------------------------------------------------------------------------------------- the stack
-interface Entry { scope: FocusScope; root: () => HTMLElement | null; dialog: () => HTMLElement | null; opts: FocusScopeOptions; focusInside: () => void }
+interface Entry { root: () => HTMLElement | null; dialog: () => HTMLElement | null; opts: FocusScopeOptions; focusInside: () => void }
 const stack: Entry[] = []
 let listening = false
 
@@ -129,12 +129,7 @@ function listen(on: boolean) {
   else window.removeEventListener('keydown', onKey, true)
 }
 
-/** Is `scope` the one on top, the one that owns the keyboard? */
-export function isTopScope(scope: FocusScope): boolean {
-  return stack[stack.length - 1]?.scope === scope
-}
-
-/** How many scopes are open (tests, and the code that must know whether a dialog is on screen). */
+/** How many scopes are open (the tests: nothing may stay open after a case). */
 export function openScopes(): number { return stack.length }
 
 // ---------------------------------------------------------------------------------------------------------------- one scope
@@ -170,7 +165,7 @@ export function createFocusScope(root: () => HTMLElement | null, opts: FocusScop
     target?.focus({ preventScroll: true })
   }
 
-  const entry: Entry = { scope: undefined as unknown as FocusScope, root, dialog, opts, focusInside }
+  const entry: Entry = { root, dialog, opts, focusInside }
 
   function restore() {
     if (!opener) { // nothing had the focus before: nothing needs it back, and nothing of the dialog keeps it
@@ -217,7 +212,6 @@ export function createFocusScope(root: () => HTMLElement | null, opts: FocusScop
       if (wasTop && heldFocus) restore()
     },
   }
-  entry.scope = scope
   return scope
 }
 

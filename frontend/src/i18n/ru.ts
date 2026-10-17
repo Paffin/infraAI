@@ -137,7 +137,6 @@ export default {
   'editor.save.readonly': 'только чтение',
   'editor.mode.ai': 'ИИ + ручная правка',
   'editor.mode.manual': 'Только вручную',
-  'editor.mode.ai.off': 'ИИ недоступен: ключ OpenRouter не настроен или ИИ выключен администратором',
   // the line for the administrator when AI is off (editor/AiOffHint.vue)
   'ai.off.region': 'ИИ выключен',
   'ai.off.hint': 'ИИ выключен: не задан ключ OpenRouter или ИИ отключён. Включите его, чтобы описывать схему словами.',

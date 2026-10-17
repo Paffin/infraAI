@@ -3,6 +3,10 @@
 import type { LText } from '@/api/types'
 import { lt as defaultLt, t } from '@/i18n'
 import { isPlainObject } from './json'
+import { SECTION_SUBS } from './sections'
+
+// the names of the sections live in `sections.ts` (the title of the tab needs them without the rest of this file); the admin code keeps importing them from here
+export { normalizeSection, SECTION_IDS, SECTION_SUBS, type SectionId } from './sections'
 
 export interface KindMeta {
   kind: string
@@ -35,9 +39,6 @@ export function kindMeta(kind: string): KindMeta | undefined {
   return CONFIG_KINDS.find((k) => k.kind === kind)
 }
 
-/** Sections with several pages and the page that opens first. */
-export const SECTION_SUBS: Record<string, string> = { catalog: 'kind', placement: 'pattern' }
-
 export function kindFromRoute(section: string | undefined, sub: string | undefined): KindMeta | undefined {
   if (!section) return undefined
   const first = SECTION_SUBS[section]
@@ -52,13 +53,7 @@ export function kindPath(kind: string, itemId?: string): { path: string; query?:
   return itemId ? { path, query: { item: itemId } } : { path }
 }
 
-export const SECTION_IDS = ['settings', 'llm', 'catalog', 'placement', 'rules', 'templates', 'iac', 'prompts', 'engine', 'backup', 'users', 'audit', 'system'] as const
 export const CONFIG_SECTIONS = ['catalog', 'placement', 'rules', 'templates', 'iac', 'prompts', 'engine'] as const
-export type SectionId = typeof SECTION_IDS[number]
-
-export function normalizeSection(s: unknown): SectionId {
-  return (SECTION_IDS as readonly string[]).includes(String(s)) ? (s as SectionId) : 'settings'
-}
 
 // ---------------------------------------------------------------------------- titles
 

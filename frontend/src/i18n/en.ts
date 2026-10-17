@@ -137,7 +137,6 @@ export default {
   'editor.save.readonly': 'read-only',
   'editor.mode.ai': 'AI + manual editing',
   'editor.mode.manual': 'Manual only',
-  'editor.mode.ai.off': 'AI is unavailable: the OpenRouter key is not configured or AI is disabled by the administrator',
   // the line for the administrator when AI is off (editor/AiOffHint.vue)
   'ai.off.region': 'AI is off',
   'ai.off.hint': 'AI is off: there is no OpenRouter key, or AI is disabled. Turn it on to describe a design in words.',

@@ -82,8 +82,14 @@ test.describe('the guided tour', () => {
       await expect(tour(page).locator('h3')).not.toHaveText(before)
       seen.push(await tour(page).locator('h3').innerText())
     }
-    // the stack has no key for the AI, so there is no prompt bar to point at, and the tour does not stop at it (a step whose element is not on the screen is not shown)
-    expect(seen).toEqual(['Библиотека', 'Оценка и достоверность', 'Замечания', 'Что если отказ', 'Экспорт', 'Всё под рукой', 'Готово'])
+    // a stack with no key for the AI (the one of CI) has no prompt bar to point at, and the tour does not stop at it (a step whose element is not on the screen is not shown);
+    // a developer's stack with a key has the bar, and the tour stops there, second
+    const aiOnServer = (await (await page.request.get('/api/bootstrap')).json()).ai.enabled === true
+    expect(seen).toEqual([
+      'Библиотека',
+      ...(aiOnServer ? ['Опишите словами'] : []),
+      'Оценка и достоверность', 'Замечания', 'Что если отказ', 'Экспорт', 'Всё под рукой', 'Готово',
+    ])
     await tour(page).getByTestId('tour-next').click()
     await expect(tour(page)).toHaveCount(0)
   })
