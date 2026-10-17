@@ -293,9 +293,13 @@ impl<'a> Ctx<'a> {
 /// Evaluate an architecture. Pure and deterministic: identical input → identical output.
 pub fn evaluate(arch: &Architecture, cfg: &EngineConfig, waivers: &[Waiver]) -> Report {
     let ctx = Ctx::new(arch, cfg);
-    // a design that is already stored is looked at, not refused: a number out of range is a warning here (and counted at its limit), an error
-    // where it is saved
-    let issues = validate(arch, &cfg.catalog, &ValidationLimits::default().with_numbers(cfg.settings.limits).lenient());
+    // a design that is already stored is looked at, not refused: a number out of range is a warning here, an error where it is saved. Only the
+    // instance counts are held at their limit (`Index::replicas`); any other number is read as it is, so a figure computed from one that is out
+    // of range (a load from `rpsPeak = 1e308`) may come out without a value (`null` in the report) instead of a wrong one
+    // The size of a design is a limit of whoever accepts it (the server's `limits.maxNodes`, `maxEdges`, `maxZones`, which an administrator may raise and
+    // the engine does not know): judging a stored design against limits of its own would put an error into the report of every design past 500 nodes
+    let unbounded = ValidationLimits { max_nodes: usize::MAX, max_edges: usize::MAX, max_zones: usize::MAX, ..ValidationLimits::default() };
+    let issues = validate(arch, &cfg.catalog, &unbounded.with_numbers(cfg.settings.limits).lenient());
 
     let mut findings: Vec<Finding> = Vec::new();
     let mut rules: Vec<RuleResult> = Vec::new();

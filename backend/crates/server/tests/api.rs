@@ -1877,9 +1877,6 @@ async fn compute_endpoints_stay_lenient() {
         assert_eq!(s, StatusCode::OK, "{typed}: {v}");
         let (s, v) = app.post(&c, "/api/recommendations", json!({"architecture": a})).await;
         assert_eq!(s, StatusCode::OK, "{typed}: {v}");
-        let ops = json!([{"op": "update_node", "id": "kafka-dc1", "set": {"props.replicas": 4}}]);
-        let (s, v) = app.post(&c, "/api/ops/apply", json!({"architecture": a, "ops": ops, "preview": true})).await;
-        assert!(s == StatusCode::OK || s == StatusCode::BAD_REQUEST, "{typed}: {s} {v}");
     }
     // a requirement outside its domain is the same: said, not refused
     let mut slo = arch.clone();
@@ -1892,6 +1889,89 @@ async fn compute_endpoints_stay_lenient() {
     dangling["edges"][0]["target"] = json!("nowhere");
     let (s, v) = app.post(&c, "/api/simulate", json!({"architecture": dangling, "scenario": {"type": "none"}})).await;
     assert_eq!((s, v["error"]["code"].as_str()), (StatusCode::BAD_REQUEST, Some("invalid_architecture")), "{v}");
+    app.cleanup().await;
+}
+
+#[tokio::test]
+async fn operations_on_a_design_with_a_number_out_of_range_apply_only_when_they_put_the_number_right() {
+    // docs/API.md: the base of /ops/apply is looked at (parsed leniently), but what the operations make of it is written, so it is held to the
+    // ranges: an operation that leaves the number where it was is refused, naming it, and one that puts it right is applied. A recommended fix
+    // of some other finding therefore cannot be previewed on such a design until the number is put right
+    let app = TestApp::new().await;
+    let c = app.login_admin().await;
+    let arch = demo_architecture(&app, &c).await;
+    for typed in [json!(1_000_000_000_000u64), json!(0), json!(-3), json!(5_000_000), json!(0.5)] {
+        let mut legacy = arch.clone();
+        set_node_prop(&mut legacy, "app-dc1", "replicas", typed.clone());
+        let elsewhere = json!([{"op": "update_node", "id": "kafka-dc1", "set": {"props.replicas": 4}}]);
+        for preview in [false, true] {
+            let (s, v) = app.post(&c, "/api/ops/apply", json!({"architecture": legacy, "ops": elsewhere, "preview": preview})).await;
+            assert_eq!((s, v["error"]["code"].as_str()), (StatusCode::BAD_REQUEST, Some("ops_invalid")), "{typed} preview={preview}: {v}");
+            let issues = v["error"]["details"]["issues"].as_array().unwrap_or_else(|| panic!("{v}"));
+            let it = issues.iter().find(|i| i["code"] == "prop_out_of_range").unwrap_or_else(|| panic!("{typed}: {v}"));
+            assert_eq!((it["level"].as_str(), it["subject"].as_str()), (Some("error"), Some("app-dc1")), "{typed}: {it}");
+        }
+        let right = json!([{"op": "update_node", "id": "app-dc1", "set": {"props.replicas": 32}}]);
+        for preview in [false, true] {
+            let (s, v) = app.post(&c, "/api/ops/apply", json!({"architecture": legacy, "ops": right, "preview": preview})).await;
+            assert_eq!(s, StatusCode::OK, "{typed} preview={preview}: {v}");
+            let after = v["architecture"]["nodes"].as_array().unwrap().iter().find(|n| n["id"] == "app-dc1").unwrap()["props"]["replicas"].clone();
+            assert_eq!(after, json!(32), "{typed} preview={preview}");
+        }
+    }
+    app.cleanup().await;
+}
+
+#[tokio::test]
+async fn a_catalog_item_with_a_range_that_allows_nothing_is_refused_when_the_administrator_saves_it() {
+    // the ranges of the catalog are what the design check holds every written number to (ADR-0007), so a maximum below a minimum, or a default
+    // outside the range, would make every write of a node of that kind fail: it is refused where it is made, naming the item
+    let app = TestApp::new().await;
+    let c = app.login_admin().await;
+    let (_, list) = app.get(&c, "/api/admin/config/catalog.common_props").await;
+    let item = list["items"][0].clone();
+    let (id, common) = (item["id"].as_str().unwrap().to_string(), item["data"].clone());
+    let with = |field: &str, v: Value| {
+        let mut d = common.clone();
+        d.as_array_mut().unwrap().iter_mut().find(|p| p["key"] == "replicas").unwrap()[field] = v;
+        d
+    };
+    let url = format!("/api/admin/config/catalog.common_props/{id}");
+    for (field, v, said) in [
+        ("max", json!(0), "min 1 above max 0"),
+        ("max", json!(2), "kind 'kubernetes' prop 'replicas' has default 3 outside its range"),
+        ("default", json!(100_001), "default 100001 outside its range"),
+    ] {
+        let (s, e) = app.put(&c, &url, json!({"data": with(field, v.clone())})).await;
+        assert_eq!((s, e["error"]["code"].as_str()), (StatusCode::BAD_REQUEST, Some("invalid_config")), "{field} = {v}: {e}");
+        assert!(e["error"]["message"].as_str().unwrap().contains(said), "{field} = {v}: {e}");
+    }
+    // a kind that is created, or edited, with a range of its own that allows nothing
+    let (_, kinds) = app.get(&c, "/api/admin/config/catalog.kind").await;
+    let kubernetes = kinds["items"].as_array().unwrap().iter().find(|i| i["id"] == "kubernetes").unwrap()["data"].clone();
+    let mut bad = kubernetes.clone();
+    bad["props"].as_array_mut().unwrap().iter_mut().find(|p| p["key"] == "replicas").unwrap()["max"] = json!(0);
+    let (s, e) = app.put(&c, "/api/admin/config/catalog.kind/kubernetes", json!({"data": bad})).await;
+    assert_eq!((s, e["error"]["code"].as_str()), (StatusCode::BAD_REQUEST, Some("invalid_config")), "{e}");
+    let mut mine = bad.clone();
+    mine["id"] = json!("my-kubernetes");
+    let (s, e) = app.post(&c, "/api/admin/config/catalog.kind", json!({"id": "my-kubernetes", "data": mine})).await;
+    assert_eq!((s, e["error"]["code"].as_str()), (StatusCode::BAD_REQUEST, Some("invalid_config")), "{e}");
+    // nothing of it was stored: the catalog is as it was, and designs are still written
+    let arch = demo_architecture(&app, &c).await;
+    let pid = new_project(&app, &c, "after the refusals", &arch).await;
+    let (rev, _) = project_rev(&app, &c, &pid).await;
+    let (s, v) = app.put(&c, &format!("/api/projects/{pid}/draft"), json!({"architecture": arch, "expectedRev": rev})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    // a range that is sensible is a setting like any other, and takes effect at once
+    let (s, v) = app.put(&c, &url, json!({"data": with("max", json!(40))})).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    let mut big = arch.clone();
+    set_node_prop(&mut big, "app-dc1", "replicas", json!(41));
+    let (rev, _) = project_rev(&app, &c, &pid).await;
+    let (s, v) = app.put(&c, &format!("/api/projects/{pid}/draft"), json!({"architecture": big, "expectedRev": rev})).await;
+    assert_eq!((s, v["error"]["code"].as_str()), (StatusCode::BAD_REQUEST, Some("invalid_architecture")), "{v}");
+    assert!(v["error"]["message"].as_str().unwrap().contains("1 to 40"), "{v}");
     app.cleanup().await;
 }
 
