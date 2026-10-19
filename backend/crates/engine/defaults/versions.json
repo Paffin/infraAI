@@ -3,7 +3,7 @@
   "id": "activemq",
   "name": "Apache ActiveMQ Classic",
   "source": "https://endoflife.date/api/apache-activemq.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "6.3",
@@ -67,7 +67,7 @@
   "id": "airflow",
   "name": "Apache Airflow",
   "source": "https://endoflife.date/api/apache-airflow.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "3.3",
@@ -115,7 +115,7 @@
   "id": "alibaba_ack",
   "name": "Alibaba ACK",
   "source": "https://endoflife.date/api/alibaba-ack.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "1.34",
@@ -193,7 +193,7 @@
   "id": "almalinux",
   "name": "AlmaLinux",
   "source": "https://endoflife.date/api/almalinux.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "10",
@@ -225,7 +225,7 @@
   "id": "alpine",
   "name": "Alpine Linux",
   "source": "https://endoflife.date/api/alpine.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "3.24",
@@ -345,7 +345,7 @@
   "id": "amazon-aurora-mysql",
   "name": "Amazon Aurora MySQL",
   "source": "https://endoflife.date/api/amazon-aurora-mysql.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "8.4",
@@ -367,7 +367,7 @@
   "id": "amazon-aurora-postgresql",
   "name": "Amazon Aurora PostgreSQL",
   "source": "https://endoflife.date/api/amazon-aurora-postgresql.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "18",
@@ -417,13 +417,6 @@
     "eol": "2025-02-28",
     "latest": "12.22",
     "latestReleaseDate": "2024-12-13"
-   },
-   {
-    "cycle": "11",
-    "releaseDate": "2018-10-18",
-    "eol": "2024-02-29",
-    "latest": "11.21",
-    "latestReleaseDate": "2023-09-07"
    }
   ]
  },
@@ -431,7 +424,7 @@
   "id": "amazon-documentdb",
   "name": "Amazon DocumentDB",
   "source": "https://endoflife.date/api/amazon-documentdb.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "8.0",
@@ -460,7 +453,7 @@
   "id": "amazon-eks",
   "name": "Amazon EKS",
   "source": "https://endoflife.date/api/amazon-eks.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "1.37",
@@ -608,7 +601,7 @@
   "id": "amazon-elasticache-redis",
   "name": "Amazon ElastiCache for Redis",
   "source": "https://endoflife.date/api/amazon-elasticache-redis.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "7",
@@ -623,13 +616,6 @@
     "eol": "2027-01-31",
     "latest": "6.2",
     "latestReleaseDate": "2021-11-23"
-   },
-   {
-    "cycle": "5",
-    "releaseDate": "2018-10-17",
-    "eol": "2026-01-31",
-    "latest": "5.0.6",
-    "latestReleaseDate": "2019-12-18"
    }
   ]
  },
@@ -637,7 +623,7 @@
   "id": "amazon-linux",
   "name": "Amazon Linux",
   "source": "https://endoflife.date/api/amazon-linux.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "2023",
@@ -653,7 +639,7 @@
   "id": "amazon-mq-activemq",
   "name": "Amazon MQ for ActiveMQ",
   "source": "https://endoflife.date/api/amazon-mq-activemq.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "5.19",
@@ -681,7 +667,7 @@
   "id": "amazon-mq-rabbitmq",
   "name": "Amazon MQ for RabbitMQ",
   "source": "https://endoflife.date/api/amazon-mq-rabbitmq.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "4.3",
@@ -709,7 +695,7 @@
   "id": "amazon-msk",
   "name": "Amazon MSK",
   "source": "https://endoflife.date/api/amazon-msk.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "4.2",
@@ -850,7 +836,7 @@
   "id": "amazon-opensearch",
   "name": "Amazon OpenSearch Service",
   "source": "https://endoflife.date/api/amazon-opensearch.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "3.5",
@@ -938,7 +924,7 @@
   "id": "amazon-rds-mariadb",
   "name": "Amazon RDS for MariaDB",
   "source": "https://endoflife.date/api/amazon-rds-mariadb.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "12.3",
@@ -1002,7 +988,7 @@
   "id": "amazon-rds-mysql",
   "name": "Amazon RDS for MySQL",
   "source": "https://endoflife.date/api/amazon-rds-mysql.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "8.4.9",
@@ -1138,7 +1124,7 @@
   "id": "amazon-rds-postgresql",
   "name": "Amazon RDS for PostgreSQL",
   "source": "https://endoflife.date/api/amazon-rds-postgresql.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "18",
@@ -1202,7 +1188,7 @@
   "id": "amazon_elasticsearch",
   "name": "Amazon Elasticsearch",
   "source": "https://endoflife.date/api/amazon-elasticsearch.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "7.10",
@@ -1260,7 +1246,7 @@
   "id": "amazon_glue",
   "name": "Amazon Glue",
   "source": "https://endoflife.date/api/amazon-glue.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "6.0",
@@ -1313,14 +1299,14 @@
   "id": "amazon_neptune",
   "name": "Amazon Neptune",
   "source": "https://endoflife.date/api/amazon-neptune.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "1.4.8.1",
     "releaseDate": "2026-09-30",
     "eol": "2027-10-27",
     "latest": "1.4.8.1",
-    "latestReleaseDate": "2026-09-30"
+    "latestReleaseDate": "2026-10-06"
    },
    {
     "cycle": "1.4.7.1",
@@ -1587,7 +1573,7 @@
   "id": "ansible",
   "name": "Ansible",
   "source": "https://endoflife.date/api/ansible.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "14",
@@ -1693,7 +1679,7 @@
   "id": "ansible_core",
   "name": "Ansible-core",
   "source": "https://endoflife.date/api/ansible-core.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "2.21",
@@ -1792,7 +1778,7 @@
   "id": "apache",
   "name": "Apache HTTP Server",
   "source": "https://endoflife.date/api/apache.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "2.4",
@@ -1807,14 +1793,14 @@
   "id": "apache_camel",
   "name": "Apache Camel",
   "source": "https://endoflife.date/api/apache-camel.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "4.22",
     "releaseDate": "2026-08-11",
     "eol": "2027-08-11",
-    "latest": "4.22.1",
-    "latestReleaseDate": "2026-09-13",
+    "latest": "4.22.2",
+    "latestReleaseDate": "2026-10-17",
     "lts": true
    },
    {
@@ -2160,7 +2146,7 @@
   "id": "apache_hadoop",
   "name": "Apache Hadoop",
   "source": "https://endoflife.date/api/apache-hadoop.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "3.5",
@@ -2203,7 +2189,7 @@
   "id": "apache_http_server",
   "name": "Apache HTTP Server",
   "source": "https://endoflife.date/api/apache-http-server.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "2.4",
@@ -2218,7 +2204,7 @@
   "id": "apache_subversion",
   "name": "Apache Subversion",
   "source": "https://endoflife.date/api/apache-subversion.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "1.14",
@@ -2255,7 +2241,7 @@
   "id": "apisix",
   "name": "Apache APISIX",
   "source": "https://endoflife.date/api/apache-apisix.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "3.19",
@@ -2449,7 +2435,7 @@
   "id": "arangodb",
   "name": "ArangoDB",
   "source": "https://endoflife.date/api/arangodb.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "3.12",
@@ -2520,28 +2506,28 @@
   "id": "argo_cd",
   "name": "Argo CD",
   "source": "https://endoflife.date/api/argo-cd.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "3.5",
     "releaseDate": "2026-08-04",
     "eol": false,
-    "latest": "3.5.4",
-    "latestReleaseDate": "2026-10-06"
+    "latest": "3.5.5",
+    "latestReleaseDate": "2026-10-12"
    },
    {
     "cycle": "3.4",
     "releaseDate": "2026-05-05",
     "eol": false,
-    "latest": "3.4.10",
-    "latestReleaseDate": "2026-10-06"
+    "latest": "3.4.11",
+    "latestReleaseDate": "2026-10-12"
    },
    {
     "cycle": "3.3",
     "releaseDate": "2026-02-02",
     "eol": false,
-    "latest": "3.3.15",
-    "latestReleaseDate": "2026-10-06"
+    "latest": "3.3.16",
+    "latestReleaseDate": "2026-10-12"
    },
    {
     "cycle": "3.2",
@@ -2738,7 +2724,7 @@
   "id": "argo_workflows",
   "name": "Argo Workflows",
   "source": "https://endoflife.date/api/argo-workflows.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "4.1",
@@ -2795,7 +2781,7 @@
   "id": "artemis",
   "name": "Apache ActiveMQ Artemis",
   "source": "https://endoflife.date/api/apache-artemis.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "2.57",
@@ -3125,7 +3111,7 @@
   "id": "artifactory",
   "name": "JFrog Artifactory",
   "source": "https://endoflife.date/api/artifactory.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "7.161",
@@ -3343,14 +3329,14 @@
   "id": "authentik",
   "name": "authentik",
   "source": "https://endoflife.date/api/authentik.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "2026.8",
     "releaseDate": "2026-08-18",
     "eol": false,
-    "latest": "2026.8.3",
-    "latestReleaseDate": "2026-09-17"
+    "latest": "2026.8.4",
+    "latestReleaseDate": "2026-10-14"
    },
    {
     "cycle": "2026.5",
@@ -3435,7 +3421,7 @@
   "id": "aws_lambda",
   "name": "AWS Lambda",
   "source": "https://endoflife.date/api/aws-lambda.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "java8.al2023",
@@ -3501,7 +3487,7 @@
     "cycle": "nodejs22.x",
     "releaseDate": "2024-11-22",
     "support": "2027-04-30",
-    "eol": "2027-07-01"
+    "eol": "2027-08-31"
    },
    {
     "cycle": "python3.13",
@@ -3695,7 +3681,7 @@
   "id": "azure-database-for-mysql",
   "name": "Azure Database for MySQL",
   "source": "https://endoflife.date/api/azure-database-for-mysql.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "8.4",
@@ -3713,7 +3699,7 @@
   "id": "azure-database-for-postgresql",
   "name": "Azure Database for PostgreSQL",
   "source": "https://endoflife.date/api/azure-database-for-postgresql.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "18",
@@ -3761,7 +3747,7 @@
   "id": "azure-kubernetes-service",
   "name": "Azure Kubernetes Service",
   "source": "https://endoflife.date/api/azure-kubernetes-service.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "1.36",
@@ -3849,7 +3835,7 @@
   "id": "azure_devops_server",
   "name": "Azure DevOps Server",
   "source": "https://endoflife.date/api/azure-devops-server.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "continuous",
@@ -3937,7 +3923,7 @@
   "id": "bamboo",
   "name": "Bamboo",
   "source": "https://endoflife.date/api/bamboo.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "12.1",
@@ -4096,13 +4082,6 @@
     "eol": "2021-02-05",
     "latest": "6.8.3",
     "latestReleaseDate": "2019-06-03"
-   },
-   {
-    "cycle": "6.7",
-    "releaseDate": "2018-10-17",
-    "eol": "2020-10-18",
-    "latest": "6.7.3",
-    "latestReleaseDate": "2019-03-21"
    }
   ]
  },
@@ -4110,7 +4089,7 @@
   "id": "beats",
   "name": "Elastic Beats",
   "source": "https://endoflife.date/api/beats.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "9.5",
@@ -4195,7 +4174,7 @@
   "id": "big_ip",
   "name": "BIG-IP",
   "source": "https://endoflife.date/api/big-ip.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "21.1",
@@ -4288,7 +4267,7 @@
   "id": "bigbluebutton",
   "name": "BigBlueButton",
   "source": "https://endoflife.date/api/bigbluebutton.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "3.0",
@@ -4324,7 +4303,7 @@
   "id": "bind",
   "name": "BIND 9",
   "source": "https://endoflife.date/api/bind-9.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "9.21",
@@ -4363,7 +4342,7 @@
   "id": "bitbucket",
   "name": "Bitbucket",
   "source": "https://endoflife.date/api/bitbucket.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "10.5",
@@ -4841,13 +4820,6 @@
     "eol": "2020-11-20",
     "latest": "5.16.11",
     "latestReleaseDate": "2019-12-23"
-   },
-   {
-    "cycle": "5.15",
-    "releaseDate": "2018-10-16",
-    "eol": "2020-10-18",
-    "latest": "5.15.3",
-    "latestReleaseDate": "2019-03-18"
    }
   ]
  },
@@ -4855,7 +4827,7 @@
   "id": "boundary",
   "name": "HashiCorp Boundary",
   "source": "https://endoflife.date/api/boundary.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "0.21",
@@ -4905,7 +4877,7 @@
   "id": "caddy",
   "name": "Caddy",
   "source": "https://endoflife.date/api/caddy.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "2",
@@ -4927,7 +4899,7 @@
   "id": "calico",
   "name": "Calico",
   "source": "https://endoflife.date/api/calico.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "3.33",
@@ -4998,7 +4970,7 @@
   "id": "cassandra",
   "name": "Apache Cassandra",
   "source": "https://endoflife.date/api/apache-cassandra.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "5.0",
@@ -5027,7 +4999,7 @@
   "id": "centreon",
   "name": "Centreon",
   "source": "https://endoflife.date/api/centreon.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "25.10",
@@ -5133,7 +5105,7 @@
   "id": "ceph",
   "name": "Ceph",
   "source": "https://endoflife.date/api/ceph.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "20",
@@ -5190,7 +5162,7 @@
   "id": "cert_manager",
   "name": "cert-manager",
   "source": "https://endoflife.date/api/cert-manager.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "1.21",
@@ -5283,7 +5255,7 @@
   "id": "cfengine",
   "name": "CFEngine",
   "source": "https://endoflife.date/api/cfengine.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "3.28",
@@ -5296,8 +5268,8 @@
     "cycle": "3.27",
     "releaseDate": "2026-01-09",
     "eol": "2029-01-09",
-    "latest": "3.27.1",
-    "latestReleaseDate": "2026-05-08",
+    "latest": "3.27.2",
+    "latestReleaseDate": "2026-10-15",
     "lts": true
    },
    {
@@ -5318,8 +5290,8 @@
     "cycle": "3.24",
     "releaseDate": "2024-07-22",
     "eol": "2027-07-31",
-    "latest": "3.24.4",
-    "latestReleaseDate": "2026-05-08",
+    "latest": "3.24.5",
+    "latestReleaseDate": "2026-10-15",
     "lts": true
    },
    {
@@ -5394,7 +5366,7 @@
   "id": "checkmk",
   "name": "Checkmk",
   "source": "https://endoflife.date/api/checkmk.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "2.5",
@@ -5444,7 +5416,7 @@
   "id": "chef_infra_client",
   "name": "Chef Infra Client",
   "source": "https://endoflife.date/api/chef-infra-client.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "19",
@@ -5492,7 +5464,7 @@
   "id": "chef_infra_server",
   "name": "Chef Infra Server",
   "source": "https://endoflife.date/api/chef-infra-server.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "15",
@@ -5524,15 +5496,15 @@
   "id": "chef_inspec",
   "name": "Chef InSpec",
   "source": "https://endoflife.date/api/chef-inspec.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "7",
     "releaseDate": "2025-10-16",
     "support": true,
     "eol": false,
-    "latest": "7.2.1",
-    "latestReleaseDate": "2026-08-07"
+    "latest": "7.3.4",
+    "latestReleaseDate": "2026-10-09"
    },
    {
     "cycle": "6",
@@ -5557,14 +5529,6 @@
     "eol": "2023-11-14",
     "latest": "4.56.58",
     "latestReleaseDate": "2023-10-24"
-   },
-   {
-    "cycle": "3",
-    "releaseDate": "2018-10-15",
-    "support": "2019-04-30",
-    "eol": "2020-04-30",
-    "latest": "3.9.3",
-    "latestReleaseDate": "2019-04-11"
    }
   ]
  },
@@ -5572,7 +5536,7 @@
   "id": "chef_supermarket",
   "name": "Chef Supermarket",
   "source": "https://endoflife.date/api/chef-supermarket.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "5",
@@ -5594,28 +5558,28 @@
   "id": "cilium",
   "name": "Cilium",
   "source": "https://endoflife.date/api/cilium.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "1.20",
     "releaseDate": "2026-07-29",
     "eol": false,
-    "latest": "1.20.2",
-    "latestReleaseDate": "2026-09-15"
+    "latest": "1.20.3",
+    "latestReleaseDate": "2026-10-15"
    },
    {
     "cycle": "1.19",
     "releaseDate": "2026-02-03",
     "eol": false,
-    "latest": "1.19.8",
-    "latestReleaseDate": "2026-09-15"
+    "latest": "1.19.9",
+    "latestReleaseDate": "2026-10-15"
    },
    {
     "cycle": "1.18",
     "releaseDate": "2025-07-29",
     "eol": false,
-    "latest": "1.18.14",
-    "latestReleaseDate": "2026-09-15"
+    "latest": "1.18.15",
+    "latestReleaseDate": "2026-10-15"
    },
    {
     "cycle": "1.17",
@@ -5658,7 +5622,7 @@
   "id": "cisco_ios_xe",
   "name": "Cisco IOS XE",
   "source": "https://endoflife.date/api/cisco-ios-xe.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "26.1",
@@ -5794,7 +5758,7 @@
   "id": "citrix_vad",
   "name": "Citrix Virtual Apps and Desktops",
   "source": "https://endoflife.date/api/citrix-vad.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "2607",
@@ -6007,7 +5971,7 @@
   "id": "clamav",
   "name": "ClamAV",
   "source": "https://endoflife.date/api/clamav.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "1.5",
@@ -6095,29 +6059,29 @@
   "id": "clickhouse",
   "name": "ClickHouse",
   "source": "https://endoflife.date/api/clickhouse.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "26.9",
     "releaseDate": "2026-09-21",
     "eol": false,
-    "latest": "26.9.16.11",
-    "latestReleaseDate": "2026-10-11"
+    "latest": "26.9.21.9",
+    "latestReleaseDate": "2026-10-17"
    },
    {
     "cycle": "26.8",
     "releaseDate": "2026-08-27",
     "eol": "2027-08-27",
-    "latest": "26.8.24.9",
-    "latestReleaseDate": "2026-10-11",
+    "latest": "26.8.30.8",
+    "latestReleaseDate": "2026-10-17",
     "lts": true
    },
    {
     "cycle": "26.7",
     "releaseDate": "2026-07-22",
     "eol": false,
-    "latest": "26.7.27.3",
-    "latestReleaseDate": "2026-10-11"
+    "latest": "26.7.34.3",
+    "latestReleaseDate": "2026-10-18"
    },
    {
     "cycle": "26.6",
@@ -6144,8 +6108,8 @@
     "cycle": "26.3",
     "releaseDate": "2026-03-26",
     "eol": "2027-03-26",
-    "latest": "26.3.48.2",
-    "latestReleaseDate": "2026-10-11",
+    "latest": "26.3.55.2",
+    "latestReleaseDate": "2026-10-18",
     "lts": true
    },
    {
@@ -6254,7 +6218,7 @@
   "id": "cockroachdb",
   "name": "CockroachDB",
   "source": "https://endoflife.date/api/cockroachdb.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "26.3",
@@ -6269,8 +6233,8 @@
     "releaseDate": "2026-04-27",
     "support": "2027-09-23",
     "eol": "2028-09-23",
-    "latest": "26.2.7",
-    "latestReleaseDate": "2026-09-21",
+    "latest": "26.2.8",
+    "latestReleaseDate": "2026-10-10",
     "lts": true
    },
    {
@@ -6437,7 +6401,7 @@
   "id": "coder",
   "name": "Coder",
   "source": "https://endoflife.date/api/coder.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "2.38",
@@ -6704,21 +6668,21 @@
   "id": "coldfusion",
   "name": "Adobe ColdFusion",
   "source": "https://endoflife.date/api/coldfusion.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "2025",
     "releaseDate": "2025-02-25",
     "eol": "2030-04-08",
-    "latest": "2025.0.13.331960",
-    "latestReleaseDate": "2026-09-08"
+    "latest": "2025.0.14.332029",
+    "latestReleaseDate": "2026-10-13"
    },
    {
     "cycle": "2023",
     "releaseDate": "2022-05-16",
     "eol": "2028-05-16",
-    "latest": "2023.0.24.330957",
-    "latestReleaseDate": "2026-09-08"
+    "latest": "2023.0.26.331018",
+    "latestReleaseDate": "2026-10-13"
    },
    {
     "cycle": "2021",
@@ -6733,14 +6697,14 @@
   "id": "commvault",
   "name": "Commvault",
   "source": "https://endoflife.date/api/commvault.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "11.46",
     "releaseDate": "2026-07-15",
     "eol": false,
-    "latest": "11.46.30",
-    "latestReleaseDate": "2026-09-17"
+    "latest": "11.46.40",
+    "latestReleaseDate": "2026-10-15"
    },
    {
     "cycle": "11.44",
@@ -6794,7 +6758,7 @@
   "id": "confluence",
   "name": "Confluence",
   "source": "https://endoflife.date/api/confluence.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "11.0",
@@ -7117,7 +7081,7 @@
   "id": "consul",
   "name": "HashiCorp Consul",
   "source": "https://endoflife.date/api/consul.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "2.0",
@@ -7254,7 +7218,7 @@
   "id": "contour",
   "name": "Contour",
   "source": "https://endoflife.date/api/contour.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "1.33",
@@ -7332,7 +7296,7 @@
   "id": "controlm",
   "name": "Control-M",
   "source": "https://endoflife.date/api/controlm.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "9.0.22",
@@ -7372,7 +7336,7 @@
   "id": "cortex_xdr",
   "name": "Palo Alto Networks Cortex XDR agent",
   "source": "https://endoflife.date/api/cortex-xdr.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "9.3",
@@ -7592,7 +7556,7 @@
   "id": "couchbase",
   "name": "Couchbase Server",
   "source": "https://endoflife.date/api/couchbase-server.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "8.0",
@@ -7656,7 +7620,7 @@
   "id": "couchdb",
   "name": "Apache CouchDB",
   "source": "https://endoflife.date/api/apache-couchdb.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "3.5",
@@ -7692,7 +7656,7 @@
   "id": "craft_cms",
   "name": "Craft CMS",
   "source": "https://endoflife.date/api/craft-cms.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "5",
@@ -7716,7 +7680,7 @@
   "id": "dapr",
   "name": "Dapr",
   "source": "https://endoflife.date/api/dapr.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "1.18",
@@ -7801,31 +7765,31 @@
   "id": "dbt_core",
   "name": "dbt Core",
   "source": "https://endoflife.date/api/dbt-core.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "2.0",
     "releaseDate": "2026-09-14",
     "support": true,
     "eol": "2027-09-14",
-    "latest": "2.0.5",
-    "latestReleaseDate": "2026-09-18"
+    "latest": "2.0.8",
+    "latestReleaseDate": "2026-10-14"
    },
    {
     "cycle": "1.12",
     "releaseDate": "2026-07-16",
     "support": "2026-09-14",
     "eol": "2027-07-16",
-    "latest": "1.12.5",
-    "latestReleaseDate": "2026-09-15"
+    "latest": "1.12.6",
+    "latestReleaseDate": "2026-10-14"
    },
    {
     "cycle": "1.11",
     "releaseDate": "2025-12-19",
     "support": "2026-07-16",
     "eol": "2026-12-19",
-    "latest": "1.11.15",
-    "latestReleaseDate": "2026-09-08"
+    "latest": "1.11.16",
+    "latestReleaseDate": "2026-10-14"
    },
    {
     "cycle": "1.10",
@@ -7921,7 +7885,7 @@
   "id": "dce",
   "name": "DaoCloud Enterprise",
   "source": "https://endoflife.date/api/dce.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "5.0",
@@ -7943,7 +7907,7 @@
   "id": "debian",
   "name": "Debian",
   "source": "https://endoflife.date/api/debian.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "13",
@@ -7983,7 +7947,7 @@
   "id": "dependency_track",
   "name": "Dependency-Track",
   "source": "https://endoflife.date/api/dependency-track.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "5.1",
@@ -8061,7 +8025,7 @@
   "id": "discourse",
   "name": "Discourse",
   "source": "https://endoflife.date/api/discourse.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "2026.9",
@@ -8164,7 +8128,7 @@
   "id": "django",
   "name": "Django",
   "source": "https://endoflife.date/api/django.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "6.1",
@@ -8272,14 +8236,14 @@
   "id": "docker_engine",
   "name": "Docker Engine",
   "source": "https://endoflife.date/api/docker-engine.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "29",
     "releaseDate": "2025-11-10",
     "eol": false,
-    "latest": "29.9.0",
-    "latestReleaseDate": "2026-10-08"
+    "latest": "29.9.1",
+    "latestReleaseDate": "2026-10-14"
    },
    {
     "cycle": "28",
@@ -8357,29 +8321,29 @@
   "id": "dotnet",
   "name": ".NET",
   "source": "https://endoflife.date/api/dotnet.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "10",
     "releaseDate": "2025-11-11",
     "eol": "2028-11-14",
-    "latest": "10.0.12",
-    "latestReleaseDate": "2026-09-08",
+    "latest": "10.0.13",
+    "latestReleaseDate": "2026-10-13",
     "lts": true
    },
    {
     "cycle": "9",
     "releaseDate": "2024-11-12",
     "eol": "2026-11-10",
-    "latest": "9.0.20",
-    "latestReleaseDate": "2026-09-08"
+    "latest": "9.0.21",
+    "latestReleaseDate": "2026-10-13"
    },
    {
     "cycle": "8",
     "releaseDate": "2023-11-14",
     "eol": "2026-11-10",
-    "latest": "8.0.31",
-    "latestReleaseDate": "2026-09-08",
+    "latest": "8.0.32",
+    "latestReleaseDate": "2026-10-13",
     "lts": true
    },
    {
@@ -8432,7 +8396,7 @@
   "id": "dovecot",
   "name": "Dovecot",
   "source": "https://endoflife.date/api/dovecot.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "2.4",
@@ -8456,31 +8420,31 @@
   "id": "drupal",
   "name": "Drupal",
   "source": "https://endoflife.date/api/drupal.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "11.4",
     "releaseDate": "2026-07-01",
     "support": "2027-01-01",
     "eol": "2027-07-07",
-    "latest": "11.4.9",
-    "latestReleaseDate": "2026-10-09"
+    "latest": "11.4.10",
+    "latestReleaseDate": "2026-10-14"
    },
    {
     "cycle": "11.3",
     "releaseDate": "2025-12-17",
     "support": "2026-06-16",
     "eol": "2026-12-16",
-    "latest": "11.3.18",
-    "latestReleaseDate": "2026-09-28"
+    "latest": "11.3.19",
+    "latestReleaseDate": "2026-10-14"
    },
    {
     "cycle": "10.6",
     "releaseDate": "2025-12-17",
     "support": "2026-06-16",
     "eol": "2026-12-16",
-    "latest": "10.6.18",
-    "latestReleaseDate": "2026-09-26"
+    "latest": "10.6.19",
+    "latestReleaseDate": "2026-10-14"
    },
    {
     "cycle": "11.2",
@@ -8624,12 +8588,12 @@
   "id": "duckdb",
   "name": "DuckDB",
   "source": "https://endoflife.date/api/duckdb.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "1.5",
     "releaseDate": "2026-03-09",
-    "eol": "2026-11-01",
+    "eol": "2027-03-01",
     "latest": "1.5.6",
     "latestReleaseDate": "2026-09-28"
    },
@@ -8675,7 +8639,7 @@
   "id": "eclipse-temurin",
   "name": "Eclipse Temurin (Java)",
   "source": "https://endoflife.date/api/eclipse-temurin.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "27",
@@ -8786,7 +8750,7 @@
   "id": "eclipse_jetty",
   "name": "Eclipse Jetty",
   "source": "https://endoflife.date/api/eclipse-jetty.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "12.1",
@@ -8826,7 +8790,7 @@
   "id": "elasticsearch",
   "name": "Elasticsearch",
   "source": "https://endoflife.date/api/elasticsearch.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "9.5",
@@ -8911,35 +8875,42 @@
   "id": "envoy",
   "name": "Envoy",
   "source": "https://endoflife.date/api/envoy.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
+   {
+    "cycle": "1.40",
+    "releaseDate": "2026-10-13",
+    "eol": "2027-10-13",
+    "latest": "1.40.0",
+    "latestReleaseDate": "2026-10-13"
+   },
    {
     "cycle": "1.39",
     "releaseDate": "2026-07-14",
     "eol": "2027-07-14",
-    "latest": "1.39.3",
-    "latestReleaseDate": "2026-10-06"
+    "latest": "1.39.4",
+    "latestReleaseDate": "2026-10-12"
    },
    {
     "cycle": "1.38",
     "releaseDate": "2026-04-23",
     "eol": "2027-04-23",
-    "latest": "1.38.6",
-    "latestReleaseDate": "2026-10-06"
+    "latest": "1.38.7",
+    "latestReleaseDate": "2026-10-12"
    },
    {
     "cycle": "1.37",
     "releaseDate": "2026-01-13",
     "eol": "2027-01-13",
-    "latest": "1.37.8",
-    "latestReleaseDate": "2026-10-06"
+    "latest": "1.37.9",
+    "latestReleaseDate": "2026-10-12"
    },
    {
     "cycle": "1.36",
     "releaseDate": "2025-10-14",
     "eol": "2026-10-14",
-    "latest": "1.36.12",
-    "latestReleaseDate": "2026-10-06"
+    "latest": "1.36.13",
+    "latestReleaseDate": "2026-10-12"
    },
    {
     "cycle": "1.35",
@@ -9136,7 +9107,7 @@
   "id": "esxi",
   "name": "VMware ESXi",
   "source": "https://endoflife.date/api/esxi.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "9.1",
@@ -9172,7 +9143,7 @@
   "id": "etcd",
   "name": "etcd",
   "source": "https://endoflife.date/api/etcd.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "3.7",
@@ -9208,7 +9179,7 @@
   "id": "exim",
   "name": "Exim",
   "source": "https://endoflife.date/api/exim.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "4.100",
@@ -9279,7 +9250,7 @@
   "id": "external_dns",
   "name": "ExternalDNS",
   "source": "https://endoflife.date/api/external-dns.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "0",
@@ -9294,7 +9265,7 @@
   "id": "flink",
   "name": "Apache Flink",
   "source": "https://endoflife.date/api/apache-flink.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "2.3",
@@ -9359,14 +9330,14 @@
   "id": "fluent_bit",
   "name": "Fluent Bit",
   "source": "https://endoflife.date/api/fluent-bit.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "5.1",
     "releaseDate": "2026-08-06",
     "eol": false,
-    "latest": "5.1.3",
-    "latestReleaseDate": "2026-10-01"
+    "latest": "5.1.4",
+    "latestReleaseDate": "2026-10-16"
    },
    {
     "cycle": "5.0",
@@ -9514,7 +9485,7 @@
   "id": "flux",
   "name": "Flux",
   "source": "https://endoflife.date/api/flux.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "2.9",
@@ -9599,7 +9570,7 @@
   "id": "foreman",
   "name": "Foreman",
   "source": "https://endoflife.date/api/foreman.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "5.0",
@@ -9831,21 +9802,21 @@
   "id": "forgejo",
   "name": "Forgejo",
   "source": "https://endoflife.date/api/forgejo.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "16.0",
     "releaseDate": "2026-07-16",
     "eol": "2026-10-29",
-    "latest": "16.0.5",
-    "latestReleaseDate": "2026-09-17"
+    "latest": "16.0.6",
+    "latestReleaseDate": "2026-10-12"
    },
    {
     "cycle": "15.0",
     "releaseDate": "2026-04-16",
     "eol": "2027-07-15",
-    "latest": "15.0.9",
-    "latestReleaseDate": "2026-09-17",
+    "latest": "15.0.10",
+    "latestReleaseDate": "2026-10-12",
     "lts": true
    },
    {
@@ -9912,7 +9883,7 @@
   "id": "fortigate",
   "name": "FortiOS (FortiGate)",
   "source": "https://endoflife.date/api/fortios.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "8.0",
@@ -9962,7 +9933,7 @@
   "id": "foundationdb",
   "name": "FoundationDB",
   "source": "https://endoflife.date/api/foundationdb.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "7.3",
@@ -9994,7 +9965,7 @@
   "id": "freebsd",
   "name": "FreeBSD",
   "source": "https://endoflife.date/api/freebsd.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "14.5",
@@ -10127,7 +10098,7 @@
   "id": "gatekeeper",
   "name": "OPA Gatekeeper",
   "source": "https://endoflife.date/api/gatekeeper.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "3.23",
@@ -10226,7 +10197,7 @@
   "id": "gerrit",
   "name": "Gerrit",
   "source": "https://endoflife.date/api/gerrit.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "3.14",
@@ -10346,8 +10317,16 @@
   "id": "gitlab",
   "name": "GitLab",
   "source": "https://endoflife.date/api/gitlab.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
+   {
+    "cycle": "19.5",
+    "releaseDate": "2026-10-15",
+    "support": "2026-11-19",
+    "eol": "2027-01-21",
+    "latest": "19.5.0",
+    "latestReleaseDate": "2026-10-15"
+   },
    {
     "cycle": "19.4",
     "releaseDate": "2026-09-17",
@@ -10361,8 +10340,8 @@
     "releaseDate": "2026-08-20",
     "support": "2026-09-17",
     "eol": "2026-11-19",
-    "latest": "19.3.4",
-    "latestReleaseDate": "2026-10-07"
+    "latest": "19.3.5",
+    "latestReleaseDate": "2026-10-12"
    },
    {
     "cycle": "19.2",
@@ -10890,8 +10869,16 @@
   "id": "gitlab_runner",
   "name": "GitLab Runner",
   "source": "https://endoflife.date/api/gitlab-runner.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
+   {
+    "cycle": "19.5",
+    "releaseDate": "2026-10-15",
+    "support": "2026-11-19",
+    "eol": "2027-01-21",
+    "latest": "19.5.0",
+    "latestReleaseDate": "2026-10-14"
+   },
    {
     "cycle": "19.4",
     "releaseDate": "2026-09-17",
@@ -11034,7 +11021,7 @@
   "id": "go",
   "name": "Go",
   "source": "https://endoflife.date/api/go.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "1.27",
@@ -11154,55 +11141,55 @@
   "id": "google-kubernetes-engine",
   "name": "Google Kubernetes Engine",
   "source": "https://endoflife.date/api/google-kubernetes-engine.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "1.36",
     "releaseDate": "2026-06-09",
     "support": "2027-06-30",
     "eol": "2027-08-09",
-    "latest": "1.36.4-gke.2326000",
-    "latestReleaseDate": "2026-10-08"
+    "latest": "1.36.4-gke.2377000",
+    "latestReleaseDate": "2026-10-14"
    },
    {
     "cycle": "1.35",
     "releaseDate": "2026-02-11",
     "support": "2027-02-28",
     "eol": "2027-04-11",
-    "latest": "1.35.8-gke.1919000",
-    "latestReleaseDate": "2026-10-08"
+    "latest": "1.35.8-gke.1975000",
+    "latestReleaseDate": "2026-10-14"
    },
    {
     "cycle": "1.34",
     "releaseDate": "2025-09-30",
     "support": "2026-08-30",
     "eol": "2026-10-01",
-    "latest": "1.34.12-gke.1153000",
-    "latestReleaseDate": "2026-10-08"
+    "latest": "1.34.12-gke.1209000",
+    "latestReleaseDate": "2026-10-14"
    },
    {
     "cycle": "1.33",
     "releaseDate": "2025-06-03",
     "support": "2026-06-30",
     "eol": "2026-08-03",
-    "latest": "1.33.13-gke.1915000",
-    "latestReleaseDate": "2026-10-08"
+    "latest": "1.33.13-gke.1952000",
+    "latestReleaseDate": "2026-10-14"
    },
    {
     "cycle": "1.32",
     "releaseDate": "2025-02-11",
     "support": "2026-02-28",
     "eol": "2026-04-11",
-    "latest": "1.32.13-gke.2662000",
-    "latestReleaseDate": "2026-10-08"
+    "latest": "1.32.13-gke.2701000",
+    "latestReleaseDate": "2026-10-14"
    },
    {
     "cycle": "1.31",
     "releaseDate": "2024-10-25",
     "support": "2025-11-30",
     "eol": "2026-01-16",
-    "latest": "1.31.14-gke.2925000",
-    "latestReleaseDate": "2026-10-08"
+    "latest": "1.31.14-gke.2963000",
+    "latestReleaseDate": "2026-10-14"
    },
    {
     "cycle": "1.30",
@@ -11322,39 +11309,39 @@
   "id": "grafana",
   "name": "Grafana",
   "source": "https://endoflife.date/api/grafana.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "13.2",
     "releaseDate": "2026-08-18",
     "support": true,
     "eol": "2027-05-18",
-    "latest": "13.2.3",
-    "latestReleaseDate": "2026-09-29"
+    "latest": "13.2.4",
+    "latestReleaseDate": "2026-10-13"
    },
    {
     "cycle": "13.1",
     "releaseDate": "2026-06-23",
     "support": "2026-08-18",
     "eol": "2027-03-20",
-    "latest": "13.1.7",
-    "latestReleaseDate": "2026-09-29"
+    "latest": "13.1.8",
+    "latestReleaseDate": "2026-10-13"
    },
    {
     "cycle": "13.0",
     "releaseDate": "2026-04-14",
     "support": "2026-06-22",
     "eol": "2027-01-09",
-    "latest": "13.0.10",
-    "latestReleaseDate": "2026-09-29"
+    "latest": "13.0.11",
+    "latestReleaseDate": "2026-10-13"
    },
    {
     "cycle": "12.4",
     "releaseDate": "2026-02-24",
     "support": "2026-04-17",
     "eol": "2027-05-24",
-    "latest": "12.4.12",
-    "latestReleaseDate": "2026-09-29"
+    "latest": "12.4.13",
+    "latestReleaseDate": "2026-10-13"
    },
    {
     "cycle": "12.3",
@@ -11562,7 +11549,7 @@
   "id": "graylog",
   "name": "Graylog",
   "source": "https://endoflife.date/api/graylog.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "7.1",
@@ -11696,7 +11683,7 @@
   "id": "greenlight",
   "name": "Greenlight",
   "source": "https://endoflife.date/api/greenlight.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "3",
@@ -11711,29 +11698,29 @@
   "id": "haproxy",
   "name": "HAProxy",
   "source": "https://endoflife.date/api/haproxy.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "3.4",
     "releaseDate": "2026-06-03",
     "eol": "2031-04-01",
-    "latest": "3.4.6",
-    "latestReleaseDate": "2026-09-28",
+    "latest": "3.4.7",
+    "latestReleaseDate": "2026-10-14",
     "lts": true
    },
    {
     "cycle": "3.3",
     "releaseDate": "2025-11-26",
     "eol": "2027-01-01",
-    "latest": "3.3.16",
-    "latestReleaseDate": "2026-09-28"
+    "latest": "3.3.17",
+    "latestReleaseDate": "2026-10-14"
    },
    {
     "cycle": "3.2",
     "releaseDate": "2025-05-28",
     "eol": "2030-04-01",
-    "latest": "3.2.25",
-    "latestReleaseDate": "2026-09-28",
+    "latest": "3.2.26",
+    "latestReleaseDate": "2026-10-14",
     "lts": true
    },
    {
@@ -11747,8 +11734,8 @@
     "cycle": "3.0",
     "releaseDate": "2024-05-29",
     "eol": "2029-04-01",
-    "latest": "3.0.29",
-    "latestReleaseDate": "2026-09-28",
+    "latest": "3.0.30",
+    "latestReleaseDate": "2026-10-14",
     "lts": true
    },
    {
@@ -11762,8 +11749,8 @@
     "cycle": "2.8",
     "releaseDate": "2023-05-31",
     "eol": "2028-04-01",
-    "latest": "2.8.30",
-    "latestReleaseDate": "2026-09-28",
+    "latest": "2.8.31",
+    "latestReleaseDate": "2026-10-14",
     "lts": true
    },
    {
@@ -11777,8 +11764,8 @@
     "cycle": "2.6",
     "releaseDate": "2022-05-31",
     "eol": "2027-04-01",
-    "latest": "2.6.34",
-    "latestReleaseDate": "2026-09-24",
+    "latest": "2.6.35",
+    "latestReleaseDate": "2026-10-14",
     "lts": true
    },
    {
@@ -11838,7 +11825,7 @@
   "id": "haproxy_ingress",
   "name": "HAProxy Ingress",
   "source": "https://endoflife.date/api/haproxy-ingress.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "0.16",
@@ -11881,7 +11868,7 @@
   "id": "harbor",
   "name": "Harbor",
   "source": "https://endoflife.date/api/harbor.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "2.15",
@@ -12015,7 +12002,7 @@
   "id": "hashicorp_packer",
   "name": "Hashicorp Packer",
   "source": "https://endoflife.date/api/hashicorp-packer.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "1.16",
@@ -12086,7 +12073,7 @@
   "id": "hbase",
   "name": "Apache HBase",
   "source": "https://endoflife.date/api/hbase.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "3.0",
@@ -12143,7 +12130,7 @@
   "id": "heroku_postgres",
   "name": "Heroku Postgres",
   "source": "https://endoflife.date/api/heroku-postgres.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "18",
@@ -12199,7 +12186,7 @@
   "id": "horizon",
   "name": "Omnissa Horizon",
   "source": "https://endoflife.date/api/horizon.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "8.2606",
@@ -12367,7 +12354,7 @@
   "id": "ibm_aix",
   "name": "IBM AIX",
   "source": "https://endoflife.date/api/ibm-aix.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "7.3.4",
@@ -12424,7 +12411,7 @@
   "id": "ibm_db2",
   "name": "IBM Db2",
   "source": "https://endoflife.date/api/ibm-db2.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "12.1",
@@ -12442,7 +12429,7 @@
   "id": "ibm_i",
   "name": "IBM iSeries",
   "source": "https://endoflife.date/api/ibm-i.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "7.6",
@@ -12471,7 +12458,7 @@
   "id": "ibm_mq",
   "name": "IBM MQ",
   "source": "https://endoflife.date/api/ibm-mq.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "10.0",
@@ -12499,7 +12486,7 @@
   "id": "icinga",
   "name": "Icinga",
   "source": "https://endoflife.date/api/icinga.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "2.16",
@@ -12555,7 +12542,7 @@
   "id": "icinga_web",
   "name": "Icinga Web",
   "source": "https://endoflife.date/api/icinga-web.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "2.14",
@@ -12627,21 +12614,21 @@
   "id": "influxdb",
   "name": "InfluxDB",
   "source": "https://endoflife.date/api/influxdb.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "3.12",
     "releaseDate": "2026-10-02",
     "eol": false,
-    "latest": "3.12.0",
-    "latestReleaseDate": "2026-10-01"
+    "latest": "3.12.1",
+    "latestReleaseDate": "2026-10-14"
    },
    {
     "cycle": "3.11",
     "releaseDate": "2026-07-30",
     "eol": false,
-    "latest": "3.11.6",
-    "latestReleaseDate": "2026-10-05"
+    "latest": "3.11.7",
+    "latestReleaseDate": "2026-10-14"
    },
    {
     "cycle": "3.10",
@@ -12724,8 +12711,8 @@
     "cycle": "2",
     "releaseDate": "2020-11-09",
     "eol": false,
-    "latest": "2.9.1",
-    "latestReleaseDate": "2026-05-11"
+    "latest": "2.10.0",
+    "latestReleaseDate": "2026-10-15"
    },
    {
     "cycle": "1",
@@ -12740,28 +12727,28 @@
   "id": "istio",
   "name": "Istio",
   "source": "https://endoflife.date/api/istio.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "1.31",
     "releaseDate": "2026-08-31",
     "eol": "2027-02-28",
-    "latest": "1.31.1",
-    "latestReleaseDate": "2026-09-21"
+    "latest": "1.31.2",
+    "latestReleaseDate": "2026-10-15"
    },
    {
     "cycle": "1.30",
     "releaseDate": "2026-05-18",
     "eol": "2026-12-31",
-    "latest": "1.30.5",
-    "latestReleaseDate": "2026-09-21"
+    "latest": "1.30.6",
+    "latestReleaseDate": "2026-10-15"
    },
    {
     "cycle": "1.29",
     "releaseDate": "2026-02-16",
-    "eol": "2026-10-31",
-    "latest": "1.29.8",
-    "latestReleaseDate": "2026-09-21"
+    "eol": "2026-10-15",
+    "latest": "1.29.9",
+    "latestReleaseDate": "2026-10-15"
    },
    {
     "cycle": "1.28",
@@ -12923,7 +12910,7 @@
   "id": "jaeger",
   "name": "Jaeger",
   "source": "https://endoflife.date/api/jaeger.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "2",
@@ -12938,7 +12925,7 @@
   "id": "jenkins",
   "name": "Jenkins",
   "source": "https://endoflife.date/api/jenkins.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "2.568",
@@ -13088,8 +13075,8 @@
     "cycle": "2",
     "releaseDate": "2016-04-20",
     "eol": false,
-    "latest": "2.585",
-    "latestReleaseDate": "2026-10-06"
+    "latest": "2.586",
+    "latestReleaseDate": "2026-10-13"
    }
   ]
  },
@@ -13097,7 +13084,7 @@
   "id": "jfrog_xray",
   "name": "JFrog Xray",
   "source": "https://endoflife.date/api/jfrog-xray.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "3.150",
@@ -13357,7 +13344,7 @@
   "id": "jira_service_management",
   "name": "Jira Service Management",
   "source": "https://endoflife.date/api/jira-service-management.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "11.3",
@@ -13752,7 +13739,7 @@
   "id": "jira_software",
   "name": "Jira Software",
   "source": "https://endoflife.date/api/jira-software.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "11.3",
@@ -14146,23 +14133,23 @@
   "id": "joomla",
   "name": "Joomla!",
   "source": "https://endoflife.date/api/joomla.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "6",
     "releaseDate": "2025-10-14",
     "support": "2028-10-17",
     "eol": "2029-10-16",
-    "latest": "6.1.4",
-    "latestReleaseDate": "2026-09-29"
+    "latest": "6.2.0",
+    "latestReleaseDate": "2026-10-13"
    },
    {
     "cycle": "5",
     "releaseDate": "2023-10-14",
     "support": "2026-10-13",
     "eol": "2027-10-12",
-    "latest": "5.4.9",
-    "latestReleaseDate": "2026-09-29"
+    "latest": "5.4.10",
+    "latestReleaseDate": "2026-10-13"
    },
    {
     "cycle": "4",
@@ -14178,7 +14165,7 @@
   "id": "kafka",
   "name": "Apache Kafka",
   "source": "https://endoflife.date/api/apache-kafka.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "4.3",
@@ -14340,7 +14327,7 @@
   "id": "karpenter",
   "name": "Karpenter",
   "source": "https://endoflife.date/api/karpenter.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "1.15",
@@ -14353,8 +14340,8 @@
     "cycle": "1.14",
     "releaseDate": "2026-07-11",
     "eol": "2026-10-10",
-    "latest": "1.14.1",
-    "latestReleaseDate": "2026-08-21"
+    "latest": "1.14.2",
+    "latestReleaseDate": "2026-10-16"
    },
    {
     "cycle": "1.13",
@@ -14460,7 +14447,7 @@
   "id": "keda",
   "name": "KEDA",
   "source": "https://endoflife.date/api/keda.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "2.21",
@@ -14629,14 +14616,14 @@
   "id": "keycloak",
   "name": "Keycloak",
   "source": "https://endoflife.date/api/keycloak.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "26.8",
     "releaseDate": "2026-10-01",
     "eol": false,
-    "latest": "26.8.0",
-    "latestReleaseDate": "2026-10-01"
+    "latest": "26.8.1",
+    "latestReleaseDate": "2026-10-13"
    },
    {
     "cycle": "26.7",
@@ -14833,7 +14820,7 @@
   "id": "kiali",
   "name": "Kiali",
   "source": "https://endoflife.date/api/kiali.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "2.31",
@@ -15080,7 +15067,7 @@
   "id": "kibana",
   "name": "Kibana",
   "source": "https://endoflife.date/api/kibana.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "9.5",
@@ -15179,7 +15166,7 @@
   "id": "knative",
   "name": "Knative",
   "source": "https://endoflife.date/api/knative.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "1.23",
@@ -15453,14 +15440,14 @@
   "id": "kong_gateway",
   "name": "Kong Gateway",
   "source": "https://endoflife.date/api/kong-gateway.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "3.9",
     "releaseDate": "2024-12-12",
     "eol": false,
-    "latest": "3.9.3",
-    "latestReleaseDate": "2026-06-17"
+    "latest": "3.9.4",
+    "latestReleaseDate": "2026-10-12"
    },
    {
     "cycle": "3.8",
@@ -15540,7 +15527,7 @@
   "id": "kubernetes",
   "name": "Kubernetes",
   "source": "https://endoflife.date/api/kubernetes.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "1.37",
@@ -15724,14 +15711,21 @@
   "id": "kuma",
   "name": "Kuma",
   "source": "https://endoflife.date/api/kuma.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
+   {
+    "cycle": "3.0",
+    "releaseDate": "2026-10-15",
+    "eol": "2027-10-15",
+    "latest": "3.0.0",
+    "latestReleaseDate": "2026-10-15"
+   },
    {
     "cycle": "2.14",
     "releaseDate": "2026-06-12",
     "eol": "2027-06-12",
-    "latest": "2.14.5",
-    "latestReleaseDate": "2026-09-18"
+    "latest": "2.14.6",
+    "latestReleaseDate": "2026-10-13"
    },
    {
     "cycle": "2.13",
@@ -15887,7 +15881,7 @@
   "id": "kyverno",
   "name": "Kyverno",
   "source": "https://endoflife.date/api/kyverno.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "1.19",
@@ -15979,23 +15973,23 @@
   "id": "laravel",
   "name": "Laravel",
   "source": "https://endoflife.date/api/laravel.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "13",
     "releaseDate": "2026-03-17",
     "support": "2027-09-30",
     "eol": "2028-03-17",
-    "latest": "13.35.0",
-    "latestReleaseDate": "2026-10-06"
+    "latest": "13.37.0",
+    "latestReleaseDate": "2026-10-16"
    },
    {
     "cycle": "12",
     "releaseDate": "2025-02-24",
     "support": "2026-08-13",
     "eol": "2027-02-24",
-    "latest": "12.69.3",
-    "latestReleaseDate": "2026-09-29"
+    "latest": "12.70.0",
+    "latestReleaseDate": "2026-10-13"
    },
    {
     "cycle": "11",
@@ -16060,7 +16054,7 @@
   "id": "liquibase",
   "name": "Liquibase",
   "source": "https://endoflife.date/api/liquibase.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "5",
@@ -16082,7 +16076,7 @@
   "id": "logstash",
   "name": "Logstash",
   "source": "https://endoflife.date/api/logstash.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "9.5",
@@ -16160,7 +16154,7 @@
   "id": "loki",
   "name": "Grafana Loki",
   "source": "https://endoflife.date/api/grafana-loki.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "3.7",
@@ -16173,8 +16167,8 @@
     "cycle": "3.6",
     "releaseDate": "2025-11-17",
     "eol": false,
-    "latest": "3.6.17",
-    "latestReleaseDate": "2026-09-09"
+    "latest": "3.6.18",
+    "latestReleaseDate": "2026-10-15"
    },
    {
     "cycle": "3.5",
@@ -16343,7 +16337,7 @@
   "id": "longhorn",
   "name": "Longhorn",
   "source": "https://endoflife.date/api/longhorn.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "1.13",
@@ -16442,7 +16436,7 @@
   "id": "looker",
   "name": "Looker",
   "source": "https://endoflife.date/api/looker.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "26.20",
@@ -16814,7 +16808,7 @@
   "id": "magento",
   "name": "Magento",
   "source": "https://endoflife.date/api/magento.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "2.4.9",
@@ -16910,7 +16904,7 @@
   "id": "mariadb",
   "name": "MariaDB",
   "source": "https://endoflife.date/api/mariadb.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "13.0",
@@ -17079,7 +17073,7 @@
   "id": "matomo",
   "name": "Matomo",
   "source": "https://endoflife.date/api/matomo.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "5",
@@ -17103,7 +17097,7 @@
   "id": "mattermost",
   "name": "Mattermost",
   "source": "https://endoflife.date/api/mattermost.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "11.11",
@@ -17517,7 +17511,7 @@
   "id": "mautic",
   "name": "Mautic",
   "source": "https://endoflife.date/api/mautic.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "7.2",
@@ -17671,7 +17665,7 @@
   "id": "mediawiki",
   "name": "MediaWiki",
   "source": "https://endoflife.date/api/mediawiki.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "1.46",
@@ -17787,7 +17781,7 @@
   "id": "meilisearch",
   "name": "Meilisearch",
   "source": "https://endoflife.date/api/meilisearch.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "1.54",
@@ -18180,7 +18174,7 @@
   "id": "memcached",
   "name": "Memcached",
   "source": "https://endoflife.date/api/memcached.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "1.6",
@@ -18195,22 +18189,22 @@
   "id": "metabase",
   "name": "Metabase",
   "source": "https://endoflife.date/api/metabase.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "0.64",
     "releaseDate": "2026-09-16",
     "eol": "2027-12-01",
-    "latest": "0.64.1.7",
-    "latestReleaseDate": "2026-10-12",
+    "latest": "0.64.2.8",
+    "latestReleaseDate": "2026-10-16",
     "lts": true
    },
    {
     "cycle": "0.63",
     "releaseDate": "2026-07-07",
     "eol": "2026-11-01",
-    "latest": "0.63.19.6",
-    "latestReleaseDate": "2026-10-09"
+    "latest": "0.63.20.2",
+    "latestReleaseDate": "2026-10-15"
    },
    {
     "cycle": "0.62",
@@ -18223,8 +18217,8 @@
     "cycle": "0.61",
     "releaseDate": "2026-04-30",
     "eol": "2026-09-01",
-    "latest": "0.61.21",
-    "latestReleaseDate": "2026-09-01"
+    "latest": "0.61.21.1",
+    "latestReleaseDate": "2026-10-15"
    },
    {
     "cycle": "0.60",
@@ -18244,8 +18238,8 @@
     "cycle": "0.58",
     "releaseDate": "2025-12-17",
     "eol": "2027-02-17",
-    "latest": "0.58.35",
-    "latestReleaseDate": "2026-09-30",
+    "latest": "0.58.36.1",
+    "latestReleaseDate": "2026-10-14",
     "lts": true
    },
    {
@@ -18443,7 +18437,7 @@
   "id": "metallb",
   "name": "MetalLB",
   "source": "https://endoflife.date/api/metallb.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "0.16",
@@ -18479,23 +18473,23 @@
   "id": "micronaut",
   "name": "Micronaut Framework",
   "source": "https://endoflife.date/api/micronaut.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "5",
     "releaseDate": "2026-05-13",
     "support": true,
     "eol": false,
-    "latest": "5.2.15",
-    "latestReleaseDate": "2026-10-07"
+    "latest": "5.2.16",
+    "latestReleaseDate": "2026-10-16"
    },
    {
     "cycle": "4",
     "releaseDate": "2023-07-11",
     "support": "2026-05-13",
     "eol": false,
-    "latest": "4.10.31",
-    "latestReleaseDate": "2026-10-08"
+    "latest": "4.10.32",
+    "latestReleaseDate": "2026-10-15"
    },
    {
     "cycle": "3",
@@ -18527,21 +18521,21 @@
   "id": "mongodb",
   "name": "MongoDB",
   "source": "https://endoflife.date/api/mongodb.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "9.0",
     "releaseDate": "2026-09-30",
     "eol": "2031-10-31",
-    "latest": "9.0.2",
-    "latestReleaseDate": "2026-09-28"
+    "latest": "9.0.4",
+    "latestReleaseDate": "2026-10-14"
    },
    {
     "cycle": "8.3",
     "releaseDate": "2026-05-31",
     "eol": "2029-10-31",
-    "latest": "8.3.11",
-    "latestReleaseDate": "2026-09-11"
+    "latest": "8.3.13",
+    "latestReleaseDate": "2026-10-13"
    },
    {
     "cycle": "8.2",
@@ -18561,8 +18555,8 @@
     "cycle": "8.0",
     "releaseDate": "2024-10-31",
     "eol": "2029-10-31",
-    "latest": "8.0.32",
-    "latestReleaseDate": "2026-09-11"
+    "latest": "8.0.34",
+    "latestReleaseDate": "2026-10-13"
    },
    {
     "cycle": "7.3",
@@ -18589,8 +18583,8 @@
     "cycle": "7.0",
     "releaseDate": "2023-08-31",
     "eol": "2027-08-31",
-    "latest": "7.0.43",
-    "latestReleaseDate": "2026-09-11"
+    "latest": "7.0.45",
+    "latestReleaseDate": "2026-10-13"
    },
    {
     "cycle": "6.3",
@@ -18668,7 +18662,7 @@
   "id": "moodle",
   "name": "Moodle",
   "source": "https://endoflife.date/api/moodle.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "5.3",
@@ -18792,15 +18786,15 @@
   "id": "msexchange",
   "name": "Microsoft Exchange",
   "source": "https://endoflife.date/api/msexchange.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "subscription",
     "releaseDate": "2025-07-01",
     "support": true,
     "eol": false,
-    "latest": "15.2.2562.49",
-    "latestReleaseDate": "2026-09-08"
+    "latest": "15.2.2562.56",
+    "latestReleaseDate": "2026-10-13"
    },
    {
     "cycle": "2019",
@@ -18816,23 +18810,23 @@
   "id": "mssqlserver",
   "name": "Microsoft SQL Server",
   "source": "https://endoflife.date/api/mssqlserver.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "17.0",
     "releaseDate": "2025-11-18",
     "support": "2031-01-06",
     "eol": "2036-01-06",
-    "latest": "17.0.5005.3 CU9",
-    "latestReleaseDate": "2026-09-15"
+    "latest": "17.0.5015.4 CU9+GDR",
+    "latestReleaseDate": "2026-10-13"
    },
    {
     "cycle": "16.0",
     "releaseDate": "2022-11-16",
     "support": "2028-01-11",
     "eol": "2033-01-11",
-    "latest": "16.0.4295.3 CU27",
-    "latestReleaseDate": "2026-09-15"
+    "latest": "16.0.4305.5 CU27+GDR",
+    "latestReleaseDate": "2026-10-13"
    },
    {
     "cycle": "13.0-sp3-acp",
@@ -18855,8 +18849,8 @@
     "releaseDate": "2019-11-04",
     "support": "2025-02-28",
     "eol": "2030-01-08",
-    "latest": "15.0.4490.9 CU32+GDR",
-    "latestReleaseDate": "2026-09-08"
+    "latest": "15.0.4500.2 CU32+GDR",
+    "latestReleaseDate": "2026-10-13"
    },
    {
     "cycle": "12.0-sp3",
@@ -18871,8 +18865,8 @@
     "releaseDate": "2017-09-29",
     "support": "2022-10-11",
     "eol": "2027-10-12",
-    "latest": "14.0.3550.4 CU31+GDR",
-    "latestReleaseDate": "2026-09-08"
+    "latest": "14.0.3560.2 CU31+GDR",
+    "latestReleaseDate": "2026-10-13"
    }
   ]
  },
@@ -18880,7 +18874,7 @@
   "id": "mulesoft_runtime",
   "name": "Mule Runtime",
   "source": "https://endoflife.date/api/mulesoft-runtime.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "4.12",
@@ -18993,7 +18987,7 @@
   "id": "mysql",
   "name": "MySQL",
   "source": "https://endoflife.date/api/mysql.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "9.7",
@@ -19099,7 +19093,7 @@
   "id": "neo4j",
   "name": "Neo4j",
   "source": "https://endoflife.date/api/neo4j.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "2026.09",
@@ -19480,7 +19474,7 @@
   "id": "netapp-ontap",
   "name": "NetApp ONTAP",
   "source": "https://endoflife.date/api/netapp-ontap.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "9.19.1",
@@ -19563,28 +19557,28 @@
   "id": "nextcloud",
   "name": "Nextcloud",
   "source": "https://endoflife.date/api/nextcloud.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "35",
     "releaseDate": "2026-09-16",
     "eol": "2027-09-30",
-    "latest": "35.0.1",
-    "latestReleaseDate": "2026-09-24"
+    "latest": "35.0.2",
+    "latestReleaseDate": "2026-10-15"
    },
    {
     "cycle": "34",
     "releaseDate": "2026-06-09",
     "eol": "2027-06-30",
-    "latest": "34.0.4",
-    "latestReleaseDate": "2026-09-10"
+    "latest": "34.0.5",
+    "latestReleaseDate": "2026-10-15"
    },
    {
     "cycle": "33",
     "releaseDate": "2026-02-18",
     "eol": "2027-02-28",
-    "latest": "33.0.9",
-    "latestReleaseDate": "2026-09-10"
+    "latest": "33.0.10",
+    "latestReleaseDate": "2026-10-15"
    },
    {
     "cycle": "32",
@@ -19718,22 +19712,22 @@
   "id": "nextjs",
   "name": "Next.js",
   "source": "https://endoflife.date/api/nextjs.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "16",
     "releaseDate": "2025-10-22",
     "eol": false,
-    "latest": "16.4.0",
-    "latestReleaseDate": "2026-10-06",
+    "latest": "16.4.2",
+    "latestReleaseDate": "2026-10-15",
     "lts": true
    },
    {
     "cycle": "15",
     "releaseDate": "2024-10-21",
     "eol": "2026-10-21",
-    "latest": "15.5.27",
-    "latestReleaseDate": "2026-09-30",
+    "latest": "15.5.28",
+    "latestReleaseDate": "2026-10-14",
     "lts": true
    },
    {
@@ -19785,8 +19779,16 @@
   "id": "nexus",
   "name": "Sonatype Nexus Repository",
   "source": "https://endoflife.date/api/nexus.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
+   {
+    "cycle": "3.97",
+    "releaseDate": "2026-10-14",
+    "support": "2027-10-14",
+    "eol": "2028-04-14",
+    "latest": "3.97.0-13",
+    "latestReleaseDate": "2026-10-14"
+   },
    {
     "cycle": "3.96",
     "releaseDate": "2026-09-01",
@@ -20337,21 +20339,21 @@
   "id": "nginx",
   "name": "NGINX",
   "source": "https://endoflife.date/api/nginx.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "1.31",
     "releaseDate": "2026-05-13",
     "eol": false,
-    "latest": "1.31.6",
-    "latestReleaseDate": "2026-09-15"
+    "latest": "1.31.7",
+    "latestReleaseDate": "2026-10-14"
    },
    {
     "cycle": "1.30",
     "releaseDate": "2026-04-14",
     "eol": false,
-    "latest": "1.30.5",
-    "latestReleaseDate": "2026-09-15"
+    "latest": "1.30.6",
+    "latestReleaseDate": "2026-10-14"
    },
    {
     "cycle": "1.29",
@@ -20438,6 +20440,13 @@
     "latestReleaseDate": "2020-04-21"
    },
    {
+    "cycle": "1.17",
+    "releaseDate": "2019-05-21",
+    "eol": "2020-05-26",
+    "latest": "1.17.10",
+    "latestReleaseDate": "2020-04-14"
+   },
+   {
     "cycle": "1.16",
     "releaseDate": "2019-04-23",
     "eol": "2020-04-20",
@@ -20450,7 +20459,7 @@
   "id": "nifi",
   "name": "Apache NiFi",
   "source": "https://endoflife.date/api/apache-nifi.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "2.12",
@@ -20619,21 +20628,21 @@
   "id": "nix",
   "name": "nix",
   "source": "https://endoflife.date/api/nix.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "2.35",
     "releaseDate": "2026-07-13",
     "eol": false,
-    "latest": "2.35.2",
-    "latestReleaseDate": "2026-08-13"
+    "latest": "2.35.3",
+    "latestReleaseDate": "2026-10-13"
    },
    {
     "cycle": "2.34",
     "releaseDate": "2026-02-27",
     "eol": "2026-07-13",
-    "latest": "2.34.8",
-    "latestReleaseDate": "2026-07-06"
+    "latest": "2.34.9",
+    "latestReleaseDate": "2026-10-13"
    },
    {
     "cycle": "2.33",
@@ -20653,15 +20662,15 @@
     "cycle": "2.31",
     "releaseDate": "2025-08-25",
     "eol": "2025-10-07",
-    "latest": "2.31.5",
-    "latestReleaseDate": "2026-05-04"
+    "latest": "2.31.6",
+    "latestReleaseDate": "2026-10-13"
    },
    {
     "cycle": "2.30",
     "releaseDate": "2025-07-07",
     "eol": "2025-08-25",
-    "latest": "2.30.5",
-    "latestReleaseDate": "2026-05-04"
+    "latest": "2.30.6",
+    "latestReleaseDate": "2026-10-13"
    },
    {
     "cycle": "2.29",
@@ -20674,8 +20683,8 @@
     "cycle": "2.28",
     "releaseDate": "2025-04-04",
     "eol": "2025-05-14",
-    "latest": "2.28.7",
-    "latestReleaseDate": "2026-05-04"
+    "latest": "2.28.8",
+    "latestReleaseDate": "2026-10-13"
    },
    {
     "cycle": "2.27",
@@ -20865,15 +20874,15 @@
   "id": "nodejs",
   "name": "Node.js",
   "source": "https://endoflife.date/api/nodejs.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "26",
     "releaseDate": "2026-05-05",
     "support": "2027-10-27",
     "eol": "2029-04-30",
-    "latest": "26.11.1",
-    "latestReleaseDate": "2026-10-08",
+    "latest": "26.12.0",
+    "latestReleaseDate": "2026-10-14",
     "lts": true
    },
    {
@@ -20889,8 +20898,8 @@
     "releaseDate": "2025-05-06",
     "support": "2026-10-20",
     "eol": "2028-04-30",
-    "latest": "24.21.0",
-    "latestReleaseDate": "2026-09-08",
+    "latest": "24.22.0",
+    "latestReleaseDate": "2026-10-14",
     "lts": true
    },
    {
@@ -21009,7 +21018,7 @@
   "id": "nomad",
   "name": "HashiCorp Nomad",
   "source": "https://endoflife.date/api/nomad.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "2.0",
@@ -21117,7 +21126,7 @@
   "id": "nutanix-aos",
   "name": "Nutanix AOS",
   "source": "https://endoflife.date/api/nutanix-aos.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "7.6",
@@ -21132,8 +21141,8 @@
     "releaseDate": "2025-12-08",
     "support": "2027-03-31",
     "eol": "2027-12-31",
-    "latest": "7.5.1.13",
-    "latestReleaseDate": "2026-08-31"
+    "latest": "7.5.2",
+    "latestReleaseDate": "2026-10-12"
    },
    {
     "cycle": "7.3",
@@ -21282,7 +21291,7 @@
   "id": "nutanix_files",
   "name": "Nutanix Files",
   "source": "https://endoflife.date/api/nutanix-files.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "5.4",
@@ -21402,31 +21411,31 @@
   "id": "nutanix_prism",
   "name": "Nutanix Prism Central",
   "source": "https://endoflife.date/api/nutanix-prism.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "pc.7.6",
     "releaseDate": "2026-07-27",
     "support": "2027-10-31",
     "eol": "2028-07-31",
-    "latest": "pc.7.6.0.6",
-    "latestReleaseDate": "2026-08-31"
+    "latest": "pc.7.6.0.8",
+    "latestReleaseDate": "2026-10-06"
    },
    {
     "cycle": "pc.7.5",
     "releaseDate": "2025-12-09",
     "support": "2027-02-28",
     "eol": "2027-11-30",
-    "latest": "pc.7.5.1.12",
-    "latestReleaseDate": "2026-08-26"
+    "latest": "pc.7.5.2",
+    "latestReleaseDate": "2026-10-13"
    },
    {
     "cycle": "pc.7.3",
     "releaseDate": "2025-06-24",
     "support": "2026-09-30",
     "eol": "2027-06-30",
-    "latest": "pc.7.3.1.16",
-    "latestReleaseDate": "2026-09-01"
+    "latest": "pc.7.3.1.18",
+    "latestReleaseDate": "2026-10-07"
    },
    {
     "cycle": "pc.2024.3",
@@ -21626,7 +21635,7 @@
   "id": "openbao",
   "name": "OpenBao",
   "source": "https://endoflife.date/api/openbao.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "2.7",
@@ -21690,7 +21699,7 @@
   "id": "opensearch",
   "name": "OpenSearch",
   "source": "https://endoflife.date/api/opensearch.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "3",
@@ -21722,7 +21731,7 @@
   "id": "openshift",
   "name": "Red Hat OpenShift",
   "source": "https://endoflife.date/api/red-hat-openshift.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "4.22",
@@ -21769,8 +21778,8 @@
     "releaseDate": "2024-10-01",
     "support": "2025-05-25",
     "eol": "2026-04-01",
-    "latest": "4.17.58",
-    "latestReleaseDate": "2026-10-01"
+    "latest": "4.17.59",
+    "latestReleaseDate": "2026-10-15"
    },
    {
     "cycle": "4.16",
@@ -21906,7 +21915,7 @@
   "id": "opentofu",
   "name": "OpenTofu",
   "source": "https://endoflife.date/api/opentofu.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "1.13",
@@ -21919,8 +21928,8 @@
     "cycle": "1.12",
     "releaseDate": "2026-05-14",
     "eol": "2027-02-01",
-    "latest": "1.12.7",
-    "latestReleaseDate": "2026-10-01"
+    "latest": "1.12.8",
+    "latestReleaseDate": "2026-10-14"
    },
    {
     "cycle": "1.11",
@@ -21970,7 +21979,7 @@
   "id": "openvpn",
   "name": "OpenVPN",
   "source": "https://endoflife.date/api/openvpn.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "2.7",
@@ -22002,15 +22011,15 @@
   "id": "openwrt",
   "name": "OpenWrt",
   "source": "https://endoflife.date/api/openwrt.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "25.12",
     "releaseDate": "2026-03-06",
     "support": true,
     "eol": false,
-    "latest": "25.12.5",
-    "latestReleaseDate": "2026-06-30"
+    "latest": "25.12.6",
+    "latestReleaseDate": "2026-10-18"
    },
    {
     "cycle": "24.10",
@@ -22058,7 +22067,7 @@
   "id": "openzfs",
   "name": "OpenZFS",
   "source": "https://endoflife.date/api/openzfs.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "2.4",
@@ -22114,14 +22123,14 @@
   "id": "opnsense",
   "name": "OPNsense",
   "source": "https://endoflife.date/api/opnsense.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "26.7",
     "releaseDate": "2026-07-15",
     "eol": false,
-    "latest": "26.7.6",
-    "latestReleaseDate": "2026-10-08"
+    "latest": "26.7.7",
+    "latestReleaseDate": "2026-10-13"
    },
    {
     "cycle": "26.1",
@@ -22234,7 +22243,7 @@
   "id": "oracle-linux",
   "name": "Oracle Linux",
   "source": "https://endoflife.date/api/oracle-linux.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "10",
@@ -22263,7 +22272,7 @@
   "id": "oracle_database",
   "name": "Oracle Database",
   "source": "https://endoflife.date/api/oracle-database.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "23",
@@ -22288,7 +22297,7 @@
   "id": "oracle_solaris",
   "name": "Oracle Solaris",
   "source": "https://endoflife.date/api/oracle-solaris.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "11.4",
@@ -22301,7 +22310,7 @@
   "id": "otobo",
   "name": "OTOBO",
   "source": "https://endoflife.date/api/otobo.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "11.0",
@@ -22330,7 +22339,7 @@
   "id": "ovirt",
   "name": "oVirt",
   "source": "https://endoflife.date/api/ovirt.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "4.5",
@@ -22359,35 +22368,35 @@
   "id": "palo_alto",
   "name": "PAN-OS (Palo Alto Networks)",
   "source": "https://endoflife.date/api/panos.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "12.2",
     "releaseDate": "2026-07-30",
     "eol": "2029-07-30",
-    "latest": "12.2.3",
-    "latestReleaseDate": "2026-08-27"
+    "latest": "12.2.4",
+    "latestReleaseDate": "2026-10-14"
    },
    {
     "cycle": "12.1",
     "releaseDate": "2025-08-28",
     "eol": "2028-08-28",
-    "latest": "12.1.10",
-    "latestReleaseDate": "2026-09-06"
+    "latest": "12.1.10-h2",
+    "latestReleaseDate": "2026-10-13"
    },
    {
     "cycle": "11.2",
     "releaseDate": "2024-05-02",
     "eol": "2027-05-02",
-    "latest": "11.2.15",
-    "latestReleaseDate": "2026-09-08"
+    "latest": "11.2.16",
+    "latestReleaseDate": "2026-10-15"
    },
    {
     "cycle": "11.1",
     "releaseDate": "2023-11-03",
     "eol": "2027-05-03",
-    "latest": "11.1.16-h2",
-    "latestReleaseDate": "2026-09-04"
+    "latest": "11.1.16-h3",
+    "latestReleaseDate": "2026-10-12"
    },
    {
     "cycle": "11.0",
@@ -22400,8 +22409,8 @@
     "cycle": "10.2",
     "releaseDate": "2022-02-27",
     "eol": "2025-08-27",
-    "latest": "10.2.18-h10",
-    "latestReleaseDate": "2026-09-07"
+    "latest": "10.2.18-h12",
+    "latestReleaseDate": "2026-10-11"
    },
    {
     "cycle": "10.1",
@@ -22444,7 +22453,7 @@
   "id": "pangp",
   "name": "Palo Alto Networks GlobalProtect App",
   "source": "https://endoflife.date/api/pangp.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "6.3",
@@ -22515,7 +22524,7 @@
   "id": "phoenix_framework",
   "name": "Phoenix Framework",
   "source": "https://endoflife.date/api/phoenix-framework.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "1.8",
@@ -22563,7 +22572,7 @@
   "id": "photon",
   "name": "VMware Photon",
   "source": "https://endoflife.date/api/photon.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "5.0",
@@ -22586,7 +22595,7 @@
   "id": "php",
   "name": "PHP",
   "source": "https://endoflife.date/api/php.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "8.5",
@@ -22658,7 +22667,7 @@
   "id": "pigeonhole",
   "name": "Pigeonhole",
   "source": "https://endoflife.date/api/pigeonhole.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "2.4",
@@ -22680,21 +22689,21 @@
   "id": "plesk",
   "name": "Plesk",
   "source": "https://endoflife.date/api/plesk.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "18.0.81",
     "releaseDate": "2026-09-15",
     "eol": "2026-12-08",
-    "latest": "18.0.81.2",
-    "latestReleaseDate": "2026-09-29"
+    "latest": "18.0.81.3",
+    "latestReleaseDate": "2026-10-14"
    },
    {
     "cycle": "18.0.80",
     "releaseDate": "2026-08-04",
     "eol": "2026-10-27",
-    "latest": "18.0.80.9",
-    "latestReleaseDate": "2026-09-29"
+    "latest": "18.0.80.10",
+    "latestReleaseDate": "2026-10-14"
    },
    {
     "cycle": "18.0.79",
@@ -22919,7 +22928,7 @@
   "id": "podman",
   "name": "Podman",
   "source": "https://endoflife.date/api/podman.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "6.1",
@@ -23109,7 +23118,7 @@
   "id": "postfix",
   "name": "Postfix",
   "source": "https://endoflife.date/api/postfix.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "3.11",
@@ -23173,7 +23182,7 @@
   "id": "postgresql",
   "name": "PostgreSQL",
   "source": "https://endoflife.date/api/postgresql.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "18",
@@ -23223,13 +23232,6 @@
     "eol": "2024-11-21",
     "latest": "12.22",
     "latestReleaseDate": "2024-11-18"
-   },
-   {
-    "cycle": "11",
-    "releaseDate": "2018-10-18",
-    "eol": "2023-11-09",
-    "latest": "11.22",
-    "latestReleaseDate": "2023-11-06"
    }
   ]
  },
@@ -23237,7 +23239,7 @@
   "id": "proftpd",
   "name": "ProFTPD",
   "source": "https://endoflife.date/api/proftpd.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "1.3.9",
@@ -23269,7 +23271,7 @@
   "id": "prometheus",
   "name": "Prometheus",
   "source": "https://endoflife.date/api/prometheus.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "3.15",
@@ -23534,7 +23536,7 @@
   "id": "proxmox_backup",
   "name": "Proxmox Backup Server",
   "source": "https://endoflife.date/api/proxmox-backup-server.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "4",
@@ -23570,7 +23572,7 @@
   "id": "proxmox_datacenter_manager",
   "name": "Proxmox Datacenter Manager",
   "source": "https://endoflife.date/api/proxmox-datacenter-manager.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "1",
@@ -23592,7 +23594,7 @@
   "id": "proxmox_mail_gateway",
   "name": "Proxmox Mail Gateway",
   "source": "https://endoflife.date/api/proxmox-mail-gateway.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "9",
@@ -23628,7 +23630,7 @@
   "id": "proxmox_ve",
   "name": "Proxmox VE",
   "source": "https://endoflife.date/api/proxmox-ve.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "9",
@@ -23664,7 +23666,7 @@
   "id": "pulsar",
   "name": "Apache Pulsar",
   "source": "https://endoflife.date/api/apache-pulsar.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "5.0",
@@ -23780,7 +23782,7 @@
   "id": "puppet",
   "name": "Puppet",
   "source": "https://endoflife.date/api/puppet.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "8",
@@ -23802,7 +23804,7 @@
   "id": "python",
   "name": "Python",
   "source": "https://endoflife.date/api/python.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "3.15",
@@ -23874,7 +23876,7 @@
   "id": "quarkus_framework",
   "name": "Quarkus",
   "source": "https://endoflife.date/api/quarkus-framework.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "3.40",
@@ -24309,7 +24311,7 @@
   "id": "rabbitmq",
   "name": "RabbitMQ",
   "source": "https://endoflife.date/api/rabbitmq.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "4.3",
@@ -24387,7 +24389,7 @@
   "id": "rails",
   "name": "Ruby on Rails",
   "source": "https://endoflife.date/api/rails.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "8.1",
@@ -24451,7 +24453,7 @@
   "id": "rancher",
   "name": "Rancher",
   "source": "https://endoflife.date/api/rancher.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "2.15",
@@ -24571,7 +24573,7 @@
   "id": "red_hat_ansible_automation_platform",
   "name": "Red Hat Ansible Automation Platform",
   "source": "https://endoflife.date/api/red-hat-ansible-automation-platform.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "2.6",
@@ -24603,7 +24605,7 @@
   "id": "redhat_jboss_eap",
   "name": "Red Hat JBoss Enterprise Application Platform",
   "source": "https://endoflife.date/api/redhat-jboss-eap.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "8",
@@ -24619,7 +24621,7 @@
   "id": "redhat_satellite",
   "name": "Red Hat Satellite",
   "source": "https://endoflife.date/api/redhat-satellite.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "6.19",
@@ -24740,14 +24742,6 @@
     "eol": "2020-10-31",
     "latest": "6.5.3",
     "latestReleaseDate": "2019-10-29"
-   },
-   {
-    "cycle": "6.4",
-    "releaseDate": "2018-10-16",
-    "support": "2019-05-31",
-    "eol": "2020-04-30",
-    "latest": "6.4.4",
-    "latestReleaseDate": "2019-07-15"
    }
   ]
  },
@@ -24755,7 +24749,7 @@
   "id": "redis",
   "name": "Redis",
   "source": "https://endoflife.date/api/redis.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "8.10",
@@ -24844,14 +24838,6 @@
     "eol": "2022-05-31",
     "latest": "6.0.20",
     "latestReleaseDate": "2023-07-10"
-   },
-   {
-    "cycle": "5.0",
-    "releaseDate": "2018-10-17",
-    "support": "2020-04-30",
-    "eol": "2022-04-27",
-    "latest": "5.0.14",
-    "latestReleaseDate": "2021-10-04"
    }
   ]
  },
@@ -24859,7 +24845,7 @@
   "id": "redmine",
   "name": "Redmine",
   "source": "https://endoflife.date/api/redmine.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "7.0",
@@ -24923,7 +24909,7 @@
   "id": "rhel",
   "name": "Red Hat Enterprise Linux",
   "source": "https://endoflife.date/api/rhel.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "10",
@@ -24958,8 +24944,17 @@
   "id": "rocket_chat",
   "name": "Rocket.Chat",
   "source": "https://endoflife.date/api/rocket-chat.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
+   {
+    "cycle": "8.9",
+    "releaseDate": "2026-10-05",
+    "support": "2026-10-05",
+    "eol": "2027-10-31",
+    "latest": "8.9.0",
+    "latestReleaseDate": "2026-10-05",
+    "lts": true
+   },
    {
     "cycle": "8.8",
     "releaseDate": "2026-09-01",
@@ -24981,16 +24976,16 @@
     "releaseDate": "2026-07-03",
     "support": "2026-07-03",
     "eol": "2027-01-31",
-    "latest": "8.6.2",
-    "latestReleaseDate": "2026-08-19"
+    "latest": "8.6.3",
+    "latestReleaseDate": "2026-10-16"
    },
    {
     "cycle": "8.5",
     "releaseDate": "2026-06-10",
     "support": "2026-06-10",
     "eol": "2027-07-31",
-    "latest": "8.5.3",
-    "latestReleaseDate": "2026-08-19",
+    "latest": "8.5.4",
+    "latestReleaseDate": "2026-10-16",
     "lts": true
    },
    {
@@ -25605,7 +25600,7 @@
   "id": "rocky-linux",
   "name": "Rocky Linux",
   "source": "https://endoflife.date/api/rocky-linux.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "10",
@@ -25637,7 +25632,7 @@
   "id": "roundcube",
   "name": "Roundcube Webmail",
   "source": "https://endoflife.date/api/roundcube.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "1.7",
@@ -25679,7 +25674,7 @@
   "id": "routeros",
   "name": "RouterOS",
   "source": "https://endoflife.date/api/routeros.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "7.24",
@@ -25692,8 +25687,8 @@
     "cycle": "7.23",
     "releaseDate": "2026-05-26",
     "eol": false,
-    "latest": "7.23.7",
-    "latestReleaseDate": "2026-09-16",
+    "latest": "7.23.8",
+    "latestReleaseDate": "2026-10-09",
     "lts": true
    },
    {
@@ -25904,14 +25899,14 @@
   "id": "rtpengine",
   "name": "rtpengine",
   "source": "https://endoflife.date/api/rtpengine.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "26.2",
     "releaseDate": "2026-08-31",
     "eol": "2026-10-31",
-    "latest": "26.2.1.3",
-    "latestReleaseDate": "2026-10-12"
+    "latest": "26.2.1.5",
+    "latestReleaseDate": "2026-10-16"
    },
    {
     "cycle": "26.1",
@@ -25924,8 +25919,8 @@
     "cycle": "26.0",
     "releaseDate": "2026-05-01",
     "eol": "2029-05-01",
-    "latest": "26.0.1.24",
-    "latestReleaseDate": "2026-10-12",
+    "latest": "26.0.1.26",
+    "latestReleaseDate": "2026-10-16",
     "lts": true
    },
    {
@@ -25946,8 +25941,8 @@
     "cycle": "13.5",
     "releaseDate": "2025-09-26",
     "eol": "2028-09-28",
-    "latest": "13.5.1.28",
-    "latestReleaseDate": "2026-10-12",
+    "latest": "13.5.1.30",
+    "latestReleaseDate": "2026-10-16",
     "lts": true
    },
    {
@@ -25989,8 +25984,8 @@
     "cycle": "12.5",
     "releaseDate": "2024-09-20",
     "eol": "2027-09-24",
-    "latest": "12.5.1.55",
-    "latestReleaseDate": "2026-06-29",
+    "latest": "12.5.1.56",
+    "latestReleaseDate": "2026-10-16",
     "lts": true
    },
    {
@@ -26099,7 +26094,7 @@
   "id": "ruby",
   "name": "Ruby",
   "source": "https://endoflife.date/api/ruby.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "4.0",
@@ -26163,7 +26158,7 @@
   "id": "salt",
   "name": "Salt",
   "source": "https://endoflife.date/api/salt.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "3008",
@@ -26253,7 +26248,7 @@
   "id": "samba",
   "name": "Samba",
   "source": "https://endoflife.date/api/samba.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "4.25",
@@ -26268,8 +26263,8 @@
     "releaseDate": "2026-03-18",
     "support": "2027-03-31",
     "eol": "2027-09-30",
-    "latest": "4.24.7",
-    "latestReleaseDate": "2026-09-09"
+    "latest": "4.24.8",
+    "latestReleaseDate": "2026-10-12"
    },
    {
     "cycle": "4.23",
@@ -26389,15 +26384,15 @@
   "id": "sharepoint",
   "name": "Microsoft SharePoint",
   "source": "https://endoflife.date/api/sharepoint.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "subscription",
     "releaseDate": "2021-11-02",
     "support": true,
     "eol": false,
-    "latest": "16.0.20326.20136",
-    "latestReleaseDate": "2026-09-08"
+    "latest": "16.0.20326.20190",
+    "latestReleaseDate": "2026-10-13"
    },
    {
     "cycle": "2019",
@@ -26413,7 +26408,7 @@
   "id": "shopware",
   "name": "Shopware",
   "source": "https://endoflife.date/api/shopware.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "6.7",
@@ -26493,7 +26488,7 @@
   "id": "sles",
   "name": "SUSE Linux Enterprise",
   "source": "https://endoflife.date/api/sles.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "16.0",
@@ -26551,7 +26546,7 @@
   "id": "solr",
   "name": "Apache Solr",
   "source": "https://endoflife.date/api/solr.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "10",
@@ -26580,7 +26575,7 @@
   "id": "sonarqube",
   "name": "SonarQube",
   "source": "https://endoflife.date/api/sonarqube-server.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "2026.5",
@@ -26706,7 +26701,7 @@
   "id": "sonarqube_community",
   "name": "SonarQube Community Build",
   "source": "https://endoflife.date/api/sonarqube-community.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "26.10",
@@ -26819,14 +26814,14 @@
   "id": "sourcegraph",
   "name": "Sourcegraph",
   "source": "https://endoflife.date/api/sourcegraph.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "8",
     "releaseDate": "2026-09-17",
     "eol": false,
-    "latest": "8.0.0",
-    "latestReleaseDate": "2026-09-17"
+    "latest": "8.1.0",
+    "latestReleaseDate": "2026-10-14"
    },
    {
     "cycle": "7",
@@ -26862,7 +26857,7 @@
   "id": "spark",
   "name": "Apache Spark",
   "source": "https://endoflife.date/api/apache-spark.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "4.2",
@@ -26942,7 +26937,7 @@
   "id": "splunk",
   "name": "Splunk",
   "source": "https://endoflife.date/api/splunk.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "10.4",
@@ -27034,7 +27029,7 @@
   "id": "spring-boot",
   "name": "Spring Boot",
   "source": "https://endoflife.date/api/spring-boot.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "4.1",
@@ -27147,7 +27142,7 @@
   "id": "spring_framework",
   "name": "Spring Framework",
   "source": "https://endoflife.date/api/spring-framework.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "7.0",
@@ -27198,14 +27193,14 @@
   "id": "sqlite",
   "name": "SQLite",
   "source": "https://endoflife.date/api/sqlite.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "3",
     "releaseDate": "2004-09-18",
     "eol": false,
-    "latest": "3.54.0",
-    "latestReleaseDate": "2026-10-09"
+    "latest": "3.54.1",
+    "latestReleaseDate": "2026-10-16"
    }
   ]
  },
@@ -27213,7 +27208,7 @@
   "id": "squid",
   "name": "Squid",
   "source": "https://endoflife.date/api/squid.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "7",
@@ -27242,7 +27237,7 @@
   "id": "suse_manager",
   "name": "SUSE Multi-Linux Manager",
   "source": "https://endoflife.date/api/suse-manager.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "5.2",
@@ -27300,15 +27295,15 @@
   "id": "symfony",
   "name": "Symfony",
   "source": "https://endoflife.date/api/symfony.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "8.1",
     "releaseDate": "2026-05-29",
     "support": "2027-01-31",
     "eol": "2027-01-31",
-    "latest": "8.1.8",
-    "latestReleaseDate": "2026-09-29"
+    "latest": "8.1.9",
+    "latestReleaseDate": "2026-10-14"
    },
    {
     "cycle": "8.0",
@@ -27323,8 +27318,8 @@
     "releaseDate": "2025-11-27",
     "support": "2028-11-30",
     "eol": "2029-11-30",
-    "latest": "7.4.20",
-    "latestReleaseDate": "2026-09-29",
+    "latest": "7.4.21",
+    "latestReleaseDate": "2026-10-14",
     "lts": true
    },
    {
@@ -27364,8 +27359,8 @@
     "releaseDate": "2023-11-29",
     "support": "2026-11-30",
     "eol": "2027-11-30",
-    "latest": "6.4.47",
-    "latestReleaseDate": "2026-09-29",
+    "latest": "6.4.48",
+    "latestReleaseDate": "2026-10-14",
     "lts": true
    },
    {
@@ -27405,8 +27400,8 @@
     "releaseDate": "2021-11-29",
     "support": "2024-11-30",
     "eol": "2029-02-28",
-    "latest": "5.4.53",
-    "latestReleaseDate": "2026-05-27",
+    "latest": "5.4.54",
+    "latestReleaseDate": "2026-10-15",
     "lts": true
    },
    {
@@ -27472,7 +27467,7 @@
   "id": "tarantool",
   "name": "Tarantool",
   "source": "https://endoflife.date/api/tarantool.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "3.8",
@@ -27607,14 +27602,14 @@
   "id": "telegraf",
   "name": "Telegraf",
   "source": "https://endoflife.date/api/telegraf.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "1.40",
     "releaseDate": "2026-09-07",
     "eol": false,
-    "latest": "1.40.1",
-    "latestReleaseDate": "2026-09-21"
+    "latest": "1.40.2",
+    "latestReleaseDate": "2026-10-12"
    },
    {
     "cycle": "1.39",
@@ -27839,7 +27834,7 @@
   "id": "teleport",
   "name": "Teleport",
   "source": "https://endoflife.date/api/teleport.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "18",
@@ -27871,14 +27866,14 @@
   "id": "terraform",
   "name": "Hashicorp Terraform",
   "source": "https://endoflife.date/api/terraform.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "1.16",
     "releaseDate": "2026-08-26",
     "eol": false,
-    "latest": "1.16.5",
-    "latestReleaseDate": "2026-09-30"
+    "latest": "1.16.6",
+    "latestReleaseDate": "2026-10-14"
    },
    {
     "cycle": "1.15",
@@ -27998,7 +27993,7 @@
   "id": "tomcat",
   "name": "Apache Tomcat",
   "source": "https://endoflife.date/api/tomcat.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "11.0",
@@ -28034,15 +28029,15 @@
   "id": "traefik",
   "name": "Traefik",
   "source": "https://endoflife.date/api/traefik.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "3.7",
     "releaseDate": "2026-05-05",
     "support": true,
     "eol": false,
-    "latest": "3.7.14",
-    "latestReleaseDate": "2026-10-05"
+    "latest": "3.7.15",
+    "latestReleaseDate": "2026-10-15"
    },
    {
     "cycle": "3.6",
@@ -28105,8 +28100,8 @@
     "releaseDate": "2024-02-12",
     "support": "2025-04-29",
     "eol": "2026-09-07",
-    "latest": "2.11.58",
-    "latestReleaseDate": "2026-10-05"
+    "latest": "2.11.59",
+    "latestReleaseDate": "2026-10-15"
    },
    {
     "cycle": "2.10",
@@ -28202,7 +28197,7 @@
   "id": "truenas",
   "name": "TrueNAS",
   "source": "https://endoflife.date/api/truenas.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "25.10",
@@ -28245,15 +28240,15 @@
   "id": "typo3",
   "name": "TYPO3",
   "source": "https://endoflife.date/api/typo3.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "14",
     "releaseDate": "2025-11-25",
     "support": "2027-12-31",
     "eol": "2029-06-30",
-    "latest": "14.3.8",
-    "latestReleaseDate": "2026-10-09"
+    "latest": "14.3.9",
+    "latestReleaseDate": "2026-10-13"
    },
    {
     "cycle": "13",
@@ -28295,8 +28290,16 @@
   "id": "ubuntu",
   "name": "Ubuntu",
   "source": "https://endoflife.date/api/ubuntu.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
+   {
+    "cycle": "26.10",
+    "releaseDate": "2026-10-15",
+    "support": "2027-07-01",
+    "eol": "2027-07-01",
+    "latest": "26.10",
+    "latestReleaseDate": "2026-10-15"
+   },
    {
     "cycle": "26.04",
     "releaseDate": "2026-04-23",
@@ -28420,14 +28423,6 @@
     "eol": "2020-01-23",
     "latest": "19.04",
     "latestReleaseDate": "2019-04-18"
-   },
-   {
-    "cycle": "18.10",
-    "releaseDate": "2018-10-18",
-    "support": "2019-07-18",
-    "eol": "2019-07-18",
-    "latest": "18.10",
-    "latestReleaseDate": "2018-10-18"
    }
   ]
  },
@@ -28435,7 +28430,7 @@
   "id": "umbraco",
   "name": "Umbraco CMS",
   "source": "https://endoflife.date/api/umbraco.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "18",
@@ -28535,7 +28530,7 @@
   "id": "valkey",
   "name": "Valkey",
   "source": "https://endoflife.date/api/valkey.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "9.1",
@@ -28583,7 +28578,7 @@
   "id": "varnish",
   "name": "Varnish Cache",
   "source": "https://endoflife.date/api/varnish.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "9.1",
@@ -28676,7 +28671,7 @@
   "id": "vault",
   "name": "HashiCorp Vault",
   "source": "https://endoflife.date/api/hashicorp-vault.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "2.1",
@@ -28791,7 +28786,7 @@
   "id": "vcenter",
   "name": "VMware vCenter Server",
   "source": "https://endoflife.date/api/vcenter.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "9.1",
@@ -28827,7 +28822,7 @@
   "id": "veeam_backup",
   "name": "Veeam Backup & Replication",
   "source": "https://endoflife.date/api/veeam-backup-and-replication.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "13",
@@ -28867,7 +28862,7 @@
   "id": "veeam_backup_for_microsoft_365",
   "name": "Veeam Backup for Microsoft 365",
   "source": "https://endoflife.date/api/veeam-backup-for-microsoft-365.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "8",
@@ -28923,7 +28918,7 @@
   "id": "veeam_one",
   "name": "Veeam ONE",
   "source": "https://endoflife.date/api/veeam-one.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "13",
@@ -28963,7 +28958,7 @@
   "id": "vinyl_cache",
   "name": "Vinyl Cache",
   "source": "https://endoflife.date/api/vinyl-cache.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "9.1",
@@ -29056,7 +29051,7 @@
   "id": "virtualbox",
   "name": "VirtualBox",
   "source": "https://endoflife.date/api/virtualbox.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "7.2",
@@ -29099,21 +29094,21 @@
   "id": "vitess",
   "name": "Vitess",
   "source": "https://endoflife.date/api/vitess.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "24",
     "releaseDate": "2026-04-30",
     "eol": "2027-04-30",
-    "latest": "24.0.4",
-    "latestReleaseDate": "2026-10-01"
+    "latest": "24.0.5",
+    "latestReleaseDate": "2026-10-13"
    },
    {
     "cycle": "23",
     "releaseDate": "2025-11-04",
     "eol": "2026-11-04",
-    "latest": "23.0.7",
-    "latestReleaseDate": "2026-10-01"
+    "latest": "23.0.8",
+    "latestReleaseDate": "2026-10-13"
    },
    {
     "cycle": "22",
@@ -29191,7 +29186,7 @@
   "id": "vmware_cloud_foundation",
   "name": "VMware Cloud Foundation",
   "source": "https://endoflife.date/api/vmware-cloud-foundation.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "9.1",
@@ -29304,7 +29299,7 @@
   "id": "vmware_harbor_registry",
   "name": "VMware Harbor Registry",
   "source": "https://endoflife.date/api/vmware-harbor-registry.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "2.10",
@@ -29403,7 +29398,7 @@
   "id": "vmware_srm",
   "name": "VMware Site Recovery Manager",
   "source": "https://endoflife.date/api/vmware-srm.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "9.1",
@@ -29474,7 +29469,7 @@
   "id": "windows-server",
   "name": "Windows Server",
   "source": "https://endoflife.date/api/windows-server.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "2025",
@@ -29556,11 +29551,12 @@
   "id": "wordpress",
   "name": "WordPress",
   "source": "https://endoflife.date/api/wordpress.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "7.1",
     "releaseDate": "2026-08-19",
+    "support": true,
     "eol": false,
     "latest": "7.1.3",
     "latestReleaseDate": "2026-10-06"
@@ -29568,148 +29564,193 @@
    {
     "cycle": "7.0",
     "releaseDate": "2026-05-20",
-    "eol": "2026-08-19",
+    "support": "2026-08-19",
+    "eol": false,
     "latest": "7.0.7",
     "latestReleaseDate": "2026-10-06"
    },
    {
     "cycle": "6.9",
     "releaseDate": "2025-12-02",
-    "eol": "2026-05-20",
+    "support": "2026-05-20",
+    "eol": false,
     "latest": "6.9.10",
     "latestReleaseDate": "2026-10-06"
    },
    {
     "cycle": "6.8",
     "releaseDate": "2025-04-15",
-    "eol": "2025-12-02",
+    "support": "2025-12-02",
+    "eol": false,
     "latest": "6.8.11",
     "latestReleaseDate": "2026-10-06"
    },
    {
     "cycle": "6.7",
     "releaseDate": "2024-11-12",
-    "eol": "2025-04-15",
+    "support": "2025-04-15",
+    "eol": false,
     "latest": "6.7.10",
     "latestReleaseDate": "2026-10-06"
    },
    {
     "cycle": "6.6",
     "releaseDate": "2024-07-16",
-    "eol": "2024-11-12",
+    "support": "2024-11-12",
+    "eol": false,
     "latest": "6.6.10",
     "latestReleaseDate": "2026-10-06"
    },
    {
     "cycle": "6.5",
     "releaseDate": "2024-04-02",
-    "eol": "2024-07-16",
+    "support": "2024-07-16",
+    "eol": false,
     "latest": "6.5.13",
     "latestReleaseDate": "2026-10-06"
    },
    {
     "cycle": "6.4",
     "releaseDate": "2023-11-07",
-    "eol": "2024-04-02",
+    "support": "2024-04-02",
+    "eol": false,
     "latest": "6.4.13",
     "latestReleaseDate": "2026-10-06"
    },
    {
     "cycle": "6.3",
     "releaseDate": "2023-08-08",
-    "eol": "2023-11-07",
+    "support": "2023-11-07",
+    "eol": false,
     "latest": "6.3.13",
     "latestReleaseDate": "2026-10-06"
    },
    {
     "cycle": "6.2",
     "releaseDate": "2023-03-29",
-    "eol": "2023-08-08",
+    "support": "2023-08-08",
+    "eol": false,
     "latest": "6.2.14",
     "latestReleaseDate": "2026-10-06"
    },
    {
     "cycle": "6.1",
     "releaseDate": "2022-11-02",
-    "eol": "2023-03-29",
+    "support": "2023-03-29",
+    "eol": false,
     "latest": "6.1.15",
     "latestReleaseDate": "2026-10-06"
    },
    {
     "cycle": "6.0",
     "releaseDate": "2022-05-24",
-    "eol": "2022-11-01",
+    "support": "2022-11-01",
+    "eol": false,
     "latest": "6.0.17",
     "latestReleaseDate": "2026-10-06"
    },
    {
     "cycle": "5.9",
     "releaseDate": "2022-01-25",
-    "eol": "2022-05-24",
+    "support": "2022-05-24",
+    "eol": false,
     "latest": "5.9.19",
     "latestReleaseDate": "2026-10-06"
    },
    {
     "cycle": "5.8",
     "releaseDate": "2021-07-20",
-    "eol": "2022-01-25",
+    "support": "2022-01-25",
+    "eol": false,
     "latest": "5.8.18",
     "latestReleaseDate": "2026-10-06"
    },
    {
     "cycle": "5.7",
     "releaseDate": "2021-03-09",
-    "eol": "2021-07-20",
+    "support": "2021-07-20",
+    "eol": false,
     "latest": "5.7.20",
     "latestReleaseDate": "2026-10-06"
    },
    {
     "cycle": "5.6",
     "releaseDate": "2020-12-08",
-    "eol": "2021-03-09",
+    "support": "2021-03-09",
+    "eol": false,
     "latest": "5.6.22",
     "latestReleaseDate": "2026-10-06"
    },
    {
     "cycle": "5.5",
     "releaseDate": "2020-08-11",
-    "eol": "2020-12-08",
+    "support": "2020-12-08",
+    "eol": false,
     "latest": "5.5.23",
     "latestReleaseDate": "2026-10-06"
    },
    {
     "cycle": "5.4",
     "releaseDate": "2020-03-31",
-    "eol": "2020-08-11",
+    "support": "2020-08-11",
+    "eol": false,
     "latest": "5.4.24",
     "latestReleaseDate": "2026-10-06"
    },
    {
     "cycle": "5.3",
     "releaseDate": "2019-11-12",
-    "eol": "2020-03-31",
+    "support": "2020-03-31",
+    "eol": false,
     "latest": "5.3.26",
     "latestReleaseDate": "2026-10-06"
    },
    {
     "cycle": "5.2",
     "releaseDate": "2019-05-07",
-    "eol": "2019-11-12",
+    "support": "2019-11-12",
+    "eol": false,
     "latest": "5.2.29",
     "latestReleaseDate": "2026-10-06"
    },
    {
     "cycle": "5.1",
     "releaseDate": "2019-02-21",
-    "eol": "2019-05-07",
+    "support": "2019-05-07",
+    "eol": false,
     "latest": "5.1.27",
     "latestReleaseDate": "2026-10-06"
    },
    {
     "cycle": "5.0",
     "releaseDate": "2018-12-06",
-    "eol": "2019-02-21",
+    "support": "2019-02-21",
+    "eol": false,
     "latest": "5.0.30",
+    "latestReleaseDate": "2026-10-06"
+   },
+   {
+    "cycle": "4.9",
+    "releaseDate": "2017-11-16",
+    "support": "2018-12-06",
+    "eol": false,
+    "latest": "4.9.34",
+    "latestReleaseDate": "2026-10-06"
+   },
+   {
+    "cycle": "4.8",
+    "releaseDate": "2017-06-08",
+    "support": "2017-11-16",
+    "eol": false,
+    "latest": "4.8.33",
+    "latestReleaseDate": "2026-10-06"
+   },
+   {
+    "cycle": "4.7",
+    "releaseDate": "2016-12-06",
+    "support": "2017-06-08",
+    "eol": false,
+    "latest": "4.7.38",
     "latestReleaseDate": "2026-10-06"
    }
   ]
@@ -29718,7 +29759,7 @@
   "id": "xcp_ng",
   "name": "XCP-ng",
   "source": "https://endoflife.date/api/xcp-ng.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "8.3",
@@ -29763,7 +29804,7 @@
   "id": "youtrack",
   "name": "YouTrack",
   "source": "https://endoflife.date/api/youtrack.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "2026.2",
@@ -29939,13 +29980,13 @@
   "id": "zabbix",
   "name": "Zabbix",
   "source": "https://endoflife.date/api/zabbix.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "7.4",
     "releaseDate": "2025-06-30",
     "support": true,
-    "eol": "2026-12-31",
+    "eol": "2027-03-31",
     "latest": "7.4.15",
     "latestReleaseDate": "2026-09-23"
    },
@@ -30014,7 +30055,7 @@
   "id": "zentyal",
   "name": "Zentyal",
   "source": "https://endoflife.date/api/zentyal.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "8",
@@ -30037,7 +30078,7 @@
   "id": "zerto",
   "name": "HPE Zerto",
   "source": "https://endoflife.date/api/zerto.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "10.9",
@@ -30153,7 +30194,7 @@
   "id": "zookeeper",
   "name": "Apache ZooKeeper",
   "source": "https://endoflife.date/api/zookeeper.json",
-  "asOf": "2026-10-13",
+  "asOf": "2026-10-19",
   "cycles": [
    {
     "cycle": "3.9",

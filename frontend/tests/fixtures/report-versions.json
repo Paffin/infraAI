@@ -139,7 +139,7 @@
   "counts": {
    "critical": 5,
    "risk": 6,
-   "noData": 7,
+   "noData": 8,
    "ok": 16,
    "na": 25,
    "accepted": 0
@@ -177,6 +177,13 @@
     "ruleId": "HA-RTO-01",
     "category": "dr",
     "status": "critical",
+    "findings": 1,
+    "accepted": 0
+   },
+   {
+    "ruleId": "AV-SLO-01",
+    "category": "ha",
+    "status": "no_data",
     "findings": 1,
     "accepted": 0
    },
@@ -1056,6 +1063,42 @@
     "fixes": []
    },
    {
+    "id": "AV-SLO-01:req",
+    "ruleId": "AV-SLO-01",
+    "category": "ha",
+    "status": "no_data",
+    "subjects": {
+     "nodes": [
+      "pg1"
+     ],
+     "edges": [],
+     "zones": []
+    },
+    "vars": {
+     "estimate": 0.9998214693132558,
+     "downtime": 5634.0,
+     "scenarios": 11,
+     "truncated": false,
+     "unit": "PostgreSQL",
+     "share": 0.8402555910543131,
+     "cause": "instance",
+     "failed": "PostgreSQL primary ×1",
+     "what": "availability"
+    },
+    "fixes": [],
+    "needs": [
+     {
+      "target": "requirements",
+      "prop": "availabilitySlo"
+     }
+    ],
+    "scenario": {
+     "type": "instance",
+     "nodeId": "pg1",
+     "count": 1
+    }
+   },
+   {
     "id": "CAP-03:pg1:connectionPooler",
     "ruleId": "CAP-03",
     "category": "cap",
@@ -1390,6 +1433,13 @@
     "required": 0.8,
     "actual": 1.2,
     "assumed": false
+   },
+   {
+    "id": "availability",
+    "status": "no_data",
+    "required": null,
+    "actual": 0.9998214693132558,
+    "assumed": true
    }
   ],
   "scenarios": [
@@ -1566,8 +1616,8 @@
   ],
   "score": {
    "value": 0.0,
-   "penalty": 109.5,
-   "coverage": 0.794,
+   "penalty": 111.0,
+   "coverage": 0.771,
    "breakdown": [
     {
      "ruleId": "HA-RTO-01",
@@ -1623,6 +1673,11 @@
      "ruleId": "VER-02",
      "status": "risk",
      "penalty": 4.0
+    },
+    {
+     "ruleId": "AV-SLO-01",
+     "status": "no_data",
+     "penalty": 1.5
     },
     {
      "ruleId": "NET-LINK-01",
@@ -1721,6 +1776,201 @@
    },
    "incomplete": 0,
    "budget": null
+  },
+  "availability": {
+   "estimate": 0.9998214693132558,
+   "serviceDown": false,
+   "downtimeSecondsPerYear": 5634.0,
+   "target": null,
+   "budgetSecondsPerYear": null,
+   "causes": [
+    {
+     "cause": "instance",
+     "secondsPerYear": 3600.0,
+     "share": 0.6389776357827476
+    },
+    {
+     "cause": "unit",
+     "secondsPerYear": 1800.0,
+     "share": 0.3194888178913738
+    },
+    {
+     "cause": "site",
+     "secondsPerYear": 234.0,
+     "share": 0.04153354632587859
+    }
+   ],
+   "units": [
+    {
+     "unit": "pg",
+     "name": "PostgreSQL",
+     "secondsPerYear": 4734.0,
+     "share": 0.8402555910543131
+    },
+    {
+     "unit": "app",
+     "name": "App servers",
+     "secondsPerYear": 900.0,
+     "share": 0.1597444089456869
+    }
+   ],
+   "top": [
+    {
+     "scenario": {
+      "type": "instance",
+      "nodeId": "pg1",
+      "count": 1
+     },
+     "cause": "instance",
+     "failed": [
+      "PostgreSQL primary ×1"
+     ],
+     "perYear": 2.0,
+     "downtimeSeconds": 1800.0,
+     "secondsPerYear": 3600.0,
+     "basis": "interruption"
+    },
+    {
+     "scenario": {
+      "type": "unit",
+      "unit": "app"
+     },
+     "cause": "unit",
+     "failed": [
+      "App servers"
+     ],
+     "perYear": 0.25,
+     "downtimeSeconds": 3600.0,
+     "secondsPerYear": 900.0,
+     "basis": "repair"
+    },
+    {
+     "scenario": {
+      "type": "unit",
+      "unit": "pg"
+     },
+     "cause": "unit",
+     "failed": [
+      "PostgreSQL"
+     ],
+     "perYear": 0.25,
+     "downtimeSeconds": 3600.0,
+     "secondsPerYear": 900.0,
+     "basis": "repair"
+    },
+    {
+     "scenario": {
+      "type": "zone",
+      "zoneId": "dc1"
+     },
+     "cause": "site",
+     "failed": [
+      "DC1"
+     ],
+     "perYear": 0.13,
+     "downtimeSeconds": 1800.0,
+     "secondsPerYear": 234.0,
+     "basis": "interruption"
+    }
+   ],
+   "scenarios": 11,
+   "truncated": false,
+   "basis": {
+    "enabled": true,
+    "daysPerYear": 365.25,
+    "failures": {
+     "instance": 2.0,
+     "unit": 0.25,
+     "zone": {
+      "az": 0.1,
+      "cloud": 0.1,
+      "dc": 0.13,
+      "geo": 0.02,
+      "rack": 0.3,
+      "region": 0.02,
+      "site": 0.1
+     },
+     "link": 0.5,
+     "isolation": 0.5,
+     "geo": 0.01
+    },
+    "repair": {
+     "instance": 14400.0,
+     "unit": 3600.0,
+     "zone": {
+      "az": 21600.0,
+      "cloud": 21600.0,
+      "dc": 43200.0,
+      "geo": 172800.0,
+      "rack": 28800.0,
+      "region": 172800.0,
+      "site": 21600.0
+     },
+     "link": 14400.0,
+     "isolation": 7200.0,
+     "geo": 86400.0
+    },
+    "tierFactor": {
+     "I": 18.0,
+     "II": 14.0,
+     "III": 1.0,
+     "IV": 0.25
+    },
+    "isolationGroupFactor": 0.1,
+    "provider": {
+     "traits": [
+      "managed"
+     ],
+     "byFunction": {
+      "access": 0.999,
+      "api-gateway": 0.9995,
+      "cache": 0.9995,
+      "cdn": 0.9999,
+      "ci": 0.999,
+      "cni": 0.9995,
+      "dashboards": 0.999,
+      "ddos": 0.9999,
+      "dns-server": 0.9999,
+      "email-security": 0.9999,
+      "firewall": 0.9995,
+      "functions": 0.9995,
+      "gslb": 0.9999,
+      "identity": 0.9995,
+      "k8s": 0.9995,
+      "kv": 0.9999,
+      "l4": 0.9999,
+      "l7": 0.9999,
+      "monitoring": 0.999,
+      "mq": 0.9995,
+      "newsql": 0.9995,
+      "nosql-doc": 0.9995,
+      "object-store": 0.999,
+      "olap": 0.999,
+      "paas": 0.9995,
+      "proxy": 0.9999,
+      "rdbms": 0.9995,
+      "search": 0.999,
+      "secrets": 0.999,
+      "vm": 0.999,
+      "vpn": 0.9995,
+      "waf": 0.9999,
+      "wide-column": 0.9995,
+      "zero-trust": 0.9999
+     },
+     "default": 0.999,
+     "incidentSeconds": 1800.0
+    },
+    "partialCapacity": true,
+    "warnPercent": 80.0,
+    "top": 8,
+    "presets": [
+     99.0,
+     99.5,
+     99.9,
+     99.95,
+     99.99
+    ]
+   }
   },
   "units": {
    "app": "App servers",

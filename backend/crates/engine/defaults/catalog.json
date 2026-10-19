@@ -15257,7 +15257,7 @@
       "ru": "Версия",
       "en": "Version"
      },
-     "default": "19.4",
+     "default": "19.5",
      "group": "platform"
     },
     {
@@ -24540,7 +24540,7 @@
       "ru": "Версия",
       "en": "Version"
      },
-     "default": "7.1",
+     "default": "7.0",
      "group": "platform"
     },
     {
@@ -75508,7 +75508,7 @@
       "ru": "Версия",
       "en": "Version"
      },
-     "default": "19.4",
+     "default": "19.5",
      "group": "platform"
     },
     {
@@ -81547,7 +81547,7 @@
       "ru": "Версия",
       "en": "Version"
      },
-     "default": "2.7",
+     "default": "2.14",
      "group": "platform"
     },
     {

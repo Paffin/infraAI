@@ -1683,7 +1683,7 @@
 ## Таблицы выпусков по умолчанию
 
 <!-- BEGIN GENERATED: versions -->
-Таблиц: **277**, данные на **2026-10-13** (самая старая — 2026-10-13). «LTS» — есть линия с долгой поддержкой.
+Таблиц: **277**, данные на **2026-10-19** (самая старая — 2026-10-19). «LTS» — есть линия с долгой поддержкой.
 
 | Таблица | Продукт | Линий | Новейшая линия | LTS |
 |---|---|---|---|---|
@@ -1693,10 +1693,10 @@
 | `almalinux` | AlmaLinux | 3 | `10` | — |
 | `alpine` | Alpine Linux | 16 | `3.24` | — |
 | `amazon-aurora-mysql` | Amazon Aurora MySQL | 2 | `8.4` | — |
-| `amazon-aurora-postgresql` | Amazon Aurora PostgreSQL | 8 | `18` | — |
+| `amazon-aurora-postgresql` | Amazon Aurora PostgreSQL | 7 | `18` | — |
 | `amazon-documentdb` | Amazon DocumentDB | 4 | `8.0` | да |
 | `amazon-eks` | Amazon EKS | 20 | `1.37` | — |
-| `amazon-elasticache-redis` | Amazon ElastiCache for Redis | 3 | `7` | — |
+| `amazon-elasticache-redis` | Amazon ElastiCache for Redis | 2 | `7` | — |
 | `amazon-linux` | Amazon Linux | 1 | `2023` | — |
 | `amazon-mq-activemq` | Amazon MQ for ActiveMQ | 4 | `5.19` | — |
 | `amazon-mq-rabbitmq` | Amazon MQ for RabbitMQ | 4 | `4.3` | — |
@@ -1727,12 +1727,12 @@
 | `azure-database-for-postgresql` | Azure Database for PostgreSQL | 8 | `18` | — |
 | `azure-kubernetes-service` | Azure Kubernetes Service | 16 | `1.36` | — |
 | `azure_devops_server` | Azure DevOps Server | 10 | `continuous` | — |
-| `bamboo` | Bamboo | 23 | `12.1` | да |
+| `bamboo` | Bamboo | 22 | `12.1` | да |
 | `beats` | Elastic Beats | 11 | `9.5` | — |
 | `big_ip` | BIG-IP | 10 | `21.1` | да |
 | `bigbluebutton` | BigBlueButton | 4 | `3.0` | — |
 | `bind` | BIND 9 | 4 | `9.21` | да |
-| `bitbucket` | Bitbucket | 68 | `10.5` | да |
+| `bitbucket` | Bitbucket | 67 | `10.5` | да |
 | `boundary` | HashiCorp Boundary | 6 | `0.21` | — |
 | `caddy` | Caddy | 2 | `2` | — |
 | `calico` | Calico | 9 | `3.33` | — |
@@ -1744,7 +1744,7 @@
 | `checkmk` | Checkmk | 6 | `2.5` | — |
 | `chef_infra_client` | Chef Infra Client | 5 | `19` | — |
 | `chef_infra_server` | Chef Infra Server | 3 | `15` | — |
-| `chef_inspec` | Chef InSpec | 5 | `7` | — |
+| `chef_inspec` | Chef InSpec | 4 | `7` | — |
 | `chef_supermarket` | Chef Supermarket | 2 | `5` | — |
 | `cilium` | Cilium | 8 | `1.20` | — |
 | `cisco_ios_xe` | Cisco IOS XE | 20 | `26.1` | да |
@@ -1778,7 +1778,7 @@
 | `eclipse-temurin` | Eclipse Temurin (Java) | 14 | `27` | да |
 | `eclipse_jetty` | Eclipse Jetty | 4 | `12.1` | — |
 | `elasticsearch` | Elasticsearch | 11 | `9.5` | — |
-| `envoy` | Envoy | 31 | `1.39` | — |
+| `envoy` | Envoy | 32 | `1.40` | — |
 | `esxi` | VMware ESXi | 4 | `9.1` | — |
 | `etcd` | etcd | 4 | `3.7` | — |
 | `exim` | Exim | 9 | `4.100` | — |
@@ -1793,8 +1793,8 @@
 | `freebsd` | FreeBSD | 25 | `14.5` | — |
 | `gatekeeper` | OPA Gatekeeper | 13 | `3.23` | — |
 | `gerrit` | Gerrit | 16 | `3.14` | — |
-| `gitlab` | GitLab | 67 | `19.4` | — |
-| `gitlab_runner` | GitLab Runner | 17 | `19.4` | — |
+| `gitlab` | GitLab | 68 | `19.5` | — |
+| `gitlab_runner` | GitLab Runner | 18 | `19.5` | — |
 | `go` | Go | 16 | `1.27` | — |
 | `google-kubernetes-engine` | Google Kubernetes Engine | 20 | `1.36` | — |
 | `grafana` | Grafana | 29 | `13.2` | — |
@@ -1830,7 +1830,7 @@
 | `knative` | Knative | 38 | `1.23` | — |
 | `kong_gateway` | Kong Gateway | 11 | `3.9` | да |
 | `kubernetes` | Kubernetes | 22 | `1.37` | — |
-| `kuma` | Kuma | 22 | `2.14` | да |
+| `kuma` | Kuma | 23 | `3.0` | да |
 | `kyverno` | Kyverno | 12 | `1.19` | — |
 | `laravel` | Laravel | 9 | `13` | да |
 | `liquibase` | Liquibase | 2 | `5` | — |
@@ -1859,8 +1859,8 @@
 | `netapp-ontap` | NetApp ONTAP | 15 | `9.19.1` | — |
 | `nextcloud` | Nextcloud | 21 | `35` | — |
 | `nextjs` | Next.js | 8 | `16` | да |
-| `nexus` | Sonatype Nexus Repository | 68 | `3.96` | — |
-| `nginx` | NGINX | 15 | `1.31` | — |
+| `nexus` | Sonatype Nexus Repository | 69 | `3.97` | — |
+| `nginx` | NGINX | 16 | `1.31` | — |
 | `nifi` | Apache NiFi | 23 | `2.12` | — |
 | `nix` | nix | 34 | `2.35` | — |
 | `nodejs` | Node.js | 16 | `26` | да |
@@ -1890,7 +1890,7 @@
 | `plesk` | Plesk | 33 | `18.0.81` | — |
 | `podman` | Podman | 26 | `6.1` | — |
 | `postfix` | Postfix | 8 | `3.11` | — |
-| `postgresql` | PostgreSQL | 8 | `18` | — |
+| `postgresql` | PostgreSQL | 7 | `18` | — |
 | `proftpd` | ProFTPD | 3 | `1.3.9` | — |
 | `prometheus` | Prometheus | 36 | `3.15` | да |
 | `proxmox_backup` | Proxmox Backup Server | 4 | `4` | — |
@@ -1906,11 +1906,11 @@
 | `rancher` | Rancher | 14 | `2.15` | — |
 | `red_hat_ansible_automation_platform` | Red Hat Ansible Automation Platform | 4 | `2.6` | — |
 | `redhat_jboss_eap` | Red Hat JBoss Enterprise Application Platform | 1 | `8` | — |
-| `redhat_satellite` | Red Hat Satellite | 16 | `6.19` | — |
-| `redis` | Redis | 12 | `8.10` | — |
+| `redhat_satellite` | Red Hat Satellite | 15 | `6.19` | — |
+| `redis` | Redis | 11 | `8.10` | — |
 | `redmine` | Redmine | 8 | `7.0` | — |
 | `rhel` | Red Hat Enterprise Linux | 3 | `10` | да |
-| `rocket_chat` | Rocket.Chat | 79 | `8.8` | да |
+| `rocket_chat` | Rocket.Chat | 80 | `8.9` | да |
 | `rocky-linux` | Rocky Linux | 3 | `10` | — |
 | `roundcube` | Roundcube Webmail | 4 | `1.7` | да |
 | `routeros` | RouterOS | 30 | `7.24` | да |
@@ -1941,7 +1941,7 @@
 | `traefik` | Traefik | 20 | `3.7` | — |
 | `truenas` | TrueNAS | 5 | `25.10` | — |
 | `typo3` | TYPO3 | 5 | `14` | да |
-| `ubuntu` | Ubuntu | 16 | `26.04` | да |
+| `ubuntu` | Ubuntu | 16 | `26.10` | да |
 | `umbraco` | Umbraco CMS | 11 | `18` | да |
 | `valkey` | Valkey | 5 | `9.1` | — |
 | `varnish` | Varnish Cache | 12 | `9.1` | да |
@@ -1957,7 +1957,7 @@
 | `vmware_harbor_registry` | VMware Harbor Registry | 13 | `2.10` | — |
 | `vmware_srm` | VMware Site Recovery Manager | 9 | `9.1` | — |
 | `windows-server` | Windows Server | 10 | `2025` | да |
-| `wordpress` | WordPress | 22 | `7.1` | — |
+| `wordpress` | WordPress | 25 | `7.1` | — |
 | `xcp_ng` | XCP-ng | 5 | `8.3` | да |
 | `youtrack` | YouTrack | 24 | `2026.2` | — |
 | `zabbix` | Zabbix | 8 | `7.4` | да |
