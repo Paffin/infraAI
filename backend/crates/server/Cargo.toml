@@ -29,12 +29,12 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "tls-rustls", "postgres", "uuid", "chrono", "json", "migrate", "macros"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
-argon2 = "0.5"
+argon2 = "0.6"
 rand = "0.8"
 hmac = "0.13"
 sha2 = "0.11"
 base64 = "0.22"
-aes-gcm = "0.10"
+aes-gcm = "0.11"
 hkdf = "0.13"
 # the connection loop of `serve` (axum::serve cannot be given a header-read timeout); both are in the lock already, through axum, with the same features (HTTP/1.1 only, as axum is built here)
 hyper = { version = "1", default-features = false, features = ["server", "http1"] }
