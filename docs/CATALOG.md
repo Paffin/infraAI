@@ -1683,7 +1683,7 @@
 ## Таблицы выпусков по умолчанию
 
 <!-- BEGIN GENERATED: versions -->
-Таблиц: **277**, данные на **2026-10-19** (самая старая — 2026-10-19). «LTS» — есть линия с долгой поддержкой.
+Таблиц: **277**, данные на **2026-10-26** (самая старая — 2026-10-26). «LTS» — есть линия с долгой поддержкой.
 
 | Таблица | Продукт | Линий | Новейшая линия | LTS |
 |---|---|---|---|---|
@@ -1701,20 +1701,20 @@
 | `amazon-mq-activemq` | Amazon MQ for ActiveMQ | 4 | `5.19` | — |
 | `amazon-mq-rabbitmq` | Amazon MQ for RabbitMQ | 4 | `4.3` | — |
 | `amazon-msk` | Amazon MSK | 19 | `4.2` | — |
-| `amazon-opensearch` | Amazon OpenSearch Service | 16 | `3.5` | — |
-| `amazon-rds-mariadb` | Amazon RDS for MariaDB | 8 | `12.3` | — |
-| `amazon-rds-mysql` | Amazon RDS for MySQL | 16 | `8.4.9` | — |
+| `amazon-opensearch` | Amazon OpenSearch Service | 17 | `3.7` | — |
+| `amazon-rds-mariadb` | Amazon RDS for MariaDB | 7 | `12.3` | — |
+| `amazon-rds-mysql` | Amazon RDS for MySQL | 15 | `8.4.9` | — |
 | `amazon-rds-postgresql` | Amazon RDS for PostgreSQL | 8 | `18` | — |
 | `amazon_elasticsearch` | Amazon Elasticsearch | 10 | `7.10` | — |
 | `amazon_glue` | Amazon Glue | 9 | `6.0` | — |
-| `amazon_neptune` | Amazon Neptune | 38 | `1.4.8.1` | — |
+| `amazon_neptune` | Amazon Neptune | 39 | `1.5.0.0` | — |
 | `ansible` | Ansible | 14 | `14` | — |
 | `ansible_core` | Ansible-core | 13 | `2.21` | — |
 | `apache` | Apache HTTP Server | 1 | `2.4` | — |
-| `apache_camel` | Apache Camel | 47 | `4.22` | да |
+| `apache_camel` | Apache Camel | 48 | `4.23` | да |
 | `apache_hadoop` | Apache Hadoop | 5 | `3.5` | — |
 | `apache_http_server` | Apache HTTP Server | 1 | `2.4` | — |
-| `apache_subversion` | Apache Subversion | 4 | `1.14` | да |
+| `apache_subversion` | Apache Subversion | 5 | `1.15` | да |
 | `apisix` | Apache APISIX | 26 | `3.19` | да |
 | `arangodb` | ArangoDB | 9 | `3.12` | — |
 | `argo_cd` | Argo CD | 30 | `3.5` | — |
@@ -1737,7 +1737,7 @@
 | `caddy` | Caddy | 2 | `2` | — |
 | `calico` | Calico | 9 | `3.33` | — |
 | `cassandra` | Apache Cassandra | 3 | `5.0` | — |
-| `centreon` | Centreon | 14 | `25.10` | — |
+| `centreon` | Centreon | 14 | `26.10` | — |
 | `ceph` | Ceph | 7 | `20` | — |
 | `cert_manager` | cert-manager | 12 | `1.21` | да |
 | `cfengine` | CFEngine | 14 | `3.28` | да |
@@ -1774,7 +1774,7 @@
 | `dotnet` | .NET | 9 | `10` | да |
 | `dovecot` | Dovecot | 2 | `2.4` | — |
 | `drupal` | Drupal | 20 | `11.4` | — |
-| `duckdb` | DuckDB | 6 | `1.5` | да |
+| `duckdb` | DuckDB | 7 | `2.0` | да |
 | `eclipse-temurin` | Eclipse Temurin (Java) | 14 | `27` | да |
 | `eclipse_jetty` | Eclipse Jetty | 4 | `12.1` | — |
 | `elasticsearch` | Elasticsearch | 11 | `9.5` | — |
@@ -1787,7 +1787,7 @@
 | `fluent_bit` | Fluent Bit | 21 | `5.1` | — |
 | `flux` | Flux | 11 | `2.9` | — |
 | `foreman` | Foreman | 32 | `5.0` | — |
-| `forgejo` | Forgejo | 10 | `16.0` | да |
+| `forgejo` | Forgejo | 11 | `17.0` | да |
 | `fortigate` | FortiOS (FortiGate) | 7 | `8.0` | — |
 | `foundationdb` | FoundationDB | 3 | `7.3` | — |
 | `freebsd` | FreeBSD | 25 | `14.5` | — |
@@ -1837,24 +1837,24 @@
 | `logstash` | Logstash | 10 | `9.5` | — |
 | `loki` | Grafana Loki | 25 | `3.7` | — |
 | `longhorn` | Longhorn | 13 | `1.13` | — |
-| `looker` | Looker | 68 | `26.20` | да |
+| `looker` | Looker | 69 | `26.22` | да |
 | `magento` | Magento | 11 | `2.4.9` | — |
 | `mariadb` | MariaDB | 22 | `13.0` | да |
 | `matomo` | Matomo | 2 | `5` | — |
-| `mattermost` | Mattermost | 57 | `11.11` | да |
+| `mattermost` | Mattermost | 58 | `12.0` | да |
 | `mautic` | Mautic | 18 | `7.2` | да |
 | `mediawiki` | MediaWiki | 15 | `1.46` | да |
-| `meilisearch` | Meilisearch | 55 | `1.54` | — |
+| `meilisearch` | Meilisearch | 56 | `1.55` | — |
 | `memcached` | Memcached | 1 | `1.6` | — |
 | `metabase` | Metabase | 34 | `0.64` | да |
 | `metallb` | MetalLB | 4 | `0.16` | — |
-| `micronaut` | Micronaut Framework | 5 | `5` | — |
+| `micronaut` | Micronaut Framework | 4 | `5` | — |
 | `mongodb` | MongoDB | 19 | `9.0` | — |
 | `moodle` | Moodle | 14 | `5.3` | да |
-| `msexchange` | Microsoft Exchange | 2 | `subscription` | — |
+| `msexchange` | Microsoft Exchange | 1 | `subscription` | — |
 | `mssqlserver` | Microsoft SQL Server | 7 | `17.0` | — |
 | `mulesoft_runtime` | Mule Runtime | 13 | `4.12` | да |
-| `mysql` | MySQL | 12 | `9.7` | да |
+| `mysql` | MySQL | 13 | `26.7` | да |
 | `neo4j` | Neo4j | 53 | `2026.09` | да |
 | `netapp-ontap` | NetApp ONTAP | 15 | `9.19.1` | — |
 | `nextcloud` | Nextcloud | 21 | `35` | — |
@@ -1863,7 +1863,7 @@
 | `nginx` | NGINX | 16 | `1.31` | — |
 | `nifi` | Apache NiFi | 23 | `2.12` | — |
 | `nix` | nix | 34 | `2.35` | — |
-| `nodejs` | Node.js | 16 | `26` | да |
+| `nodejs` | Node.js | 15 | `26` | да |
 | `nomad` | HashiCorp Nomad | 14 | `2.0` | да |
 | `nutanix-aos` | Nutanix AOS | 19 | `7.6` | да |
 | `nutanix_files` | Nutanix Files | 14 | `5.4` | — |
@@ -1918,7 +1918,7 @@
 | `ruby` | Ruby | 8 | `4.0` | — |
 | `salt` | Salt | 10 | `3008` | да |
 | `samba` | Samba | 16 | `4.25` | — |
-| `sharepoint` | Microsoft SharePoint | 2 | `subscription` | — |
+| `sharepoint` | Microsoft SharePoint | 1 | `subscription` | — |
 | `shopware` | Shopware | 9 | `6.7` | — |
 | `sles` | SUSE Linux Enterprise | 10 | `16.0` | — |
 | `solr` | Apache Solr | 3 | `10` | — |

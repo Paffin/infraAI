@@ -14,7 +14,7 @@
         "phase": "supported",
         "eol": null,
         "daysToEol": null,
-        "latest": "6.3.2",
+        "latest": "6.3.3",
         "lts": false
       }
     },
@@ -27,7 +27,7 @@
         "phase": "supported",
         "eol": null,
         "daysToEol": null,
-        "latest": "6.3.2",
+        "latest": "6.3.3",
         "lts": false
       }
     },
@@ -92,7 +92,7 @@
         "phase": "supported",
         "eol": null,
         "daysToEol": null,
-        "latest": "6.3.2",
+        "latest": "6.3.3",
         "lts": false
       }
     },
@@ -131,7 +131,7 @@
         "phase": "supported",
         "eol": null,
         "daysToEol": null,
-        "latest": "6.3.2",
+        "latest": "6.3.3",
         "lts": false
       }
     },
@@ -144,7 +144,7 @@
         "phase": "supported",
         "eol": null,
         "daysToEol": null,
-        "latest": "6.3.2",
+        "latest": "6.3.3",
         "lts": false
       }
     },
@@ -209,7 +209,7 @@
         "phase": "supported",
         "eol": null,
         "daysToEol": null,
-        "latest": "6.3.2",
+        "latest": "6.3.3",
         "lts": false
       }
     },
@@ -248,7 +248,7 @@
         "phase": "supported",
         "eol": null,
         "daysToEol": null,
-        "latest": "6.3.2",
+        "latest": "6.3.3",
         "lts": false
       }
     },
@@ -261,7 +261,7 @@
         "phase": "supported",
         "eol": null,
         "daysToEol": null,
-        "latest": "6.3.2",
+        "latest": "6.3.3",
         "lts": false
       }
     },
@@ -326,7 +326,7 @@
         "phase": "supported",
         "eol": null,
         "daysToEol": null,
-        "latest": "6.3.2",
+        "latest": "6.3.3",
         "lts": false
       }
     },
@@ -1418,7 +1418,7 @@
         "phase": "supported",
         "eol": null,
         "daysToEol": null,
-        "latest": "9.21.26",
+        "latest": "9.21.27",
         "lts": false
       }
     },
@@ -1431,7 +1431,7 @@
         "phase": "supported",
         "eol": null,
         "daysToEol": null,
-        "latest": "9.21.26",
+        "latest": "9.21.27",
         "lts": false
       }
     },
@@ -1496,7 +1496,7 @@
         "phase": "supported",
         "eol": null,
         "daysToEol": null,
-        "latest": "9.21.26",
+        "latest": "9.21.27",
         "lts": false
       }
     },
@@ -1535,7 +1535,7 @@
         "phase": "supported",
         "eol": null,
         "daysToEol": null,
-        "latest": "9.21.26",
+        "latest": "9.21.27",
         "lts": false
       }
     },
@@ -1548,7 +1548,7 @@
         "phase": "supported",
         "eol": null,
         "daysToEol": null,
-        "latest": "9.21.26",
+        "latest": "9.21.27",
         "lts": false
       }
     },
@@ -1613,7 +1613,7 @@
         "phase": "supported",
         "eol": null,
         "daysToEol": null,
-        "latest": "9.21.26",
+        "latest": "9.21.27",
         "lts": false
       }
     },
@@ -1652,7 +1652,7 @@
         "phase": "supported",
         "eol": null,
         "daysToEol": null,
-        "latest": "9.21.26",
+        "latest": "9.21.27",
         "lts": false
       }
     },
@@ -1665,7 +1665,7 @@
         "phase": "supported",
         "eol": null,
         "daysToEol": null,
-        "latest": "9.21.26",
+        "latest": "9.21.27",
         "lts": false
       }
     },
@@ -1730,7 +1730,7 @@
         "phase": "supported",
         "eol": null,
         "daysToEol": null,
-        "latest": "9.21.26",
+        "latest": "9.21.27",
         "lts": false
       }
     },
@@ -1769,7 +1769,7 @@
         "phase": "maintenance",
         "eol": null,
         "daysToEol": null,
-        "latest": "19.3.15",
+        "latest": "19.4.46",
         "lts": false
       }
     },
@@ -1782,7 +1782,7 @@
         "phase": "maintenance",
         "eol": null,
         "daysToEol": null,
-        "latest": "19.3.15",
+        "latest": "19.4.46",
         "lts": false
       }
     },
@@ -1847,7 +1847,7 @@
         "phase": "maintenance",
         "eol": null,
         "daysToEol": null,
-        "latest": "19.3.15",
+        "latest": "19.4.46",
         "lts": false
       }
     },
@@ -1886,7 +1886,7 @@
         "phase": "maintenance",
         "eol": null,
         "daysToEol": null,
-        "latest": "19.3.15",
+        "latest": "19.4.46",
         "lts": false
       }
     },
@@ -1899,7 +1899,7 @@
         "phase": "maintenance",
         "eol": null,
         "daysToEol": null,
-        "latest": "19.3.15",
+        "latest": "19.4.46",
         "lts": false
       }
     },
@@ -1964,7 +1964,7 @@
         "phase": "maintenance",
         "eol": null,
         "daysToEol": null,
-        "latest": "19.3.15",
+        "latest": "19.4.46",
         "lts": false
       }
     },
@@ -2003,7 +2003,7 @@
         "phase": "maintenance",
         "eol": null,
         "daysToEol": null,
-        "latest": "19.3.15",
+        "latest": "19.4.46",
         "lts": false
       }
     },
@@ -2016,7 +2016,7 @@
         "phase": "maintenance",
         "eol": null,
         "daysToEol": null,
-        "latest": "19.3.15",
+        "latest": "19.4.46",
         "lts": false
       }
     },
@@ -2081,7 +2081,7 @@
         "phase": "maintenance",
         "eol": null,
         "daysToEol": null,
-        "latest": "19.3.15",
+        "latest": "19.4.46",
         "lts": false
       }
     },
@@ -2822,7 +2822,7 @@
         "phase": "supported",
         "eol": "2027-03-23",
         "daysToEol": 811,
-        "latest": "27+35",
+        "latest": "27.0.1.0.2+1",
         "lts": false
       }
     },
@@ -2835,7 +2835,7 @@
         "phase": "supported",
         "eol": "2027-03-23",
         "daysToEol": 811,
-        "latest": "27+35",
+        "latest": "27.0.1.0.2+1",
         "lts": false
       }
     },
@@ -2900,7 +2900,7 @@
         "phase": "supported",
         "eol": "2027-03-23",
         "daysToEol": 811,
-        "latest": "27+35",
+        "latest": "27.0.1.0.2+1",
         "lts": false
       }
     },
@@ -2939,7 +2939,7 @@
         "phase": "supported",
         "eol": "2027-03-23",
         "daysToEol": 161,
-        "latest": "27+35",
+        "latest": "27.0.1.0.2+1",
         "lts": false
       }
     },
@@ -2952,7 +2952,7 @@
         "phase": "supported",
         "eol": "2027-03-23",
         "daysToEol": 161,
-        "latest": "27+35",
+        "latest": "27.0.1.0.2+1",
         "lts": false
       }
     },
@@ -3017,7 +3017,7 @@
         "phase": "supported",
         "eol": "2027-03-23",
         "daysToEol": 161,
-        "latest": "27+35",
+        "latest": "27.0.1.0.2+1",
         "lts": false
       }
     },
@@ -3056,7 +3056,7 @@
         "phase": "eol",
         "eol": "2027-03-23",
         "daysToEol": -70,
-        "latest": "27+35",
+        "latest": "27.0.1.0.2+1",
         "lts": false
       }
     },
@@ -3069,7 +3069,7 @@
         "phase": "eol",
         "eol": "2027-03-23",
         "daysToEol": -70,
-        "latest": "27+35",
+        "latest": "27.0.1.0.2+1",
         "lts": false
       }
     },
@@ -3134,7 +3134,7 @@
         "phase": "eol",
         "eol": "2027-03-23",
         "daysToEol": -70,
-        "latest": "27+35",
+        "latest": "27.0.1.0.2+1",
         "lts": false
       }
     },
@@ -4921,27 +4921,27 @@
     },
     {
       "table": "mattermost",
-      "version": "11.11",
+      "version": "12.0",
       "today": "2025-01-01",
       "lifecycle": {
-        "cycle": "11.11",
+        "cycle": "12.0",
         "phase": "supported",
-        "eol": "2026-12-15",
-        "daysToEol": 713,
-        "latest": "11.11.1",
+        "eol": "2027-01-15",
+        "daysToEol": 744,
+        "latest": "12.0.1",
         "lts": false
       }
     },
     {
       "table": "mattermost",
-      "version": "11.11.5",
+      "version": "12.0.5",
       "today": "2025-01-01",
       "lifecycle": {
-        "cycle": "11.11",
+        "cycle": "12.0",
         "phase": "supported",
-        "eol": "2026-12-15",
-        "daysToEol": 713,
-        "latest": "11.11.1",
+        "eol": "2027-01-15",
+        "daysToEol": 744,
+        "latest": "12.0.1",
         "lts": false
       }
     },
@@ -4999,14 +4999,14 @@
     },
     {
       "table": "mattermost",
-      "version": "v11.11",
+      "version": "v12.0",
       "today": "2025-01-01",
       "lifecycle": {
-        "cycle": "11.11",
+        "cycle": "12.0",
         "phase": "supported",
-        "eol": "2026-12-15",
-        "daysToEol": 713,
-        "latest": "11.11.1",
+        "eol": "2027-01-15",
+        "daysToEol": 744,
+        "latest": "12.0.1",
         "lts": false
       }
     },
@@ -5038,27 +5038,27 @@
     },
     {
       "table": "mattermost",
-      "version": "11.11",
+      "version": "12.0",
       "today": "2026-10-13",
       "lifecycle": {
-        "cycle": "11.11",
+        "cycle": "12.0",
         "phase": "supported",
-        "eol": "2026-12-15",
-        "daysToEol": 63,
-        "latest": "11.11.1",
+        "eol": "2027-01-15",
+        "daysToEol": 94,
+        "latest": "12.0.1",
         "lts": false
       }
     },
     {
       "table": "mattermost",
-      "version": "11.11.5",
+      "version": "12.0.5",
       "today": "2026-10-13",
       "lifecycle": {
-        "cycle": "11.11",
+        "cycle": "12.0",
         "phase": "supported",
-        "eol": "2026-12-15",
-        "daysToEol": 63,
-        "latest": "11.11.1",
+        "eol": "2027-01-15",
+        "daysToEol": 94,
+        "latest": "12.0.1",
         "lts": false
       }
     },
@@ -5116,14 +5116,14 @@
     },
     {
       "table": "mattermost",
-      "version": "v11.11",
+      "version": "v12.0",
       "today": "2026-10-13",
       "lifecycle": {
-        "cycle": "11.11",
+        "cycle": "12.0",
         "phase": "supported",
-        "eol": "2026-12-15",
-        "daysToEol": 63,
-        "latest": "11.11.1",
+        "eol": "2027-01-15",
+        "daysToEol": 94,
+        "latest": "12.0.1",
         "lts": false
       }
     },
@@ -5155,27 +5155,27 @@
     },
     {
       "table": "mattermost",
-      "version": "11.11",
+      "version": "12.0",
       "today": "2027-06-01",
       "lifecycle": {
-        "cycle": "11.11",
+        "cycle": "12.0",
         "phase": "eol",
-        "eol": "2026-12-15",
-        "daysToEol": -168,
-        "latest": "11.11.1",
+        "eol": "2027-01-15",
+        "daysToEol": -137,
+        "latest": "12.0.1",
         "lts": false
       }
     },
     {
       "table": "mattermost",
-      "version": "11.11.5",
+      "version": "12.0.5",
       "today": "2027-06-01",
       "lifecycle": {
-        "cycle": "11.11",
+        "cycle": "12.0",
         "phase": "eol",
-        "eol": "2026-12-15",
-        "daysToEol": -168,
-        "latest": "11.11.1",
+        "eol": "2027-01-15",
+        "daysToEol": -137,
+        "latest": "12.0.1",
         "lts": false
       }
     },
@@ -5233,14 +5233,14 @@
     },
     {
       "table": "mattermost",
-      "version": "v11.11",
+      "version": "v12.0",
       "today": "2027-06-01",
       "lifecycle": {
-        "cycle": "11.11",
+        "cycle": "12.0",
         "phase": "eol",
-        "eol": "2026-12-15",
-        "daysToEol": -168,
-        "latest": "11.11.1",
+        "eol": "2027-01-15",
+        "daysToEol": -137,
+        "latest": "12.0.1",
         "lts": false
       }
     },
@@ -5279,7 +5279,7 @@
         "phase": "supported",
         "eol": "2036-01-06",
         "daysToEol": 4022,
-        "latest": "17.0.5015.4 CU9+GDR",
+        "latest": "17.0.5035.5 CU10",
         "lts": false
       }
     },
@@ -5292,7 +5292,7 @@
         "phase": "supported",
         "eol": "2036-01-06",
         "daysToEol": 4022,
-        "latest": "17.0.5015.4 CU9+GDR",
+        "latest": "17.0.5035.5 CU10",
         "lts": false
       }
     },
@@ -5357,7 +5357,7 @@
         "phase": "supported",
         "eol": "2036-01-06",
         "daysToEol": 4022,
-        "latest": "17.0.5015.4 CU9+GDR",
+        "latest": "17.0.5035.5 CU10",
         "lts": false
       }
     },
@@ -5396,7 +5396,7 @@
         "phase": "supported",
         "eol": "2036-01-06",
         "daysToEol": 3372,
-        "latest": "17.0.5015.4 CU9+GDR",
+        "latest": "17.0.5035.5 CU10",
         "lts": false
       }
     },
@@ -5409,7 +5409,7 @@
         "phase": "supported",
         "eol": "2036-01-06",
         "daysToEol": 3372,
-        "latest": "17.0.5015.4 CU9+GDR",
+        "latest": "17.0.5035.5 CU10",
         "lts": false
       }
     },
@@ -5474,7 +5474,7 @@
         "phase": "supported",
         "eol": "2036-01-06",
         "daysToEol": 3372,
-        "latest": "17.0.5015.4 CU9+GDR",
+        "latest": "17.0.5035.5 CU10",
         "lts": false
       }
     },
@@ -5513,7 +5513,7 @@
         "phase": "supported",
         "eol": "2036-01-06",
         "daysToEol": 3141,
-        "latest": "17.0.5015.4 CU9+GDR",
+        "latest": "17.0.5035.5 CU10",
         "lts": false
       }
     },
@@ -5526,7 +5526,7 @@
         "phase": "supported",
         "eol": "2036-01-06",
         "daysToEol": 3141,
-        "latest": "17.0.5015.4 CU9+GDR",
+        "latest": "17.0.5035.5 CU10",
         "lts": false
       }
     },
@@ -5591,7 +5591,7 @@
         "phase": "supported",
         "eol": "2036-01-06",
         "daysToEol": 3141,
-        "latest": "17.0.5015.4 CU9+GDR",
+        "latest": "17.0.5035.5 CU10",
         "lts": false
       }
     },
@@ -5630,7 +5630,7 @@
         "phase": "supported",
         "eol": "2029-04-30",
         "daysToEol": 1580,
-        "latest": "26.12.0",
+        "latest": "26.12.1",
         "lts": true
       }
     },
@@ -5643,60 +5643,60 @@
         "phase": "supported",
         "eol": "2029-04-30",
         "daysToEol": 1580,
-        "latest": "26.12.0",
+        "latest": "26.12.1",
         "lts": true
       }
     },
     {
       "table": "nodejs",
-      "version": "18",
+      "version": "19",
       "today": "2025-01-01",
       "lifecycle": {
-        "cycle": "18",
-        "phase": "maintenance",
-        "eol": "2025-04-30",
-        "daysToEol": 119,
-        "latest": "18.20.8",
-        "lts": true
-      }
-    },
-    {
-      "table": "nodejs",
-      "version": "18.5",
-      "today": "2025-01-01",
-      "lifecycle": {
-        "cycle": "18",
-        "phase": "maintenance",
-        "eol": "2025-04-30",
-        "daysToEol": 119,
-        "latest": "18.20.8",
-        "lts": true
-      }
-    },
-    {
-      "table": "nodejs",
-      "version": "11",
-      "today": "2025-01-01",
-      "lifecycle": {
-        "cycle": "11",
+        "cycle": "19",
         "phase": "eol",
-        "eol": "2019-06-30",
-        "daysToEol": -2012,
-        "latest": "11.15.0",
+        "eol": "2023-06-01",
+        "daysToEol": -580,
+        "latest": "19.9.0",
         "lts": false
       }
     },
     {
       "table": "nodejs",
-      "version": "11.5",
+      "version": "19.5",
       "today": "2025-01-01",
       "lifecycle": {
-        "cycle": "11",
+        "cycle": "19",
         "phase": "eol",
-        "eol": "2019-06-30",
-        "daysToEol": -2012,
-        "latest": "11.15.0",
+        "eol": "2023-06-01",
+        "daysToEol": -580,
+        "latest": "19.9.0",
         "lts": false
+      }
+    },
+    {
+      "table": "nodejs",
+      "version": "12",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "12",
+        "phase": "eol",
+        "eol": "2022-04-30",
+        "daysToEol": -977,
+        "latest": "12.22.12",
+        "lts": true
+      }
+    },
+    {
+      "table": "nodejs",
+      "version": "12.5",
+      "today": "2025-01-01",
+      "lifecycle": {
+        "cycle": "12",
+        "phase": "eol",
+        "eol": "2022-04-30",
+        "daysToEol": -977,
+        "latest": "12.22.12",
+        "lts": true
       }
     },
     {
@@ -5708,7 +5708,7 @@
         "phase": "supported",
         "eol": "2029-04-30",
         "daysToEol": 1580,
-        "latest": "26.12.0",
+        "latest": "26.12.1",
         "lts": true
       }
     },
@@ -5747,7 +5747,7 @@
         "phase": "supported",
         "eol": "2029-04-30",
         "daysToEol": 930,
-        "latest": "26.12.0",
+        "latest": "26.12.1",
         "lts": true
       }
     },
@@ -5760,60 +5760,60 @@
         "phase": "supported",
         "eol": "2029-04-30",
         "daysToEol": 930,
-        "latest": "26.12.0",
+        "latest": "26.12.1",
         "lts": true
       }
     },
     {
       "table": "nodejs",
-      "version": "18",
+      "version": "19",
       "today": "2026-10-13",
       "lifecycle": {
-        "cycle": "18",
+        "cycle": "19",
         "phase": "eol",
-        "eol": "2025-04-30",
-        "daysToEol": -531,
-        "latest": "18.20.8",
-        "lts": true
-      }
-    },
-    {
-      "table": "nodejs",
-      "version": "18.5",
-      "today": "2026-10-13",
-      "lifecycle": {
-        "cycle": "18",
-        "phase": "eol",
-        "eol": "2025-04-30",
-        "daysToEol": -531,
-        "latest": "18.20.8",
-        "lts": true
-      }
-    },
-    {
-      "table": "nodejs",
-      "version": "11",
-      "today": "2026-10-13",
-      "lifecycle": {
-        "cycle": "11",
-        "phase": "eol",
-        "eol": "2019-06-30",
-        "daysToEol": -2662,
-        "latest": "11.15.0",
+        "eol": "2023-06-01",
+        "daysToEol": -1230,
+        "latest": "19.9.0",
         "lts": false
       }
     },
     {
       "table": "nodejs",
-      "version": "11.5",
+      "version": "19.5",
       "today": "2026-10-13",
       "lifecycle": {
-        "cycle": "11",
+        "cycle": "19",
         "phase": "eol",
-        "eol": "2019-06-30",
-        "daysToEol": -2662,
-        "latest": "11.15.0",
+        "eol": "2023-06-01",
+        "daysToEol": -1230,
+        "latest": "19.9.0",
         "lts": false
+      }
+    },
+    {
+      "table": "nodejs",
+      "version": "12",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "12",
+        "phase": "eol",
+        "eol": "2022-04-30",
+        "daysToEol": -1627,
+        "latest": "12.22.12",
+        "lts": true
+      }
+    },
+    {
+      "table": "nodejs",
+      "version": "12.5",
+      "today": "2026-10-13",
+      "lifecycle": {
+        "cycle": "12",
+        "phase": "eol",
+        "eol": "2022-04-30",
+        "daysToEol": -1627,
+        "latest": "12.22.12",
+        "lts": true
       }
     },
     {
@@ -5825,7 +5825,7 @@
         "phase": "supported",
         "eol": "2029-04-30",
         "daysToEol": 930,
-        "latest": "26.12.0",
+        "latest": "26.12.1",
         "lts": true
       }
     },
@@ -5864,7 +5864,7 @@
         "phase": "supported",
         "eol": "2029-04-30",
         "daysToEol": 699,
-        "latest": "26.12.0",
+        "latest": "26.12.1",
         "lts": true
       }
     },
@@ -5877,60 +5877,60 @@
         "phase": "supported",
         "eol": "2029-04-30",
         "daysToEol": 699,
-        "latest": "26.12.0",
+        "latest": "26.12.1",
         "lts": true
       }
     },
     {
       "table": "nodejs",
-      "version": "18",
+      "version": "19",
       "today": "2027-06-01",
       "lifecycle": {
-        "cycle": "18",
+        "cycle": "19",
         "phase": "eol",
-        "eol": "2025-04-30",
-        "daysToEol": -762,
-        "latest": "18.20.8",
-        "lts": true
-      }
-    },
-    {
-      "table": "nodejs",
-      "version": "18.5",
-      "today": "2027-06-01",
-      "lifecycle": {
-        "cycle": "18",
-        "phase": "eol",
-        "eol": "2025-04-30",
-        "daysToEol": -762,
-        "latest": "18.20.8",
-        "lts": true
-      }
-    },
-    {
-      "table": "nodejs",
-      "version": "11",
-      "today": "2027-06-01",
-      "lifecycle": {
-        "cycle": "11",
-        "phase": "eol",
-        "eol": "2019-06-30",
-        "daysToEol": -2893,
-        "latest": "11.15.0",
+        "eol": "2023-06-01",
+        "daysToEol": -1461,
+        "latest": "19.9.0",
         "lts": false
       }
     },
     {
       "table": "nodejs",
-      "version": "11.5",
+      "version": "19.5",
       "today": "2027-06-01",
       "lifecycle": {
-        "cycle": "11",
+        "cycle": "19",
         "phase": "eol",
-        "eol": "2019-06-30",
-        "daysToEol": -2893,
-        "latest": "11.15.0",
+        "eol": "2023-06-01",
+        "daysToEol": -1461,
+        "latest": "19.9.0",
         "lts": false
+      }
+    },
+    {
+      "table": "nodejs",
+      "version": "12",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "12",
+        "phase": "eol",
+        "eol": "2022-04-30",
+        "daysToEol": -1858,
+        "latest": "12.22.12",
+        "lts": true
+      }
+    },
+    {
+      "table": "nodejs",
+      "version": "12.5",
+      "today": "2027-06-01",
+      "lifecycle": {
+        "cycle": "12",
+        "phase": "eol",
+        "eol": "2022-04-30",
+        "daysToEol": -1858,
+        "latest": "12.22.12",
+        "lts": true
       }
     },
     {
@@ -5942,7 +5942,7 @@
         "phase": "supported",
         "eol": "2029-04-30",
         "daysToEol": 699,
-        "latest": "26.12.0",
+        "latest": "26.12.1",
         "lts": true
       }
     },
@@ -6332,7 +6332,7 @@
         "phase": "supported",
         "eol": "2029-12-31",
         "daysToEol": 1825,
-        "latest": "8.5.11",
+        "latest": "8.5.12",
         "lts": false
       }
     },
@@ -6345,7 +6345,7 @@
         "phase": "supported",
         "eol": "2029-12-31",
         "daysToEol": 1825,
-        "latest": "8.5.11",
+        "latest": "8.5.12",
         "lts": false
       }
     },
@@ -6410,7 +6410,7 @@
         "phase": "supported",
         "eol": "2029-12-31",
         "daysToEol": 1825,
-        "latest": "8.5.11",
+        "latest": "8.5.12",
         "lts": false
       }
     },
@@ -6449,7 +6449,7 @@
         "phase": "supported",
         "eol": "2029-12-31",
         "daysToEol": 1175,
-        "latest": "8.5.11",
+        "latest": "8.5.12",
         "lts": false
       }
     },
@@ -6462,7 +6462,7 @@
         "phase": "supported",
         "eol": "2029-12-31",
         "daysToEol": 1175,
-        "latest": "8.5.11",
+        "latest": "8.5.12",
         "lts": false
       }
     },
@@ -6527,7 +6527,7 @@
         "phase": "supported",
         "eol": "2029-12-31",
         "daysToEol": 1175,
-        "latest": "8.5.11",
+        "latest": "8.5.12",
         "lts": false
       }
     },
@@ -6566,7 +6566,7 @@
         "phase": "supported",
         "eol": "2029-12-31",
         "daysToEol": 944,
-        "latest": "8.5.11",
+        "latest": "8.5.12",
         "lts": false
       }
     },
@@ -6579,7 +6579,7 @@
         "phase": "supported",
         "eol": "2029-12-31",
         "daysToEol": 944,
-        "latest": "8.5.11",
+        "latest": "8.5.12",
         "lts": false
       }
     },
@@ -6644,7 +6644,7 @@
         "phase": "supported",
         "eol": "2029-12-31",
         "daysToEol": 944,
-        "latest": "8.5.11",
+        "latest": "8.5.12",
         "lts": false
       }
     },
@@ -7404,53 +7404,53 @@
     },
     {
       "table": "sharepoint",
-      "version": "2019",
+      "version": "subscription",
       "today": "2025-01-01",
       "lifecycle": {
-        "cycle": "2019",
+        "cycle": "subscription",
         "phase": "maintenance",
-        "eol": "2026-07-14",
-        "daysToEol": 559,
-        "latest": "16.0.10417.20198",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "16.0.20326.20190",
         "lts": false
       }
     },
     {
       "table": "sharepoint",
-      "version": "2019.5",
+      "version": "subscription.5",
       "today": "2025-01-01",
       "lifecycle": {
-        "cycle": "2019",
+        "cycle": "subscription",
         "phase": "maintenance",
-        "eol": "2026-07-14",
-        "daysToEol": 559,
-        "latest": "16.0.10417.20198",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "16.0.20326.20190",
         "lts": false
       }
     },
     {
       "table": "sharepoint",
-      "version": "2019",
+      "version": "subscription",
       "today": "2025-01-01",
       "lifecycle": {
-        "cycle": "2019",
+        "cycle": "subscription",
         "phase": "maintenance",
-        "eol": "2026-07-14",
-        "daysToEol": 559,
-        "latest": "16.0.10417.20198",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "16.0.20326.20190",
         "lts": false
       }
     },
     {
       "table": "sharepoint",
-      "version": "2019.5",
+      "version": "subscription.5",
       "today": "2025-01-01",
       "lifecycle": {
-        "cycle": "2019",
+        "cycle": "subscription",
         "phase": "maintenance",
-        "eol": "2026-07-14",
-        "daysToEol": 559,
-        "latest": "16.0.10417.20198",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "16.0.20326.20190",
         "lts": false
       }
     },
@@ -7521,53 +7521,53 @@
     },
     {
       "table": "sharepoint",
-      "version": "2019",
+      "version": "subscription",
       "today": "2026-10-13",
       "lifecycle": {
-        "cycle": "2019",
-        "phase": "eol",
-        "eol": "2026-07-14",
-        "daysToEol": -91,
-        "latest": "16.0.10417.20198",
+        "cycle": "subscription",
+        "phase": "maintenance",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "16.0.20326.20190",
         "lts": false
       }
     },
     {
       "table": "sharepoint",
-      "version": "2019.5",
+      "version": "subscription.5",
       "today": "2026-10-13",
       "lifecycle": {
-        "cycle": "2019",
-        "phase": "eol",
-        "eol": "2026-07-14",
-        "daysToEol": -91,
-        "latest": "16.0.10417.20198",
+        "cycle": "subscription",
+        "phase": "maintenance",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "16.0.20326.20190",
         "lts": false
       }
     },
     {
       "table": "sharepoint",
-      "version": "2019",
+      "version": "subscription",
       "today": "2026-10-13",
       "lifecycle": {
-        "cycle": "2019",
-        "phase": "eol",
-        "eol": "2026-07-14",
-        "daysToEol": -91,
-        "latest": "16.0.10417.20198",
+        "cycle": "subscription",
+        "phase": "maintenance",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "16.0.20326.20190",
         "lts": false
       }
     },
     {
       "table": "sharepoint",
-      "version": "2019.5",
+      "version": "subscription.5",
       "today": "2026-10-13",
       "lifecycle": {
-        "cycle": "2019",
-        "phase": "eol",
-        "eol": "2026-07-14",
-        "daysToEol": -91,
-        "latest": "16.0.10417.20198",
+        "cycle": "subscription",
+        "phase": "maintenance",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "16.0.20326.20190",
         "lts": false
       }
     },
@@ -7638,53 +7638,53 @@
     },
     {
       "table": "sharepoint",
-      "version": "2019",
+      "version": "subscription",
       "today": "2027-06-01",
       "lifecycle": {
-        "cycle": "2019",
-        "phase": "eol",
-        "eol": "2026-07-14",
-        "daysToEol": -322,
-        "latest": "16.0.10417.20198",
+        "cycle": "subscription",
+        "phase": "maintenance",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "16.0.20326.20190",
         "lts": false
       }
     },
     {
       "table": "sharepoint",
-      "version": "2019.5",
+      "version": "subscription.5",
       "today": "2027-06-01",
       "lifecycle": {
-        "cycle": "2019",
-        "phase": "eol",
-        "eol": "2026-07-14",
-        "daysToEol": -322,
-        "latest": "16.0.10417.20198",
+        "cycle": "subscription",
+        "phase": "maintenance",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "16.0.20326.20190",
         "lts": false
       }
     },
     {
       "table": "sharepoint",
-      "version": "2019",
+      "version": "subscription",
       "today": "2027-06-01",
       "lifecycle": {
-        "cycle": "2019",
-        "phase": "eol",
-        "eol": "2026-07-14",
-        "daysToEol": -322,
-        "latest": "16.0.10417.20198",
+        "cycle": "subscription",
+        "phase": "maintenance",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "16.0.20326.20190",
         "lts": false
       }
     },
     {
       "table": "sharepoint",
-      "version": "2019.5",
+      "version": "subscription.5",
       "today": "2027-06-01",
       "lifecycle": {
-        "cycle": "2019",
-        "phase": "eol",
-        "eol": "2026-07-14",
-        "daysToEol": -322,
-        "latest": "16.0.10417.20198",
+        "cycle": "subscription",
+        "phase": "maintenance",
+        "eol": null,
+        "daysToEol": null,
+        "latest": "16.0.20326.20190",
         "lts": false
       }
     },
@@ -8087,7 +8087,7 @@
         "phase": "supported",
         "eol": "2029-06-30",
         "daysToEol": 1641,
-        "latest": "14.3.9",
+        "latest": "14.3.10",
         "lts": false
       }
     },
@@ -8100,7 +8100,7 @@
         "phase": "supported",
         "eol": "2029-06-30",
         "daysToEol": 1641,
-        "latest": "14.3.9",
+        "latest": "14.3.10",
         "lts": false
       }
     },
@@ -8113,7 +8113,7 @@
         "phase": "maintenance",
         "eol": "2026-04-30",
         "daysToEol": 484,
-        "latest": "12.4.50",
+        "latest": "12.4.51",
         "lts": false
       }
     },
@@ -8126,7 +8126,7 @@
         "phase": "maintenance",
         "eol": "2026-04-30",
         "daysToEol": 484,
-        "latest": "12.4.50",
+        "latest": "12.4.51",
         "lts": false
       }
     },
@@ -8139,7 +8139,7 @@
         "phase": "eol",
         "eol": "2023-04-30",
         "daysToEol": -612,
-        "latest": "10.4.61",
+        "latest": "10.4.62",
         "lts": true
       }
     },
@@ -8152,7 +8152,7 @@
         "phase": "eol",
         "eol": "2023-04-30",
         "daysToEol": -612,
-        "latest": "10.4.61",
+        "latest": "10.4.62",
         "lts": true
       }
     },
@@ -8165,7 +8165,7 @@
         "phase": "supported",
         "eol": "2029-06-30",
         "daysToEol": 1641,
-        "latest": "14.3.9",
+        "latest": "14.3.10",
         "lts": false
       }
     },
@@ -8204,7 +8204,7 @@
         "phase": "supported",
         "eol": "2029-06-30",
         "daysToEol": 991,
-        "latest": "14.3.9",
+        "latest": "14.3.10",
         "lts": false
       }
     },
@@ -8217,7 +8217,7 @@
         "phase": "supported",
         "eol": "2029-06-30",
         "daysToEol": 991,
-        "latest": "14.3.9",
+        "latest": "14.3.10",
         "lts": false
       }
     },
@@ -8230,7 +8230,7 @@
         "phase": "eol",
         "eol": "2026-04-30",
         "daysToEol": -166,
-        "latest": "12.4.50",
+        "latest": "12.4.51",
         "lts": false
       }
     },
@@ -8243,7 +8243,7 @@
         "phase": "eol",
         "eol": "2026-04-30",
         "daysToEol": -166,
-        "latest": "12.4.50",
+        "latest": "12.4.51",
         "lts": false
       }
     },
@@ -8256,7 +8256,7 @@
         "phase": "eol",
         "eol": "2023-04-30",
         "daysToEol": -1262,
-        "latest": "10.4.61",
+        "latest": "10.4.62",
         "lts": true
       }
     },
@@ -8269,7 +8269,7 @@
         "phase": "eol",
         "eol": "2023-04-30",
         "daysToEol": -1262,
-        "latest": "10.4.61",
+        "latest": "10.4.62",
         "lts": true
       }
     },
@@ -8282,7 +8282,7 @@
         "phase": "supported",
         "eol": "2029-06-30",
         "daysToEol": 991,
-        "latest": "14.3.9",
+        "latest": "14.3.10",
         "lts": false
       }
     },
@@ -8321,7 +8321,7 @@
         "phase": "supported",
         "eol": "2029-06-30",
         "daysToEol": 760,
-        "latest": "14.3.9",
+        "latest": "14.3.10",
         "lts": false
       }
     },
@@ -8334,7 +8334,7 @@
         "phase": "supported",
         "eol": "2029-06-30",
         "daysToEol": 760,
-        "latest": "14.3.9",
+        "latest": "14.3.10",
         "lts": false
       }
     },
@@ -8347,7 +8347,7 @@
         "phase": "eol",
         "eol": "2026-04-30",
         "daysToEol": -397,
-        "latest": "12.4.50",
+        "latest": "12.4.51",
         "lts": false
       }
     },
@@ -8360,7 +8360,7 @@
         "phase": "eol",
         "eol": "2026-04-30",
         "daysToEol": -397,
-        "latest": "12.4.50",
+        "latest": "12.4.51",
         "lts": false
       }
     },
@@ -8373,7 +8373,7 @@
         "phase": "eol",
         "eol": "2023-04-30",
         "daysToEol": -1493,
-        "latest": "10.4.61",
+        "latest": "10.4.62",
         "lts": true
       }
     },
@@ -8386,7 +8386,7 @@
         "phase": "eol",
         "eol": "2023-04-30",
         "daysToEol": -1493,
-        "latest": "10.4.61",
+        "latest": "10.4.62",
         "lts": true
       }
     },
@@ -8399,7 +8399,7 @@
         "phase": "supported",
         "eol": "2029-06-30",
         "daysToEol": 760,
-        "latest": "14.3.9",
+        "latest": "14.3.10",
         "lts": false
       }
     },
@@ -8438,7 +8438,7 @@
         "phase": "supported",
         "eol": null,
         "daysToEol": null,
-        "latest": "7.2.20",
+        "latest": "7.2.22",
         "lts": false
       }
     },
@@ -8451,7 +8451,7 @@
         "phase": "supported",
         "eol": null,
         "daysToEol": null,
-        "latest": "7.2.20",
+        "latest": "7.2.22",
         "lts": false
       }
     },
@@ -8516,7 +8516,7 @@
         "phase": "supported",
         "eol": null,
         "daysToEol": null,
-        "latest": "7.2.20",
+        "latest": "7.2.22",
         "lts": false
       }
     },
@@ -8555,7 +8555,7 @@
         "phase": "supported",
         "eol": null,
         "daysToEol": null,
-        "latest": "7.2.20",
+        "latest": "7.2.22",
         "lts": false
       }
     },
@@ -8568,7 +8568,7 @@
         "phase": "supported",
         "eol": null,
         "daysToEol": null,
-        "latest": "7.2.20",
+        "latest": "7.2.22",
         "lts": false
       }
     },
@@ -8633,7 +8633,7 @@
         "phase": "supported",
         "eol": null,
         "daysToEol": null,
-        "latest": "7.2.20",
+        "latest": "7.2.22",
         "lts": false
       }
     },
@@ -8672,7 +8672,7 @@
         "phase": "supported",
         "eol": null,
         "daysToEol": null,
-        "latest": "7.2.20",
+        "latest": "7.2.22",
         "lts": false
       }
     },
@@ -8685,7 +8685,7 @@
         "phase": "supported",
         "eol": null,
         "daysToEol": null,
-        "latest": "7.2.20",
+        "latest": "7.2.22",
         "lts": false
       }
     },
@@ -8750,7 +8750,7 @@
         "phase": "supported",
         "eol": null,
         "daysToEol": null,
-        "latest": "7.2.20",
+        "latest": "7.2.22",
         "lts": false
       }
     },

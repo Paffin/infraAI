@@ -12039,7 +12039,7 @@
       "ru": "Версия",
       "en": "Version"
      },
-     "default": "4.0",
+     "default": "5.0",
      "group": "platform"
     },
     {
@@ -12206,7 +12206,7 @@
       "ru": "Версия",
       "en": "Version"
      },
-     "default": "6.2",
+     "default": "6.3",
      "group": "platform"
     },
     {
@@ -13221,7 +13221,7 @@
       "ru": "Версия",
       "en": "Version"
      },
-     "default": "1.54",
+     "default": "1.55",
      "group": "platform"
     },
     {
@@ -15538,7 +15538,7 @@
       "ru": "Версия",
       "en": "Version"
      },
-     "default": "7.146",
+     "default": "7.161",
      "group": "platform"
     },
     {
@@ -46334,7 +46334,7 @@
       "ru": "Версия",
       "en": "Version"
      },
-     "default": "1.4.7.0",
+     "default": "1.4.8.0",
      "group": "platform"
     },
     {
@@ -82739,7 +82739,7 @@
       "ru": "Версия",
       "en": "Version"
      },
-     "default": "1.15",
+     "default": "1.16",
      "group": "platform"
     }
    ],
@@ -85309,7 +85309,7 @@
       "ru": "Версия агента",
       "en": "Agent version"
      },
-     "default": "9.2",
+     "default": "9.3",
      "group": "platform"
     }
    ],
